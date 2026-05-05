@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ApexPage xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>58.0</apiVersion>
+    <availableInTouch>false</availableInTouch>
+    <confirmationTokenRequired>false</confirmationTokenRequired>
+    <description>Test Enhanced Web Chat page for Schedule_Agent_Channel embedded service deployment</description>
+    <label>ESWScheduleAgentChannel1775752015965</label>
+    <packageVersions>
+        <majorNumber>260</majorNumber>
+        <minorNumber>0</minorNumber>
+        <namespace>FSL</namespace>
+    </packageVersions>
+    <packageVersions>
+        <majorNumber>3</majorNumber>
+        <minorNumber>21</minorNumber>
+        <namespace>cdpactvstrgptnr</namespace>
+    </packageVersions>
+    <packageVersions>
+        <majorNumber>1</majorNumber>
+        <minorNumber>60</minorNumber>
+        <namespace>sf_fieldservice</namespace>
+    </packageVersions>
+    <packageVersions>
+        <majorNumber>1</majorNumber>
+        <minorNumber>130</minorNumber>
+        <namespace>ssot</namespace>
+    </packageVersions>
+</ApexPage>

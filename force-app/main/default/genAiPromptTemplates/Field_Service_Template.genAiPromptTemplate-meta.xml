@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GenAiPromptTemplate xmlns="http://soap.sforce.com/2006/04/metadata">
+    <activeVersionIdentifier>AVn3lYYeCGi0Dmwwg6PzybkioyzVMSI6+SG4PGCbwpY=_1</activeVersionIdentifier>
+    <description>General Knowledge Question with troubleshooting</description>
+    <developerName>Field_Service_Template</developerName>
+    <masterLabel>Field Service Template</masterLabel>
+    <overridable>false</overridable>
+    <templateVersions>
+        <content>1. Why is my washer producing an odour? 
+1. Odours are often caused by keeping the door closed between loads, trapping moisture. Run a cleaning cycle with hot water and white vinegar or baking soda, and leave the door open, per.
+
+2. Why won&apos;t my washing machine turn on? 
+2. Check if the circuit breaker has tripped or if the GFCI outlet needs to be reset. Also, verify that the lid or door is properly latched.
+
+3. Why is there lint/residue on my clothes? 
+3. Undissolved detergent residue may appear as lint. Try reducing the amount of detergent used, especially in high-efficiency (HE) machines.
+
+4. How can I make my laundry more energy-efficient? 
+4. Wash with cold water, wash full loads (without overloading), and clean the dryer lint filter regularly.
+
+5. What should I do if my machine is shaking or unbalanced? 
+5. Ensure the machine is level by adjusting the legs, measuring from both the side and front.
+
+6. Why is my washing machine not filling with water? 
+6. This often indicates a faulty inlet valve, which may need to be replaced.
+
+7. What is my right if a new machine breaks down? 
+7. If a machine breaks down within the warranty period, the store is obligated to repair it; refusal to do so violates the consumer’s &quot;right to seek redressal&quot;.
+
+If {!$Input:Input} is from any of the above question. Provide the answer in professional way to that answer
+Also asked , is this solution helped you or not
+
+</content>
+        <fileDroppingStrategy>{&quot;dropFilesBy&quot;:&quot;LAST_MODIFIED_DATE&quot;,&quot;dropFileStartingWith&quot;:&quot;OLDEST&quot;}</fileDroppingStrategy>
+        <inputs>
+            <apiName>Input</apiName>
+            <definition>primitive://String</definition>
+            <masterLabel>Input</masterLabel>
+            <referenceName>Input:Input</referenceName>
+            <required>true</required>
+        </inputs>
+        <isCitationEnabled>false</isCitationEnabled>
+        <primaryModel>sfdc_ai__DefaultVertexAIGeminiPro25</primaryModel>
+        <status>Published</status>
+        <versionIdentifier>AVn3lYYeCGi0Dmwwg6PzybkioyzVMSI6+SG4PGCbwpY=_1</versionIdentifier>
+    </templateVersions>
+    <type>einstein_gpt__flex</type>
+    <visibility>Global</visibility>
+</GenAiPromptTemplate>
