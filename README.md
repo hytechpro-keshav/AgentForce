@@ -1,18 +1,39 @@
-# Salesforce DX Project: Next Steps
+# AgentForce Salesforce Workspace
 
-Now that you’ve created a Salesforce DX project, what’s next? Here are some documentation resources to get you started.
+This repo contains the Salesforce Agentforce side of a production-target hybrid AI architecture. Salesforce remains the system of record and Agentforce remains the Salesforce-native agent experience. External AI orchestration is planned for a separate NestJS platform on Railway with OpenAI, LangChain, Pinecone, Open WebUI, and a React customer chat window.
 
-## How Do You Plan to Deploy Your Changes?
+Start with [ARCHITECTURE.md](ARCHITECTURE.md) and [AGENTS.md](AGENTS.md) before implementing new capabilities.
 
-Do you want to deploy a set of changes, or create a self-contained application? Choose a [development model](https://developer.salesforce.com/tools/vscode/en/user-guide/development-models).
+## Current Scope
 
-## Configure Your Salesforce DX Project
+- Salesforce DX project with Agentforce planner bundles, prompt templates, Apex classes, and LWC tooling.
+- Existing Agentforce metadata under `force-app/main/default/genAiPlannerBundles`, `genAiFunctions`, and `genAiPromptTemplates`.
+- Architecture configuration for future Agentforce, NestJS, RAG, Open WebUI, telemetry, and release work.
 
-The `sfdx-project.json` file contains useful configuration information for your project. See [Salesforce DX Project Configuration](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_ws_config.htm) in the _Salesforce DX Developer Guide_ for details about this file.
+## Canonical Direction
 
-## Read All About It
+The 5 May 2026 production plan is the target architecture:
 
-- [Salesforce Extensions Documentation](https://developer.salesforce.com/tools/vscode/)
-- [Salesforce CLI Setup Guide](https://developer.salesforce.com/docs/atlas.en-us.sfdx_setup.meta/sfdx_setup/sfdx_setup_intro.htm)
-- [Salesforce DX Developer Guide](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_intro.htm)
-- [Salesforce CLI Command Reference](https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference.htm)
+```text
+Agentforce -> Apex -> Named Credential -> Railway NestJS -> ModelRouter -> OpenAI/LangChain/Pinecone
+```
+
+## Useful Docs
+
+- [ARCHITECTURE.md](ARCHITECTURE.md)
+- [AGENTS.md](AGENTS.md)
+- [docs/context/project-memory.md](docs/context/project-memory.md)
+- [docs/context/reference-patterns.md](docs/context/reference-patterns.md)
+- [docs/testing/agentforce-evals.md](docs/testing/agentforce-evals.md)
+- [docs/agents/support-operations.md](docs/agents/support-operations.md)
+
+## Local Checks
+
+```bash
+npm run lint
+npm run test:unit
+npm run prettier:verify
+sf apex run test --test-level RunLocalTests --wait 30 --result-format human
+```
+
+Run the checks that match the files you changed. Org-dependent Agentforce evals should be run after metadata is deployed to an enabled org.
