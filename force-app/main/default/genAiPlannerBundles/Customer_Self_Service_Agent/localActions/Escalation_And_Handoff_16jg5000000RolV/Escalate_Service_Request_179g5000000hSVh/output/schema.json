@@ -1,0 +1,55 @@
+{
+  "unevaluatedProperties": false,
+  "properties": {
+    "escalationStatus": {
+      "title": "Escalation Status",
+      "description": "ESCALATED, VALIDATION_ERROR, ACCESS_RESTRICTED, or ESCALATION_FAILED.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "safeMessage": {
+      "title": "Safe Message",
+      "description": "Customer-safe message that the agent can display.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "caseId": {
+      "title": "Case Id",
+      "description": "Escalated Salesforce Case Id.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "priority": {
+      "title": "Priority",
+      "description": "Updated Case priority.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "handoffCaptured": {
+      "title": "Handoff Captured",
+      "description": "True when a private Case comment was added for human handoff.",
+      "lightning:type": "lightning__booleanType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "safeFallbackReason": {
+      "title": "Safe Fallback Reason",
+      "description": "Non-sensitive failure reason for support diagnostics.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    }
+  },
+  "lightning:type": "lightning__objectType",
+  "lightning:textIndexed": true
+}

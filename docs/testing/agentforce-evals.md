@@ -62,3 +62,10 @@ and pass the returned `sessionId` into the next turn.
 ## Release Rule
 
 Do not treat a successful metadata deploy as agent readiness. Agent changes are ready only when implementation tests and relevant eval layers have passed or the remaining gaps are explicitly documented.
+
+## Current UAT Package
+
+Use [Customer Self-Service Phase 0 UAT](customer-self-service-phase0-uat.md) as the manual UAT runbook for Customer Self-Service Phase 0.
+
+- Track A covers the currently active temporary no-OTP testing mode.
+- Track B covers the verification-first OTP regression that must be rerun after the external email quota resets and OTP metadata is restored.

@@ -73,15 +73,16 @@ Salesforce can host the page shell or embed the customer chat, but the React cod
 
 ## First Production Slice
 
-The first milestone is deliberately narrow:
+The first customer-facing milestone is deliberately narrow:
 
-1. Agentforce Support Operations action invokes Apex.
-2. Apex gathers Case context and calls Railway through a Named Credential.
-3. NestJS returns a structured non-LLM health/context response.
-4. The same path is upgraded to call `ModelRouter` and OpenAI.
-5. RAG, Open WebUI, and React customer chat are added after the bridge works.
+1. Customer Self-Service Agent runs inside Salesforce Agentforce first.
+2. Agentforce verifies the customer before sensitive reads.
+3. Apex and Flow perform deterministic Salesforce reads and writes against Account, Contact, Case, Knowledge, and only confirmed scheduling/status data.
+4. The first write path creates or escalates a Case with a safe human handoff summary.
+5. The Agentforce -> Apex -> Named Credential -> Railway bridge is added after the native customer workflow and evals are proven.
+6. RAG, Open WebUI, React customer chat, ModelRouter, and Pinecone remain later hybrid stages in the external platform repo.
 
-Do not build every agent before the Agentforce -> Apex -> Railway contract is proven.
+Do not build every hybrid target-state component before the Customer Self-Service workflow, data access rules, and escalation behavior are proven.
 
 ## Production Contracts
 

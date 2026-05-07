@@ -1,0 +1,71 @@
+{
+  "required": ["accountId", "description"],
+  "unevaluatedProperties": false,
+  "properties": {
+    "accountId": {
+      "title": "Account Id",
+      "description": "Account Id for the service request. In temporary testing mode, the planner may collect it directly from the tester.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    },
+    "contactId": {
+      "title": "Contact Id",
+      "description": "Contact Id for the customer, when available. In temporary testing mode, the planner may collect it directly from the tester.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    },
+    "issueType": {
+      "title": "Issue Type",
+      "description": "Short issue category such as billing, outage, appointment, or service issue.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    },
+    "subject": {
+      "title": "Subject",
+      "description": "Short customer-safe service request subject.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isUserInput": true
+    },
+    "description": {
+      "title": "Description",
+      "description": "Customer issue description collected by the agent.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isUserInput": true
+    },
+    "severity": {
+      "title": "Severity",
+      "description": "Customer-reported severity: low, medium, high, critical, or emergency.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    },
+    "language": {
+      "title": "Language",
+      "description": "Customer conversation language, such as en or es.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    },
+    "preferredContactMethod": {
+      "title": "Preferred Contact Method",
+      "description": "Customer preferred follow-up channel.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    },
+    "serviceAddress": {
+      "title": "Service Address",
+      "description": "Customer-provided service address notes for the issue.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isUserInput": true
+    }
+  },
+  "lightning:type": "lightning__objectType",
+  "lightning:textIndexed": true
+}

@@ -1,0 +1,57 @@
+{
+  "required": ["escalationReason"],
+  "unevaluatedProperties": false,
+  "properties": {
+    "caseId": {
+      "title": "Case Id",
+      "description": "Salesforce Case Id to escalate.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    },
+    "caseNumber": {
+      "title": "Case Number",
+      "description": "Customer-visible Case number to escalate when Case Id is not available.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    },
+    "accountId": {
+      "title": "Account Id",
+      "description": "Account Id used to prevent cross-account escalation. In temporary testing mode, the planner may collect it directly from the tester.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    },
+    "escalationReason": {
+      "title": "Escalation Reason",
+      "description": "Reason the request must be handed to a human.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isUserInput": true
+    },
+    "urgency": {
+      "title": "Urgency",
+      "description": "Customer or agent urgency indicator.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    },
+    "language": {
+      "title": "Language",
+      "description": "Customer conversation language, such as en or es.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    },
+    "conversationSummary": {
+      "title": "Conversation Summary",
+      "description": "Safe summary of the conversation for human handoff.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isUserInput": true
+    }
+  },
+  "lightning:type": "lightning__objectType",
+  "lightning:textIndexed": true
+}

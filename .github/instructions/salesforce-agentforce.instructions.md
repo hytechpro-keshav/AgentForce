@@ -26,7 +26,17 @@ applyTo:
 
 ## Deployment Gotchas
 
-- Active agents can block redeployment. Deactivate only when deployment fails for that reason, then reactivate and test.
+- Active agents block `GenAiPlannerBundle` redeployment. For an existing active agent, use the supported lifecycle commands: `sf agent deactivate --api-name <AgentApiName> --target-org <org>`, deploy the planner bundle, then `sf agent activate --api-name <AgentApiName> --target-org <org>`.
+- After reactivation, validate the published runtime with `sf agent preview start --api-name <AgentApiName>`, `sf agent preview send --session-id <id> --utterance "..." --api-name <AgentApiName>`, and `sf agent preview end --session-id <id> --api-name <AgentApiName>`.
 - Planner bundle caching can make topic/action changes look stale. Reactivation often refreshes the binding.
 - Prompt template `activeVersionIdentifier` and inner `versionIdentifier` can be fragile. Preserve current values unless intentionally creating a new version.
 - Schema-only changes may not deploy as expected unless the sibling genAiFunction metadata is included in the payload.
+
+## Verification Flow Notes
+
+- When using the built-in `Service Customer Verification` pattern, include OTP testing notes and customer-facing guidance in the recipe or runbook.
+- Tell users to check spam or junk, wait about 1 to 2 minutes, resend only when needed, and use only the newest OTP because resends invalidate earlier codes.
+- If a Salesforce `User` and `Contact` share the same email, the verification flow can resolve the `User` first. For customer self-service testing, prefer a `Contact` email that does not collide with any `User` login or email unless login-user verification is intentional.
+- Developer Edition orgs can hit the external single-email daily quota. If OTP is generated but no email arrives, query `/services/data/vXX.X/limits` and inspect `SingleEmail`; a value like `Max: 15` and `Remaining: -1` means external OTP emails are blocked until the GMT reset.
+- To confirm whether Agentforce truly invoked the verification flow, trace both the connected admin and the Einstein Agent runtime user. The runtime user may have a username like `customer_self_service_agent@...ext` and profile `Einstein Agent User`.
+- Debug-log OTP recovery is acceptable for internal testing only. It is not a production support pattern.

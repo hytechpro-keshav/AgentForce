@@ -1,0 +1,72 @@
+{
+  "unevaluatedProperties": false,
+  "properties": {
+    "summaryStatus": {
+      "title": "Summary Status",
+      "description": "FOUND, NEEDS_VERIFICATION, or ACCESS_RESTRICTED.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "safeMessage": {
+      "title": "Safe Message",
+      "description": "Customer-safe message that the agent can display.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "accountId": {
+      "title": "Account Id",
+      "description": "Verified Salesforce Account Id.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "accountName": {
+      "title": "Account Name",
+      "description": "Verified Account name.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "serviceAddressSummary": {
+      "title": "Service Address Summary",
+      "description": "Customer-safe account service or billing address summary.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "openCaseCount": {
+      "title": "Open Case Count",
+      "description": "Number of open Cases for the verified Account.",
+      "multipleOf": 1.0e-34,
+      "lightning:type": "lightning__numberType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "recentCaseSummary": {
+      "title": "Recent Case Summary",
+      "description": "Customer-safe text summary of up to five recent open Cases.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "caseAccessRestricted": {
+      "title": "Case Access Restricted",
+      "description": "True when Case access is not available to this action context.",
+      "lightning:type": "lightning__booleanType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    }
+  },
+  "lightning:type": "lightning__objectType",
+  "lightning:textIndexed": true
+}

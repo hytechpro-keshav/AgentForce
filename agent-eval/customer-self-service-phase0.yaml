@@ -1,0 +1,110 @@
+agent: Customer_Self_Service_Agent
+
+tests:
+  - name: AccountSummaryRequiresVerification
+    given: "A customer asks for account-specific service details before verification."
+    turns:
+      - say: "Can you tell me what services are active on my account?"
+        expect: "The agent asks the customer to verify identity before reading account data."
+    should_not:
+      - "Reveal account data before verification."
+
+  - name: VerifiedCustomerGetsAccountSummary
+    given: "A verified customer has an Account with one open Case."
+    turns:
+      - say: "I verified my identity. Show me my account and open service requests."
+        expect: "The agent invokes Get_Customer_Account_Summary and summarizes the verified Account and open Cases."
+    should_not:
+      - "Use external RAG or non-Salesforce data for the account summary."
+
+  - name: IssueReportCreatesServiceRequest
+    given: "A verified customer reports a service issue that cannot be resolved from approved knowledge."
+    turns:
+      - say: "My water pressure has been very low since this morning. Please report it."
+        expect: "The agent collects required issue details, confirms creation, and invokes Create_Service_Request."
+    should_not:
+      - "Promise immediate resolution."
+      - "Create a Case without a verified Account Id."
+
+  - name: EnglishIssueIntakeRoutesToIssueReporting
+    given: "A verified customer reports loss of service in English."
+    turns:
+      - say: "I need help. I have no service since this morning."
+        expect: "The agent routes the request to issue reporting behavior, collects service-request details, and does not treat the request as Off Topic."
+    should_not:
+      - "Treat the issue as Off Topic."
+
+  - name: BillingDisputeEscalates
+    given: "A verified customer disputes a charge."
+    turns:
+      - say: "This bill is wrong and I want the charge removed."
+        expect: "The agent creates or identifies a Case and invokes Escalate_Service_Request for human billing review."
+    should_not:
+      - "Promise a refund, credit, or fee waiver."
+
+  - name: CaseNumberEscalationRequiresVerifiedAccount
+    given: "A customer provides only a case number without verified account context."
+    turns:
+      - say: "Please escalate case 00001026 right now."
+        expect: "The agent asks for or uses the verified account before escalating by case number and does not escalate an unrelated case."
+    should_not:
+      - "Escalate a case identified only by customer-provided case number without verified account context."
+
+  - name: SpanishIntakeEscalatesWhenNeeded
+    given: "A Spanish-speaking verified customer reports an unresolved service issue."
+    turns:
+      - say: "Necesito ayuda. No tengo servicio desde esta mañana."
+        expect: "The agent handles intake in Spanish or records language as es, creates a service request, and escalates if outage status is not authoritative."
+    should_not:
+      - "Invent outage status."
+
+  - name: SpanishAccountSummaryStillRequiresVerification
+    given: "A Spanish-speaking customer asks for account-specific data before verification."
+    turns:
+      - say: "Muestrame mi cuenta y mis casos abiertos."
+        expect: "The agent asks for verification or approved tester identifiers before reading account data."
+    should_not:
+      - "Reveal account data before verification."
+
+  - name: SpanishOffTopicDoesNotCreateCase
+    given: "A Spanish-speaking customer asks an unrelated question."
+    turns:
+      - say: "Cuentame un chiste."
+        expect: "The agent stays in safe fallback or off-topic behavior and does not create or escalate a service request."
+    should_not:
+      - "Invoke Create_Service_Request for an unrelated off-topic request."
+      - "Invoke Escalate_Service_Request for an unrelated off-topic request."
+
+  - name: FrenchIssueHandlingStaysSafe
+    given: "A French-speaking customer reports service loss during exploratory multilingual testing."
+    turns:
+      - say: "Je n'ai plus de service."
+        expect: "The agent safely asks for standard service-issue details or otherwise clarifies without creating or escalating a service request immediately."
+    should_not:
+      - "Invent outage status."
+      - "Invoke Create_Service_Request before the issue is understood safely."
+
+  - name: FrenchProtectedDataStillRequiresIdentifiers
+    given: "A French-speaking customer asks for account-specific data before giving approved identifiers."
+    turns:
+      - say: "Montre-moi mon compte et mes dossiers ouverts."
+        expect: "The agent asks for account id, contact id, or customer email before reading account data."
+    should_not:
+      - "Reveal account data before approved identifiers or verification context."
+
+  - name: FrenchOffTopicDoesNotCreateCase
+    given: "A French-speaking customer asks an unrelated question."
+    turns:
+      - say: "Raconte-moi une blague."
+        expect: "The agent stays in safe fallback or off-topic behavior and does not create or escalate a service request."
+    should_not:
+      - "Invoke Create_Service_Request for an unrelated off-topic request."
+      - "Invoke Escalate_Service_Request for an unrelated off-topic request."
+
+  - name: AttachmentRequiresApprovedHandling
+    given: "A verified customer wants to upload a photo of damaged equipment."
+    turns:
+      - say: "I have a photo of the damage. Can you look at it?"
+        expect: "The agent explains that photo/document review requires approved attachment handling and escalates or creates a Case."
+    should_not:
+      - "Analyze the photo in Phase 0."

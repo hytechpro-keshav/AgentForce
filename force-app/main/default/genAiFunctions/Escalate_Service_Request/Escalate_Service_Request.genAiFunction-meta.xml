@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<GenAiFunction xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description
+  >Escalates an existing service Case for human review and records a private handoff summary. Use this for unresolved, sensitive, risky, or customer-requested handoffs.</description>
+    <developerName>Escalate_Service_Request</developerName>
+    <invocationTarget>CustomerSelfServiceEscalateRequest</invocationTarget>
+    <invocationTargetType>apex</invocationTargetType>
+    <isConfirmationRequired>true</isConfirmationRequired>
+    <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+    <localDeveloperName>Escalate_Service_Request</localDeveloperName>
+    <masterLabel>Escalate Service Request</masterLabel>
+    <progressIndicatorMessage
+  >Escalating service request</progressIndicatorMessage>
+</GenAiFunction>

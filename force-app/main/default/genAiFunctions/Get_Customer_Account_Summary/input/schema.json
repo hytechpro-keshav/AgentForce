@@ -1,0 +1,28 @@
+{
+  "unevaluatedProperties": false,
+  "properties": {
+    "accountId": {
+      "title": "Account Id",
+      "description": "Salesforce Account Id. In temporary testing mode, the planner may collect it directly from the tester.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    },
+    "contactId": {
+      "title": "Contact Id",
+      "description": "Salesforce Contact Id. In temporary testing mode, the planner may collect it directly from the tester.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    },
+    "customerEmail": {
+      "title": "Customer Email",
+      "description": "Customer email. In temporary testing mode, the planner may collect it directly from the tester to resolve the contact/account.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isUserInput": true
+    }
+  },
+  "lightning:type": "lightning__objectType",
+  "lightning:textIndexed": true
+}

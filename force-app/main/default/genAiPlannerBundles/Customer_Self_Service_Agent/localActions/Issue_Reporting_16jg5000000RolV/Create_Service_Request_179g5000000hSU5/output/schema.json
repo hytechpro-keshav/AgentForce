@@ -1,0 +1,71 @@
+{
+  "unevaluatedProperties": false,
+  "properties": {
+    "requestStatus": {
+      "title": "Request Status",
+      "description": "CREATED, VALIDATION_ERROR, ACCESS_RESTRICTED, or CREATE_FAILED.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "safeMessage": {
+      "title": "Safe Message",
+      "description": "Customer-safe message that the agent can display.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "caseId": {
+      "title": "Case Id",
+      "description": "Created Salesforce Case Id.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "caseNumber": {
+      "title": "Case Number",
+      "description": "Created customer-visible Case number.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "caseStatus": {
+      "title": "Case Status",
+      "description": "Created Case status.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "priority": {
+      "title": "Priority",
+      "description": "Created Case priority.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "escalationRecommended": {
+      "title": "Escalation Recommended",
+      "description": "True when the issue should be escalated after Case creation.",
+      "lightning:type": "lightning__booleanType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "safeFallbackReason": {
+      "title": "Safe Fallback Reason",
+      "description": "Non-sensitive failure reason for support diagnostics.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    }
+  },
+  "lightning:type": "lightning__objectType",
+  "lightning:textIndexed": true
+}

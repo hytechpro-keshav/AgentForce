@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<GenAiFunction xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description
+  >Creates a Salesforce Case for a customer issue. In temporary testing mode, the planner can collect account and contact identifiers directly instead of OTP verification.</description>
+    <developerName>Create_Service_Request</developerName>
+    <invocationTarget>CustomerSelfServiceCreateRequest</invocationTarget>
+    <invocationTargetType>apex</invocationTargetType>
+    <isConfirmationRequired>true</isConfirmationRequired>
+    <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+    <localDeveloperName>Create_Service_Request</localDeveloperName>
+    <masterLabel>Create Service Request</masterLabel>
+    <progressIndicatorMessage
+  >Creating service request</progressIndicatorMessage>
+</GenAiFunction>
