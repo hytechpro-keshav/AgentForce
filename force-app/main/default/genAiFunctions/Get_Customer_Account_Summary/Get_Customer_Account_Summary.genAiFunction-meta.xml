@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <GenAiFunction xmlns="http://soap.sforce.com/2006/04/metadata">
-    <description
-  >Returns a customer-safe account and open case summary. In temporary testing mode, the planner can collect a tester-provided account id, contact id, or customer email directly instead of OTP verification.</description>
-    <developerName>Get_Customer_Account_Summary</developerName>
-    <invocationTarget>CustomerSelfServiceAccountSummary</invocationTarget>
-    <invocationTargetType>apex</invocationTargetType>
-    <isConfirmationRequired>false</isConfirmationRequired>
-    <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
-    <localDeveloperName>Get_Customer_Account_Summary</localDeveloperName>
-    <masterLabel>Get Customer Account Summary</masterLabel>
-    <progressIndicatorMessage>Getting account summary</progressIndicatorMessage>
+  <description
+  >Returns a customer-safe account and open case summary after customer verification.</description>
+  <developerName>Get_Customer_Account_Summary</developerName>
+  <invocationTarget>CustomerSelfServiceAccountSummary</invocationTarget>
+  <invocationTargetType>apex</invocationTargetType>
+  <isConfirmationRequired>false</isConfirmationRequired>
+  <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+  <localDeveloperName>Get_Customer_Account_Summary</localDeveloperName>
+  <masterLabel>Get Customer Account Summary</masterLabel>
+  <progressIndicatorMessage>Getting account summary</progressIndicatorMessage>
 </GenAiFunction>

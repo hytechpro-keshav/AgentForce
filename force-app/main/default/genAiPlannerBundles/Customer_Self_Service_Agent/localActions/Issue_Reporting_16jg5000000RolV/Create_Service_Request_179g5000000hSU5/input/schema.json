@@ -4,14 +4,14 @@
   "properties": {
     "accountId": {
       "title": "Account Id",
-      "description": "Account Id for the service request. In temporary testing mode, the planner may collect it directly from the tester.",
+      "description": "Verified Account Id for the service request.",
       "lightning:type": "lightning__textType",
       "lightning:isPII": false,
       "copilotAction:isUserInput": true
     },
     "contactId": {
       "title": "Contact Id",
-      "description": "Contact Id for the customer, when available. In temporary testing mode, the planner may collect it directly from the tester.",
+      "description": "Verified Contact Id for the customer, when available.",
       "lightning:type": "lightning__textType",
       "lightning:isPII": false,
       "copilotAction:isUserInput": true

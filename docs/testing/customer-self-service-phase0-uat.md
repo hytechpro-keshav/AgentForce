@@ -6,23 +6,25 @@ Use this runbook to execute User Acceptance Testing for Customer Self-Service Ph
 
 This UAT package is split into two tracks:
 
-- Track A: current manual no-OTP testing mode that is active in the published planner bundle now.
-- Track B: verification-first regression that must be rerun after the Salesforce external email quota resets and OTP is re-enabled.
+- Track A: historical manual no-OTP testing mode used on 7 May 2026 while the external email quota was exhausted.
+- Track B: current verification-first regression after OTP metadata was restored on 8 May 2026.
 
 ## Current UAT Status
 
 - Phase 0 implementation is complete.
-- The current published planner bundle is in temporary no-OTP manual testing mode.
+- The current published planner bundle is restored to verification-first OTP mode.
 - Track A manual prompt UAT was executed on 7 May 2026 in Agent Preview.
 - Account summary, service request creation, escalation, case-number safety, attachment boundary, and Spanish intake were manually exercised without OTP.
 - Salesforce persistence checks confirmed created and escalated cases plus private handoff comments.
-- The remaining release-closeout item is the mailbox-delivery retest after OTP is restored.
+- OTP metadata was restored and deployed on 8 May 2026 with deploy job `0Afg5000007gZgZCAU`.
+- A traced Agent Preview run on 8 May 2026 showed `WF_EMAIL_SENT` to `mohitchaudhary27.08.03+agentforce@gmail.com`, resolved the customer as `Contact`, and accepted the generated code for account summary.
+- The remaining manual release-closeout item is tester mailbox confirmation using the normal received OTP, without debug-log fallback.
 
 ## Test Environment
 
 - Org alias: `AgentForce`
 - Agent API name: `Customer_Self_Service_Agent`
-- Current mode: temporary no-OTP manual testing mode
+- Current mode: verification-first OTP mode
 - Current runtime validation surface: Agent Preview
 
 ## Known Test Data
@@ -44,7 +46,7 @@ Before running UAT, confirm:
 1. The agent is active.
 2. The runtime user still has the `Customer_Self_Service_Agent` permission set.
 3. The current planner bundle is the expected one for the chosen UAT track.
-4. The tester knows whether the agent is in temporary no-OTP mode or restored OTP mode.
+4. The tester knows that the live agent is now in restored OTP mode.
 
 ## Exit Criteria
 
@@ -56,7 +58,7 @@ Phase 0 UAT is acceptable when:
 4. The case-number safety scenario passes and does not escalate an unrelated case without account context.
 5. The attachment boundary scenario passes.
 6. The Spanish intake scenario passes.
-7. After OTP is re-enabled, the verification-first regression passes with real mailbox delivery.
+7. The restored verification-first regression passes with real mailbox delivery.
 
 ## Evidence To Capture
 
@@ -137,7 +139,7 @@ Current exploratory prompts:
 | Protected-data security | `Montre-moi mon compte et mes dossiers ouverts.` | Agent asked for account id, contact id, or email in French before showing any data                                              |
 | Off-topic containment   | `Raconte-moi une blague.`                        | Agent stayed in French support fallback and did not route into a service action                                                 |
 
-## Track A: Current No-OTP Manual UAT
+## Track A: Historical No-OTP Manual UAT
 
 This is the track you can run immediately.
 
@@ -331,10 +333,20 @@ Manual prompt testing was performed on 7 May 2026 through Agent Preview and Sale
 
 ## Track B: OTP Regression After Email Reset
 
+This is the current track for the active agent.
+
 Run this only after:
 
 1. The external `SingleEmail` quota resets.
 2. Verification-first metadata is restored and redeployed.
+
+Current status on 8 May 2026:
+
+- Metadata restore deploy: `0Afg5000007gZgZCAU`.
+- Pre-test limits showed `SingleEmail Remaining=15`.
+- Traced preview send logged `WF_EMAIL_SENT` to the clean Contact email and reduced `SingleEmail`/`DailyWorkflowEmails` capacity, confirming Salesforce sent rather than blocked the OTP email.
+- Internal debug-log verification accepted the generated code and returned the verified `Hytechpro University` account summary.
+- Normal mailbox confirmation remains for the tester to perform manually so no more automated OTP sends consume the daily limit.
 
 ### OTP Regression Steps
 

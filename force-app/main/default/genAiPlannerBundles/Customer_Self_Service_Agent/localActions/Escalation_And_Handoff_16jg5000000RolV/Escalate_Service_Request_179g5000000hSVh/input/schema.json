@@ -18,7 +18,7 @@
     },
     "accountId": {
       "title": "Account Id",
-      "description": "Account Id used to prevent cross-account escalation. In temporary testing mode, the planner may collect it directly from the tester.",
+      "description": "Verified Account Id used to prevent cross-account escalation.",
       "lightning:type": "lightning__textType",
       "lightning:isPII": false,
       "copilotAction:isUserInput": true

@@ -67,5 +67,5 @@ Do not treat a successful metadata deploy as agent readiness. Agent changes are 
 
 Use [Customer Self-Service Phase 0 UAT](customer-self-service-phase0-uat.md) as the manual UAT runbook for Customer Self-Service Phase 0.
 
-- Track A covers the currently active temporary no-OTP testing mode.
-- Track B covers the verification-first OTP regression that must be rerun after the external email quota resets and OTP metadata is restored.
+- Track A covers the historical temporary no-OTP testing mode used while the Developer Edition email quota was exhausted.
+- Track B covers the current verification-first OTP regression after metadata was restored on 8 May 2026.

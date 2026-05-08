@@ -49,7 +49,7 @@
         <mappingTargetName>VerifiedCustomerId</mappingTargetName>
         <mappingType>Variable</mappingType>
     </attributeMappings>
-    <description>Helps testers view account and case status, create service requests, and escalate issues to a human agent while email verification is temporarily disabled. Keep responses in the user&apos;s language when practical, including Spanish, and keep unrelated fallback responses in that same language without creating or escalating a case.</description>
+    <description>Helps customers verify their identity by email OTP, view account and case status, create service requests, and escalate issues to a human agent. Keep responses in the user&apos;s language when practical, including Spanish, and keep unrelated fallback responses in that same language without creating or escalating a case.</description>
     <localActionLinks>
         <genAiFunctionName>AnswerQuestionsWithKnowledge_16jg5000000RolV</genAiFunctionName>
     </localActionLinks>
@@ -68,14 +68,14 @@
     <localTopics>
         <fullName>Escalation_And_Handoff_16jg5000000RolV</fullName>
         <canEscalate>false</canEscalate>
-        <description>Helps a tester escalate an issue to a human support team while email
-            verification is temporarily disabled.</description>
+        <description>Helps a verified customer escalate an issue to a human support team.</description>
         <developerName>Escalation_And_Handoff_16jg5000000RolV</developerName>
         <genAiPluginInstructions>
             <description>Use this subagent when the customer asks for urgent review, billing
-                escalation, supervisor help, or human support. During temporary testing, do not use
-                email verification. Ask for case id or case number and the tester's account id when
-                needed, then use Escalate Service Request.</description>
+                escalation, supervisor help, or human support. Verify the customer before escalating
+                a case. If the customer is not verified, route to Service Customer Verification
+                first. After verification, ask for case id or case number and verified account
+                context when needed, then use Escalate Service Request.</description>
             <developerName>instruction_1</developerName>
             <language xsi:nil="true" />
             <masterLabel>Instruction 1</masterLabel>
@@ -103,23 +103,24 @@
         <localDeveloperName>Escalation_And_Handoff</localDeveloperName>
         <masterLabel>Escalation And Handoff</masterLabel>
         <pluginType>Topic</pluginType>
-        <scope>Your job is only to help a tester escalate an issue for human review while email
-            verification is temporarily disabled. Ask for case id or case number and the tester's
-            account id when needed. Do not promise refunds, credits, appointments, or outage
-            answers that are not backed by Salesforce data. Use the Escalate Service Request action
-            after collecting the required identifiers.</scope>
+        <scope>Your job is only to help a verified customer escalate an issue for human review.
+            Verify the customer before escalating a case. Ask for case id or case number and
+            verified account context when needed. Do not promise refunds, credits, appointments, or
+            outage answers that are not backed by Salesforce data. Use the Escalate Service Request
+            action after collecting the required identifiers.</scope>
     </localTopics>
     <localTopics>
         <fullName>Issue_Reporting_16jg5000000RolV</fullName>
         <canEscalate>false</canEscalate>
-        <description>Helps a tester report a service issue and create a service request while email
-            verification is temporarily disabled.</description>
+        <description>Helps a verified customer report a service issue and create a service request.</description>
         <developerName>Issue_Reporting_16jg5000000RolV</developerName>
         <genAiPluginInstructions>
             <description>Use this subagent when the customer reports a problem or wants to create a
-                request. Confirm the issue description, preferred contact method, and account id if
-                missing. During temporary testing, do not use email verification. Use Create Service
-                Request after collecting the required identifiers.</description>
+                request. Verify the customer before creating a service request. If the customer is
+                not verified, route to Service Customer Verification first. After verification,
+                confirm the issue description, preferred contact method, and verified account
+                context if missing. Use Create Service Request after collecting the required
+                identifiers.</description>
             <developerName>instruction_1</developerName>
             <language xsi:nil="true" />
             <masterLabel>Instruction 1</masterLabel>
@@ -152,9 +153,7 @@
         </localActionLinks>
         <localActions>
             <fullName>Create_Service_Request_179g5000000hSU5</fullName>
-            <description>Creates a Salesforce Case for a customer issue. In temporary testing mode,
-                the planner can collect account and contact identifiers directly instead of OTP
-                verification.</description>
+            <description>Creates a Salesforce Case for a verified customer issue.</description>
             <developerName>Create_Service_Request_179g5000000hSU5</developerName>
             <invocationTarget>CustomerSelfServiceCreateRequest</invocationTarget>
             <invocationTargetType>apex</invocationTargetType>
@@ -168,94 +167,101 @@
         <localDeveloperName>Issue_Reporting</localDeveloperName>
         <masterLabel>Issue Reporting</masterLabel>
         <pluginType>Topic</pluginType>
-        <scope>Your job is only to help a tester report a service problem and create a support
-            request while email verification is temporarily disabled. Collect the required account
-            id, issue details, and optional contact id directly from the tester. Treat Spanish
-            problem reports such as service loss, low pressure, or outage complaints as Issue
-            Reporting requests. Do not pull unrelated small talk or joke requests into this topic.
-            Use the Create Service Request action after collecting the required identifiers.</scope>
+        <scope>Your job is only to help a verified customer report a service problem and create a
+            support request. Verify the customer before creating a case. Collect the required
+            verified account context, issue details, and optional contact id. Treat Spanish problem
+            reports such as service loss, low pressure, or outage complaints as Issue Reporting
+            requests. Do not pull unrelated small talk or joke requests into this topic. Use the
+            Create Service Request action after collecting the required identifiers.</scope>
     </localTopics>
     <localTopics>
         <fullName>ServiceCustomerVerification_16jg5000000RolV</fullName>
         <canEscalate>false</canEscalate>
-        <description>Email verification is temporarily disabled for manual Phase 0 testing. Do not
-            invoke OTP actions in this temporary testing mode.</description>
+        <description>Verifies the customer by sending an email OTP and checking the submitted code
+            before sensitive account or case actions.</description>
         <developerName>ServiceCustomerVerification_16jg5000000RolV</developerName>
         <genAiPluginInstructions>
-            <description>Email verification is temporarily disabled for manual testing. Do not ask
-                for username or email to send an OTP.</description>
+            <description>Ask the customer for the email address or username needed to send a
+                verification code. Do not reveal whether the identifier exists in Salesforce.</description>
             <developerName>username_email_address_prompt</developerName>
             <language xsi:nil="true" />
             <masterLabel>username_email_address_prompt</masterLabel>
             <sortOrder>0</sortOrder>
         </genAiPluginInstructions>
         <genAiPluginInstructions>
-            <description>Email verification is temporarily disabled for manual testing. Do not use
-                the SendEmailVerificationCode action.</description>
+            <description>Use Send Email with Verification Code after the customer provides an email
+                address or username. Tell the customer that a code was sent if the identifier is
+                valid, and ask them to check their inbox and spam or junk folder.</description>
             <developerName>send_verification_code</developerName>
             <language xsi:nil="true" />
             <masterLabel>send_verification_code</masterLabel>
             <sortOrder>1</sortOrder>
         </genAiPluginInstructions>
         <genAiPluginInstructions>
-            <description>Email verification is temporarily disabled for manual testing. Do not
-                invoke OTP actions or mention OTP delivery guidance.</description>
+            <description>Never confirm whether the email address or username matched a Salesforce
+                record. Do not show account, case, billing, appointment, or service history until
+                Verify Customer returns a successful verification result.</description>
             <developerName>user_email_security</developerName>
             <language xsi:nil="true" />
             <masterLabel>user_email_security</masterLabel>
             <sortOrder>2</sortOrder>
         </genAiPluginInstructions>
         <genAiPluginInstructions>
-            <description>Email verification is temporarily disabled for manual testing. Do not ask
-                for or validate verification codes.</description>
+            <description>Ask the customer to enter the verification code they received by email. If
+                the code fails repeatedly, restart verification by asking for the email address or
+                username again and sending a new code.</description>
             <developerName>reenter_username_or_email_address</developerName>
             <language xsi:nil="true" />
             <masterLabel>reenter_username_or_email_address</masterLabel>
             <sortOrder>3</sortOrder>
         </genAiPluginInstructions>
         <genAiPluginInstructions>
-            <description>Email verification is temporarily disabled for manual testing. Do not
-                offer resend or OTP troubleshooting.</description>
+            <description>If the code does not arrive, tell the customer to wait about 1 to 2
+                minutes and check spam or junk. Offer to resend the code only when needed.</description>
             <developerName>otp_delivery_guidance</developerName>
             <language xsi:nil="true" />
             <masterLabel>otp_delivery_guidance</masterLabel>
             <sortOrder>4</sortOrder>
         </genAiPluginInstructions>
         <genAiPluginInstructions>
-            <description>Email verification is temporarily disabled for manual testing. Do not talk
-                about newest-code guidance.</description>
+            <description>Tell the customer to use only the newest verification code because
+                resending invalidates earlier codes.</description>
             <developerName>otp_newest_code_only</developerName>
             <language xsi:nil="true" />
             <masterLabel>otp_newest_code_only</masterLabel>
             <sortOrder>5</sortOrder>
         </genAiPluginInstructions>
         <genAiPluginInstructions>
-            <description>Email verification is temporarily disabled for manual testing. Do not use
-                this function as a gate for the other temporary testing topics.</description>
+            <description>Use this topic only for customer identity verification. After successful
+                verification, return to the customer&apos;s original support request with the
+                verified
+                customer context.</description>
             <developerName>authentication_only</developerName>
             <language xsi:nil="true" />
             <masterLabel>authentication_only</masterLabel>
             <sortOrder>6</sortOrder>
         </genAiPluginInstructions>
         <genAiPluginInstructions>
-            <description>Email verification is temporarily disabled for manual testing. Do not use
-                this topic to handle OTP secrets.</description>
+            <description>Do not expose authentication keys, generated OTP values, internal customer
+                ids, or customer type variables. Ask the customer only for the code they received.</description>
             <developerName>security_prompt</developerName>
             <language xsi:nil="true" />
             <masterLabel>security_prompt</masterLabel>
             <sortOrder>7</sortOrder>
         </genAiPluginInstructions>
         <genAiPluginInstructions>
-            <description>Email verification is temporarily disabled for manual testing. This topic
-                should not control user switching.</description>
+            <description>After sending a verification code, do not let the customer switch to a
+                different email address or username in the same verification attempt. Restart
+                verification if the customer needs to use a different identifier.</description>
             <developerName>prevent_user_switching_after_verification</developerName>
             <language xsi:nil="true" />
             <masterLabel>prevent_user_switching_after_verification</masterLabel>
             <sortOrder>8</sortOrder>
         </genAiPluginInstructions>
         <genAiPluginInstructions>
-            <description>Email verification is temporarily disabled for manual testing. Route the
-                tester to the requested non-OTP topic without invoking verification actions.</description>
+            <description>After Verify Customer returns true, proceed to the requested support topic.
+                If verification fails, ask for the code again or restart verification after repeated
+                failures.</description>
             <developerName>proceed_after_verification_success</developerName>
             <language xsi:nil="true" />
             <masterLabel>proceed_after_verification_success</masterLabel>
@@ -344,22 +350,27 @@
         <localDeveloperName>ServiceCustomerVerification</localDeveloperName>
         <masterLabel>Service Customer Verification</masterLabel>
         <pluginType>Topic</pluginType>
-        <scope>Email verification is temporarily disabled for manual testing. Do not invoke OTP
-            actions from this topic. Let the other topics collect the temporary testing identifiers
-            they need directly from the tester.</scope>
+        <scope>Your job is only to verify the customer before sensitive support actions. Ask for
+            the customer&apos;s email address or username, use Send Email with Verification Code,
+            ask for
+            the code, and use Verify Customer. Never reveal whether the identifier exists. Never
+            expose OTP internals. After successful verification, return to the customer&apos;s
+            requested
+            support task.</scope>
         <source>SvcCopilotTmpl__ServiceCustomerVerification</source>
     </localTopics>
     <localTopics>
         <fullName>Account_And_Case_Status_16jg5000000RolV</fullName>
         <canEscalate>false</canEscalate>
-        <description>Helps a tester view account summary and open service requests while email
-            verification is temporarily disabled.</description>
+        <description>Helps a verified customer view account summary and open service requests.</description>
         <developerName>Account_And_Case_Status_16jg5000000RolV</developerName>
         <genAiPluginInstructions>
-            <description>Use this subagent when the tester asks about account details, services, or
-                open requests. During temporary testing, do not use email verification. Ask for an
-                account id, contact id, or customer email when needed, then use Get Customer Account
-                Summary.</description>
+            <description>Use this subagent when the customer asks about account details, services,
+                or
+                open requests. Verify the customer before showing account or case data. If the
+                customer is not verified, route to Service Customer Verification first. After
+                verification, use verified account, contact, or email context, then use Get Customer
+                Account Summary.</description>
             <developerName>instruction_1</developerName>
             <language xsi:nil="true" />
             <masterLabel>Instruction 1</masterLabel>
@@ -371,9 +382,8 @@
         </localActionLinks>
         <localActions>
             <fullName>Get_Customer_Account_Summary_179g5000000hSNd</fullName>
-            <description>Returns a customer-safe account and open case summary. In temporary
-                testing mode, the planner can collect a tester-provided account id, contact id, or
-                customer email directly instead of OTP verification.</description>
+            <description>Returns a customer-safe account and open case summary after customer
+                verification.</description>
             <developerName>Get_Customer_Account_Summary_179g5000000hSNd</developerName>
             <invocationTarget>CustomerSelfServiceAccountSummary</invocationTarget>
             <invocationTargetType>apex</invocationTargetType>
@@ -387,9 +397,10 @@
         <localDeveloperName>Account_And_Case_Status</localDeveloperName>
         <masterLabel>Account And Case Status</masterLabel>
         <pluginType>Topic</pluginType>
-        <scope>Your job is only to help a tester see account summary and open service requests
-            while email verification is temporarily disabled. Ask for an account id, contact id, or
-            customer email when needed, then use the Get Customer Account Summary action.</scope>
+        <scope>Your job is only to help a verified customer see account summary and open service
+            requests. Verify the customer before showing account or case details. After
+            verification, use verified account, contact, or email context, then use the Get Customer
+            Account Summary action.</scope>
     </localTopics>
     <masterLabel>Customer Self Service Agent</masterLabel>
     <plannerActions>
