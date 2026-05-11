@@ -20,7 +20,7 @@ AI_API_BASE_URL=http://localhost:3000 AGENTFORCE_HEALTH_API_KEY=smoke-key npm ru
 
 Set `AGENTFORCE_HEALTH_API_KEY` in Railway and inject the matching header from Salesforce Named Credential / External Credential configuration, not Apex source code.
 
-For Railway, keep the service attached to the monorepo root and point Railway at `apps/ai-api/railway.json` so `npm ci`, `npm run ai-api:build`, and `npm run ai-api:start` use the root `package-lock.json` and workspace scripts. The Railway health check path is `/health/live`.
+For Railway, keep the service attached to the monorepo root. The root `railway.json` uses `npm ci`, `npm run ai-api:build`, and `npm run ai-api:start` so deployment uses the root `package-lock.json` and workspace scripts. The Railway health check path is `/health/live`.
 
 Detailed Railway setup is in [../../docs/deployment/railway-ai-api-phase1.md](../../docs/deployment/railway-ai-api-phase1.md).
 

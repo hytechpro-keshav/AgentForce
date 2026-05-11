@@ -221,7 +221,6 @@ AgentForce/
 │   ├── src/
 │   ├── test/
 │   ├── Dockerfile
-│   ├── railway.json
 │   └── .env.example
 ├── apps/react-chat-window/
 │   ├── src/
@@ -237,6 +236,7 @@ AgentForce/
 ├── packages/shared-contracts/
 ├── scripts/
 ├── docs/
+├── railway.json
 ├── .github/
 ├── AGENTS.md
 ├── package.json
