@@ -1,0 +1,118 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "CodeTrellis: Watch Mode",
+      "type": "shell",
+      "command": "codetrellis",
+      "args": [
+        "watch",
+        "${workspaceFolder}"
+      ],
+      "isBackground": true,
+      "problemMatcher": [],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "silent",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": false
+      }
+    },
+    {
+      "label": "CodeTrellis: Scan (Optimal)",
+      "type": "shell",
+      "command": "codetrellis",
+      "args": [
+        "scan",
+        "${workspaceFolder}",
+        "--optimal"
+      ],
+      "group": "build",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "CodeTrellis: Scan (Incremental)",
+      "type": "shell",
+      "command": "codetrellis",
+      "args": [
+        "scan",
+        "${workspaceFolder}",
+        "--incremental"
+      ],
+      "group": "build",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "CodeTrellis: Verify Build",
+      "type": "shell",
+      "command": "codetrellis",
+      "args": [
+        "verify",
+        "${workspaceFolder}"
+      ],
+      "group": "test",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "AgentForce: Run Tests",
+      "type": "shell",
+      "command": "npm test",
+      "group": "test",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "AgentForce: Run AI API Tests",
+      "type": "shell",
+      "command": "npm",
+      "args": [
+        "run",
+        "ai-api:test:e2e"
+      ],
+      "group": "test",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "AgentForce: Build AI API",
+      "type": "shell",
+      "command": "npm",
+      "args": [
+        "run",
+        "ai-api:build"
+      ],
+      "group": "build",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "shared"
+      }
+    }
+  ]
+}

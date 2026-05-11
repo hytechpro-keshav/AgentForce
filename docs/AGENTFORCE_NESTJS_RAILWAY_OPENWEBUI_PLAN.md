@@ -36,7 +36,7 @@ We are building a hybrid Salesforce Agentforce and external AI backend project.
 
 Salesforce will remain the business system of record. Agentforce will provide the Salesforce-native agent experience. NestJS will provide the production AI orchestration layer. OpenAI will be the production v1 LLM provider behind a provider abstraction. LangChain will provide RAG and agent workflow logic. Pinecone will store embedded knowledge. Open WebUI will provide the production internal chat interface. A React chat window will provide the production customer-facing chat interface.
 
-That React customer chat window can be delivered as a standalone external app or embedded inside a Salesforce-hosted Experience Cloud or application page shell. In both cases it still calls the NestJS chat API and remains part of the external AI platform lifecycle.
+That React customer chat window can be delivered as a standalone Railway app or embedded inside a Salesforce-hosted Experience Cloud or application page shell. In both cases it still calls the NestJS chat API and remains part of the monorepo external AI platform lifecycle.
 
 This is not a replacement for Agentforce, Certinia, Field Service, Data Cloud, and Experience Cloud. It is a practical integration architecture that connects Salesforce Agentforce to custom AI services.
 
@@ -191,24 +191,20 @@ The customer chat production flow is:
 Salesforce-hosted page shell or external site -> React chat window -> NestJS chat API -> ModelRouter -> OpenAI/LangChain/Pinecone
 ```
 
-## 6. Repository Separation Decision
+## 6. Repository Topology Decision
 
-Yes, it makes architectural sense to keep the NestJS backend and chat UI outside the main Salesforce repository.
+This project now uses one canonical monorepo for Salesforce Agentforce metadata and the external AI platform.
 
-This is the safer and cleaner approach because the AI backend, chat frontend, Railway deployment, LangChain dependencies, Open WebUI setup, and LLM provider configuration have a different lifecycle from Salesforce metadata. They also have different owners, tests, secrets, deployment targets, and rollback behavior.
+The AI backend, chat frontend, Railway deployment, LangChain dependencies, Open WebUI setup, and LLM provider configuration still have a different lifecycle from Salesforce metadata. They also have different owners, tests, secrets, deployment targets, and rollback behavior. The monorepo decision changes repository topology and workflow visibility, not runtime ownership or security boundaries.
 
-The main Salesforce repository should not receive NestJS, React, Open WebUI, LangChain, Pinecone, Railway, or LLM provider code. Keep it stable. Treat Agentforce work as an integration overlay first, then promote approved Salesforce metadata into the main Salesforce repo after pilot validation, UAT, security review, and release approval.
+Keep Salesforce metadata stable and reviewable under `force-app/`. Place NestJS, React, Open WebUI, LangChain, Pinecone, Railway, and LLM provider code under scoped app and package folders in this repository. Promote approved Salesforce metadata only after pilot validation, UAT, security review, and release approval.
 
-Embedding the customer chat inside Experience Cloud or another Salesforce-hosted surface does not change that repository boundary. Salesforce may host the page shell or wrapper, but the React codebase and backend ownership remain external.
+Embedding the customer chat inside Experience Cloud or another Salesforce-hosted surface does not move the React runtime into Salesforce metadata. Salesforce may host the page shell or wrapper, but the React codebase and backend ownership remain in the monorepo platform paths.
 
-Strict repository model:
+Monorepo model:
 
 ```text
-main-salesforce-repo/
-└── existing Salesforce implementation
-        └── only stable Salesforce metadata is promoted here after release approval
-
-agentforce-salesforce-overlay/
+AgentForce/
 ├── force-app/main/default/
 │   ├── classes/
 │   ├── flows/
@@ -221,13 +217,6 @@ agentforce-salesforce-overlay/
 │   ├── genAiFunctions/
 │   └── genAiPromptTemplates/
 ├── agent-eval/
-├── data/
-├── scripts/
-├── docs/
-├── AGENTS.md
-└── README.md
-
-ai-external-platform/
 ├── apps/ai-api/
 │   ├── src/
 │   ├── test/
@@ -246,20 +235,20 @@ ai-external-platform/
 ├── packages/llm-core/
 ├── packages/rag-core/
 ├── packages/shared-contracts/
+├── scripts/
 ├── docs/
 ├── .github/
 ├── AGENTS.md
 ├── package.json
-├── pnpm-workspace.yaml
 └── README.md
 ```
 
 Implementation decision:
 
-- keep the main Salesforce repo unchanged
-- create `agentforce-salesforce-overlay` for Agentforce metadata, Apex, evals, and sample data
-- create `ai-external-platform` for NestJS, React chat, Open WebUI config, LangChain, Pinecone, and provider abstraction
-- promote only approved Salesforce metadata into the main Salesforce repo after pilot validation, UAT, security review, and release approval
+- keep Salesforce metadata under `force-app/` and Agentforce evals under `agent-eval/`
+- create NestJS, React chat, Open WebUI, LangChain, Pinecone, and provider abstraction code inside the monorepo platform paths
+- use scoped app/package scripts and CI so Salesforce, backend, frontend, and deployment checks can run independently
+- promote only approved Salesforce metadata after pilot validation, UAT, security review, and release approval
 
 ## 7. Standards From Reference Repositories
 
@@ -311,9 +300,31 @@ Important deployment warnings:
 - prompt template version identifiers can be fragile
 - Agentforce testing needs more than normal Apex tests
 
+### From `getsentry/sentry`
+
+Adopt:
+
+- clear module ownership and review lenses as the monorepo grows
+- path-scoped CI that detects changed surfaces before running focused jobs
+- required aggregate checks per surface so skipped jobs do not mask failures
+- fixture-heavy tests for corrupt-state, configuration, and integration edge cases
+- generated-file and pre-commit checks for artifacts that must stay in sync
+- safe structured telemetry without raw PII, secrets, prompts, or provider payloads
+
+### From `getsentry/warden`
+
+Adopt:
+
+- scoped agents, skills, and instructions with narrow descriptions and minimal tool access
+- strict schema validation for agent/eval/config files
+- YAML evals with `given`, `should_find`, and `should_not_find` fields
+- a separation between execution and judgment for AI behavior evals
+- package-local TypeScript scripts for `build`, `test`, `typecheck`, and eval commands
+- no-op safe AI telemetry for model calls, tokens, cost references, and outcomes
+
 ## 7A. Repository Intelligence Configuration
 
-Each repo should include AI-readable architecture guidance from day one. This is especially important because the project has Salesforce metadata, NestJS, LangChain, vector DB, Railway, Open WebUI, and frontend UI boundaries.
+This repo should include AI-readable architecture guidance from day one. This is especially important because the project has Salesforce metadata, NestJS, LangChain, vector DB, Railway, Open WebUI, and frontend UI boundaries.
 
 Use `AGENTS.md` as the canonical project-wide instruction file. Do not duplicate the same content in both `AGENTS.md` and `.github/copilot-instructions.md`. If a tool requires a Claude-specific file, make that file point back to `AGENTS.md` instead of copying the rules.
 
@@ -379,7 +390,7 @@ Root `AGENTS.md` should contain only rules that apply to the whole repo:
 
 ## Architecture
 
-- Keep main Salesforce repository separate from external AI backend and UI work until Salesforce metadata is approved for release.
+- Keep Salesforce metadata, the NestJS AI API, Open WebUI assets, React chat, and shared platform packages in this monorepo under scoped directories.
 - Agentforce owns Salesforce conversation and action orchestration.
 - Apex/Flow owns Salesforce context gathering and secure callouts.
 - NestJS owns LLM routing, LangChain, RAG, vector DB integration, and external AI logic.
@@ -428,7 +439,7 @@ Example `nest-ai-api.instructions.md` frontmatter:
 ```yaml
 ---
 description: "Use when editing the NestJS AI API, Railway backend, LangChain services, provider registry, auth guards, DTOs, or observability."
-applyTo: "src/**"
+applyTo: "apps/ai-api/**"
 ---
 ```
 
@@ -437,7 +448,7 @@ Example `llm-provider.instructions.md` frontmatter:
 ```yaml
 ---
 description: "Use when adding or changing LLM providers, embeddings, model routing, OpenAI-compatible gateways, Anthropic, Azure OpenAI, Gemini, or self-hosted model support."
-applyTo: "src/llm/**"
+applyTo: "apps/ai-api/src/llm/**,packages/llm-core/**"
 ---
 ```
 
@@ -448,10 +459,11 @@ Use `docs/context/project-memory.md` for short durable facts:
 ```markdown
 # Project Memory
 
-- Main Salesforce repo is protected; Agentforce metadata lives in the overlay repo until approved for release.
+- This repo is the canonical monorepo for Salesforce Agentforce metadata plus the external AI platform.
+- Keep Salesforce metadata and external AI platform services separated by folder, scripts, tests, secrets, and release gates.
 - OpenAI is the production v1 provider, and provider switching is a core requirement.
 - Open WebUI is production internal chat, not the Salesforce-native Agentforce interface.
-- First production pilot is Agentforce-only Support Operations, then external NestJS bridge.
+- First production pilot is Agentforce-only Support Operations, then the monorepo NestJS bridge.
 - Cost reduction and self-hosted models are later phases.
 ```
 
@@ -901,9 +913,8 @@ Goal: prove the connection from Salesforce to Railway.
 
 Tasks:
 
-- create the separate `ai-external-platform` repo
-- create the NestJS `ai-api` app
-- deploy `/health` to Railway
+- create the NestJS `ai-api` app under `apps/ai-api`
+- deploy `/health/live` to Railway for liveness and protected `/health` for the Salesforce bridge
 - configure Salesforce Named Credential / External Credential
 - create Apex HTTP client
 - call Railway from Salesforce
@@ -913,7 +924,9 @@ Exit criteria:
 
 - Agentforce can invoke Apex
 - Apex can call NestJS on Railway
-- Railway can return a structured response to Agentforce
+- Railway can return a structured protected `/health` response to Agentforce
+- Railway liveness uses `/health/live` without requiring Salesforce bridge credentials
+- focused backend typecheck, unit, e2e, build, smoke, Apex test, and Agentforce eval evidence is captured
 
 ### Phase 2: Provider-Agnostic NestJS AI API
 
@@ -999,7 +1012,7 @@ Exit criteria:
 Implementation rule:
 
 - use React/Vite for the customer chat window
-- keep the UI under `apps/react-chat-window` in the external platform repo even when a Salesforce-hosted site or app page embeds it
+- keep the UI under `apps/react-chat-window` in this monorepo even when a Salesforce-hosted site or app page embeds it
 
 ### Phase 7: Production Cost Optimization And Model Flexibility
 
@@ -1249,13 +1262,13 @@ Not safe to claim before gates pass:
 Start here:
 
 ```text
-1. Keep the main Salesforce repo untouched.
-2. Create `agentforce-salesforce-overlay`.
+1. Keep Salesforce metadata scoped under `force-app/`.
+2. Keep Agentforce evals and testing notes scoped under `agent-eval/` and `docs/testing/`.
 3. Create an Agentforce-only Support Operations production pilot.
 4. Create one Apex invocable action for Case summary/next action.
 5. Add sample Case data and permission set.
-6. Create `ai-external-platform`.
-7. Create NestJS `ai-api` app.
+6. Create NestJS `ai-api` app under `apps/ai-api`.
+7. Add app-scoped package scripts and tests.
 8. Add `/health` endpoint.
 9. Deploy NestJS to Railway.
 10. Configure Salesforce Named Credential.
@@ -1268,7 +1281,7 @@ Start here:
 17. Add LangChain RAG.
 18. Add Pinecone vector DB.
 19. Add Open WebUI production internal chat.
-20. Add React customer chat window and, if needed, a Salesforce-hosted embed wrapper.
+20. Add React customer chat window under `apps/react-chat-window` and, if needed, a Salesforce-hosted embed wrapper.
 21. Add eval and test scripts.
 22. Pass production readiness gates.
 ```
@@ -1301,7 +1314,7 @@ Say instead:
 
 Yes, use Open WebUI.
 
-Use it as the production internal AI chat interface. Keep Agentforce as the Salesforce agent layer. Keep NestJS as the AI orchestration backend. Use OpenAI as the production v1 provider behind an extensible LLM provider layer. Use LangChain and Pinecone for RAG. Deploy the backend and Open WebUI on Railway, and deploy the React chat window either as a standalone Railway app or as an externally owned app embedded in a Salesforce-hosted page shell. Keep NestJS and UI work outside the main Salesforce repository. Add Salesforce metadata, tests, scripts, and documentation using standards inspired by `agent-script-recipes` and `my-org-butler`.
+Use it as the production internal AI chat interface. Keep Agentforce as the Salesforce agent layer. Keep NestJS as the AI orchestration backend. Use OpenAI as the production v1 provider behind an extensible LLM provider layer. Use LangChain and Pinecone for RAG. Deploy the backend and Open WebUI on Railway, and deploy the React chat window either as a standalone Railway app or as a monorepo app embedded in a Salesforce-hosted page shell. Keep NestJS and UI work inside scoped monorepo app folders, with separate validation and release gates from Salesforce metadata. Add Salesforce metadata, tests, scripts, and documentation using standards inspired by `agent-script-recipes` and `my-org-butler`.
 
 The first real milestone is not all six agents. The first milestone is proving this path:
 

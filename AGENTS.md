@@ -2,12 +2,13 @@
 
 ## Current Purpose
 
-This workspace is the Salesforce Agentforce side of a production-target hybrid AI architecture. Salesforce remains the system of record and Agentforce remains the Salesforce-native agent runtime. External AI orchestration belongs behind a separate NestJS API on Railway, with OpenAI as the production v1 provider, LangChain and Pinecone for RAG, Open WebUI for internal chat, and a React chat window for customer chat. That customer chat may be embedded in a Salesforce-hosted site or app page, but its code and backend lifecycle remain external.
+This workspace is the canonical monorepo for a production-target hybrid AI architecture. Salesforce remains the system of record and Agentforce remains the Salesforce-native agent runtime. External AI orchestration belongs behind the NestJS AI API on Railway, with OpenAI as the production v1 provider, LangChain and Pinecone for RAG, Open WebUI for internal chat, and a React chat window for customer chat. Those platform services now live in this monorepo alongside Salesforce metadata, while their runtime ownership, security controls, and release gates remain separate from Salesforce metadata promotion.
 
 ## Repository Boundaries
 
-- Keep Salesforce metadata, Apex, Agentforce actions, prompt templates, evals, and Salesforce docs in this repo.
-- Keep NestJS, LangChain, Pinecone, Open WebUI, Railway service code, and React chat code in a separate external platform repo unless the user explicitly asks to scaffold it here, even when Salesforce hosts the customer chat page shell.
+- Keep Salesforce metadata, Apex, Agentforce actions, prompt templates, evals, Salesforce docs, NestJS AI API code, Open WebUI deployment assets, Railway config, React chat code, and shared platform packages in this repo.
+- Use monorepo paths for the external AI platform: `apps/ai-api`, `apps/react-chat-window`, `apps/openwebui`, and `packages/*` for shared contracts, provider abstractions, RAG utilities, and cross-app helpers when needed.
+- Keep Salesforce metadata and external AI platform services in distinct folders with distinct validation commands, dependencies, secrets, deployment targets, and release approvals.
 - Promote stable Salesforce metadata only after pilot validation, UAT, security review, and release approval.
 - Do not commit secrets, org-specific credentials, private keys, production-only metadata, `.env`, or raw prompt/session data.
 
@@ -59,10 +60,18 @@ This workspace is the Salesforce Agentforce side of a production-target hybrid A
 - From `getsentry/warden`: scoped agents/skills, strict configuration schemas, YAML evals with `given` / `should_find` / `should_not_find`, LLM judge separation, and AI telemetry discipline.
 - From `getsentry/sentry`: package ownership, clear module boundaries, CODEOWNERS-style thinking, extensive fixtures, and tests that encode edge cases and corrupt-state behavior.
 
+## CodeTrellis Context
+
+- CodeTrellis is configured in `.vscode/mcp.json`; use its MCP tools or CLI commands (`codetrellis context`, `codetrellis skills`, `codetrellis scan`) to gather repository context for AI sessions.
+- Keep `.codetrellis/cache/AgentForce/matrix.prompt` refreshed after structural changes so future sessions see the monorepo layout.
+- Do not duplicate architecture rules into Copilot, Claude, or Cursor wrapper files. Those wrappers should point back to this `AGENTS.md` and the CodeTrellis matrix.
+
 ## Build And Test Commands
 
 - JavaScript/LWC lint: `npm run lint`
 - LWC tests: `npm run test:unit`
+- NestJS ai-api tests: `npm run ai-api:test`
+- NestJS ai-api build: `npm run ai-api:build`
 - Formatting check: `npm run prettier:verify`
 - Apex tests: `sf apex run test --test-level RunLocalTests --wait 30 --result-format human`
 - Salesforce deploy validation should use targeted `sf project deploy validate` or `sf project deploy start --dry-run` commands for changed metadata, not a broad production deploy.

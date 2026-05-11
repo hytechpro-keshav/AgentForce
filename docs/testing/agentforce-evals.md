@@ -69,3 +69,11 @@ Use [Customer Self-Service Phase 0 UAT](customer-self-service-phase0-uat.md) as 
 
 - Track A covers the historical temporary no-OTP testing mode used while the Developer Edition email quota was exhausted.
 - Track B covers the current verification-first OTP regression after metadata was restored on 8 May 2026.
+
+## Current Phase 1 Package
+
+Use `agent-eval/support-operations-phase1-health.yaml` for Support Operations health-bridge eval coverage.
+
+Use [Phase 1 Health Bridge Smoke](phase1-health-bridge-smoke.md) to capture backend, Apex, and Agentforce smoke evidence.
+
+Auth failures from `Check_AI_API_Health` are operational setup failures. Treat them separately from model behavior quality and do not add OpenAI, RAG, Pinecone, Open WebUI, or React chat secrets while validating Phase 1.

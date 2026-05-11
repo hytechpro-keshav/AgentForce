@@ -3,7 +3,18 @@
   "private": true,
   "version": "1.0.0",
   "description": "Salesforce App",
+  "workspaces": [
+    "apps/ai-api",
+    "packages/*"
+  ],
   "scripts": {
+    "ai-api:build": "npm --workspace @agentforce/ai-api run build",
+    "ai-api:dev": "npm --workspace @agentforce/ai-api run start:dev",
+    "ai-api:start": "npm --workspace @agentforce/ai-api run start",
+    "ai-api:smoke:health": "bash scripts/smoke/phase1-ai-api-health.sh",
+    "ai-api:test": "npm --workspace @agentforce/ai-api run test",
+    "ai-api:test:e2e": "npm --workspace @agentforce/ai-api run test:e2e",
+    "ai-api:typecheck": "npm --workspace @agentforce/ai-api run typecheck",
     "lint": "eslint **/{aura,lwc}/**/*.js",
     "test": "npm run test:unit",
     "test:unit": "sfdx-lwc-jest",
@@ -38,7 +49,7 @@
       "eslint"
     ],
     "**/lwc/**": [
-        "sfdx-lwc-jest -- --bail --findRelatedTests --passWithNoTests"
+      "sfdx-lwc-jest -- --bail --findRelatedTests --passWithNoTests"
     ]
   }
 }

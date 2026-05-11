@@ -23,6 +23,9 @@ yarn-error.log*
 
 # Dependency directories
 node_modules/
+dist/
+**/dist/
+*.tsbuildinfo
 
 # ApexPMD cache
 .pmdCache
@@ -41,8 +44,10 @@ $RECYCLE.BIN/
 
 # Local environment variables
 .env
+**/.env
 
 # Python Salesforce Functions
 **/__pycache__/
 **/.venv/
 **/venv/
+.codetrellis/cache/

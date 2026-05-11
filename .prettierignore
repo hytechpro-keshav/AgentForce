@@ -7,5 +7,9 @@
 .sfdx
 .sf
 .vscode
+.codetrellis/cache
 
 coverage/
+dist/
+**/dist/
+*.tsbuildinfo

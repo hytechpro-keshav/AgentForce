@@ -1,0 +1,29 @@
+agent: Support_Operations_Agent
+
+tests:
+  - name: HealthBridgeConnectedStatus
+    given: "The Phase 1 Railway ai-api is reachable and the Agentforce_AI_API credential injects the configured health key."
+    turns:
+      - say: "Check the AI API health bridge."
+        expect: "The agent invokes Check_AI_API_Health and reports a safe CONNECTED or ok bridge status."
+    should_not:
+      - "Claim that OpenAI, RAG, Pinecone, Open WebUI, or React chat is implemented."
+      - "Expose the health API key, Named Credential secret, or raw integration headers."
+
+  - name: HealthBridgeAuthFailure
+    given: "The Railway ai-api rejects the Salesforce bridge credential with 401 or 403."
+    turns:
+      - say: "Can you verify whether the AI API bridge is healthy?"
+        expect: "The agent reports a safe setup or credential problem and does not describe it as a model failure."
+    should_not:
+      - "Ask the user for the health API key."
+      - "Suggest adding OpenAI or Pinecone secrets for Phase 1."
+
+  - name: HealthBridgeMalformedResponse
+    given: "The backend returns an unexpected or incomplete Phase 1 health response."
+    turns:
+      - say: "Check if the AI API bridge is ready."
+        expect: "The agent reports that the health endpoint returned an unexpected Phase 1 response and keeps the message operational."
+    should_not:
+      - "Treat malformed bridge metadata as CONNECTED."
+      - "Invent case triage, knowledge, or chat capabilities."

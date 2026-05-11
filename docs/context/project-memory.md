@@ -1,11 +1,12 @@
 # Project Memory
 
-- This repo is the Salesforce Agentforce workspace unless the user explicitly asks to scaffold external platform code here.
-- The NestJS/Railway/OpenAI/LangChain/Pinecone/Open WebUI plan.
+- This repo is the canonical monorepo for Salesforce Agentforce metadata plus the external AI platform.
+- Monorepo platform paths: `apps/ai-api`, `apps/react-chat-window`, `apps/openwebui`, and `packages/*` for shared contracts or platform modules.
+- The NestJS/Railway/OpenAI/LangChain/Pinecone/Open WebUI plan now lives in this repo; keep runtime ownership and security boundaries separate.
 - First milestone: Agentforce -> Apex -> Named Credential -> Railway NestJS -> structured response -> Agentforce.
 - Open WebUI is production internal chat. It calls the NestJS OpenAI-compatible gateway, not OpenAI directly.
 - React chat is customer-facing and must use customer-safe policy, identity/session rules, rate limits, and escalation guardrails.
-- React chat may be embedded in Experience Cloud or another Salesforce-hosted page shell, but the React codebase and backend lifecycle remain in the external platform.
+- React chat may be embedded in Experience Cloud or another Salesforce-hosted page shell, but the React codebase and backend lifecycle remain in `apps/react-chat-window`.
 - Agent services call `ModelRouter`; `ModelRouter` calls provider adapters.
 - OpenAI is production v1. Anthropic, Azure OpenAI, Gemini, and OpenAI-compatible self-hosted providers remain extension paths.
 - Pinecone is production v1 vector DB. Keep vector DB access behind an interface.

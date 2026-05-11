@@ -1,0 +1,13 @@
+{
+  "servers": {
+    "codetrellis": {
+      "type": "stdio",
+      "command": "codetrellis",
+      "args": [
+        "mcp",
+        "${workspaceFolder}"
+      ],
+      "env": {}
+    }
+  }
+}

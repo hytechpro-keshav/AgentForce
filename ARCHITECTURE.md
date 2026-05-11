@@ -39,7 +39,7 @@ Salesforce-hosted page shell or external site
 
 ## Repository Model
 
-This repo should act as the Salesforce Agentforce workspace:
+This repo is the canonical monorepo for Salesforce Agentforce metadata and the external AI platform:
 
 ```text
 force-app/main/default/
@@ -54,22 +54,17 @@ force-app/main/default/
 agent-eval/
 docs/
 scripts/
+apps/
+  ai-api/
+  react-chat-window/
+  openwebui/
+packages/
+  shared-contracts/
+  llm-core/
+  rag-core/
 ```
 
-The external platform should live separately:
-
-```text
-ai-external-platform/
-  apps/ai-api/
-  apps/react-chat-window/
-  apps/openwebui/
-  packages/llm-core/
-  packages/rag-core/
-  packages/shared-contracts/
-  docs/
-```
-
-Salesforce can host the page shell or embed the customer chat, but the React codebase, backend integration, and release lifecycle stay in the external platform.
+Salesforce can host the page shell or embed the customer chat, but the React codebase, backend integration, and release lifecycle stay in the `apps/react-chat-window` monorepo package. Salesforce metadata, NestJS API code, Open WebUI deployment assets, and React chat code have separate ownership boundaries and readiness gates even though they now live in one repository.
 
 ## First Production Slice
 
@@ -80,7 +75,7 @@ The first customer-facing milestone is deliberately narrow:
 3. Apex and Flow perform deterministic Salesforce reads and writes against Account, Contact, Case, Knowledge, and only confirmed scheduling/status data.
 4. The first write path creates or escalates a Case with a safe human handoff summary.
 5. The Agentforce -> Apex -> Named Credential -> Railway bridge is added after the native customer workflow and evals are proven.
-6. RAG, Open WebUI, React customer chat, ModelRouter, and Pinecone remain later hybrid stages in the external platform repo.
+6. RAG, Open WebUI, React customer chat, ModelRouter, and Pinecone remain later hybrid stages under the monorepo platform paths.
 
 Do not build every hybrid target-state component before the Customer Self-Service workflow, data access rules, and escalation behavior are proven.
 

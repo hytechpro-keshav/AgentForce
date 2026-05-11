@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<GenAiFunction xmlns="http://soap.sforce.com/2006/04/metadata">
+  <description
+  >Checks the configured NestJS AI API health endpoint and returns a safe Phase 1 bridge status.</description>
+  <developerName>Check_AI_API_Health</developerName>
+  <invocationTarget>AgentforceAiApiHealthCheck</invocationTarget>
+  <invocationTargetType>apex</invocationTargetType>
+  <isConfirmationRequired>false</isConfirmationRequired>
+  <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+  <localDeveloperName>Check_AI_API_Health</localDeveloperName>
+  <masterLabel>Check AI API Health</masterLabel>
+  <progressIndicatorMessage>Checking AI API health</progressIndicatorMessage>
+</GenAiFunction>

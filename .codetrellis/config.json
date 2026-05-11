@@ -1,0 +1,27 @@
+{
+  "compression": "high",
+  "created": "2026-05-08T17:17:17.719882",
+  "ignore": [
+    "node_modules",
+    "dist",
+    "build",
+    ".git",
+    ".angular",
+    "__pycache__",
+    ".pytest_cache",
+    ".venv",
+    "venv",
+    "coverage",
+    "*.spec.py",
+    "*.test.py"
+  ],
+  "maxTokens": 2000,
+  "parsers": {
+    "angular": true,
+    "proto": true,
+    "python": true,
+    "typescript": true
+  },
+  "project": "AgentForce",
+  "version": "1.3.0"
+}
