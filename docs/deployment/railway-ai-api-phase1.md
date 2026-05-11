@@ -6,7 +6,9 @@ This runbook covers only the Phase 1 health bridge: Salesforce Agentforce -> Ape
 
 - Service root: repository root.
 - Railway config file: `railway.json` at the repository root.
-- Build command: `npm ci && npm run ai-api:build`.
+- Runtime: Node `>=20.17 <23` from the root `package.json` engines field.
+- Install command: Railway Nixpacks default `npm ci`.
+- Build command: `npm run ai-api:build`.
 - Start command: `npm run ai-api:start`.
 - Liveness path: `GET /health/live`.
 - Protected Salesforce bridge path: `GET /health`.

@@ -3,6 +3,9 @@
   "private": true,
   "version": "1.0.0",
   "description": "Salesforce App",
+  "engines": {
+    "node": ">=20.17 <23"
+  },
   "workspaces": [
     "apps/ai-api",
     "packages/*"
