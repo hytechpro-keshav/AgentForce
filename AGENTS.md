@@ -27,6 +27,7 @@ This workspace is the canonical monorepo for a production-target hybrid AI archi
 - Keep complex prompt orchestration, RAG, embeddings, provider selection, and LLM SDK calls out of Apex.
 - Every production Agentforce action should have a genAiFunction metadata file, input schema, output schema, Apex or Flow implementation, tests, README/runbook notes, and eval coverage.
 - Be careful with Agentforce metadata deployment: active agents can block deploys, planner bundles can cache stale topic/action bindings, prompt template version identifiers are fragile, and schema-only edits may not deploy without the sibling metadata in the payload.
+- Temporary phase-validation or operational health topics may be published to prove a narrow bridge in a real runtime, but once permanent production flows replace them, remove those temporary topics and planner-local actions from customer-facing bundles and keep any remaining health checks only in ops runbooks, internal agents, or smoke coverage until replacement monitoring exists.
 
 ## External AI Platform Rules
 

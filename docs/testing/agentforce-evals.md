@@ -72,10 +72,12 @@ Use [Customer Self-Service Phase 0 UAT](customer-self-service-phase0-uat.md) as 
 
 ## Current Phase 1 Package
 
-Use `agent-eval/support-operations-phase1-health.yaml` for `Agentforce_Service_Agent` health-bridge eval coverage.
+Use `agent-eval/customer-self-service-phase1-health.yaml` for `Customer_Self_Service_Agent` health-bridge eval coverage.
 
 Use [Phase 1 Health Bridge Smoke](phase1-health-bridge-smoke.md) to capture backend, Apex, and Agentforce smoke evidence.
 
 Use [Phase 1 Agentforce Runtime Proof](phase1-agentforce-runtime-proof.md) for the published-agent preview and Apex runtime log evidence.
+
+This Phase 1 eval package is for a temporary published operational topic. Once later phases replace the customer-facing need for `AI_API_Health_Bridge`, remove that topic from the planner bundle, retire the user-facing health-bridge eval from the production agent, and keep any remaining health verification in ops-only smoke or internal-agent coverage.
 
 Auth failures from `Check_AI_API_Health` are operational setup failures. Treat them separately from model behavior quality and do not add OpenAI, RAG, Pinecone, Open WebUI, or React chat secrets while validating Phase 1.

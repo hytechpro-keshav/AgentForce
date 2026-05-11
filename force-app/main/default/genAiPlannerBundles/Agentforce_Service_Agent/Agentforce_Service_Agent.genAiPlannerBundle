@@ -73,9 +73,6 @@
     <localTopicLinks>
         <genAiPluginName>Student_Result_Admit_Card_16jg5000000JwQ5</genAiPluginName>
     </localTopicLinks>
-    <localTopicLinks>
-        <genAiPluginName>AI_API_Health_Bridge</genAiPluginName>
-    </localTopicLinks>
     <localTopics>
         <fullName>AccountManagement_16jg5000000JwQ5</fullName>
         <canEscalate>false</canEscalate>
@@ -422,47 +419,6 @@ Verifies the customer&apos;s identity before granting access to sensitive data. 
         <masterLabel>Student Result/Admit Card</masterLabel>
         <pluginType>Topic</pluginType>
         <scope>Your role is to fulfill the request for receiving the academic result and Admit cards via email to the verified students</scope>
-    </localTopics>
-    <localTopics>
-        <fullName>AI_API_Health_Bridge</fullName>
-        <canEscalate>false</canEscalate>
-        <description>Checks whether the Phase 1 Railway ai-api health bridge is reachable through the configured Salesforce Named Credential.</description>
-        <developerName>AI_API_Health_Bridge</developerName>
-        <genAiPluginInstructions>
-            <description>When the user asks whether the AI API, Railway NestJS app, or Agentforce AI API bridge is healthy or connected, invoke the &quot;Check AI API Health&quot; action and summarize only its safe status fields.</description>
-            <developerName>check_phase_1_bridge_health</developerName>
-            <language>en_US</language>
-            <masterLabel>Check Phase 1 Bridge Health</masterLabel>
-            <sortOrder>0</sortOrder>
-        </genAiPluginInstructions>
-        <genAiPluginInstructions>
-            <description>Do not claim that OpenAI, RAG, Pinecone, Open WebUI, or React customer chat are implemented by this health bridge. Those capabilities are deferred to later phases.</description>
-            <developerName>do_not_claim_deferred_capabilities</developerName>
-            <language>en_US</language>
-            <masterLabel>Do Not Claim Deferred Capabilities</masterLabel>
-            <sortOrder>1</sortOrder>
-        </genAiPluginInstructions>
-        <language>en_US</language>
-        <localActionLinks>
-            <functionName>Check_AI_API_Health_179g5000000AiAP</functionName>
-        </localActionLinks>
-        <localActions>
-            <fullName>Check_AI_API_Health_179g5000000AiAP</fullName>
-            <description>Checks the configured NestJS AI API health endpoint and returns a safe Phase 1 bridge status.</description>
-            <developerName>Check_AI_API_Health_179g5000000AiAP</developerName>
-            <invocationTarget>AgentforceAiApiHealthCheck</invocationTarget>
-            <invocationTargetType>apex</invocationTargetType>
-            <isConfirmationRequired>false</isConfirmationRequired>
-            <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
-            <localDeveloperName>Check_AI_API_Health</localDeveloperName>
-            <masterLabel>Check AI API Health</masterLabel>
-            <progressIndicatorMessage>Checking AI API health</progressIndicatorMessage>
-            <source>Check_AI_API_Health</source>
-        </localActions>
-        <localDeveloperName>AI_API_Health_Bridge</localDeveloperName>
-        <masterLabel>AI API Health Bridge</masterLabel>
-        <pluginType>Topic</pluginType>
-        <scope>Your job is to check Phase 1 AI API bridge health by invoking Check AI API Health and reporting whether the Salesforce to Railway health bridge is connected. Keep the response operational and do not expose credentials or secret header values.</scope>
     </localTopics>
     <masterLabel>Agentforce Service Agent</masterLabel>
     <plannerActions>

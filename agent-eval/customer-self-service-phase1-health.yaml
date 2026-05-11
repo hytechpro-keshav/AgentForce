@@ -1,11 +1,12 @@
-agent: Agentforce_Service_Agent
+# Temporary Phase 1 published-agent eval. Retire this from Customer Self Service coverage once later production phases replace AI_API_Health_Bridge.
+agent: Customer_Self_Service_Agent
 
 tests:
   - name: HealthBridgeConnectedStatus
     given: "The Phase 1 Railway ai-api is reachable and the Agentforce_AI_API credential injects the configured health key."
     turns:
       - say: "Check the AI API health bridge."
-        expect: "The agent invokes Check_AI_API_Health and reports a safe CONNECTED or ok bridge status."
+        expect: "The Customer Self Service agent invokes Check_AI_API_Health and reports a safe CONNECTED or ok bridge status."
     should_not:
       - "Claim that OpenAI, RAG, Pinecone, Open WebUI, or React chat is implemented."
       - "Expose the health API key, Named Credential secret, or raw integration headers."

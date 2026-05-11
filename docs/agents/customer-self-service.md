@@ -165,6 +165,7 @@ Current verification mode: The published planner bundle is back in verification-
 | Salesforce deployment            | Complete | Deploy job `0Afg5000007aZfHCAU` deployed the initial Phase 0 action layer, and follow-up deploy `0Afg5000007dTW0CAM` deployed the escalation safety hardening with 8/8 focused Apex tests passing. |
 | Permission assignment for tester | Complete | `Customer_Self_Service_Agent` was assigned to the connected default org user for immediate testing.                                                                                                |
 | Agentforce topic/planner binding | Complete | The active `Customer_Self_Service_Agent` planner bundle in source and org contains the verification, account summary, issue reporting, and escalation topics/subagents.                            |
+| Phase 1 AI API health proof      | Complete | The active `Customer_Self_Service_Agent` planner bundle temporarily contains `AI_API_Health_Bridge`, which invokes `Check_AI_API_Health` and proves the Salesforce to Railway bridge.              |
 | Customer channel activation      | Partial  | Agent Preview is working and the planner bundle contains customer surfaces. Pilot/UAT still needs the final selected customer channel and business approval.                                       |
 
 ## Phase 0 Closeout Remaining
@@ -178,6 +179,27 @@ These are the remaining Phase 0 closeout items that do not require new feature d
 | Pilot channel and handoff ownership    | Pending manual | Preview is working, but the final customer-facing surface and escalation ownership still need business confirmation.                                                                                                                                                                                                                                                                                              |
 
 Use the dedicated UAT runbook here: [Customer Self-Service Phase 0 UAT](../testing/customer-self-service-phase0-uat.md)
+
+## Phase 1 AI API Health Bridge
+
+The Customer Self Service Agent is the Phase 1 proof target for the Agentforce -> Apex -> Named Credential -> Railway bridge.
+
+- Temporary topic: `AI_API_Health_Bridge`
+- Action: `Check_AI_API_Health`
+- Runtime user: `customer_self_service_agent@00dg5000005qpun1460074599.ext`
+- Fresh proof session: `019e166e-8af0-79fc-87a7-119523d3f032`
+- Fresh Apex log: `07Lg5000006voXnEAI`
+- Traced Builder rerun Apex log: `07Lg5000006w7ldEAA`
+
+Manual prompt:
+
+```text
+Check the AI API health bridge.
+```
+
+The traced Builder rerun confirms the customer-facing agent actually executed `AgentforceAiApiHealthCheck` and called `callout:Agentforce_AI_API/health` with HTTP `200`, not just planner reasoning in the UI.
+
+This topic should be removed from the customer-facing planner bundle after later production phases replace the temporary proof surface. Keep the underlying health endpoint, Apex bridge, and smoke docs until replacement monitoring exists or the check is moved to an internal-only ops surface.
 
 ## OTP Restore Status
 
@@ -221,7 +243,7 @@ This comparison was captured on 8 May 2026 without sending additional OTP emails
 | ------------------------ | ----------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | Customer Self Service    | `customer_self_service_agent@00dg5000005qpun1460074599.ext` | Yes    | Yes, `Service Customer Verification` with `SvcCopilotTmpl__SendVerificationCode` and `SvcCopilotTmpl__VerifyCode` | `AgentforceServiceAgentUserPsg`, `Customer_Self_Service_Agent`, generated `Customer_Self_Service_Agent...Permissions`, and baseline agent permission set | The agent user exists and is active. It is not missing.                                                                      |
 | Scheduling Agent         | `scheduling_agent@00dg5000005qpun1231020336.ext`            | Yes    | No built-in OTP topic found in the local `Scheduling_Agent` planner bundle                                        | `AgentforceServiceAgentUserPsg`, appointment creation permission set, generated scheduling permissions, and scheduling permission set                    | This agent asks for email for scheduling/address lookup, but local metadata does not show the same OTP verification pattern. |
-| Agentforce Service Agent | `agentforce_service_agent@00dg5000005qpun977214756.ext`     | No     | Yes, standard `Service Customer Verification` template topic                                                      | Has several generated/service-agent permission sets, but runtime user is inactive                                                                        | Useful as the closest verification-template reference, not as the active scheduling reference.                               |
+| Agentforce Service Agent | `agentforce_service_agent@00dg5000005qpun977214756.ext`     | Yes    | Yes, standard `Service Customer Verification` template topic                                                      | No longer has the temporary Phase 1 health bridge permission set after the proof target was moved to Customer Self Service                               | Useful as a verification-template reference, not as the Phase 1 health proof target.                                         |
 
 Key comparison findings:
 

@@ -70,7 +70,14 @@ Salesforce validation:
 sf apex run test --class-names AgentforceAiApiHealthCheckTest --wait 30 --result-format human
 ```
 
-After metadata is deployed and the agent is active, run the `Agentforce_Service_Agent` Phase 1 eval in `agent-eval/support-operations-phase1-health.yaml` or equivalent Testing Center cases.
+After metadata is deployed and the agent is active, run the `Customer_Self_Service_Agent` Phase 1 eval in `agent-eval/customer-self-service-phase1-health.yaml` or equivalent Testing Center cases.
+
+Recommended manual prompts for the published agent:
+
+- `Check the AI API health bridge.`
+- `Invoke Check AI API Health and tell me the bridgeStatus, healthStatus, and httpStatusCode for the AI API health bridge.`
+
+This published planner topic exists to prove the narrow Phase 1 bridge in a real runtime. When later production phases are live, remove `AI_API_Health_Bridge` and its planner-local action from the customer-facing planner bundle, but keep the underlying health bridge implementation or move it to an ops-only surface until replacement monitoring exists.
 
 ## Rollback
 

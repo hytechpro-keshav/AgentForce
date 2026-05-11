@@ -8,6 +8,7 @@ Use this template to capture validation evidence for the Phase 1 bridge only.
 - Protected bridge health: `GET /health` with `X-Agentforce-Health-Key`.
 - Apex bridge action: `AgentforceAiApiHealthCheck`.
 - Agentforce action metadata: `Check_AI_API_Health`.
+- Published proof agent: `Customer_Self_Service_Agent`.
 
 This smoke does not validate OpenAI, ModelRouter, LangChain, Pinecone, Open WebUI, or React chat.
 
@@ -34,3 +35,16 @@ sf apex run test --class-names AgentforceAiApiHealthCheckTest --wait 30 --result
 ```
 
 Org-dependent Agentforce evals should run after metadata deployment, credential setup, and active-agent reactivation when applicable.
+
+The Phase 1 published-agent smoke target is `Customer_Self_Service_Agent`, not the Service/University reference agent.
+
+## Manual Prompts
+
+Use these prompts when you want to validate the published agent manually:
+
+- `Check the AI API health bridge.`
+- `Invoke Check AI API Health and tell me the bridgeStatus, healthStatus, and httpStatusCode for the AI API health bridge.`
+
+## Future Retirement
+
+The published `AI_API_Health_Bridge` topic is a Phase 1 runtime-proof surface, not the long-term end-state customer-facing production behavior. Once later phases are complete, remove that topic from the published planner bundle and keep any remaining health checks only in internal ops workflows, smoke coverage, or replacement monitoring surfaces.

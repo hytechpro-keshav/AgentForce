@@ -23,6 +23,7 @@ applyTo:
 - For external AI calls, Apex should call a Named Credential route on NestJS and return structured output. Apex should not call OpenAI, Pinecone, LangChain, or vendor SDKs directly.
 - Keep org-specific IDs, generated-only values, secrets, and production-only metadata out of version control unless they are required deployable metadata.
 - When changing Agentforce metadata, update eval prompts or testing notes with the intended behavior.
+- Temporary phase-validation topics or planner-local actions that exist only to prove an integration bridge should be documented as temporary and removed from customer-facing planner bundles once the permanent production flow replaces them. Keep the underlying Apex action, tests, and runbooks only if they still serve operational validation.
 
 ## Deployment Gotchas
 

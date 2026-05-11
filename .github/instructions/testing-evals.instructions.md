@@ -19,3 +19,4 @@ applyTo:
 - RAG evals should check source grounding, missing-source fallback, tenant filtering, and hallucination-prone questions.
 - CI should run the smallest reliable checks on PR and reserve org-dependent/deep LLM evals for manual or gated workflows.
 - When an eval fails because the environment is inactive or stale, surface the operational issue separately from behavior quality.
+- When a temporary phase-validation topic is retired from a customer-facing agent, retire or rename the related user-facing evals and keep any remaining smoke-proof artifacts in clearly labeled ops-only docs.
