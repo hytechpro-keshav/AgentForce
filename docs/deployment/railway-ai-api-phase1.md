@@ -26,13 +26,33 @@ Do not add OpenAI, Pinecone, Open WebUI, or React chat secrets for Phase 1.
 
 ## Salesforce Credential Setup
 
-Configure the Salesforce credential values manually or through a secure deployment system. Do not commit URLs with secrets or the health key.
+The non-secret Salesforce credential metadata is stored in source:
 
-1. Create or update the Named Credential developer name `Agentforce_AI_API`.
-2. Set the Named Credential base URL to the Railway ai-api service URL.
-3. Create or update the External Credential and principal used by the runtime user.
-4. Inject `X-Agentforce-Health-Key` with the same value stored in Railway as `AGENTFORCE_HEALTH_API_KEY`.
-5. Assign the required credential permission access to the Agentforce runtime user or permission set.
+- `force-app/main/default/namedCredentials/Agentforce_AI_API.namedCredential-meta.xml`
+- `force-app/main/default/externalCredentials/Agentforce_AI_API.externalCredential-meta.xml`
+- `force-app/main/default/permissionsets/Agentforce_AI_API_Health_Bridge.permissionset-meta.xml`
+
+Deploy these components after the Railway URL is known. If the Railway app URL changes, update the `Url` parameter in the Named Credential metadata before deploying.
+
+```bash
+sf project deploy start \
+	--target-org AgentForce \
+	--source-dir force-app/main/default/namedCredentials/Agentforce_AI_API.namedCredential-meta.xml \
+	--source-dir force-app/main/default/externalCredentials/Agentforce_AI_API.externalCredential-meta.xml \
+	--source-dir force-app/main/default/permissionsets/Agentforce_AI_API_Health_Bridge.permissionset-meta.xml \
+	--test-level NoTestRun \
+	--wait 30
+```
+
+The health key remains secret and must not be committed. Store the same value in Railway as `AGENTFORCE_HEALTH_API_KEY` and in Salesforce as the encrypted named-principal credential value `AGENTFORCE_HEALTH_API_KEY` for External Credential `Agentforce_AI_API` / principal `Agentforce_AI_API_Principal`.
+
+The custom auth header formula is:
+
+```text
+X-Agentforce-Health-Key: {!$Credential.Agentforce_AI_API.AGENTFORCE_HEALTH_API_KEY}
+```
+
+Assign permission set `Agentforce_AI_API_Health_Bridge` to the Agentforce runtime user and to any admin or test user that will run the Apex bridge manually.
 
 ## Smoke Validation
 
