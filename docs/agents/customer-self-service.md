@@ -222,6 +222,30 @@ Use the dedicated runbook here: [Customer Self-Service Phase 2 Support Triage UA
 
 Use the proof doc here: [Phase 2 Agentforce Support Triage Proof](../testing/phase2-agentforce-support-triage-proof.md)
 
+## Phase 3 AI API Case Analysis
+
+Phase 3 extends Support Operations onto the same Customer Self Service agent with an analysis-only case-classification path.
+
+- Temporary topic: `AI_API_Case_Analysis`
+- Action: `Analyze_Support_Case`
+- Apex bridge: `AgentforceAiApiCaseAnalysis`
+- Endpoint: `callout:Agentforce_AI_API_Phase2/agent/support/analyze-case`
+- Scope: `agentforce:case-analysis`
+- Current proof model: `gpt-4o-mini`
+
+Planner-visible structured fields: `analysisStatus`, `safeMessage`, `summary`, `category` (`billing`, `outage`, `technical`, `account`, `other`), `recommendedPriority` (`low`, `normal`, `high`, `critical`), `confidence` (`low`, `medium`, `high`), and `nextAction`.
+
+Current proof behavior:
+
+- The topic is analysis-only and must not create, update, escalate, or close a Salesforce Case.
+- Apex masks common identifiers before the callout.
+- NestJS redacts request and response strings around the provider call.
+- Planner instructions forbid echoing raw identifiers and forbid claiming case modifications.
+
+Local and live validation passed: 43 unit tests, 17 e2e tests, NestJS typecheck and build green, validate-only deploy `0Afg5000007rgY9CAI` ran 9 Apex tests with 0 failures, live core deploy `0Afg5000007rwzVCAQ` ran 9 Apex tests with 0 failures, and planner deploy `0Afg5000007rrxVCAQ` succeeded after deactivate/reactivate.
+
+Published preview proof: session `019e17f5-da92-7985-a175-dcda32fd71ee`, Apex log `07Lg5000006ww1qEAA`, Railway HTTP request `ps5HMH7PRgOXaVCG-8Y8hA`, telemetry request `sf-case-analysis-1778518466738-0`, tokens `169/47/216`, estimated cost `0.00005355` USD. Full proof IDs are documented in [Phase 3 Agentforce Case Analysis Proof](../testing/phase3-agentforce-case-analysis-proof.md), and repeat UAT is documented in [Customer Self-Service Phase 3 Case Analysis UAT](../testing/customer-self-service-phase3-case-analysis-uat.md). The eval YAML lives at `agent-eval/customer-self-service-phase3-case-analysis.yaml`.
+
 ## OTP Restore Status
 
 The current published planner bundle is no longer in temporary manual-testing mode.

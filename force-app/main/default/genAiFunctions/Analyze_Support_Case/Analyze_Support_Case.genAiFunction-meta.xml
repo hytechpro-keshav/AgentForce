@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<GenAiFunction xmlns="http://soap.sforce.com/2006/04/metadata">
+  <description
+  >Calls the NestJS AI API Phase 3 case-analysis endpoint and returns a safe structured Support Operations case analysis (summary, category, priority, confidence, next action).</description>
+  <developerName>Analyze_Support_Case</developerName>
+  <invocationTarget>AgentforceAiApiCaseAnalysis</invocationTarget>
+  <invocationTargetType>apex</invocationTargetType>
+  <isConfirmationRequired>true</isConfirmationRequired>
+  <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+  <localDeveloperName>Analyze_Support_Case</localDeveloperName>
+  <masterLabel>Analyze Support Case</masterLabel>
+  <progressIndicatorMessage>Analyzing support case</progressIndicatorMessage>
+</GenAiFunction>

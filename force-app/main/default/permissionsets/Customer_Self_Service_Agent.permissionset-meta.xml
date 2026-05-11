@@ -16,6 +16,10 @@
         <apexClass>AgentforceAiApiSupportTriage</apexClass>
         <enabled>true</enabled>
     </classAccesses>
+    <classAccesses>
+        <apexClass>AgentforceAiApiCaseAnalysis</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
         <externalCredentialPrincipalAccesses>
                 <enabled>true</enabled>
                 <externalCredentialPrincipal

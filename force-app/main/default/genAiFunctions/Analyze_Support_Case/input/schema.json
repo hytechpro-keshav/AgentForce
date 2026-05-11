@@ -1,0 +1,57 @@
+{
+  "required": ["caseSubject", "caseDescription"],
+  "unevaluatedProperties": false,
+  "properties": {
+    "caseSubject": {
+      "title": "Case Subject",
+      "description": "Short Case subject for AI case analysis. Do not include raw names, emails, phone numbers, account IDs, payment data, or exact addresses.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isUserInput": true
+    },
+    "caseDescription": {
+      "title": "Case Description",
+      "description": "Case description for AI case analysis. Use a sanitized summary; common identifiers are masked before provider calls.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isUserInput": true
+    },
+    "caseStatus": {
+      "title": "Case Status",
+      "description": "Optional Salesforce Case status, for example New, Working, or Escalated.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    },
+    "caseType": {
+      "title": "Case Type",
+      "description": "Optional Salesforce Case type, for example Outage, Billing, or Technical.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    },
+    "caseOrigin": {
+      "title": "Case Origin",
+      "description": "Optional Salesforce Case origin, for example Phone, Email, Web, or Chat.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    },
+    "reportedPriority": {
+      "title": "Reported Priority",
+      "description": "Optional reported priority: low, normal, high, or critical.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    },
+    "requestId": {
+      "title": "Request Id",
+      "description": "Optional safe correlation id for backend telemetry.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": false
+    }
+  },
+  "lightning:type": "lightning__objectType",
+  "lightning:textIndexed": true
+}

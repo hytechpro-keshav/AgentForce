@@ -43,13 +43,14 @@ For Railway, keep the service attached to the monorepo root. The root `railway.j
 
 Detailed Railway setup is in [../../docs/deployment/railway-ai-api-phase1.md](../../docs/deployment/railway-ai-api-phase1.md).
 
-## Phase 2 Contracts
+## Provider-Backed Contracts
 
-All Phase 2 routes require `Authorization: Bearer <jwt>` unless
-`AI_API_AUTH_DISABLED=true`. Health routes remain public. The support triage route also requires JWT scope `agentforce:support-triage`.
+All provider-backed routes require `Authorization: Bearer <jwt>` unless
+`AI_API_AUTH_DISABLED=true`. Health routes remain public. The support triage route requires JWT scope `agentforce:support-triage`; the case-analysis route requires JWT scope `agentforce:case-analysis`.
 
 - `POST /chat/message` — DTO-validated chat call. Body: `{ messages, provider?, model?, maxTokens?, requestId? }`. Returns normalized `{ content, usage, provider, model, fallbackUsed, attemptedProviders, latencyMs, responseId? }`.
 - `POST /agent/support/triage-case` — Bulk-safe support triage helper. Body: `{ subject, description, reportedPriority?, caseId?, requestId? }`. Returns `{ recommendedPriority, summary, suggestedNextStep, provider, model, fallbackUsed, latencyMs }`.
+- `POST /agent/support/analyze-case` — Phase 3 Support Operations case-analysis helper. Body: `{ caseSubject, caseDescription, caseStatus?, caseType?, caseOrigin?, reportedPriority?, caseId?, requestId? }`. Returns `{ summary, category, recommendedPriority, confidence, nextAction, provider, model, fallbackUsed, latencyMs }`.
 - `GET /v1/models` — OpenAI-compatible model listing for Open WebUI-style clients.
 - `POST /v1/chat/completions` — OpenAI-compatible chat completion (non-streaming). The `model` field selects the provider when it matches a registered provider name; otherwise the configured default provider is used.
 
@@ -62,11 +63,13 @@ Provider rules (see `.github/instructions/llm-provider.instructions.md` and ADR 
 
 ## Sensitive Data Masking
 
-The support triage path uses defense in depth for customer data:
+The support triage and case-analysis paths use defense in depth for customer data:
 
 - `AgentforceAiApiSupportTriage` masks common names, emails, phone numbers, account/case/order identifiers, payment-card shaped values, SSNs, long numbers, Salesforce IDs, and street-address shaped values before sending the Salesforce callout to Railway.
+- `AgentforceAiApiCaseAnalysis` applies the same masking approach before sending Phase 3 case-analysis callouts to Railway.
 - `ModelRouter` applies the same redaction to every `LlmChatRequest` before any provider adapter is called, covering `/agent/support/triage-case`, `/chat/message`, and `/v1/chat/completions`.
 - `SupportTriageService` redacts model output before returning summaries or next steps to Salesforce.
+- `CaseAnalysisService` redacts parsed model output before returning summaries or next actions to Salesforce.
 
 Masking is heuristic, not a substitute for policy. Agentforce topics should still avoid asking for raw customer identifiers unless a Salesforce-native verified workflow needs them.
 
@@ -77,7 +80,7 @@ Phase 1:
 - `PORT` (default `3000`)
 - `AGENTFORCE_HEALTH_API_KEY` — required in production-like (`NODE_ENV=production` or any `RAILWAY_*` variable set).
 
-Phase 2:
+Phase 2 and Phase 3:
 
 - `LLM_DEFAULT_PROVIDER` — default `openai`.
 - `LLM_FALLBACK_PROVIDER` — optional secondary provider name.
@@ -87,12 +90,12 @@ Phase 2:
 - `OPENAI_COMPAT_BASE_URL` — enables the `openai-compatible` provider when set.
 - `OPENAI_COMPAT_API_KEY` — optional bearer token for the self-hosted endpoint.
 - `OPENAI_COMPAT_DEFAULT_MODEL` — default `default`.
-- `AI_API_JWT_SECRET` — HS256 shared secret for protected Phase 2 routes. Missing secrets fail closed at protected routes so Phase 1 health can stay online during staged setup.
+- `AI_API_JWT_SECRET` — HS256 shared secret for protected provider-backed routes. Missing secrets fail closed at protected routes so Phase 1 health can stay online during staged setup.
 - `AI_API_JWT_ISSUER`, `AI_API_JWT_AUDIENCE` — optional issuer/audience constraints.
 - `AI_API_AUTH_DISABLED=true` — explicit dev/test escape hatch. Logs an unauthenticated profile.
 - `AI_API_TELEMETRY_ENABLED=false` — disables the structured `gen_ai.*` telemetry sink. Telemetry is no-op safe by design.
 
-For the deployed Railway app, set secrets in Railway variables only. Required production values for Phase 2 are:
+For the deployed Railway app, set secrets in Railway variables only. Required production values for Phase 2 and Phase 3 are:
 
 ```text
 NODE_ENV=production

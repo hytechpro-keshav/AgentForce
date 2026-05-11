@@ -111,7 +111,7 @@ Recommended manual prompts for the published agent:
 
 This published planner topic exists to prove the narrow Phase 1 bridge in a real runtime. When later production phases are live, remove `AI_API_Health_Bridge` and its planner-local action from the customer-facing planner bundle, but keep the underlying health bridge implementation or move it to an ops-only surface until replacement monitoring exists.
 
-Phase 2 backend routes can be smoke-tested directly with a JWT after the Railway variables above are present. The first through-Agentforce Phase 2 path is now `/agent/support/triage-case`, called by `Triage Support Case` through `Agentforce_AI_API_Phase2`; runtime proof is captured in `docs/testing/phase2-agentforce-support-triage-proof.md`.
+Phase 2 and Phase 3 backend routes can be smoke-tested directly with a JWT after the Railway variables above are present. The first through-Agentforce Phase 2 path is `/agent/support/triage-case`, called by `Triage Support Case` through `Agentforce_AI_API_Phase2`; runtime proof is captured in `docs/testing/phase2-agentforce-support-triage-proof.md`. The first Phase 3 path is `/agent/support/analyze-case`, called by `Analyze Support Case` through the same Named Credential; runtime proof is captured in `docs/testing/phase3-agentforce-case-analysis-proof.md`.
 
 ## Phase 2 Support Triage Credential Setup
 
@@ -132,7 +132,7 @@ Authorization: Bearer {!$Credential.Agentforce_AI_API_Phase2.AI_API_PHASE2_BEARE
 
 Store the encrypted value `AI_API_PHASE2_BEARER_JWT` for External Credential `Agentforce_AI_API_Phase2` / principal `Agentforce_AI_API_Phase2_Principal` through Salesforce REST resource `/services/data/v66.0/named-credentials/credential`. Do not use `/services/data/v66.0/connect/named-credentials/credential`; that path returns 404 in this org.
 
-The JWT claims used for the proof were:
+The original Phase 2 JWT claims were:
 
 ```text
 sub=salesforce-agentforce
@@ -142,9 +142,21 @@ aud=agentforce-ai-api
 alg=HS256
 ```
 
-Mint the token from Railway `AI_API_JWT_SECRET` and pipe it directly into Salesforce secure credential storage. Do not print the token, commit it, or put it in Apex source. After storing the credential, validate with a direct Apex smoke and then through `Customer_Self_Service_Agent` preview.
+Phase 3 reuses the same External Credential and stores a combined-scope JWT:
+
+```text
+sub=salesforce-agentforce
+scope=agentforce:support-triage agentforce:case-analysis
+iss=salesforce-agentforce
+aud=agentforce-ai-api
+alg=HS256
+```
+
+Mint the token from Railway `AI_API_JWT_SECRET` and pipe it directly into Salesforce secure credential storage. Do not print the token, commit it, or put it in Apex source. Use `POST /services/data/v66.0/named-credentials/credential` for the first credential value, and `PUT /services/data/v66.0/named-credentials/credential` when overwriting an existing principal value. After storing the credential, validate with a direct Apex smoke and then through `Customer_Self_Service_Agent` preview.
 
 Phase 2 proof artifacts are recorded in `docs/testing/phase2-agentforce-support-triage-proof.md`.
+
+Phase 3 proof artifacts are recorded in `docs/testing/phase3-agentforce-case-analysis-proof.md`.
 
 ## Rollback
 

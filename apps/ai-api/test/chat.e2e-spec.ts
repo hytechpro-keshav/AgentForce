@@ -290,4 +290,111 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
       kind: "validation"
     });
   });
+
+  it("POST /agent/support/analyze-case requires the case-analysis scope", async () => {
+    await request(app.getHttpServer())
+      .post("/agent/support/analyze-case")
+      .set("authorization", `Bearer ${signToken()}`)
+      .send({
+        caseSubject: "Phase 3 proof",
+        caseDescription: "The customer reports no service since 9 AM.",
+        reportedPriority: "high"
+      })
+      .expect(403);
+  });
+
+  it("POST /agent/support/analyze-case calls ModelRouter with structured case context", async () => {
+    router.chat.mockResolvedValueOnce({
+      content:
+        '{"summary":"Outage reported for jane@example.com","category":"outage","priority":"high","confidence":"high","nextAction":"Call 415-555-1212 to confirm"}',
+      finishReason: "stop",
+      usage: { inputTokens: 12, outputTokens: 16, totalTokens: 28 },
+      metadata: {
+        provider: "openai",
+        model: "gpt-4o-mini",
+        latencyMs: 33,
+        fallbackUsed: false,
+        attemptedProviders: ["openai"]
+      }
+    });
+
+    const response = await request(app.getHttpServer())
+      .post("/agent/support/analyze-case")
+      .set(
+        "authorization",
+        `Bearer ${signToken({ scope: "agentforce:case-analysis" })}`
+      )
+      .send({
+        caseSubject: "Outage in service area",
+        caseDescription:
+          "Customer name is Jane Doe. Email jane@example.com, phone 415-555-1212, account number ACCT-123456, and service address 123 Main St. The customer reports no service.",
+        caseStatus: "Working",
+        caseType: "Outage",
+        caseOrigin: "Web",
+        reportedPriority: "high",
+        requestId: "case-analysis-req-1"
+      })
+      .expect(201);
+
+    expect(response.body).toMatchObject({
+      category: "outage",
+      recommendedPriority: "high",
+      confidence: "high",
+      provider: "openai",
+      model: "gpt-4o-mini",
+      fallbackUsed: false,
+      latencyMs: 33
+    });
+    expect(response.body.summary).toContain("[redacted-email]");
+    expect(response.body.nextAction).toContain("[redacted-phone]");
+
+    const llmRequest = router.chat.mock.calls.at(-1)?.[0] as {
+      messages: Array<{ role: string; content: string }>;
+      requestId?: string;
+    };
+    expect(llmRequest).toBeDefined();
+    expect(llmRequest.requestId).toBe("case-analysis-req-1");
+    const userMessage = llmRequest.messages.find(
+      (m: { role: string }) => m.role === "user"
+    );
+    const userContent = userMessage?.content ?? "";
+    expect(userContent).toContain("Status: Working");
+    expect(userContent).toContain("Type: Outage");
+    expect(userContent).toContain("Origin: Web");
+    expect(userContent).toContain("Reported priority: high");
+    expect(userContent).toContain("[redacted-email]");
+    expect(userContent).toContain("[redacted-phone]");
+    expect(userContent).toContain("[redacted-identifier]");
+    expect(userContent).toContain("[redacted-address]");
+    expect(userContent).not.toContain("Jane Doe");
+    expect(userContent).not.toContain("jane@example.com");
+    expect(userContent).not.toContain("415-555-1212");
+    expect(userContent).not.toContain("ACCT-123456");
+    expect(userContent).not.toContain("123 Main St");
+  });
+
+  it("POST /agent/support/analyze-case surfaces provider validation as 503", async () => {
+    router.chat.mockRejectedValueOnce(
+      new LlmProviderError("model-router", "validation", "No providers")
+    );
+
+    const response = await request(app.getHttpServer())
+      .post("/agent/support/analyze-case")
+      .set(
+        "authorization",
+        `Bearer ${signToken({ scope: "agentforce:case-analysis" })}`
+      )
+      .send({
+        caseSubject: "Phase 3 proof",
+        caseDescription: "The customer reports no service.",
+        reportedPriority: "high"
+      })
+      .expect(503);
+
+    expect(response.body).toMatchObject({
+      error: "provider_unavailable",
+      provider: "model-router",
+      kind: "validation"
+    });
+  });
 });

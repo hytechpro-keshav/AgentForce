@@ -60,6 +60,9 @@
         <genAiPluginName>AI_API_Support_Triage</genAiPluginName>
     </localTopicLinks>
     <localTopicLinks>
+        <genAiPluginName>AI_API_Case_Analysis</genAiPluginName>
+    </localTopicLinks>
+    <localTopicLinks>
         <genAiPluginName>Escalation_And_Handoff_16jg5000000RolV</genAiPluginName>
     </localTopicLinks>
     <localTopicLinks>
@@ -494,6 +497,47 @@
         <masterLabel>AI API Support Triage</masterLabel>
         <pluginType>Topic</pluginType>
         <scope>Your job is to prove the Phase 2 support-triage-only path by invoking Triage Support Case for a user-provided support issue after confirmation. Use this topic for support triage proof, issue prioritization, triage-only recommendations, or POST /agent/support/triage-case requests. Keep the response operational, do not expose credential values, never echo raw customer identifiers, refer to sensitive input only as sanitized details, and do not say that a Case was created or escalated.</scope>
+    </localTopics>
+    <localTopics>
+        <fullName>AI_API_Case_Analysis</fullName>
+        <canEscalate>false</canEscalate>
+        <description>Phase 3 Support Operations case-analysis topic. Use for requests to analyze a Salesforce Case, get a Support Operations recommendation, or POST /agent/support/analyze-case requests. Returns structured summary, category, priority, confidence, and next action through the AI API. Never echoes raw customer identifiers and never creates or escalates a Case.</description>
+        <developerName>AI_API_Case_Analysis</developerName>
+        <genAiPluginInstructions>
+            <description>When the user asks to run Phase 3 case analysis, analyze a support case, get a Support Operations recommendation, or invoke Analyze Support Case, collect a short Case subject and Case description and optional status, type, origin, and reported priority. If the user includes names, emails, phones, account numbers, addresses, or payment numbers, do not repeat those values in confirmation or the final response; refer to the sanitized Case content instead. Confirm before invocation because the sanitized Case text is sent to the external AI API. Summarize only the returned safe fields: summary, category, recommended priority, confidence, and next action.</description>
+            <developerName>run_phase_3_case_analysis</developerName>
+            <language>en_US</language>
+            <masterLabel>Run Phase 3 Case Analysis</masterLabel>
+            <sortOrder>0</sortOrder>
+        </genAiPluginInstructions>
+        <genAiPluginInstructions>
+            <description>Do not claim that this action creates, updates, escalates, or closes Salesforce Cases. It only calls the external AI API case-analysis endpoint and returns a structured recommendation. The Apex action and AI API mask common identifiers before provider calls. If the user asks to process passwords, medical, legal, security, or payment advice itself, ask for a sanitized non-sensitive Case summary instead.</description>
+            <developerName>analysis_does_not_modify_cases</developerName>
+            <language>en_US</language>
+            <masterLabel>Analysis Does Not Modify Cases</masterLabel>
+            <sortOrder>1</sortOrder>
+        </genAiPluginInstructions>
+        <language>en_US</language>
+        <localActionLinks>
+            <functionName>Analyze_Support_Case_179g5000000AiTD</functionName>
+        </localActionLinks>
+        <localActions>
+            <fullName>Analyze_Support_Case_179g5000000AiTD</fullName>
+            <description>Calls the NestJS AI API Phase 3 case-analysis endpoint with masked Case text and returns a safe structured Support Operations analysis.</description>
+            <developerName>Analyze_Support_Case_179g5000000AiTD</developerName>
+            <invocationTarget>AgentforceAiApiCaseAnalysis</invocationTarget>
+            <invocationTargetType>apex</invocationTargetType>
+            <isConfirmationRequired>true</isConfirmationRequired>
+            <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+            <localDeveloperName>Analyze_Support_Case</localDeveloperName>
+            <masterLabel>Analyze Support Case</masterLabel>
+            <progressIndicatorMessage>Analyzing support case</progressIndicatorMessage>
+            <source>Analyze_Support_Case</source>
+        </localActions>
+        <localDeveloperName>AI_API_Case_Analysis</localDeveloperName>
+        <masterLabel>AI API Case Analysis</masterLabel>
+        <pluginType>Topic</pluginType>
+        <scope>Your job is to prove the Phase 3 Support Operations case-analysis path by invoking Analyze Support Case for a user-provided Salesforce Case after confirmation. Use this topic for case-analysis proof, Support Operations recommendations, or POST /agent/support/analyze-case requests. Keep the response operational, do not expose credential values, never echo raw customer identifiers, refer to sensitive input only as sanitized details, and do not say that a Case was created, updated, escalated, or closed.</scope>
     </localTopics>
     <masterLabel>Customer Self Service Agent</masterLabel>
     <plannerActions>

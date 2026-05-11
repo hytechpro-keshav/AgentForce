@@ -986,6 +986,20 @@ Exit criteria:
 
 - Agentforce can triage a Case using the external AI service
 
+Implementation status, 2026-05-11: complete for the smallest production-sane live proof slice.
+
+- New endpoint `POST /agent/support/analyze-case` returns structured `summary`, `category`, `recommendedPriority`, `confidence`, and `nextAction` fields with provider/model/fallback/latency metadata.
+- `CaseAnalysisService` calls `ModelRouter` only; sensitive-data redaction runs on inbound prompt construction and on parsed response strings.
+- New scope `agentforce:case-analysis` enforced through `RequireScopes`; same JWT secret as Phase 2 can carry combined scopes.
+- New Apex invocable `AgentforceAiApiCaseAnalysis` reuses the `Agentforce_AI_API_Phase2` Named Credential, masks identifiers before callout, and maps responses to planner-visible fields with statuses `ANALYZED`, `VALIDATION_ERROR`, `AUTH_ERROR`, `BACKEND_ERROR`, `CALLOUT_FAILED`, `MALFORMED_RESPONSE`, `UNEXPECTED_ERROR`, `NOT_ANALYZED`.
+- New `Analyze_Support_Case` genAiFunction with input/output schemas, planner-local action under topic `AI_API_Case_Analysis` in `Customer_Self_Service_Agent`, and matching planner-local input/output schemas (required at runtime per the Phase 2 lesson).
+- New eval coverage at `agent-eval/customer-self-service-phase3-case-analysis.yaml`.
+- Local validation: 43 unit tests, 17 e2e tests, typecheck, and build all green; validate-only deploy `0Afg5000007rgY9CAI` ran 9 new Apex tests with 0 failures.
+- Live deploys: Railway `9ed18b87-bab8-4194-8f40-4b985bfd439f`, Salesforce core deploy `0Afg5000007rwzVCAQ`, Salesforce planner deploy `0Afg5000007rrxVCAQ` after `Customer_Self_Service_Agent v1` deactivate/reactivate.
+- Credential refresh: `Agentforce_AI_API_Phase2` now carries a combined-scope JWT for `agentforce:support-triage agentforce:case-analysis` in encrypted custom credential revision `2`.
+- Runtime proof: preview session `019e17f5-da92-7985-a175-dcda32fd71ee`, Apex log `07Lg5000006ww1qEAA`, Railway HTTP request `ps5HMH7PRgOXaVCG-8Y8hA`, telemetry request `sf-case-analysis-1778518466738-0`, tokens `169/47/216`, estimated cost `0.00005355` USD from `static_openai_reference_2026_05`.
+- Full proof and repeat-UAT runbooks are documented in `docs/testing/phase3-agentforce-case-analysis-proof.md` and `docs/testing/customer-self-service-phase3-case-analysis-uat.md`.
+
 ### Phase 4: Knowledge RAG
 
 Tasks:

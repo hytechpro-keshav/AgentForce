@@ -61,16 +61,39 @@ Bridge status meanings:
 - `UNEXPECTED_ERROR`: Apex could not complete the health check safely.
 - `NOT_CHECKED`: Apex initialized a response before the call completed.
 
-## Deferred After Phase 1
+## Implemented After Phase 1
 
-Do not claim these are implemented by the health bridge:
+The items below were deferred during the original Phase 1 health bridge, then
+implemented incrementally through the Phase 2 and Phase 3 proof slices.
 
-- case triage summaries
-- `ModelRouter` provider selection
-- OpenAI calls
+Phase 2 support triage:
+
+- Agentforce topic: `AI_API_Support_Triage`
+- Apex invocable: `AgentforceAiApiSupportTriage`
+- Endpoint: `callout:Agentforce_AI_API_Phase2/agent/support/triage-case`
+- Proof doc: [Phase 2 Agentforce Support Triage Proof](../testing/phase2-agentforce-support-triage-proof.md)
+
+Phase 3 case analysis:
+
+- Agentforce topic: `AI_API_Case_Analysis`
+- Apex invocable: `AgentforceAiApiCaseAnalysis`
+- Endpoint: `callout:Agentforce_AI_API_Phase2/agent/support/analyze-case`
+- Scope: `agentforce:case-analysis`
+- Proof doc: [Phase 3 Agentforce Support Operations Case Analysis Proof](../testing/phase3-agentforce-case-analysis-proof.md)
+- UAT doc: [Customer Self-Service Phase 3 Case Analysis UAT](../testing/customer-self-service-phase3-case-analysis-uat.md)
+
+Phase 3 live proof captured preview session `019e17f5-da92-7985-a175-dcda32fd71ee`, Apex log `07Lg5000006ww1qEAA`, Railway HTTP request `ps5HMH7PRgOXaVCG-8Y8hA`, and telemetry request `sf-case-analysis-1778518466738-0`.
+
+## Still Deferred After Phase 3
+
+Do not claim these are implemented by the Phase 1, Phase 2, or Phase 3 proof
+slices:
+
 - LangChain or Pinecone RAG
 - Open WebUI integration
 - React customer chat
+- durable Case creation, update, escalation, or closure flows from the Phase 3
+  analysis topic
 
 ## Temporary Production Topic
 
