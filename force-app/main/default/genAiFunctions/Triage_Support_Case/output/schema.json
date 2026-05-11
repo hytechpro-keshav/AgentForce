@@ -1,0 +1,111 @@
+{
+  "unevaluatedProperties": false,
+  "properties": {
+    "triageStatus": {
+      "title": "Triage Status",
+      "description": "TRIAGED, VALIDATION_ERROR, AUTH_ERROR, BACKEND_ERROR, CALLOUT_FAILED, MALFORMED_RESPONSE, UNEXPECTED_ERROR, or NOT_TRIAGED.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "safeMessage": {
+      "title": "Safe Message",
+      "description": "Customer-safe message that Agentforce can display.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "recommendedPriority": {
+      "title": "Recommended Priority",
+      "description": "AI API recommended support priority: low, normal, high, or critical.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "summary": {
+      "title": "Summary",
+      "description": "Short safe summary returned by the AI API support triage endpoint.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "suggestedNextStep": {
+      "title": "Suggested Next Step",
+      "description": "Short safe next step returned by the AI API support triage endpoint.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "provider": {
+      "title": "Provider",
+      "description": "LLM provider used by the AI API ModelRouter.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "model": {
+      "title": "Model",
+      "description": "LLM model used by the AI API ModelRouter.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "fallbackUsed": {
+      "title": "Fallback Used",
+      "description": "True when the AI API ModelRouter used a fallback provider.",
+      "lightning:type": "lightning__booleanType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "latencyMs": {
+      "title": "Latency Ms",
+      "description": "AI API provider call latency in milliseconds.",
+      "lightning:type": "lightning__numberType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": false
+    },
+    "httpStatusCode": {
+      "title": "HTTP Status Code",
+      "description": "HTTP status code returned by the AI API support triage endpoint.",
+      "lightning:type": "lightning__numberType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": false
+    },
+    "endpoint": {
+      "title": "Endpoint",
+      "description": "AI API endpoint called by Apex.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": false
+    },
+    "requestId": {
+      "title": "Request Id",
+      "description": "Safe correlation id sent to backend telemetry.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": false
+    },
+    "triagedAt": {
+      "title": "Triaged At",
+      "description": "Timestamp when Apex ran support triage.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": false
+    }
+  },
+  "lightning:type": "lightning__objectType",
+  "lightning:textIndexed": true
+}

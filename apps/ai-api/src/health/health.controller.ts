@@ -8,6 +8,7 @@ import {
 import { createHash, timingSafeEqual } from "crypto";
 
 import { AppConfigService } from "../config/app-config.service";
+import { Public } from "../auth/public.decorator";
 import { HealthService } from "./health.service";
 import type {
   HealthContextResponse,
@@ -21,11 +22,13 @@ export class HealthController {
     private readonly config: AppConfigService
   ) {}
 
+  @Public()
   @Get("live")
   getLiveness(): HealthLivenessResponse {
     return this.healthService.getLiveness();
   }
 
+  @Public()
   @Get()
   getHealth(
     @Headers("x-agentforce-health-key") providedHealthKey?: string

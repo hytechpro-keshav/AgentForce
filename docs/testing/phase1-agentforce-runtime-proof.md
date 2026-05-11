@@ -8,7 +8,11 @@ This proof covers the Phase 1 health bridge only: `Customer_Self_Service_Agent` 
 
 An earlier proof was captured through `Agentforce_Service_Agent` while validating the narrow runtime bridge. That proof is now superseded because the product target for Phase 1 is Customer Self Service. The temporary health topic has been removed from `Agentforce_Service_Agent` and moved to `Customer_Self_Service_Agent`.
 
-This does not validate OpenAI, ModelRouter, LangChain, Pinecone, Open WebUI, or React customer chat behavior. Those capabilities remain deferred to later phases.
+This does not validate OpenAI, ModelRouter, LangChain, Pinecone, Open WebUI, or React customer chat behavior. The first through-Agentforce Phase 2 support triage proof is documented separately in `docs/testing/phase2-agentforce-support-triage-proof.md`.
+
+## Phase 2 Manual Agentforce Follow-Up
+
+Completed on 2026-05-11. `Customer_Self_Service_Agent` now has a temporary `AI_API_Support_Triage` topic that invokes `Triage Support Case`, calls the JWT-protected `/agent/support/triage-case` endpoint, and returns a triage-only recommendation without creating a Case. See `docs/testing/phase2-agentforce-support-triage-proof.md` for deployment IDs, prompt flow, Apex log ID, and Railway telemetry.
 
 ## Environment
 

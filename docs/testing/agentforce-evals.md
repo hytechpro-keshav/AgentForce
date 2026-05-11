@@ -81,3 +81,13 @@ Use [Phase 1 Agentforce Runtime Proof](phase1-agentforce-runtime-proof.md) for t
 This Phase 1 eval package is for a temporary published operational topic. Once later phases replace the customer-facing need for `AI_API_Health_Bridge`, remove that topic from the planner bundle, retire the user-facing health-bridge eval from the production agent, and keep any remaining health verification in ops-only smoke or internal-agent coverage.
 
 Auth failures from `Check_AI_API_Health` are operational setup failures. Treat them separately from model behavior quality and do not add OpenAI, RAG, Pinecone, Open WebUI, or React chat secrets while validating Phase 1.
+
+## Current Phase 2 Package
+
+Use `agent-eval/customer-self-service-phase2-triage.yaml` for `Customer_Self_Service_Agent` temporary Phase 2 support-triage eval coverage.
+
+Use [Customer Self-Service Phase 2 Support Triage UAT](customer-self-service-phase2-triage-uat.md) as the manual prompt-and-log runbook for the published agent path.
+
+Use [Phase 2 Agentforce Support Triage Proof](phase2-agentforce-support-triage-proof.md) for deployment IDs, preview evidence, Apex runtime logs, Railway HTTP logs, masking proof, and telemetry proof.
+
+This Phase 2 package is for a temporary published triage-only topic. Keep the eval and UAT evidence while `AI_API_Support_Triage` remains in the customer-facing planner bundle, then retire or rename the user-facing coverage when a permanent production triage flow replaces it.

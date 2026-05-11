@@ -22,7 +22,39 @@ NODE_ENV=production
 AGENTFORCE_HEALTH_API_KEY=<stored in Railway only>
 ```
 
-Do not add OpenAI, Pinecone, Open WebUI, or React chat secrets for Phase 1.
+For a Phase 1-only deployment, do not add OpenAI, Pinecone, Open WebUI, or React chat secrets.
+
+## Phase 2 Railway Variables
+
+The current Railway service can run the Phase 2 backend foundation once the same deployed app has these additional variables. Store every secret in Railway; do not commit `.env` files or raw token values.
+
+Required for Phase 2 production-like traffic:
+
+```text
+NODE_ENV=production
+AGENTFORCE_HEALTH_API_KEY=<same secret used by the Salesforce External Credential>
+LLM_DEFAULT_PROVIDER=openai
+OPENAI_API_KEY=<Railway secret>
+OPENAI_DEFAULT_MODEL=gpt-4o-mini
+AI_API_JWT_SECRET=<Railway secret>
+AI_API_JWT_ISSUER=salesforce-agentforce
+AI_API_JWT_AUDIENCE=agentforce-ai-api
+```
+
+Use a model that the configured OpenAI project can access. On 2026-05-11, the deployed project returned `model_not_found` for `gpt-4.1-mini`, so production was set to `gpt-4o-mini` and the Phase 2 Agentforce proof passed with that model.
+
+Optional provider fallback or future self-hosted/custom model path:
+
+```text
+LLM_FALLBACK_PROVIDER=openai-compatible
+OPENAI_COMPAT_BASE_URL=https://<custom-openai-compatible-host>/v1
+OPENAI_COMPAT_API_KEY=<Railway secret if required by that host>
+OPENAI_COMPAT_DEFAULT_MODEL=<custom-model-id>
+```
+
+Do not set `AI_API_AUTH_DISABLED=true` in Railway production. That flag is only for local development or explicit test environments.
+
+Phase 2 telemetry now emits token totals and estimated USD cost-reference fields for known priced models such as `gpt-4o-mini`. These values are safe structured observability fields in Railway logs, not billing-system truth.
 
 ## Salesforce Credential Setup
 
@@ -78,6 +110,41 @@ Recommended manual prompts for the published agent:
 - `Invoke Check AI API Health and tell me the bridgeStatus, healthStatus, and httpStatusCode for the AI API health bridge.`
 
 This published planner topic exists to prove the narrow Phase 1 bridge in a real runtime. When later production phases are live, remove `AI_API_Health_Bridge` and its planner-local action from the customer-facing planner bundle, but keep the underlying health bridge implementation or move it to an ops-only surface until replacement monitoring exists.
+
+Phase 2 backend routes can be smoke-tested directly with a JWT after the Railway variables above are present. The first through-Agentforce Phase 2 path is now `/agent/support/triage-case`, called by `Triage Support Case` through `Agentforce_AI_API_Phase2`; runtime proof is captured in `docs/testing/phase2-agentforce-support-triage-proof.md`.
+
+## Phase 2 Support Triage Credential Setup
+
+The first through-Agentforce Phase 2 path uses a separate credential from the Phase 1 health bridge.
+
+Non-secret metadata in source:
+
+- `force-app/main/default/namedCredentials/Agentforce_AI_API_Phase2.namedCredential-meta.xml`
+- `force-app/main/default/externalCredentials/Agentforce_AI_API_Phase2.externalCredential-meta.xml`
+- `force-app/main/default/genAiFunctions/Triage_Support_Case/`
+- `force-app/main/default/classes/AgentforceAiApiSupportTriage.cls`
+
+The External Credential header formula is:
+
+```text
+Authorization: Bearer {!$Credential.Agentforce_AI_API_Phase2.AI_API_PHASE2_BEARER_JWT}
+```
+
+Store the encrypted value `AI_API_PHASE2_BEARER_JWT` for External Credential `Agentforce_AI_API_Phase2` / principal `Agentforce_AI_API_Phase2_Principal` through Salesforce REST resource `/services/data/v66.0/named-credentials/credential`. Do not use `/services/data/v66.0/connect/named-credentials/credential`; that path returns 404 in this org.
+
+The JWT claims used for the proof were:
+
+```text
+sub=salesforce-agentforce
+scope=agentforce:support-triage
+iss=salesforce-agentforce
+aud=agentforce-ai-api
+alg=HS256
+```
+
+Mint the token from Railway `AI_API_JWT_SECRET` and pipe it directly into Salesforce secure credential storage. Do not print the token, commit it, or put it in Apex source. After storing the credential, validate with a direct Apex smoke and then through `Customer_Self_Service_Agent` preview.
+
+Phase 2 proof artifacts are recorded in `docs/testing/phase2-agentforce-support-triage-proof.md`.
 
 ## Rollback
 

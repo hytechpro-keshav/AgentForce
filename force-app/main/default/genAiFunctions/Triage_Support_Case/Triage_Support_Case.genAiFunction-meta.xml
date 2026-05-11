@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<GenAiFunction xmlns="http://soap.sforce.com/2006/04/metadata">
+  <description
+  >Calls the NestJS AI API support triage endpoint and returns a safe structured Phase 2 triage recommendation.</description>
+  <developerName>Triage_Support_Case</developerName>
+  <invocationTarget>AgentforceAiApiSupportTriage</invocationTarget>
+  <invocationTargetType>apex</invocationTargetType>
+  <isConfirmationRequired>true</isConfirmationRequired>
+  <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+  <localDeveloperName>Triage_Support_Case</localDeveloperName>
+  <masterLabel>Triage Support Case</masterLabel>
+  <progressIndicatorMessage>Triaging support case</progressIndicatorMessage>
+</GenAiFunction>

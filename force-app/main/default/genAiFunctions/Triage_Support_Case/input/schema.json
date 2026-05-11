@@ -1,0 +1,36 @@
+{
+  "required": ["subject", "description"],
+  "unevaluatedProperties": false,
+  "properties": {
+    "subject": {
+      "title": "Subject",
+      "description": "Short issue subject for AI support triage. Do not include raw names, emails, phone numbers, account IDs, payment data, or exact addresses.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isUserInput": true
+    },
+    "description": {
+      "title": "Description",
+      "description": "Issue description to triage through the AI API. Use a sanitized summary; common identifiers are masked before provider calls.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isUserInput": true
+    },
+    "reportedPriority": {
+      "title": "Reported Priority",
+      "description": "Optional customer-reported priority: low, normal, high, or critical.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    },
+    "requestId": {
+      "title": "Request Id",
+      "description": "Optional safe correlation id for backend telemetry.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": false
+    }
+  },
+  "lightning:type": "lightning__objectType",
+  "lightning:textIndexed": true
+}

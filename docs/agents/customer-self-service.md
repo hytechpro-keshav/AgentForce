@@ -201,6 +201,27 @@ The traced Builder rerun confirms the customer-facing agent actually executed `A
 
 This topic should be removed from the customer-facing planner bundle after later production phases replace the temporary proof surface. Keep the underlying health endpoint, Apex bridge, and smoke docs until replacement monitoring exists or the check is moved to an internal-only ops surface.
 
+## Phase 2 AI API Support Triage
+
+The Customer Self Service Agent also carries a temporary Phase 2 proof topic for provider-backed triage-only recommendations.
+
+- Temporary topic: `AI_API_Support_Triage`
+- Action: `Triage_Support_Case`
+- Apex bridge: `AgentforceAiApiSupportTriage`
+- Endpoint: `callout:Agentforce_AI_API_Phase2/agent/support/triage-case`
+- Current proof model: `gpt-4o-mini`
+
+Current proof behavior:
+
+- The topic is triage-only and must not create, update, escalate, or close a Salesforce Case.
+- Apex masks common identifiers before the callout.
+- NestJS masks provider requests again before dispatch and logs token plus cost-reference telemetry without raw prompt text.
+- The published agent was manually validated with both a non-sensitive triage prompt and a masking prompt that contained sample identifiers.
+
+Use the dedicated runbook here: [Customer Self-Service Phase 2 Support Triage UAT](../testing/customer-self-service-phase2-triage-uat.md)
+
+Use the proof doc here: [Phase 2 Agentforce Support Triage Proof](../testing/phase2-agentforce-support-triage-proof.md)
+
 ## OTP Restore Status
 
 The current published planner bundle is no longer in temporary manual-testing mode.

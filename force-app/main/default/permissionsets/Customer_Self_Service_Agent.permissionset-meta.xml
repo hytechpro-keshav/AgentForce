@@ -12,8 +12,17 @@
         <apexClass>CustomerSelfServiceEscalateRequest</apexClass>
         <enabled>true</enabled>
     </classAccesses>
+    <classAccesses>
+        <apexClass>AgentforceAiApiSupportTriage</apexClass>
+        <enabled>true</enabled>
+    </classAccesses>
+        <externalCredentialPrincipalAccesses>
+                <enabled>true</enabled>
+                <externalCredentialPrincipal
+    >Agentforce_AI_API_Phase2-Agentforce_AI_API_Phase2_Principal</externalCredentialPrincipal>
+        </externalCredentialPrincipalAccesses>
     <description
-  >Least-privilege runtime access for Customer Self-Service Agent Phase 0 actions.</description>
+  >Least-privilege runtime access for Customer Self-Service Agent actions.</description>
     <hasActivationRequired>false</hasActivationRequired>
     <label>Customer Self-Service Agent</label>
     <objectPermissions>

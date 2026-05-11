@@ -683,6 +683,8 @@ Agent services never import vendor SDKs directly.
 
 This keeps the backend ready for clients who start with OpenAI in production v1 and later require Anthropic, Azure OpenAI, Gemini, a custom SDK, and a self-hosted OpenAI-compatible model.
 
+Phase 2 implementation note, 2026-05-11: the current `apps/ai-api` code uses `LLM_DEFAULT_PROVIDER`, `LLM_FALLBACK_PROVIDER`, `OPENAI_API_KEY`, `OPENAI_DEFAULT_MODEL`, `OPENAI_COMPAT_BASE_URL`, `OPENAI_COMPAT_API_KEY`, and `OPENAI_COMPAT_DEFAULT_MODEL` for the provider foundation. The deployed Railway service is set to `OPENAI_DEFAULT_MODEL=gpt-4o-mini` because the configured OpenAI project returned `model_not_found` for `gpt-4.1-mini`.
+
 ## 13. Core API Endpoints
 
 Start with these endpoints:
@@ -715,13 +717,26 @@ NestJS backend:
 NODE_ENV=production
 PORT=3000
 
-DEFAULT_CHAT_PROVIDER=openai
+OPENAI_API_KEY=
+OPENAI_DEFAULT_MODEL=gpt-4o-mini
+LLM_DEFAULT_PROVIDER=openai
+LLM_FALLBACK_PROVIDER=
+
+AI_API_JWT_SECRET=
+AI_API_JWT_ISSUER=
+AI_API_JWT_AUDIENCE=
+AI_API_TELEMETRY_ENABLED=true
+
+AGENTFORCE_HEALTH_API_KEY=
+
+OPENAI_COMPAT_BASE_URL=
+OPENAI_COMPAT_API_KEY=
+OPENAI_COMPAT_DEFAULT_MODEL=
+
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+
 DEFAULT_EMBEDDING_PROVIDER=openai
 MODEL_ROUTING_MODE=static
-
-OPENAI_API_KEY=
-OPENAI_CHAT_MODEL=gpt-4.1-mini
-OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 
 ANTHROPIC_API_KEY=
 ANTHROPIC_CHAT_MODEL=
@@ -732,11 +747,6 @@ AZURE_OPENAI_DEPLOYMENT=
 
 GEMINI_API_KEY=
 GEMINI_CHAT_MODEL=
-
-OPENAI_COMPATIBLE_API_KEY=
-OPENAI_COMPATIBLE_BASE_URL=
-OPENAI_COMPATIBLE_CHAT_MODEL=
-OPENAI_COMPATIBLE_EMBEDDING_MODEL=
 
 VECTOR_DB_PROVIDER=pinecone
 VECTOR_DB_URL=
@@ -753,6 +763,8 @@ AGENT_API_KEY=
 CORS_ORIGIN=
 LOG_LEVEL=info
 ```
+
+Phase 2 implemented variables are the `LLM_*`, `OPENAI_*`, `OPENAI_COMPAT_*`, `AI_API_JWT_*`, `AI_API_TELEMETRY_ENABLED`, and `AGENTFORCE_HEALTH_API_KEY` values above. Pinecone, embeddings, Salesforce OAuth/private-key integration, CORS hardening, and Open WebUI service variables remain later-phase work unless a deployment task explicitly enables them.
 
 Open WebUI service:
 
@@ -949,6 +961,15 @@ Exit criteria:
 - agent services call `ModelRouter`, not OpenAI directly
 - OpenAI can be swapped by config
 - at least one OpenAI-compatible endpoint path exists for future custom/self-hosted models
+
+Implementation status, 2026-05-11: completed for the backend foundation.
+
+- `ChatService` and `SupportTriageService` call `ModelRouter`; provider-specific HTTP is isolated in the OpenAI/OpenAI-compatible adapter.
+- OpenAI can be swapped by setting `LLM_DEFAULT_PROVIDER`, `LLM_FALLBACK_PROVIDER`, `OPENAI_*`, and `OPENAI_COMPAT_*` Railway variables without service rewrites.
+- OpenAI-compatible routes are present at `GET /v1/models` and `POST /v1/chat/completions` for future custom or self-hosted models.
+- Token and cost-reference telemetry are emitted through the no-op safe `TelemetryService`; current built-in cost coverage is intentionally narrow to the live `gpt-4o-mini` proof model.
+- Local validation passed: focused unit tests, e2e tests, typecheck, and the ai-api build.
+- Agentforce runtime proof for these new LLM routes is still a follow-up: add a Salesforce action/Apex or Flow binding to `/agent/support/triage-case` or `/chat/message`, configure JWT auth through secure credentials, then repeat the Phase 1 runtime-user trace proof.
 
 ### Phase 3: Support Operations Agent With External AI
 

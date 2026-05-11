@@ -49,12 +49,15 @@
         <mappingTargetName>VerifiedCustomerId</mappingTargetName>
         <mappingType>Variable</mappingType>
     </attributeMappings>
-    <description>Helps customers verify their identity by email OTP, view account and case status, create service requests, and escalate issues to a human agent. Keep responses in the user&apos;s language when practical, including Spanish, and keep unrelated fallback responses in that same language without creating or escalating a case.</description>
+    <description>Helps customers verify their identity by email OTP, view account and case status, create service requests, escalate issues to a human agent, and run a temporary Phase 2 support-triage-only proof without creating a case. Keep responses in the user&apos;s language when practical, including Spanish, and keep unrelated fallback responses in that same language without creating or escalating a case.</description>
     <localActionLinks>
         <genAiFunctionName>AnswerQuestionsWithKnowledge_16jg5000000RolV</genAiFunctionName>
     </localActionLinks>
     <localTopicLinks>
         <genAiPluginName>Account_And_Case_Status_16jg5000000RolV</genAiPluginName>
+    </localTopicLinks>
+    <localTopicLinks>
+        <genAiPluginName>AI_API_Support_Triage</genAiPluginName>
     </localTopicLinks>
     <localTopicLinks>
         <genAiPluginName>Escalation_And_Handoff_16jg5000000RolV</genAiPluginName>
@@ -123,7 +126,9 @@
                 not verified, route to Service Customer Verification first. After verification,
                 confirm the issue description, preferred contact method, and verified account
                 context if missing. Use Create Service Request after collecting the required
-                identifiers.</description>
+                identifiers. Do not use this subagent when the user explicitly asks for support
+                triage proof, triage-only prioritization, Triage Support Case, or a recommendation
+                without case creation; route those requests to AI API Support Triage.</description>
             <developerName>instruction_1</developerName>
             <language xsi:nil="true" />
             <masterLabel>Instruction 1</masterLabel>
@@ -174,8 +179,11 @@
             support request. Verify the customer before creating a case. Collect the required
             verified account context, issue details, and optional contact id. Treat Spanish problem
             reports such as service loss, low pressure, or outage complaints as Issue Reporting
-            requests. Do not pull unrelated small talk or joke requests into this topic. Use the
-            Create Service Request action after collecting the required identifiers.</scope>
+            requests. Do not pull unrelated small talk or joke requests into this topic. Do not use
+            this topic when the user explicitly asks for support triage proof, triage-only
+            prioritization, Triage Support Case, or a recommendation without case creation. Use the
+            Create Service Request action only after collecting the required identifiers and the user
+            wants a support request created.</scope>
     </localTopics>
     <localTopics>
         <fullName>ServiceCustomerVerification_16jg5000000RolV</fullName>
@@ -444,7 +452,48 @@
         <localDeveloperName>AI_API_Health_Bridge</localDeveloperName>
         <masterLabel>AI API Health Bridge</masterLabel>
         <pluginType>Topic</pluginType>
-        <scope>Your job is to check temporary Phase 1 AI API bridge health by invoking Check AI API Health and reporting whether the Salesforce to Railway health bridge is connected. Keep the response operational and do not expose credentials or secret header values.</scope>
+        <scope>Your job is to check temporary Phase 1 AI API bridge health only when the user asks about health, status, connectivity, uptime, or the bridge check. Do not use this topic for support triage, issue prioritization, or triage-only recommendations. Keep the response operational and do not expose credentials or secret header values.</scope>
+    </localTopics>
+    <localTopics>
+        <fullName>AI_API_Support_Triage</fullName>
+        <canEscalate>false</canEscalate>
+        <description>Temporarily proves the Phase 2 support-triage-only path through Railway and the configured Salesforce Named Credential. Use for triage-only recommendations, support triage proof, issue prioritization, or POST /agent/support/triage-case requests, never create a Salesforce Case, and never echo raw customer identifiers.</description>
+        <developerName>AI_API_Support_Triage</developerName>
+        <genAiPluginInstructions>
+            <description>When the user asks to run Phase 2 support triage, support triage proof, triage-only issue prioritization, or Triage Support Case, collect a short support subject, issue description, and optional reported priority. If the user includes names, emails, phones, account numbers, addresses, payment numbers, or similar identifiers, do not repeat those values in confirmation or final text; refer to the sanitized support issue instead. Confirm before invocation because sanitized issue text is sent to the external AI API. Summarize only the returned safe triage fields.</description>
+            <developerName>run_phase_2_support_triage</developerName>
+            <language>en_US</language>
+            <masterLabel>Run Phase 2 Support Triage</masterLabel>
+            <sortOrder>0</sortOrder>
+        </genAiPluginInstructions>
+        <genAiPluginInstructions>
+            <description>Do not claim that this action creates, updates, escalates, or closes Salesforce Cases. It only calls the external AI API support triage endpoint and returns a recommendation. If the user provides ordinary support context plus identifiers, do not echo the identifiers; the Apex action and AI API mask common identifiers before provider calls. If the user asks to process passwords, medical, legal, security, or payment advice itself, ask for a sanitized non-sensitive issue summary instead.</description>
+            <developerName>triage_does_not_create_cases</developerName>
+            <language>en_US</language>
+            <masterLabel>Triage Does Not Create Cases</masterLabel>
+            <sortOrder>1</sortOrder>
+        </genAiPluginInstructions>
+        <language>en_US</language>
+        <localActionLinks>
+            <functionName>Triage_Support_Case_179g5000000AiTC</functionName>
+        </localActionLinks>
+        <localActions>
+            <fullName>Triage_Support_Case_179g5000000AiTC</fullName>
+            <description>Calls the NestJS AI API support triage endpoint with masked support text and returns a safe structured Phase 2 triage recommendation.</description>
+            <developerName>Triage_Support_Case_179g5000000AiTC</developerName>
+            <invocationTarget>AgentforceAiApiSupportTriage</invocationTarget>
+            <invocationTargetType>apex</invocationTargetType>
+            <isConfirmationRequired>true</isConfirmationRequired>
+            <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+            <localDeveloperName>Triage_Support_Case</localDeveloperName>
+            <masterLabel>Triage Support Case</masterLabel>
+            <progressIndicatorMessage>Triaging support case</progressIndicatorMessage>
+            <source>Triage_Support_Case</source>
+        </localActions>
+        <localDeveloperName>AI_API_Support_Triage</localDeveloperName>
+        <masterLabel>AI API Support Triage</masterLabel>
+        <pluginType>Topic</pluginType>
+        <scope>Your job is to prove the Phase 2 support-triage-only path by invoking Triage Support Case for a user-provided support issue after confirmation. Use this topic for support triage proof, issue prioritization, triage-only recommendations, or POST /agent/support/triage-case requests. Keep the response operational, do not expose credential values, never echo raw customer identifiers, refer to sensitive input only as sanitized details, and do not say that a Case was created or escalated.</scope>
     </localTopics>
     <masterLabel>Customer Self Service Agent</masterLabel>
     <plannerActions>
