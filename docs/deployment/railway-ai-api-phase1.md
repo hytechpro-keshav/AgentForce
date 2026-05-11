@@ -70,7 +70,7 @@ Salesforce validation:
 sf apex run test --class-names AgentforceAiApiHealthCheckTest --wait 30 --result-format human
 ```
 
-After metadata is deployed and the agent is active, run the Support Operations Phase 1 eval in `agent-eval/support-operations-phase1-health.yaml` or equivalent Testing Center cases.
+After metadata is deployed and the agent is active, run the `Agentforce_Service_Agent` Phase 1 eval in `agent-eval/support-operations-phase1-health.yaml` or equivalent Testing Center cases.
 
 ## Rollback
 

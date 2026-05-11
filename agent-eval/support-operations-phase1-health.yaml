@@ -1,4 +1,4 @@
-agent: Support_Operations_Agent
+agent: Agentforce_Service_Agent
 
 tests:
   - name: HealthBridgeConnectedStatus
