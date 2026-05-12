@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<GenAiFunction xmlns="http://soap.sforce.com/2006/04/metadata">
+  <description
+  >Calls the NestJS AI API Phase 4 Knowledge RAG endpoint and returns a safe source-cited answer from external LangChain/Pinecone retrieval, not native Salesforce Answer Questions with Knowledge.</description>
+  <developerName>Answer_Knowledge_RAG</developerName>
+  <invocationTarget>AgentforceAiApiKnowledgeRag</invocationTarget>
+  <invocationTargetType>apex</invocationTargetType>
+  <isConfirmationRequired>true</isConfirmationRequired>
+  <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+  <localDeveloperName>Answer_Knowledge_RAG</localDeveloperName>
+  <masterLabel>Answer Knowledge RAG</masterLabel>
+  <progressIndicatorMessage
+  >Searching external knowledge sources</progressIndicatorMessage>
+</GenAiFunction>

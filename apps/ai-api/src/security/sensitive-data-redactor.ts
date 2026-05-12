@@ -11,12 +11,13 @@ const STREET_ADDRESS_PATTERN =
   /\b\d{1,6}\s+[A-Z0-9.'-]+(?:\s+[A-Z0-9.'-]+){0,5}\s+(?:street|st|avenue|ave|road|rd|boulevard|blvd|lane|ln|drive|dr|court|ct|circle|cir|way|place|pl)\b(?:[.,]?\s*(?:apt|apartment|unit|suite|ste|#)\s*[A-Z0-9-]+)?/gi;
 const LABELED_IDENTIFIER_PATTERN =
   /\b(?:account|customer|contact|case|order|invoice|policy|subscription|member)\s*(?:id|number|no|#|:|-)\s*[A-Z0-9][A-Z0-9_.-]{4,}\b/gi;
-const SALESFORCE_ID_PATTERN = /\b[A-Z0-9]{15}(?:[A-Z0-9]{3})?\b/gi;
+const SALESFORCE_ID_PATTERN =
+  /\b(?:001|003|005|006|00D|00Q|00T|500|501|701|a0[A-Z0-9])[A-Z0-9]{12}(?:[A-Z0-9]{3})?\b/gi;
 const LONG_NUMBER_PATTERN = /\b\d{6,}\b/g;
 const LABELED_NAME_PATTERN =
   /\b((?:(?:my|My|customer|Customer|contact|Contact|caller|Caller|account holder|Account holder|policyholder|Policyholder)\s+name\s*(?:is|:)?|(?:name|Name)\s*:)\s+)[A-Z][A-Za-z'\-]+(?:\s+[A-Z][A-Za-z'\-]+){0,2}\b/g;
 const CONTEXTUAL_NAME_PATTERN =
-  /\b((?:for|For|from|From|by|By|customer|Customer|contact|Contact|caller|Caller)\s+)[A-Z][A-Za-z'\-]+(?:\s+[A-Z][A-Za-z'\-]+){1,2}\b/g;
+  /\b((?:for|For|from|From|by|By|tell|Tell|customer|Customer|contact|Contact|caller|Caller)\s+)[A-Z][A-Za-z'\-]+(?:\s+[A-Z][A-Za-z'\-]+){1,2}\b/g;
 
 export function redactSensitiveText(value: string): string {
   return value

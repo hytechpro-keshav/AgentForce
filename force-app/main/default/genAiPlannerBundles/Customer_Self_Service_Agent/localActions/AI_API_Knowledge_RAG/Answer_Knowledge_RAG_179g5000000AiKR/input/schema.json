@@ -1,0 +1,36 @@
+{
+  "required": ["question"],
+  "unevaluatedProperties": false,
+  "properties": {
+    "question": {
+      "title": "Knowledge Question",
+      "description": "Question to answer through external AI API Knowledge RAG. Do not include raw names, emails, phone numbers, account IDs, payment data, passwords, or exact addresses.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isUserInput": true
+    },
+    "contextSummary": {
+      "title": "Context Summary",
+      "description": "Optional sanitized support context for retrieval. Common identifiers are masked before provider calls.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isUserInput": true
+    },
+    "locale": {
+      "title": "Locale",
+      "description": "Optional locale hint, for example en-US or es-US.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    },
+    "requestId": {
+      "title": "Request Id",
+      "description": "Optional safe correlation id for backend telemetry.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": false
+    }
+  },
+  "lightning:type": "lightning__objectType",
+  "lightning:textIndexed": true
+}

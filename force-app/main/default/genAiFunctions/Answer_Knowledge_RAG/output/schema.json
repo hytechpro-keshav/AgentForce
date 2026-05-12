@@ -1,0 +1,183 @@
+{
+  "unevaluatedProperties": false,
+  "properties": {
+    "ragStatus": {
+      "title": "RAG Status",
+      "description": "ANSWERED, NO_SOURCE, VALIDATION_ERROR, AUTH_ERROR, BACKEND_ERROR, CALLOUT_FAILED, MALFORMED_RESPONSE, UNEXPECTED_ERROR, or NOT_ANSWERED.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "safeMessage": {
+      "title": "Safe Message",
+      "description": "Customer-safe status message Agentforce can display.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "answer": {
+      "title": "Answer",
+      "description": "Source-grounded answer returned by the AI API, or explicit no-source uncertainty.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "sourceCount": {
+      "title": "Source Count",
+      "description": "Number of authorized sources returned with the answer.",
+      "lightning:type": "lightning__numberType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "sourceIds": {
+      "title": "Source Ids",
+      "description": "Semicolon-separated source ids used by the answer.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "sourceTitles": {
+      "title": "Source Titles",
+      "description": "Semicolon-separated source titles used by the answer.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "sourceUrls": {
+      "title": "Source URLs",
+      "description": "Semicolon-separated source URLs or Salesforce record references used by the answer.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "sourceVersions": {
+      "title": "Source Versions",
+      "description": "Semicolon-separated source document versions used by the answer.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "sourceChunkIds": {
+      "title": "Source Chunk Ids",
+      "description": "Semicolon-separated source chunk ids used by the answer.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "retrievalIds": {
+      "title": "Retrieval Ids",
+      "description": "Safe retrieval ids from the AI API RAG workflow.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "sourcesJson": {
+      "title": "Sources JSON",
+      "description": "Optional safe JSON source metadata without raw chunk text.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "provider": {
+      "title": "Provider",
+      "description": "LLM provider used by the AI API ModelRouter.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "model": {
+      "title": "Model",
+      "description": "LLM model used by the AI API ModelRouter.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "embeddingProvider": {
+      "title": "Embedding Provider",
+      "description": "Embedding provider used by the AI API.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "embeddingModel": {
+      "title": "Embedding Model",
+      "description": "Embedding model used by the AI API.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "vectorDbProvider": {
+      "title": "Vector DB Provider",
+      "description": "Vector database provider used by the AI API.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "fallbackUsed": {
+      "title": "Fallback Used",
+      "description": "True when the AI API ModelRouter used a fallback provider.",
+      "lightning:type": "lightning__booleanType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "latencyMs": {
+      "title": "Latency Ms",
+      "description": "AI API RAG workflow latency in milliseconds.",
+      "lightning:type": "lightning__numberType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": false
+    },
+    "httpStatusCode": {
+      "title": "HTTP Status Code",
+      "description": "HTTP status code returned by the AI API Knowledge RAG endpoint.",
+      "lightning:type": "lightning__numberType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": false
+    },
+    "endpoint": {
+      "title": "Endpoint",
+      "description": "AI API endpoint called by Apex.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": false
+    },
+    "requestId": {
+      "title": "Request Id",
+      "description": "Safe correlation id sent to backend telemetry.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": false
+    },
+    "answeredAt": {
+      "title": "Answered At",
+      "description": "Timestamp when Apex ran Knowledge RAG.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": false
+    }
+  },
+  "lightning:type": "lightning__objectType",
+  "lightning:textIndexed": true
+}

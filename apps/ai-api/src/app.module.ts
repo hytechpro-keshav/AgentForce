@@ -8,6 +8,7 @@ import { HealthModule } from "./health/health.module";
 import { LlmModule } from "./llm/llm.module";
 import { ObservabilityModule } from "./observability/observability.module";
 import { OpenAiCompatibleModule } from "./openai-compatible/openai-compatible.module";
+import { RagModule } from "./rag/rag.module";
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { OpenAiCompatibleModule } from "./openai-compatible/openai-compatible.mo
     HealthModule,
     ChatModule,
     AgentsModule,
+    RagModule,
     OpenAiCompatibleModule
   ]
 })

@@ -91,3 +91,17 @@ Use [Customer Self-Service Phase 2 Support Triage UAT](customer-self-service-pha
 Use [Phase 2 Agentforce Support Triage Proof](phase2-agentforce-support-triage-proof.md) for deployment IDs, preview evidence, Apex runtime logs, Railway HTTP logs, masking proof, and telemetry proof.
 
 This Phase 2 package is for a temporary published triage-only topic. Keep the eval and UAT evidence while `AI_API_Support_Triage` remains in the customer-facing planner bundle, then retire or rename the user-facing coverage when a permanent production triage flow replaces it.
+
+## Current Phase 3 Package
+
+Use `agent-eval/customer-self-service-phase3-case-analysis.yaml` for `Customer_Self_Service_Agent` temporary Phase 3 case-analysis eval coverage.
+
+Use [Customer Self-Service Phase 3 Case Analysis UAT](customer-self-service-phase3-case-analysis-uat.md) and [Phase 3 Agentforce Case Analysis Proof](phase3-agentforce-case-analysis-proof.md) for deployment IDs, preview evidence, Apex runtime logs, Railway HTTP logs, masking proof, and telemetry proof.
+
+## Current Phase 4 Package
+
+Use `agent-eval/customer-self-service-phase4-knowledge-rag.yaml` for `Customer_Self_Service_Agent` temporary Phase 4 external Knowledge RAG eval coverage.
+
+Use [Customer Self-Service Phase 4 Knowledge RAG UAT](customer-self-service-phase4-knowledge-rag-uat.md) and [Phase 4 Knowledge RAG Proof](phase4-knowledge-rag-proof.md) for sample corpus ingestion, direct API answer/search evidence, Agentforce preview evidence, tenant/access filtering, stale/deleted source exclusion, masking proof, and RAG telemetry proof.
+
+This Phase 4 package is for external LangChain/Pinecone source-cited RAG. It must not be used to claim Phase 5 Open WebUI deployment or Phase 6 React customer chat completion.

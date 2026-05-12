@@ -21,6 +21,7 @@ const MODEL_PRICING_REFERENCES: ModelPricingReference[] = [
 ];
 
 export type LlmCallOutcome = "success" | "fallback" | "error";
+export type AiWorkflowOutcome = "success" | "error";
 
 export interface ChatCompletionTelemetry {
   provider: string;
@@ -33,6 +34,57 @@ export interface ChatCompletionTelemetry {
   fallbackUsed: boolean;
   attemptedProviders: string[];
   outcome: LlmCallOutcome;
+  errorKind?: string;
+}
+
+export interface EmbeddingTelemetry {
+  provider: string;
+  model?: string;
+  requestId?: string;
+  inputCount: number;
+  inputTokens?: number;
+  totalTokens?: number;
+  cacheHitCount?: number;
+  cacheMissCount?: number;
+  latencyMs: number;
+  outcome: AiWorkflowOutcome;
+  errorKind?: string;
+}
+
+export interface RagWorkflowTelemetry {
+  operation: "ingest" | "retrieve" | "answer";
+  requestId?: string;
+  retrievalId?: string;
+  tenantId?: string;
+  namespace?: string;
+  sourceIds?: string[];
+  chunkIds?: string[];
+  sourceVersions?: string[];
+  provider?: string;
+  model?: string;
+  embeddingProvider?: string;
+  embeddingModel?: string;
+  vectorDbProvider?: string;
+  topK?: number;
+  scoreThreshold?: number;
+  documentsReceived?: number;
+  chunksIndexed?: number;
+  retrievedCount?: number;
+  returnedCount?: number;
+  accessFilteredCount?: number;
+  emptyRetrieval?: boolean;
+  fallbackReason?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  embeddingInputTokens?: number;
+  embeddingTotalTokens?: number;
+  ingestLatencyMs?: number;
+  embeddingLatencyMs?: number;
+  retrievalLatencyMs?: number;
+  generationLatencyMs?: number;
+  totalLatencyMs: number;
+  outcome: AiWorkflowOutcome;
   errorKind?: string;
 }
 
@@ -78,6 +130,89 @@ export class TelemetryService {
         "gen_ai.router.attempted_providers": event.attemptedProviders,
         request_id: event.requestId,
         ...costReference
+      });
+    } catch {
+      // Telemetry must never break a request. Swallow intentionally.
+    }
+  }
+
+  recordEmbedding(event: EmbeddingTelemetry): void {
+    if (!this.enabled) {
+      return;
+    }
+    try {
+      this.logger.log({
+        event: "gen_ai.client.operation",
+        "gen_ai.operation.name": "embedding",
+        "gen_ai.system": event.provider,
+        "gen_ai.request.model": event.model,
+        "gen_ai.embedding.input_count": event.inputCount,
+        "gen_ai.embedding.input_tokens": event.inputTokens,
+        "gen_ai.embedding.total_tokens": event.totalTokens,
+        "gen_ai.embedding.cache_hit_count": event.cacheHitCount,
+        "gen_ai.embedding.cache_miss_count": event.cacheMissCount,
+        "gen_ai.client.latency_ms": event.latencyMs,
+        "gen_ai.response.outcome": event.outcome,
+        "gen_ai.response.error_kind": event.errorKind,
+        request_id: event.requestId
+      });
+    } catch {
+      // Telemetry must never break a request. Swallow intentionally.
+    }
+  }
+
+  recordRagWorkflow(event: RagWorkflowTelemetry): void {
+    if (!this.enabled) {
+      return;
+    }
+    try {
+      this.logger.log({
+        event: "gen_ai.workflow.operation",
+        "gen_ai.operation.name": `rag.${event.operation}`,
+        "gen_ai.system": event.provider,
+        "gen_ai.request.model": event.model,
+        "gen_ai.embedding.provider": event.embeddingProvider,
+        "gen_ai.embedding.model": event.embeddingModel,
+        "gen_ai.vector.provider": event.vectorDbProvider,
+        "gen_ai.rag.tenant_id": event.tenantId,
+        "gen_ai.rag.namespace": event.namespace,
+        "gen_ai.rag.retrieval_id": event.retrievalId,
+        "gen_ai.rag.source_ids": event.sourceIds,
+        "gen_ai.rag.chunk_ids": event.chunkIds,
+        "gen_ai.rag.source_versions": event.sourceVersions,
+        "gen_ai.rag.top_k": event.topK,
+        "gen_ai.rag.score_threshold": event.scoreThreshold,
+        "gen_ai.rag.documents_received": event.documentsReceived,
+        "gen_ai.rag.chunks_indexed": event.chunksIndexed,
+        "gen_ai.rag.retrieved_count": event.retrievedCount,
+        "gen_ai.rag.returned_count": event.returnedCount,
+        "gen_ai.rag.access_filtered_count": event.accessFilteredCount,
+        "gen_ai.rag.empty_retrieval": event.emptyRetrieval,
+        "gen_ai.rag.fallback_reason": event.fallbackReason,
+        "gen_ai.embedding.input_tokens": event.embeddingInputTokens,
+        "gen_ai.embedding.total_tokens": event.embeddingTotalTokens,
+        "gen_ai.usage.input_tokens": event.inputTokens,
+        "gen_ai.usage.output_tokens": event.outputTokens,
+        "gen_ai.usage.total_tokens": event.totalTokens,
+        "gen_ai.latency.ingest_ms": event.ingestLatencyMs,
+        "gen_ai.latency.embedding_ms": event.embeddingLatencyMs,
+        "gen_ai.latency.retrieval_ms": event.retrievalLatencyMs,
+        "gen_ai.latency.generation_ms": event.generationLatencyMs,
+        "gen_ai.latency.total_ms": event.totalLatencyMs,
+        "gen_ai.response.outcome": event.outcome,
+        "gen_ai.response.error_kind": event.errorKind,
+        request_id: event.requestId,
+        ...TelemetryService.buildCostReference({
+          provider: event.provider ?? "",
+          model: event.model,
+          latencyMs: event.generationLatencyMs ?? event.totalLatencyMs,
+          inputTokens: event.inputTokens ?? 0,
+          outputTokens: event.outputTokens ?? 0,
+          totalTokens: event.totalTokens ?? 0,
+          fallbackUsed: false,
+          attemptedProviders: [],
+          outcome: event.outcome === "success" ? "success" : "error"
+        })
       });
     } catch {
       // Telemetry must never break a request. Swallow intentionally.

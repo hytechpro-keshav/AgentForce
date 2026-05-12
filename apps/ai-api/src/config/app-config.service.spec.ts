@@ -82,4 +82,160 @@ describe("AppConfigService", () => {
     expect(config.jwt.secret).toBe("jwt-secret");
     expect(config.jwt.disabled).toBe(false);
   });
+
+  it("loads RAG defaults for local staged setup without requiring secrets", () => {
+    const config = AppConfigService.load({});
+
+    expect(config.rag).toMatchObject({
+      enabled: false,
+      defaultEmbeddingProvider: "openai",
+      vectorDbProvider: "qdrant",
+      defaultNamespace: "customer-self-service",
+      chunkSize: 900,
+      chunkOverlap: 120,
+      topK: 4,
+      scoreThreshold: 0.68,
+      embeddingCacheMaxItems: 2048,
+      rateLimitWindowMs: 60000,
+      rateLimitMaxRequests: 60,
+      ingestRateLimitMaxRequests: 10
+    });
+  });
+
+  it("loads deterministic local RAG config for tests", () => {
+    const config = AppConfigService.load({
+      RAG_ENABLED: "true",
+      DEFAULT_EMBEDDING_PROVIDER: "deterministic",
+      VECTOR_DB_PROVIDER: "memory",
+      RAG_DEFAULT_NAMESPACE: "phase4-test",
+      RAG_CHUNK_SIZE: "400",
+      RAG_CHUNK_OVERLAP: "40",
+      RAG_TOP_K: "6",
+      RAG_SCORE_THRESHOLD: "0.2",
+      EMBEDDING_CACHE_MAX_ITEMS: "16",
+      RAG_RATE_LIMIT_WINDOW_MS: "30000",
+      RAG_RATE_LIMIT_MAX_REQUESTS: "20",
+      RAG_INGEST_RATE_LIMIT_MAX_REQUESTS: "3"
+    });
+
+    expect(config.rag).toMatchObject({
+      enabled: true,
+      defaultEmbeddingProvider: "deterministic",
+      vectorDbProvider: "memory",
+      defaultNamespace: "phase4-test",
+      chunkSize: 400,
+      chunkOverlap: 40,
+      topK: 6,
+      scoreThreshold: 0.2,
+      embeddingCacheMaxItems: 16,
+      rateLimitWindowMs: 30000,
+      rateLimitMaxRequests: 20,
+      ingestRateLimitMaxRequests: 3
+    });
+  });
+
+  it("requires production RAG to use OpenAI embeddings and an external vector DB", () => {
+    expect(() =>
+      AppConfigService.load({
+        NODE_ENV: "production",
+        AGENTFORCE_HEALTH_API_KEY: "x",
+        RAG_ENABLED: "true",
+        DEFAULT_EMBEDDING_PROVIDER: "deterministic",
+        VECTOR_DB_PROVIDER: "memory"
+      })
+    ).toThrow("DEFAULT_EMBEDDING_PROVIDER=openai is required");
+  });
+
+  it("requires default Qdrant config in production when RAG is enabled", () => {
+    expect(() =>
+      AppConfigService.load({
+        NODE_ENV: "production",
+        AGENTFORCE_HEALTH_API_KEY: "x",
+        RAG_ENABLED: "true",
+        OPENAI_API_KEY: "sk-test"
+      })
+    ).toThrow(
+      "QDRANT_URL and QDRANT_COLLECTION or VECTOR_DB_INDEX are required"
+    );
+  });
+
+  it("requires Qdrant URL and collection in production when Qdrant RAG is enabled", () => {
+    expect(() =>
+      AppConfigService.load({
+        NODE_ENV: "production",
+        AGENTFORCE_HEALTH_API_KEY: "x",
+        RAG_ENABLED: "true",
+        OPENAI_API_KEY: "sk-test",
+        VECTOR_DB_PROVIDER: "qdrant"
+      })
+    ).toThrow(
+      "QDRANT_URL and QDRANT_COLLECTION or VECTOR_DB_INDEX are required"
+    );
+  });
+
+  it("loads OpenAI embedding and Pinecone config when configured", () => {
+    const config = AppConfigService.load({
+      RAG_ENABLED: "true",
+      OPENAI_API_KEY: "sk-test",
+      OPENAI_BASE_URL: "https://openai.test/v1",
+      OPENAI_EMBEDDING_MODEL: "text-embedding-3-large",
+      VECTOR_DB_API_KEY: "pc-test",
+      VECTOR_DB_INDEX: "knowledge-index"
+    });
+
+    expect(config.rag.openAiEmbedding).toEqual({
+      apiKey: "sk-test",
+      baseUrl: "https://openai.test/v1",
+      model: "text-embedding-3-large"
+    });
+    expect(config.rag.pinecone).toEqual({
+      apiKey: "pc-test",
+      index: "knowledge-index"
+    });
+  });
+
+  it("loads Qdrant config when configured", () => {
+    const config = AppConfigService.load({
+      RAG_ENABLED: "true",
+      OPENAI_API_KEY: "sk-test",
+      VECTOR_DB_PROVIDER: "qdrant",
+      QDRANT_URL: "https://qdrant.internal",
+      QDRANT_COLLECTION: "agentforce-knowledge-rag",
+      QDRANT_API_KEY: "qd-test",
+      QDRANT_VECTOR_SIZE: "1536",
+      QDRANT_DISTANCE: "cosine"
+    });
+
+    expect(config.rag.qdrant).toEqual({
+      url: "https://qdrant.internal",
+      apiKey: "qd-test",
+      collection: "agentforce-knowledge-rag",
+      vectorSize: 1536,
+      distance: "Cosine"
+    });
+  });
+
+  it("rejects invalid RAG chunk and score settings", () => {
+    expect(() =>
+      AppConfigService.load({ RAG_CHUNK_SIZE: "100", RAG_CHUNK_OVERLAP: "100" })
+    ).toThrow("RAG_CHUNK_OVERLAP must be smaller");
+    expect(() => AppConfigService.load({ RAG_SCORE_THRESHOLD: "2" })).toThrow(
+      "RAG_SCORE_THRESHOLD must be a number from 0 to 1."
+    );
+    expect(() =>
+      AppConfigService.load({ EMBEDDING_CACHE_MAX_ITEMS: "-1" })
+    ).toThrow("EMBEDDING_CACHE_MAX_ITEMS must be a non-negative integer.");
+    expect(() =>
+      AppConfigService.load({ RAG_RATE_LIMIT_WINDOW_MS: "0" })
+    ).toThrow("RAG_RATE_LIMIT_WINDOW_MS must be a positive integer.");
+    expect(() =>
+      AppConfigService.load({ RAG_RATE_LIMIT_MAX_REQUESTS: "0" })
+    ).toThrow("RAG_RATE_LIMIT_MAX_REQUESTS must be a positive integer.");
+    expect(() =>
+      AppConfigService.load({ RAG_INGEST_RATE_LIMIT_MAX_REQUESTS: "0" })
+    ).toThrow("RAG_INGEST_RATE_LIMIT_MAX_REQUESTS must be a positive integer.");
+    expect(() => AppConfigService.load({ QDRANT_DISTANCE: "bad" })).toThrow(
+      "QDRANT_DISTANCE must be Cosine, Dot, or Euclid."
+    );
+  });
 });

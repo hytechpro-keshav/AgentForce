@@ -49,7 +49,7 @@
         <mappingTargetName>VerifiedCustomerId</mappingTargetName>
         <mappingType>Variable</mappingType>
     </attributeMappings>
-    <description>Helps customers verify their identity by email OTP, view account and case status, create service requests, escalate issues to a human agent, and run a temporary Phase 2 support-triage-only proof without creating a case. Keep responses in the user&apos;s language when practical, including Spanish, and keep unrelated fallback responses in that same language without creating or escalating a case.</description>
+    <description>Helps customers verify their identity by email OTP, view account and case status, create service requests, escalate issues to a human agent, and run temporary AI API proof topics for Phase 2 support triage, Phase 3 case analysis, and Phase 4 external Knowledge RAG without creating or escalating a case unless the dedicated Salesforce-native workflow is selected. Keep responses in the user&apos;s language when practical, including Spanish, and keep unrelated fallback responses in that same language without creating or escalating a case.</description>
     <localActionLinks>
         <genAiFunctionName>AnswerQuestionsWithKnowledge_16jg5000000RolV</genAiFunctionName>
     </localActionLinks>
@@ -61,6 +61,9 @@
     </localTopicLinks>
     <localTopicLinks>
         <genAiPluginName>AI_API_Case_Analysis</genAiPluginName>
+    </localTopicLinks>
+    <localTopicLinks>
+        <genAiPluginName>AI_API_Knowledge_RAG</genAiPluginName>
     </localTopicLinks>
     <localTopicLinks>
         <genAiPluginName>Escalation_And_Handoff_16jg5000000RolV</genAiPluginName>
@@ -538,6 +541,54 @@
         <masterLabel>AI API Case Analysis</masterLabel>
         <pluginType>Topic</pluginType>
         <scope>Your job is to prove the Phase 3 Support Operations case-analysis path by invoking Analyze Support Case for a user-provided Salesforce Case after confirmation. Use this topic for case-analysis proof, Support Operations recommendations, or POST /agent/support/analyze-case requests. Keep the response operational, do not expose credential values, never echo raw customer identifiers, refer to sensitive input only as sanitized details, and do not say that a Case was created, updated, escalated, or closed.</scope>
+    </localTopics>
+    <localTopics>
+        <fullName>AI_API_Knowledge_RAG</fullName>
+        <canEscalate>false</canEscalate>
+        <description>Phase 4 external source-cited Knowledge RAG topic. Uses the NestJS AI API with LangChain, OpenAI embeddings, and Pinecone-backed retrieval through Answer Knowledge RAG. This is not native Salesforce Answer Questions with Knowledge and must not invoke Phase 1 health, Phase 2 triage, or Phase 3 case analysis.</description>
+        <developerName>AI_API_Knowledge_RAG</developerName>
+        <genAiPluginInstructions>
+            <description>When the user asks for Phase 4 Knowledge RAG, external source-cited knowledge, Pinecone RAG, LangChain RAG, or Answer Knowledge RAG, collect a concise knowledge question and optional sanitized context summary. Do not repeat raw names, emails, phone numbers, account numbers, addresses, payment numbers, passwords, or other identifiers in confirmation or final text. Confirm before invocation because sanitized text is sent to the external AI API for retrieval and answer generation.</description>
+            <developerName>run_phase_4_knowledge_rag</developerName>
+            <language>en_US</language>
+            <masterLabel>Run Phase 4 Knowledge RAG</masterLabel>
+            <sortOrder>0</sortOrder>
+        </genAiPluginInstructions>
+        <genAiPluginInstructions>
+            <description>Use only the Answer Knowledge RAG action in this topic. Do not invoke Check AI API Health, Triage Support Case, Analyze Support Case, Create Service Request, Escalate Service Request, or native Answer Questions with Knowledge unless the user explicitly asks for those separate workflows. If the AI API returns NO_SOURCE, say no authorized source was found and do not invent an answer.</description>
+            <developerName>knowledge_rag_source_boundary</developerName>
+            <language>en_US</language>
+            <masterLabel>Knowledge RAG Source Boundary</masterLabel>
+            <sortOrder>1</sortOrder>
+        </genAiPluginInstructions>
+        <genAiPluginInstructions>
+            <description>If the request asks for legal, medical, regulated financial, payment-card, password, security credential, outage restoration guarantee, account-specific, or unsupported advice, do not force an answer. Use the returned no-source or escalation-safe message and route to a human support owner when needed.</description>
+            <developerName>knowledge_rag_regulated_boundary</developerName>
+            <language>en_US</language>
+            <masterLabel>Knowledge RAG Regulated Boundary</masterLabel>
+            <sortOrder>2</sortOrder>
+        </genAiPluginInstructions>
+        <language>en_US</language>
+        <localActionLinks>
+            <functionName>Answer_Knowledge_RAG_179g5000000AiKR</functionName>
+        </localActionLinks>
+        <localActions>
+            <fullName>Answer_Knowledge_RAG_179g5000000AiKR</fullName>
+            <description>Calls the NestJS AI API Phase 4 Knowledge RAG endpoint with masked question text and returns a safe source-cited answer with flat source metadata.</description>
+            <developerName>Answer_Knowledge_RAG_179g5000000AiKR</developerName>
+            <invocationTarget>AgentforceAiApiKnowledgeRag</invocationTarget>
+            <invocationTargetType>apex</invocationTargetType>
+            <isConfirmationRequired>true</isConfirmationRequired>
+            <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+            <localDeveloperName>Answer_Knowledge_RAG</localDeveloperName>
+            <masterLabel>Answer Knowledge RAG</masterLabel>
+            <progressIndicatorMessage>Searching external knowledge sources</progressIndicatorMessage>
+            <source>Answer_Knowledge_RAG</source>
+        </localActions>
+        <localDeveloperName>AI_API_Knowledge_RAG</localDeveloperName>
+        <masterLabel>AI API Knowledge RAG</masterLabel>
+        <pluginType>Topic</pluginType>
+        <scope>Your job is to prove the Phase 4 external Knowledge RAG path by invoking Answer Knowledge RAG after confirmation. Use this topic only for source-cited external RAG questions backed by the NestJS AI API, LangChain, OpenAI embeddings, and Pinecone retrieval. Keep the response operational, do not expose credential values, never echo raw customer identifiers, report source ids/titles/URLs when returned, and say no authorized source was found when ragStatus is NO_SOURCE. Do not claim Open WebUI deployment or React customer chat is complete.</scope>
     </localTopics>
     <masterLabel>Customer Self Service Agent</masterLabel>
     <plannerActions>

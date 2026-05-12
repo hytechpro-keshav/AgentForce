@@ -8,6 +8,9 @@ Start with [ARCHITECTURE.md](ARCHITECTURE.md) and [AGENTS.md](AGENTS.md) before 
 
 - Salesforce DX project with Agentforce planner bundles, prompt templates, Apex classes, and LWC tooling.
 - Monorepo app path for Phase 1 NestJS work: `apps/ai-api`.
+- Phase 4 Knowledge RAG implementation under `apps/ai-api` with LangChain,
+  OpenAI embeddings, Qdrant/Pinecone vector adapters, source-cited answers,
+  sample corpus, and Agentforce bridge metadata.
 - Existing Agentforce metadata under `force-app/main/default/genAiPlannerBundles`, `genAiFunctions`, and `genAiPromptTemplates`.
 - Architecture configuration for Agentforce, NestJS, RAG, Open WebUI, telemetry, React chat, and release work.
 
@@ -47,6 +50,14 @@ npm run ai-api:test
 npm run ai-api:test:e2e
 npm run ai-api:build
 AI_API_BASE_URL=http://localhost:3000 AGENTFORCE_HEALTH_API_KEY=smoke-key npm run ai-api:smoke:health
+```
+
+Phase 4 sample RAG smoke after deploying/configuring the ai-api:
+
+```bash
+AI_API_BASE_URL=https://<ai-api>.up.railway.app \
+AI_API_BEARER_TOKEN=<scoped-jwt> \
+scripts/smoke/phase4-rag-ingest-sample.sh
 ```
 
 Run the checks that match the files you changed. Org-dependent Agentforce evals should be run after metadata is deployed to an enabled org.

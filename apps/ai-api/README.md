@@ -6,6 +6,9 @@ Phase 2 adds the provider-agnostic LLM foundation (`ModelRouter`,
 `LlmProvider`, OpenAI + OpenAI-compatible providers, DTO-validated
 `/chat/message`, `/agent/support/triage-case`, and the
 OpenAI-compatible `/v1/models` and `/v1/chat/completions` gateway routes).
+Phase 4 adds production-sane Knowledge RAG with LangChain chunking/prompt
+composition, OpenAI embeddings through `EmbeddingProvider`, Qdrant/Pinecone
+behind `VectorStore`, and source-cited `/agent/knowledge/answer` responses.
 
 ## Phase 2 Status
 
@@ -20,6 +23,60 @@ Status as of 2026-05-11: the backend foundation is implemented, deployed, and pr
 - Cost telemetry proof: `TelemetryService` logs token counts plus estimated USD cost references for known priced models such as `gpt-4o-mini`, without logging raw prompt or completion text.
 
 This completes the Phase 2 backend exit criteria and the first Salesforce Agentforce runtime proof for a provider-backed route. Detailed proof is in [../../docs/testing/phase2-agentforce-support-triage-proof.md](../../docs/testing/phase2-agentforce-support-triage-proof.md).
+
+## Phase 4 Knowledge RAG Status
+
+Status as of 2026-05-12: Phase 4 is implemented, deployed, and proven through
+direct Railway API calls and `Customer_Self_Service_Agent` preview. The
+no-Pinecone proof path uses a self-hosted Railway Qdrant service to avoid
+initial Pinecone spend.
+
+- `POST /rag/ingest` requires scope `rag:ingest`.
+- `POST /rag/search` requires scope `rag:search`; diagnostic stale-source
+  search additionally requires `rag:search:stale`.
+- `POST /agent/knowledge/answer` requires scope `agentforce:knowledge-rag`.
+- RAG services use `EmbeddingProvider` and `VectorStore`; they do not call
+  OpenAI, Qdrant, or Pinecone directly outside provider/adapters.
+- Tenant and namespace come from trusted JWT claims (`tenant`, `rag_namespace`
+  or `namespace`) plus server config, not client-supplied values alone.
+- Answers return structured sources and flat Agentforce-safe source strings.
+- If no authorized source is found, the answer route returns `NO_SOURCE` and
+  does not generate a generic model answer.
+- Embeddings are normalized in `EmbeddingRouter` before storage/search so cosine
+  similarity behavior is stable across providers.
+- Zero-magnitude or invalid embeddings are rejected before storage/search.
+- Embeddings are cached in-process by a SHA-256 key of provider/model/text so
+  repeated identical chunks or queries avoid repeated OpenAI embedding calls.
+- RAG routes have in-process rate limits keyed by tenant, subject, route, and
+  client address. Defaults are 60 search/answer requests per minute and 10
+  ingest requests per minute.
+- Long documents are chunked before embedding. The default `RAG_CHUNK_SIZE=900`
+  characters is roughly a 200 to 250 token target for typical English support
+  text, with `RAG_CHUNK_OVERLAP=120` for continuity.
+- Production vectors are stored in Qdrant by default; Pinecone remains a
+  supported adapter. Tests and local deterministic runs use the in-memory vector
+  store.
+
+Final proof evidence:
+
+- Railway deployment `7c310667-493f-4f69-a88e-0f930034b55f`.
+- Qdrant collection `agentforce-knowledge-rag`, namespace
+  `customer-self-service`.
+- Direct answer request `phase4-rag-smoke-answer`, retrieval id
+  `rag-f9a46283-1bc6-4403-aca3-8d0540ae76da`.
+- Agentforce preview session `019e1b14-b15b-7eed-b6f7-b23ccc7bbcb4`, retrieval
+  id `rag-65b4a589-7084-4168-b8f4-c6302ed5ad4e`.
+
+Sample corpus and smoke script:
+
+```bash
+AI_API_BASE_URL=https://<ai-api>.up.railway.app \
+AI_API_BEARER_TOKEN=<scoped-jwt> \
+scripts/smoke/phase4-rag-ingest-sample.sh
+```
+
+Phase 4 implements LangChain/Qdrant RAG. Open WebUI production deployment and
+the React customer chat window remain explicit later phases.
 
 ## Local Commands
 
@@ -95,6 +152,36 @@ Phase 2 and Phase 3:
 - `AI_API_AUTH_DISABLED=true` — explicit dev/test escape hatch. Logs an unauthenticated profile.
 - `AI_API_TELEMETRY_ENABLED=false` — disables the structured `gen_ai.*` telemetry sink. Telemetry is no-op safe by design.
 
+Phase 4 RAG:
+
+- `RAG_ENABLED=true` — enables RAG routes; disabled routes fail closed with
+  `rag_not_configured`.
+- `DEFAULT_EMBEDDING_PROVIDER` — `openai` in production, `deterministic` only
+  for local deterministic tests.
+- `OPENAI_EMBEDDING_MODEL` — default `text-embedding-3-small`.
+- `VECTOR_DB_PROVIDER` — default `qdrant`; `pinecone` remains supported;
+  `memory` is only for local deterministic tests.
+- `QDRANT_URL` — Qdrant REST endpoint, for example
+  `http://qdrant.railway.internal:6333` on Railway private networking.
+- `QDRANT_API_KEY` — optional Qdrant API key stored only in Railway variables.
+- `QDRANT_COLLECTION` — default `agentforce-knowledge-rag`.
+- `QDRANT_VECTOR_SIZE` — default `1536` for `text-embedding-3-small`.
+- `QDRANT_DISTANCE` — default `Cosine`.
+- `VECTOR_DB_API_KEY` — legacy Pinecone API key if `VECTOR_DB_PROVIDER=pinecone`.
+- `VECTOR_DB_INDEX` — legacy Pinecone index name; also accepted as a fallback
+  collection name for Qdrant.
+- `RAG_DEFAULT_NAMESPACE` or `VECTOR_DB_NAMESPACE` — default
+  `customer-self-service`.
+- `RAG_CHUNK_SIZE` — default `900`.
+- `RAG_CHUNK_OVERLAP` — default `120`.
+- `RAG_TOP_K` — default `4`.
+- `RAG_SCORE_THRESHOLD` — default `0.68` for the validated Qdrant path.
+- `EMBEDDING_CACHE_MAX_ITEMS` — default `2048`; set `0` to disable the
+  in-process normalized embedding cache for repeated queries/chunks.
+- `RAG_RATE_LIMIT_WINDOW_MS` — default `60000`.
+- `RAG_RATE_LIMIT_MAX_REQUESTS` — default `60` for search/answer routes.
+- `RAG_INGEST_RATE_LIMIT_MAX_REQUESTS` — default `10` for ingestion.
+
 For the deployed Railway app, set secrets in Railway variables only. Required production values for Phase 2 and Phase 3 are:
 
 ```text
@@ -119,9 +206,9 @@ OPENAI_COMPAT_API_KEY=<Railway secret when the custom endpoint requires auth>
 OPENAI_COMPAT_DEFAULT_MODEL=<custom-model-id>
 ```
 
-Never commit any of the above values. Never log raw prompts, completions, secrets, or PII.
+Never commit any of the above values. Never log raw prompts, completions, secrets, retrieved chunks, provider bodies, JWTs, or PII.
 
-Phase 2 still does not implement LangChain, Pinecone, Open WebUI deployment wiring, or the React chat window. Those remain explicit deferred phases.
+Phase 4 implements LangChain/Qdrant RAG. Open WebUI production deployment wiring and the React chat window remain explicit deferred phases.
 
 ## Telemetry And Cost References
 

@@ -1,0 +1,122 @@
+{
+  "namespace": "customer-self-service",
+  "requestId": "phase4-sample-ingest",
+  "documents": [
+    {
+      "sourceId": "kb-troubleshoot-intermittent-service-v1",
+      "title": "Troubleshooting intermittent residential service",
+      "url": "https://help.example.invalid/kb/troubleshoot-intermittent-service",
+      "documentVersion": "2026.05.11",
+      "tenantId": "tenant-demo",
+      "namespace": "customer-self-service",
+      "access": {
+        "visibility": "tenant"
+      },
+      "language": "en-US",
+      "tags": ["troubleshooting", "service", "customer-safe"],
+      "content": "Approved troubleshooting guidance for intermittent residential service: ask the customer to confirm whether the service light is steady, blinking, or off; ask whether neighbors are affected only if the customer volunteers that information; ask the customer to power cycle the gateway by unplugging power for 30 seconds and waiting up to 5 minutes for reconnect. If service remains down after the gateway restart or there are safety concerns, create or escalate a support case. Do not promise restoration time unless it is backed by an authoritative outage record."
+    },
+    {
+      "sourceId": "kb-policy-credits-v2",
+      "title": "Customer-safe credit and fee waiver policy",
+      "url": "https://help.example.invalid/policies/credits-fee-waivers",
+      "documentVersion": "2026.04.30",
+      "tenantId": "tenant-demo",
+      "namespace": "customer-self-service",
+      "access": {
+        "visibility": "public"
+      },
+      "language": "en-US",
+      "tags": ["policy", "billing", "customer-safe"],
+      "content": "Approved customer-facing billing policy: the support agent may explain that credits and fee waivers require human review and are not guaranteed. The agent may collect a sanitized summary and create a case for billing support. The agent must not approve refunds, waive fees, request card details, or promise a billing outcome. For disputes, payment arrangements, legal notices, or collections, route to a human support owner."
+    },
+    {
+      "sourceId": "kb-es-servicio-basico-v1",
+      "title": "Guia de ayuda en espanol para servicio intermitente",
+      "url": "https://help.example.invalid/es/kb/servicio-intermitente",
+      "documentVersion": "2026.05.01",
+      "tenantId": "tenant-demo",
+      "namespace": "customer-self-service",
+      "access": {
+        "visibility": "tenant"
+      },
+      "language": "es-US",
+      "tags": ["spanish", "troubleshooting", "customer-safe"],
+      "content": "Contenido aprobado en espanol: si el cliente dice que no tiene servicio o que el servicio es intermitente, pedir una descripcion breve y segura del problema, recomendar reiniciar el equipo desconectando la energia por 30 segundos, y crear o escalar un caso si el servicio no vuelve. No pedir numeros de tarjeta, contrasenas, datos medicos, ni consejos legales."
+    },
+    {
+      "sourceId": "kb-escalation-human-handoff-v1",
+      "title": "Escalation and human handoff boundaries",
+      "salesforceRecordRef": "Knowledge__kav:KA-PHASE4-HANDOFF",
+      "documentVersion": "2026.05.11",
+      "tenantId": "tenant-demo",
+      "namespace": "customer-self-service",
+      "access": {
+        "visibility": "tenant"
+      },
+      "language": "en-US",
+      "tags": ["escalation", "handoff", "policy"],
+      "content": "Escalate to a human support owner when the customer asks for a supervisor, when the agent has no authorized source, when the request involves legal, medical, safety, regulated financial, password, payment-card, account ownership, outage restoration guarantees, or identity mismatch topics, or when the customer says the issue remains unresolved after approved troubleshooting. The handoff summary should be sanitized and should not include raw identifiers."
+    },
+    {
+      "sourceId": "kb-account-safe-guidance-v1",
+      "title": "Account-safe answer boundaries",
+      "salesforceRecordRef": "Knowledge__kav:KA-PHASE4-ACCOUNT-SAFE",
+      "documentVersion": "2026.05.11",
+      "tenantId": "tenant-demo",
+      "namespace": "customer-self-service",
+      "access": {
+        "visibility": "restricted",
+        "allowedScopes": ["agentforce:knowledge-rag"],
+        "allowedRoles": ["support-agent"]
+      },
+      "language": "en-US",
+      "tags": ["account", "security", "restricted"],
+      "content": "Account-safe guidance: do not reveal account status, open cases, billing details, service address, or appointment details from RAG alone. Account-specific facts must come from verified Salesforce reads. RAG may provide general policy or troubleshooting guidance and may tell the agent to verify the customer before account-specific actions."
+    },
+    {
+      "sourceId": "kb-stale-router-reset-v0",
+      "title": "Stale router reset article replaced by gateway guidance",
+      "url": "https://help.example.invalid/kb/router-reset-legacy",
+      "documentVersion": "2025.10.01",
+      "tenantId": "tenant-demo",
+      "namespace": "customer-self-service",
+      "access": {
+        "visibility": "tenant"
+      },
+      "stale": true,
+      "language": "en-US",
+      "tags": ["stale", "legacy"],
+      "content": "This stale article previously told customers to hold the reset pin for 20 seconds. It has been replaced and must not be used for current answers. Current approved troubleshooting uses a power cycle, not a factory reset."
+    },
+    {
+      "sourceId": "kb-deleted-outage-credit-v0",
+      "title": "Deleted outage credit promise article",
+      "url": "https://help.example.invalid/kb/deleted-outage-credit",
+      "documentVersion": "2024.12.15",
+      "tenantId": "tenant-demo",
+      "namespace": "customer-self-service",
+      "access": {
+        "visibility": "tenant"
+      },
+      "deleted": true,
+      "language": "en-US",
+      "tags": ["deleted", "billing"],
+      "content": "Deleted source. Do not use. This retired article contained an unapproved automatic outage credit promise and must never ground an answer."
+    },
+    {
+      "sourceId": "kb-unanswerable-boundaries-v1",
+      "title": "Unsupported question boundaries",
+      "url": "https://help.example.invalid/kb/unsupported-boundaries",
+      "documentVersion": "2026.05.11",
+      "tenantId": "tenant-demo",
+      "namespace": "customer-self-service",
+      "access": {
+        "visibility": "public"
+      },
+      "language": "en-US",
+      "tags": ["boundary", "safety", "no-source"],
+      "content": "If the approved knowledge corpus does not contain a source for a customer question, the answer must say that no authorized source was found. The agent must not infer unsupported details, invent service restoration times, give medical or legal advice, handle passwords or payment cards, or claim that Open WebUI or React chat deployment is complete."
+    }
+  ]
+}

@@ -246,6 +246,40 @@ Local and live validation passed: 43 unit tests, 17 e2e tests, NestJS typecheck 
 
 Published preview proof: session `019e17f5-da92-7985-a175-dcda32fd71ee`, Apex log `07Lg5000006ww1qEAA`, Railway HTTP request `ps5HMH7PRgOXaVCG-8Y8hA`, telemetry request `sf-case-analysis-1778518466738-0`, tokens `169/47/216`, estimated cost `0.00005355` USD. Full proof IDs are documented in [Phase 3 Agentforce Case Analysis Proof](../testing/phase3-agentforce-case-analysis-proof.md), and repeat UAT is documented in [Customer Self-Service Phase 3 Case Analysis UAT](../testing/customer-self-service-phase3-case-analysis-uat.md). The eval YAML lives at `agent-eval/customer-self-service-phase3-case-analysis.yaml`.
 
+## Phase 4 AI API Knowledge RAG
+
+Phase 4 adds an external source-cited Knowledge RAG path to the same Customer
+Self Service agent.
+
+- Temporary topic: `AI_API_Knowledge_RAG`
+- Action: `Answer_Knowledge_RAG`
+- Apex bridge: `AgentforceAiApiKnowledgeRag`
+- Endpoint: `callout:Agentforce_AI_API_Phase2/agent/knowledge/answer`
+- Scope: `agentforce:knowledge-rag`
+- Retrieval path: NestJS RAG services -> `EmbeddingProvider` -> Qdrant/Pinecone
+  `VectorStore` -> LangChain prompt composition -> `ModelRouter`
+
+Planner-visible structured fields stay flat: `ragStatus`, `safeMessage`,
+`answer`, `sourceCount`, `sourceIds`, `sourceTitles`, `sourceUrls`,
+`sourceVersions`, `sourceChunkIds`, `retrievalIds`, and optional `sourcesJson`
+without raw chunk text.
+
+Current implementation behavior:
+
+- The topic is external source-cited RAG only and requires confirmation before
+  the first proof invocation.
+- Apex masks common identifiers before the callout.
+- NestJS enforces tenant/namespace and access filtering before generation.
+- Deleted sources are never returned; stale sources are excluded from default
+  retrieval.
+- If no authorized source is found, the backend returns `NO_SOURCE` and does
+  not ask the model for a generic answer.
+- Planner instructions forbid invoking Phase 1, Phase 2, Phase 3, native
+  Salesforce Knowledge, issue creation, or escalation unintentionally.
+- Open WebUI production deployment and React customer chat remain later phases.
+
+Runbook and proof template: [Customer Self-Service Phase 4 Knowledge RAG UAT](../testing/customer-self-service-phase4-knowledge-rag-uat.md) and [Phase 4 Knowledge RAG Proof](../testing/phase4-knowledge-rag-proof.md). The eval YAML lives at `agent-eval/customer-self-service-phase4-knowledge-rag.yaml`.
+
 ## OTP Restore Status
 
 The current published planner bundle is no longer in temporary manual-testing mode.
