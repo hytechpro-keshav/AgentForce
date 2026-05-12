@@ -1,28 +1,28 @@
 {
-  "required" : [ "ConfirmPassword", "InputEmail", "NewPassword" ],
-  "unevaluatedProperties" : false,
-  "properties" : {
-    "ConfirmPassword" : {
-      "title" : "ConfirmPassword",
-      "description" : "Confirm Password",
-      "lightning:type" : "lightning__textType",
-      "lightning:isPII" : false,
-      "copilotAction:isUserInput" : true
+  "required": ["ConfirmPassword", "InputEmail", "NewPassword"],
+  "unevaluatedProperties": false,
+  "properties": {
+    "ConfirmPassword": {
+      "title": "ConfirmPassword",
+      "description": "Confirm Password",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
     },
-    "InputEmail" : {
-      "title" : "InputEmail",
-      "description" : "Stores email address",
-      "lightning:type" : "lightning__textType",
-      "lightning:isPII" : false,
-      "copilotAction:isUserInput" : true
+    "InputEmail": {
+      "title": "InputEmail",
+      "description": "Stores email address",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
     },
-    "NewPassword" : {
-      "title" : "NewPassword",
-      "description" : "New Password",
-      "lightning:type" : "lightning__textType",
-      "lightning:isPII" : false,
-      "copilotAction:isUserInput" : true
+    "NewPassword": {
+      "title": "NewPassword",
+      "description": "New Password",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
     }
   },
-  "lightning:type" : "lightning__objectType"
+  "lightning:type": "lightning__objectType"
 }

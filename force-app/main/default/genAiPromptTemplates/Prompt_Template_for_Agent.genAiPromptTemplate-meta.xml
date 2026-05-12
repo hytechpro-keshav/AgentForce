@@ -1,6 +1,7 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <GenAiPromptTemplate xmlns="http://soap.sforce.com/2006/04/metadata">
-    <activeVersionIdentifier>AVn3lYYeCGi0Dmwwg6PzybkioyzVMSI6+SG4PGCbwpY=_1</activeVersionIdentifier>
+    <activeVersionIdentifier
+  >AVn3lYYeCGi0Dmwwg6PzybkioyzVMSI6+SG4PGCbwpY=_1</activeVersionIdentifier>
     <developerName>Prompt_Template_for_Agent</developerName>
     <masterLabel>Prompt Template for Agent</masterLabel>
     <overridable>false</overridable>
@@ -34,7 +35,8 @@
 
 if {!$Input:Input} is similar to any above question response the answer.
 </content>
-        <fileDroppingStrategy>{&quot;dropFilesBy&quot;:&quot;LAST_MODIFIED_DATE&quot;,&quot;dropFileStartingWith&quot;:&quot;OLDEST&quot;}</fileDroppingStrategy>
+        <fileDroppingStrategy
+    >{&quot;dropFilesBy&quot;:&quot;LAST_MODIFIED_DATE&quot;,&quot;dropFileStartingWith&quot;:&quot;OLDEST&quot;}</fileDroppingStrategy>
         <inputs>
             <apiName>Input</apiName>
             <definition>primitive://String</definition>
@@ -45,7 +47,8 @@ if {!$Input:Input} is similar to any above question response the answer.
         <isCitationEnabled>false</isCitationEnabled>
         <primaryModel>sfdc_ai__DefaultVertexAIGeminiPro25</primaryModel>
         <status>Published</status>
-        <versionIdentifier>AVn3lYYeCGi0Dmwwg6PzybkioyzVMSI6+SG4PGCbwpY=_1</versionIdentifier>
+        <versionIdentifier
+    >AVn3lYYeCGi0Dmwwg6PzybkioyzVMSI6+SG4PGCbwpY=_1</versionIdentifier>
     </templateVersions>
     <type>einstein_gpt__flex</type>
     <visibility>Global</visibility>

@@ -1,14 +1,14 @@
 {
-  "required" : [ "InputEmail" ],
-  "unevaluatedProperties" : false,
-  "properties" : {
-    "InputEmail" : {
-      "title" : "InputEmail",
-      "description" : "Store user email",
-      "lightning:type" : "lightning__textType",
-      "lightning:isPII" : false,
-      "copilotAction:isUserInput" : true
+  "required": ["InputEmail"],
+  "unevaluatedProperties": false,
+  "properties": {
+    "InputEmail": {
+      "title": "InputEmail",
+      "description": "Store user email",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
     }
   },
-  "lightning:type" : "lightning__objectType"
+  "lightning:type": "lightning__objectType"
 }

@@ -1,60 +1,60 @@
 {
-  "unevaluatedProperties" : false,
-  "properties" : {
-    "OutputCity" : {
-      "title" : "OutputCity",
-      "description" : "Output City",
-      "lightning:type" : "lightning__textType",
-      "lightning:isPII" : false,
-      "copilotAction:isDisplayable" : false,
-      "copilotAction:isUsedByPlanner" : true,
-      "copilotAction:useHydratedPrompt" : false
+  "unevaluatedProperties": false,
+  "properties": {
+    "OutputCity": {
+      "title": "OutputCity",
+      "description": "Output City",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true,
+      "copilotAction:useHydratedPrompt": false
     },
-    "OutputCountry" : {
-      "title" : "OutputCountry",
-      "description" : "Output Country",
-      "lightning:type" : "lightning__textType",
-      "lightning:isPII" : false,
-      "copilotAction:isDisplayable" : false,
-      "copilotAction:isUsedByPlanner" : true,
-      "copilotAction:useHydratedPrompt" : false
+    "OutputCountry": {
+      "title": "OutputCountry",
+      "description": "Output Country",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true,
+      "copilotAction:useHydratedPrompt": false
     },
-    "OutputState" : {
-      "title" : "OutputState",
-      "description" : "Output State",
-      "lightning:type" : "lightning__textType",
-      "lightning:isPII" : false,
-      "copilotAction:isDisplayable" : false,
-      "copilotAction:isUsedByPlanner" : true,
-      "copilotAction:useHydratedPrompt" : false
+    "OutputState": {
+      "title": "OutputState",
+      "description": "Output State",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true,
+      "copilotAction:useHydratedPrompt": false
     },
-    "OutputStreetAddress" : {
-      "title" : "OutputStreetAddress",
-      "description" : "Output Streetaddress",
-      "lightning:type" : "lightning__textType",
-      "lightning:isPII" : false,
-      "copilotAction:isDisplayable" : false,
-      "copilotAction:isUsedByPlanner" : true,
-      "copilotAction:useHydratedPrompt" : false
+    "OutputStreetAddress": {
+      "title": "OutputStreetAddress",
+      "description": "Output Streetaddress",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true,
+      "copilotAction:useHydratedPrompt": false
     },
-    "OutputZipcode" : {
-      "title" : "OutputZipcode",
-      "description" : "Store Zip code",
-      "lightning:type" : "lightning__textType",
-      "lightning:isPII" : false,
-      "copilotAction:isDisplayable" : false,
-      "copilotAction:isUsedByPlanner" : true,
-      "copilotAction:useHydratedPrompt" : false
+    "OutputZipcode": {
+      "title": "OutputZipcode",
+      "description": "Store Zip code",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true,
+      "copilotAction:useHydratedPrompt": false
     },
-    "Outputmessage" : {
-      "title" : "Outputmessage",
-      "description" : "Outputmessage",
-      "lightning:type" : "lightning__textType",
-      "lightning:isPII" : false,
-      "copilotAction:isDisplayable" : true,
-      "copilotAction:isUsedByPlanner" : true,
-      "copilotAction:useHydratedPrompt" : false
+    "Outputmessage": {
+      "title": "Outputmessage",
+      "description": "Outputmessage",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true,
+      "copilotAction:useHydratedPrompt": false
     }
   },
-  "lightning:type" : "lightning__objectType"
+  "lightning:type": "lightning__objectType"
 }

@@ -1,15 +1,15 @@
 {
-  "unevaluatedProperties" : false,
-  "properties" : {
-    "Output" : {
-      "title" : "Output",
-      "description" : "Store output message",
-      "lightning:type" : "lightning__textType",
-      "lightning:isPII" : false,
-      "copilotAction:isDisplayable" : true,
-      "copilotAction:isUsedByPlanner" : true,
-      "copilotAction:useHydratedPrompt" : false
+  "unevaluatedProperties": false,
+  "properties": {
+    "Output": {
+      "title": "Output",
+      "description": "Store output message",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true,
+      "copilotAction:useHydratedPrompt": false
     }
   },
-  "lightning:type" : "lightning__objectType"
+  "lightning:type": "lightning__objectType"
 }

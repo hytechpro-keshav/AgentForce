@@ -1,84 +1,96 @@
 {
-  "required" : [ "City", "Country", "CustomerEmail", "CustomerInput", "Dateandtime", "DecisionInput", "Description", "Problem", "State", "Street", "ZipCode" ],
-  "unevaluatedProperties" : false,
-  "properties" : {
-    "City" : {
-      "title" : "City",
-      "description" : "Store City",
-      "lightning:type" : "lightning__textType",
-      "lightning:isPII" : false,
-      "copilotAction:isUserInput" : true
+  "required": [
+    "City",
+    "Country",
+    "CustomerEmail",
+    "CustomerInput",
+    "Dateandtime",
+    "DecisionInput",
+    "Description",
+    "Problem",
+    "State",
+    "Street",
+    "ZipCode"
+  ],
+  "unevaluatedProperties": false,
+  "properties": {
+    "City": {
+      "title": "City",
+      "description": "Store City",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
     },
-    "Country" : {
-      "title" : "Country",
-      "description" : "Store Country",
-      "lightning:type" : "lightning__textType",
-      "lightning:isPII" : false,
-      "copilotAction:isUserInput" : true
+    "Country": {
+      "title": "Country",
+      "description": "Store Country",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
     },
-    "CustomerEmail" : {
-      "title" : "CustomerEmail",
-      "description" : "Store Email",
-      "lightning:type" : "lightning__textType",
-      "lightning:isPII" : false,
-      "copilotAction:isUserInput" : true
+    "CustomerEmail": {
+      "title": "CustomerEmail",
+      "description": "Store Email",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
     },
-    "CustomerInput" : {
-      "title" : "CustomerInput",
-      "description" : "Store the customer Input",
-      "lightning:type" : "lightning__textType",
-      "lightning:isPII" : false,
-      "copilotAction:isUserInput" : true
+    "CustomerInput": {
+      "title": "CustomerInput",
+      "description": "Store the customer Input",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
     },
-    "Dateandtime" : {
-      "title" : "Dateandtime",
-      "description" : "store date time",
-      "lightning:type" : "lightning__dateTimeStringType",
-      "lightning:isPII" : false,
-      "copilotAction:isUserInput" : true
+    "Dateandtime": {
+      "title": "Dateandtime",
+      "description": "store date time",
+      "lightning:type": "lightning__dateTimeStringType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
     },
-    "DecisionInput" : {
-      "title" : "DecisionInput",
-      "description" : "Provide decision input",
-      "lightning:type" : "lightning__textType",
-      "lightning:isPII" : false,
-      "copilotAction:isUserInput" : true
+    "DecisionInput": {
+      "title": "DecisionInput",
+      "description": "Provide decision input",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
     },
-    "Description" : {
-      "title" : "Description",
-      "description" : "Store Description",
-      "lightning:type" : "lightning__textType",
-      "lightning:isPII" : false,
-      "copilotAction:isUserInput" : true
+    "Description": {
+      "title": "Description",
+      "description": "Store Description",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
     },
-    "Problem" : {
-      "title" : "Problem",
-      "description" : "Store the enquiry",
-      "lightning:type" : "lightning__textType",
-      "lightning:isPII" : false,
-      "copilotAction:isUserInput" : true
+    "Problem": {
+      "title": "Problem",
+      "description": "Store the enquiry",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
     },
-    "State" : {
-      "title" : "State",
-      "description" : "Store State",
-      "lightning:type" : "lightning__textType",
-      "lightning:isPII" : false,
-      "copilotAction:isUserInput" : true
+    "State": {
+      "title": "State",
+      "description": "Store State",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
     },
-    "Street" : {
-      "title" : "Street",
-      "description" : "Store Street",
-      "lightning:type" : "lightning__textType",
-      "lightning:isPII" : false,
-      "copilotAction:isUserInput" : true
+    "Street": {
+      "title": "Street",
+      "description": "Store Street",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
     },
-    "ZipCode" : {
-      "title" : "ZipCode",
-      "description" : "Store Zipcode",
-      "lightning:type" : "lightning__numberType",
-      "lightning:isPII" : false,
-      "copilotAction:isUserInput" : true
+    "ZipCode": {
+      "title": "ZipCode",
+      "description": "Store Zipcode",
+      "lightning:type": "lightning__numberType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
     }
   },
-  "lightning:type" : "lightning__objectType"
+  "lightning:type": "lightning__objectType"
 }

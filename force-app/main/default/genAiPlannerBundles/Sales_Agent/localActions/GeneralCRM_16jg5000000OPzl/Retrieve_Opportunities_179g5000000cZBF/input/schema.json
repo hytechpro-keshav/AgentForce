@@ -1,13 +1,13 @@
 {
-  "unevaluatedProperties" : false,
-  "properties" : {
-    "opportunityName" : {
-      "title" : "opportunityName",
-      "description" : "Optional. The name of the opportunity to search for. Leave empty to retrieve all opportunities.",
-      "lightning:type" : "lightning__textType",
-      "lightning:isPII" : false,
-      "copilotAction:isUserInput" : false
+  "unevaluatedProperties": false,
+  "properties": {
+    "opportunityName": {
+      "title": "opportunityName",
+      "description": "Optional. The name of the opportunity to search for. Leave empty to retrieve all opportunities.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": false
     }
   },
-  "lightning:type" : "lightning__objectType"
+  "lightning:type": "lightning__objectType"
 }
