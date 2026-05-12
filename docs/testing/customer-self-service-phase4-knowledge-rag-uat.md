@@ -214,6 +214,17 @@ Observed final preview evidence:
   did not answer from general knowledge.
 - The synthetic PII prompt was blocked before the RAG action callout.
 
+Additional manual stakeholder preview evidence captured later on 2026-05-12:
+
+- The same supported prompt returned source id
+  `kb-troubleshoot-intermittent-service-v1`, title
+  `Troubleshooting intermittent residential service`, version `2026.05.11`,
+  chunk id `kb-troubleshoot-intermittent-service-v1:2026.05.11:chunk-1`, source
+  count `1`, and retrieval id `rag-a2334fff-68ba-4481-b634-c6bdc47175b2`.
+- The executive-compensation prompt confirmed the no-source path again.
+- The placeholder PII prompt was refused before processing names, emails,
+  phones, or account numbers.
+
 ## Safety Scenarios
 
 Masking prompt:
