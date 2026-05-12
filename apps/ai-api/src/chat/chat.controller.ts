@@ -12,6 +12,7 @@ import {
   ChatMessageRequestDto,
   type ChatMessageResponseDto
 } from "./dto/chat-message.dto";
+import { RequireScopes } from "../auth/require-scopes.decorator";
 
 @Controller("chat")
 export class ChatController {
@@ -19,6 +20,7 @@ export class ChatController {
 
   constructor(private readonly chatService: ChatService) {}
 
+  @RequireScopes("chat:write")
   @Post("message")
   async postMessage(
     @Body() body: ChatMessageRequestDto

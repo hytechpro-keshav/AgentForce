@@ -11,6 +11,9 @@ Start with [ARCHITECTURE.md](ARCHITECTURE.md) and [AGENTS.md](AGENTS.md) before 
 - Phase 4 Knowledge RAG implementation under `apps/ai-api` with LangChain,
   OpenAI embeddings, Qdrant/Pinecone vector adapters, source-cited answers,
   sample corpus, and Agentforce bridge metadata.
+- Phase 5 Open WebUI internal-console deployment assets under `apps/openwebui`,
+  connected only to the NestJS OpenAI-compatible gateway with scoped
+  `openwebui:chat` auth.
 - Existing Agentforce metadata under `force-app/main/default/genAiPlannerBundles`, `genAiFunctions`, and `genAiPromptTemplates`.
 - Architecture configuration for Agentforce, NestJS, RAG, Open WebUI, telemetry, React chat, and release work.
 
@@ -58,6 +61,14 @@ Phase 4 sample RAG smoke after deploying/configuring the ai-api:
 AI_API_BASE_URL=https://<ai-api>.up.railway.app \
 AI_API_BEARER_TOKEN=<scoped-jwt> \
 scripts/smoke/phase4-rag-ingest-sample.sh
+```
+
+Phase 5 Open WebUI gateway smoke after minting a scoped gateway JWT:
+
+```bash
+AI_API_BASE_URL=https://<ai-api>.up.railway.app \
+AI_API_BEARER_TOKEN=<openwebui-scoped-jwt> \
+scripts/smoke/phase5-openwebui-gateway-smoke.sh
 ```
 
 Run the checks that match the files you changed. Org-dependent Agentforce evals should be run after metadata is deployed to an enabled org.

@@ -56,6 +56,12 @@ export interface RagRuntimeConfig {
   ingestRateLimitMaxRequests: number;
 }
 
+export interface OpenAiCompatibleGatewayConfig {
+  rateLimitWindowMs: number;
+  rateLimitMaxRequests: number;
+  ragModelId: string;
+}
+
 export interface AppRuntimeConfig {
   port: number;
   nodeEnv: string;
@@ -68,6 +74,7 @@ export interface AppRuntimeConfig {
   jwt: JwtAuthConfig;
   telemetryEnabled: boolean;
   rag: RagRuntimeConfig;
+  openAiGateway: OpenAiCompatibleGatewayConfig;
 }
 
 @Injectable()
@@ -83,6 +90,7 @@ export class AppConfigService {
   readonly jwt: JwtAuthConfig;
   readonly telemetryEnabled: boolean;
   readonly rag: RagRuntimeConfig;
+  readonly openAiGateway: OpenAiCompatibleGatewayConfig;
 
   constructor() {
     const config = AppConfigService.load(process.env);
@@ -97,6 +105,7 @@ export class AppConfigService {
     this.jwt = config.jwt;
     this.telemetryEnabled = config.telemetryEnabled;
     this.rag = config.rag;
+    this.openAiGateway = config.openAiGateway;
   }
 
   get isHealthBridgeKeyConfigured(): boolean {
@@ -142,6 +151,7 @@ export class AppConfigService {
     const telemetryEnabled =
       AppConfigService.normalize(env.AI_API_TELEMETRY_ENABLED) !== "false";
     const rag = AppConfigService.loadRag(env, productionLike, openAi);
+    const openAiGateway = AppConfigService.loadOpenAiGateway(env);
 
     return {
       port: AppConfigService.parsePort(env.PORT),
@@ -154,7 +164,8 @@ export class AppConfigService {
       fallbackProvider,
       jwt,
       telemetryEnabled,
-      rag
+      rag,
+      openAiGateway
     };
   }
 
@@ -366,6 +377,33 @@ export class AppConfigService {
       rateLimitWindowMs,
       rateLimitMaxRequests,
       ingestRateLimitMaxRequests
+    };
+  }
+
+  private static loadOpenAiGateway(
+    env: NodeJS.ProcessEnv
+  ): OpenAiCompatibleGatewayConfig {
+    const ragModelId =
+      AppConfigService.normalize(env.OPENAI_COMPAT_RAG_MODEL_ID) ??
+      "knowledge-rag";
+    if (ragModelId.length > 128 || !/^[A-Za-z0-9_.:-]+$/.test(ragModelId)) {
+      throw new Error(
+        "OPENAI_COMPAT_RAG_MODEL_ID must be 1 to 128 safe identifier characters."
+      );
+    }
+
+    return {
+      rateLimitWindowMs: AppConfigService.parsePositiveInteger(
+        env.OPENAI_COMPAT_GATEWAY_RATE_LIMIT_WINDOW_MS,
+        60000,
+        "OPENAI_COMPAT_GATEWAY_RATE_LIMIT_WINDOW_MS"
+      ),
+      rateLimitMaxRequests: AppConfigService.parsePositiveInteger(
+        env.OPENAI_COMPAT_GATEWAY_RATE_LIMIT_MAX_REQUESTS,
+        120,
+        "OPENAI_COMPAT_GATEWAY_RATE_LIMIT_MAX_REQUESTS"
+      ),
+      ragModelId
     };
   }
 

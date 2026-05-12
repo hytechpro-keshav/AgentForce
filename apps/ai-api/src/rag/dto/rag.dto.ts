@@ -303,6 +303,11 @@ export interface KnowledgeAnswerResponseDto {
   embeddingModel: string;
   vectorDbProvider: string;
   fallbackUsed: boolean;
+  usage?: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  };
   latencyMs: number;
   tenantId: string;
   namespace: string;

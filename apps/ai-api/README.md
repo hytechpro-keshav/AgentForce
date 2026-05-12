@@ -108,8 +108,8 @@ All provider-backed routes require `Authorization: Bearer <jwt>` unless
 - `POST /chat/message` — DTO-validated chat call. Body: `{ messages, provider?, model?, maxTokens?, requestId? }`. Returns normalized `{ content, usage, provider, model, fallbackUsed, attemptedProviders, latencyMs, responseId? }`.
 - `POST /agent/support/triage-case` — Bulk-safe support triage helper. Body: `{ subject, description, reportedPriority?, caseId?, requestId? }`. Returns `{ recommendedPriority, summary, suggestedNextStep, provider, model, fallbackUsed, latencyMs }`.
 - `POST /agent/support/analyze-case` — Phase 3 Support Operations case-analysis helper. Body: `{ caseSubject, caseDescription, caseStatus?, caseType?, caseOrigin?, reportedPriority?, caseId?, requestId? }`. Returns `{ summary, category, recommendedPriority, confidence, nextAction, provider, model, fallbackUsed, latencyMs }`.
-- `GET /v1/models` — OpenAI-compatible model listing for Open WebUI-style clients.
-- `POST /v1/chat/completions` — OpenAI-compatible chat completion (non-streaming). The `model` field selects the provider when it matches a registered provider name; otherwise the configured default provider is used.
+- `GET /v1/models` — OpenAI-compatible model listing for Open WebUI-style clients. Requires scope `openwebui:chat`. Phase 5 intentionally returns only `knowledge-rag` so Open WebUI does not show direct GPT/provider model options.
+- `POST /v1/chat/completions` — OpenAI-compatible chat completion. Requires scope `openwebui:chat`. The `model` field selects the provider when it matches a registered provider name; otherwise the configured default provider is used. When `RAG_ENABLED=true`, virtual model `knowledge-rag` routes through the Phase 4 source-cited RAG answer path. `stream=true` returns a standards-shaped SSE envelope after the shared backend path completes; token-by-token provider streaming remains a later enhancement.
 
 Provider rules (see `.github/instructions/llm-provider.instructions.md` and ADR 0002):
 
@@ -182,6 +182,14 @@ Phase 4 RAG:
 - `RAG_RATE_LIMIT_MAX_REQUESTS` — default `60` for search/answer routes.
 - `RAG_INGEST_RATE_LIMIT_MAX_REQUESTS` — default `10` for ingestion.
 
+Phase 5 Open WebUI gateway:
+
+- `OPENAI_COMPAT_GATEWAY_RATE_LIMIT_WINDOW_MS` — default `60000`.
+- `OPENAI_COMPAT_GATEWAY_RATE_LIMIT_MAX_REQUESTS` — default `120` for
+  `/v1/chat/completions`.
+- `OPENAI_COMPAT_RAG_MODEL_ID` — default `knowledge-rag`; exposed from
+  `/v1/models` only when `RAG_ENABLED=true`.
+
 For the deployed Railway app, set secrets in Railway variables only. Required production values for Phase 2 and Phase 3 are:
 
 ```text
@@ -208,7 +216,10 @@ OPENAI_COMPAT_DEFAULT_MODEL=<custom-model-id>
 
 Never commit any of the above values. Never log raw prompts, completions, secrets, retrieved chunks, provider bodies, JWTs, or PII.
 
-Phase 4 implements LangChain/Qdrant RAG. Open WebUI production deployment wiring and the React chat window remain explicit deferred phases.
+Phase 5 adds Open WebUI internal-console wiring through the OpenAI-compatible
+gateway. Open WebUI must store a scoped NestJS JWT with `openwebui:chat` in its
+`OPENAI_API_KEY` setting, not the real OpenAI key. React customer chat remains
+an explicit deferred Phase 6.
 
 ## Telemetry And Cost References
 

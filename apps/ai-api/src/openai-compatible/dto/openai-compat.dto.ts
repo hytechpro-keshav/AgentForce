@@ -3,8 +3,11 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
+  IsNumber,
+  IsObject,
   IsOptional,
   IsString,
   Max,
@@ -59,14 +62,83 @@ export class OpenAiCompatChatRequestDto {
 
   @IsOptional()
   @IsInt()
+  @Min(1)
+  @Max(4096)
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  max_completion_tokens?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
   @Min(0)
   @Max(2)
   temperature?: number;
 
-  // Streaming is intentionally not supported in this phase; if a
-  // client sends stream=true we will respond with a non-streamed
-  // payload and let observability flag the mismatch.
   @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  @Min(0)
+  @Max(1)
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  top_p?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  @Min(-2)
+  @Max(2)
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  presence_penalty?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  @Min(-2)
+  @Max(2)
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  frequency_penalty?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  @Min(1)
+  @Max(1)
+  n?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  seed?: number;
+
+  @IsOptional()
+  stop?: string | string[];
+
+  @IsOptional()
+  @IsObject()
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  logit_bias?: Record<string, number>;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(16)
+  tools?: unknown[];
+
+  @IsOptional()
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  tool_choice?: unknown;
+
+  @IsOptional()
+  @IsObject()
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  response_format?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsObject()
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  stream_options?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsBoolean()
   stream?: boolean;
 
   @IsOptional()

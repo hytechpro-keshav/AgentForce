@@ -100,6 +100,25 @@ describe("AppConfigService", () => {
       rateLimitMaxRequests: 60,
       ingestRateLimitMaxRequests: 10
     });
+    expect(config.openAiGateway).toEqual({
+      rateLimitWindowMs: 60000,
+      rateLimitMaxRequests: 120,
+      ragModelId: "knowledge-rag"
+    });
+  });
+
+  it("loads OpenAI-compatible gateway Phase 5 settings", () => {
+    const config = AppConfigService.load({
+      OPENAI_COMPAT_GATEWAY_RATE_LIMIT_WINDOW_MS: "30000",
+      OPENAI_COMPAT_GATEWAY_RATE_LIMIT_MAX_REQUESTS: "20",
+      OPENAI_COMPAT_RAG_MODEL_ID: "internal-knowledge-rag"
+    });
+
+    expect(config.openAiGateway).toEqual({
+      rateLimitWindowMs: 30000,
+      rateLimitMaxRequests: 20,
+      ragModelId: "internal-knowledge-rag"
+    });
   });
 
   it("loads deterministic local RAG config for tests", () => {
@@ -234,6 +253,16 @@ describe("AppConfigService", () => {
     expect(() =>
       AppConfigService.load({ RAG_INGEST_RATE_LIMIT_MAX_REQUESTS: "0" })
     ).toThrow("RAG_INGEST_RATE_LIMIT_MAX_REQUESTS must be a positive integer.");
+    expect(() =>
+      AppConfigService.load({
+        OPENAI_COMPAT_GATEWAY_RATE_LIMIT_MAX_REQUESTS: "0"
+      })
+    ).toThrow(
+      "OPENAI_COMPAT_GATEWAY_RATE_LIMIT_MAX_REQUESTS must be a positive integer."
+    );
+    expect(() =>
+      AppConfigService.load({ OPENAI_COMPAT_RAG_MODEL_ID: "bad id" })
+    ).toThrow("OPENAI_COMPAT_RAG_MODEL_ID must be 1 to 128");
     expect(() => AppConfigService.load({ QDRANT_DISTANCE: "bad" })).toThrow(
       "QDRANT_DISTANCE must be Cosine, Dot, or Euclid."
     );

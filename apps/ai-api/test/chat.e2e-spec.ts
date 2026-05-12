@@ -6,6 +6,7 @@ import request from "supertest";
 import { AppModule } from "../src/app.module";
 import { ModelRouter } from "../src/llm/model-router";
 import { LlmProviderError } from "../src/llm/interfaces/llm-provider";
+import { RagAnswerService } from "../src/rag/rag-answer.service";
 
 const TEST_JWT_SECRET = "phase2-test-secret";
 
@@ -16,9 +17,14 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
     listAllModels: jest.Mock;
     availableProviders: string[];
   };
+  let ragAnswerService: { answer: jest.Mock };
 
   beforeAll(async () => {
     process.env.AI_API_JWT_SECRET = TEST_JWT_SECRET;
+    process.env.RAG_ENABLED = "true";
+    process.env.DEFAULT_EMBEDDING_PROVIDER = "deterministic";
+    process.env.VECTOR_DB_PROVIDER = "memory";
+    process.env.RAG_DEFAULT_NAMESPACE = "customer-self-service";
     delete process.env.AI_API_AUTH_DISABLED;
     delete process.env.AGENTFORCE_HEALTH_API_KEY;
 
@@ -27,12 +33,15 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
       listAllModels: jest.fn(() => [{ id: "gpt-test", provider: "openai" }]),
       availableProviders: ["openai"]
     };
+    ragAnswerService = { answer: jest.fn() };
 
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule]
     })
       .overrideProvider(ModelRouter)
       .useValue(router)
+      .overrideProvider(RagAnswerService)
+      .useValue(ragAnswerService)
       .compile();
 
     app = moduleRef.createNestApplication();
@@ -49,6 +58,15 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
   afterAll(async () => {
     await app?.close();
     delete process.env.AI_API_JWT_SECRET;
+    delete process.env.RAG_ENABLED;
+    delete process.env.DEFAULT_EMBEDDING_PROVIDER;
+    delete process.env.VECTOR_DB_PROVIDER;
+    delete process.env.RAG_DEFAULT_NAMESPACE;
+  });
+
+  beforeEach(() => {
+    router.chat.mockReset();
+    ragAnswerService.answer.mockReset();
   });
 
   function signToken(payload: Record<string, unknown> = {}): string {
@@ -117,6 +135,14 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
     expect(call.requestId).toBe("req-abc");
   });
 
+  it("POST /chat/message rejects Open WebUI gateway tokens", async () => {
+    await request(app.getHttpServer())
+      .post("/chat/message")
+      .set("authorization", `Bearer ${signToken({ scope: "openwebui:chat" })}`)
+      .send({ messages: [{ role: "user", content: "hi" }] })
+      .expect(403);
+  });
+
   it("POST /chat/message surfaces provider failures as 4xx", async () => {
     router.chat.mockRejectedValueOnce(
       new LlmProviderError("openai", "rate_limit", "throttled")
@@ -135,16 +161,31 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
     });
   });
 
-  it("GET /v1/models exposes available models for OpenAI-compatible clients", async () => {
+  it("GET /v1/models exposes only the Knowledge RAG model for Open WebUI", async () => {
     const response = await request(app.getHttpServer())
       .get("/v1/models")
-      .set("authorization", `Bearer ${signToken()}`)
+      .set("authorization", `Bearer ${signToken({ scope: "openwebui:chat" })}`)
       .expect(200);
 
     expect(response.body).toEqual({
       object: "list",
-      data: [{ id: "gpt-test", object: "model", owned_by: "openai" }]
+      data: [
+        {
+          id: "knowledge-rag",
+          object: "model",
+          owned_by: "agentforce-ai-api"
+        }
+      ]
     });
+  });
+
+  it("GET /v1/models requires the Open WebUI gateway scope", async () => {
+    await request(app.getHttpServer()).get("/v1/models").expect(401);
+
+    await request(app.getHttpServer())
+      .get("/v1/models")
+      .set("authorization", `Bearer ${signToken()}`)
+      .expect(403);
   });
 
   it("POST /v1/chat/completions returns an OpenAI-shaped response", async () => {
@@ -164,12 +205,19 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
 
     const response = await request(app.getHttpServer())
       .post("/v1/chat/completions")
-      .set("authorization", `Bearer ${signToken()}`)
+      .set("authorization", `Bearer ${signToken({ scope: "openwebui:chat" })}`)
       .send({
         model: "gpt-test",
-        messages: [{ role: "user", content: "hi" }]
+        user: "jane@example.com",
+        messages: [{ role: "user", content: "hi" }],
+        max_completion_tokens: 64,
+        temperature: 0.4,
+        top_p: 0.9,
+        stream: false,
+        stop: "END",
+        tools: []
       })
-      .expect(201);
+      .expect(200);
 
     expect(response.body).toMatchObject({
       id: "chatcmpl-x",
@@ -184,6 +232,165 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
       ],
       usage: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 }
     });
+    expect(router.chat.mock.calls[0][0]).toMatchObject({
+      model: "gpt-test",
+      maxTokens: 64,
+      temperature: 0.4,
+      requestId: expect.stringMatching(/^openwebui-/)
+    });
+    expect(router.chat.mock.calls[0][0].requestId).not.toContain("jane");
+    expect(router.chat.mock.calls[0][0].requestId).not.toContain("@");
+  });
+
+  it("POST /v1/chat/completions returns an SSE envelope for stream=true", async () => {
+    router.chat.mockResolvedValueOnce({
+      content: "streamed hi back",
+      finishReason: "stop",
+      usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 },
+      metadata: {
+        provider: "openai",
+        model: "gpt-test",
+        latencyMs: 7,
+        fallbackUsed: false,
+        attemptedProviders: ["openai"],
+        responseId: "chatcmpl-stream-x"
+      }
+    });
+
+    const response = await request(app.getHttpServer())
+      .post("/v1/chat/completions")
+      .set("authorization", `Bearer ${signToken({ scope: "openwebui:chat" })}`)
+      .send({
+        model: "gpt-test",
+        messages: [{ role: "user", content: "hi" }],
+        stream: true
+      })
+      .expect(200)
+      .expect("content-type", /text\/event-stream/);
+
+    expect(response.text).toContain("chat.completion.chunk");
+    expect(response.text).toContain("streamed hi back");
+    expect(response.text).toContain("data: [DONE]");
+  });
+
+  it("POST /v1/chat/completions requires the Open WebUI gateway scope", async () => {
+    await request(app.getHttpServer())
+      .post("/v1/chat/completions")
+      .set("authorization", `Bearer ${signToken()}`)
+      .send({
+        model: "gpt-test",
+        messages: [{ role: "user", content: "hi" }]
+      })
+      .expect(403);
+  });
+
+  it("POST /v1/chat/completions routes the virtual RAG model through RagAnswerService", async () => {
+    ragAnswerService.answer.mockResolvedValueOnce({
+      answerStatus: "ANSWERED",
+      safeMessage:
+        "Grounded answer generated from authorized knowledge sources.",
+      answer:
+        "Confirm the service light status, power cycle the gateway for 30 seconds, and wait up to 5 minutes.",
+      sourceCount: 1,
+      sources: [
+        {
+          sourceId: "kb-troubleshoot-intermittent-service-v1",
+          title: "Troubleshooting intermittent residential service",
+          url: "https://help.example.invalid/kb/troubleshoot-intermittent-service",
+          documentVersion: "2026.05.11",
+          chunkId: "kb-troubleshoot-intermittent-service-v1:2026.05.11:chunk-1",
+          score: 0.6905,
+          retrievalId: "rag-openwebui-test"
+        }
+      ],
+      sourceIds: "kb-troubleshoot-intermittent-service-v1",
+      sourceTitles: "Troubleshooting intermittent residential service",
+      sourceUrls:
+        "https://help.example.invalid/kb/troubleshoot-intermittent-service",
+      sourceVersions: "2026.05.11",
+      sourceChunkIds:
+        "kb-troubleshoot-intermittent-service-v1:2026.05.11:chunk-1",
+      retrievalIds: "rag-openwebui-test",
+      sourcesJson: "[]",
+      provider: "openai",
+      model: "gpt-4o-mini",
+      embeddingProvider: "openai",
+      embeddingModel: "text-embedding-3-small",
+      vectorDbProvider: "qdrant",
+      fallbackUsed: false,
+      usage: { inputTokens: 50, outputTokens: 20, totalTokens: 70 },
+      latencyMs: 24,
+      tenantId: "tenant-demo",
+      namespace: "customer-self-service",
+      requestId: "openwebui-user-1"
+    });
+
+    const response = await request(app.getHttpServer())
+      .post("/v1/chat/completions")
+      .set(
+        "authorization",
+        `Bearer ${signToken({
+          scope: "openwebui:chat",
+          tenant: "tenant-demo",
+          rag_namespace: "customer-self-service",
+          roles: ["support-agent"]
+        })}`
+      )
+      .send({
+        model: "knowledge-rag",
+        user: "openwebui-user-1",
+        messages: [
+          { role: "system", content: "Internal console system prompt" },
+          {
+            role: "user",
+            content:
+              "Earlier support context for jane@example.com and phone 415-555-1212"
+          },
+          { role: "assistant", content: "Earlier assistant answer" },
+          {
+            role: "user",
+            content:
+              "What approved troubleshooting can I give for intermittent residential service?"
+          }
+        ]
+      })
+      .expect(200);
+
+    expect(ragAnswerService.answer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        question:
+          "What approved troubleshooting can I give for intermittent residential service?",
+        contextSummary:
+          "user: Earlier support context for [redacted-email] and phone [redacted-phone]\nassistant: Earlier assistant answer",
+        requestId: expect.stringMatching(/^openwebui-/)
+      }),
+      expect.objectContaining({
+        tenantId: "tenant-demo",
+        namespace: "customer-self-service",
+        scopes: ["openwebui:chat"],
+        roles: ["support-agent"]
+      })
+    );
+    expect(router.chat).not.toHaveBeenCalled();
+    expect(response.body).toMatchObject({
+      object: "chat.completion",
+      model: "knowledge-rag",
+      choices: [
+        {
+          index: 0,
+          message: { role: "assistant" },
+          finish_reason: "stop"
+        }
+      ],
+      usage: { prompt_tokens: 50, completion_tokens: 20, total_tokens: 70 }
+    });
+    expect(response.body.choices[0].message.content).toContain(
+      "Confirm the service light status"
+    );
+    expect(response.body.choices[0].message.content).toContain("Sources:");
+    expect(response.body.choices[0].message.content).toContain(
+      "kb-troubleshoot-intermittent-service-v1"
+    );
   });
 
   it("GET /health/live remains public after Phase 2 wiring", async () => {
