@@ -26,10 +26,10 @@ chat.
   vector store: 81 unit tests, 25 e2e tests, typecheck, and build.
 - Live Railway/Qdrant/Agentforce proof was captured on 2026-05-12.
 - Final live deployment: `7c310667-493f-4f69-a88e-0f930034b55f`.
-- Salesforce core deploy: `0Afg5000007uddmCAA`; planner deploy:
-  `0Afg5000007upftCAA`.
+- Salesforce core deploy: `0Afg5000007uddmCAA`; latest simple-prompt planner
+  deploy: `0Afg5000007vPbyCAE`.
 - Agentforce preview session:
-  `019e1b14-b15b-7eed-b6f7-b23ccc7bbcb4`.
+  `019e1ba9-1b8e-7bed-905c-ad19a788a563`.
 
 ## Entry Criteria
 
@@ -107,7 +107,7 @@ Use `PUT` for the existing principal. Do not use
 
 In this org, the REST body for the Custom credential parameter must include
 `encrypted: true` on `AI_API_PHASE2_BEARER_JWT`. Final refresh evidence:
-credential value id `0pwg5000000JRNtAAO`, revision `3`.
+credential value id `0pwg5000000JRNtAAO`, latest revision `4`.
 
 ## Direct API UAT
 
@@ -185,13 +185,13 @@ bundle before preview.
 Prompt:
 
 ```text
-Use external Phase 4 source-cited Knowledge RAG only. What approved troubleshooting can I give for intermittent residential service?
+What approved troubleshooting can I give for intermittent residential service?
 ```
 
 If the agent asks for confirmation, reply:
 
 ```text
-Yes, confirm. Invoke Answer Knowledge RAG using sanitized question text and return answer, source count, source ids, source titles, source URLs, source versions, chunk ids, and retrieval ids.
+yes
 ```
 
 Pass criteria:
@@ -216,6 +216,16 @@ Observed final preview evidence:
 
 Additional manual stakeholder preview evidence captured later on 2026-05-12:
 
+- After planner deploy `0Afg5000007vPbyCAE`, the simple prompt
+  `What approved troubleshooting can I give for intermittent residential
+service?` plus confirmation `yes` returned approved troubleshooting with the
+  source title and URL in preview session
+  `019e1ba9-1b8e-7bed-905c-ad19a788a563`.
+- Direct Apex proof for the same simple phrase returned `ragStatus=ANSWERED`,
+  source `kb-troubleshoot-intermittent-service-v1`, source count `1`, chunk id
+  `kb-troubleshoot-intermittent-service-v1:2026.05.11:chunk-1`, retrieval id
+  `rag-67921a30-bdb9-4915-9dbb-cee046380d2d`, vector DB provider `qdrant`, and
+  HTTP status `201`.
 - The same supported prompt returned source id
   `kb-troubleshoot-intermittent-service-v1`, title
   `Troubleshooting intermittent residential service`, version `2026.05.11`,

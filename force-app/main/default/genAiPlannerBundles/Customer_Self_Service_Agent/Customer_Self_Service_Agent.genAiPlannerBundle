@@ -49,7 +49,7 @@
         <mappingTargetName>VerifiedCustomerId</mappingTargetName>
         <mappingType>Variable</mappingType>
     </attributeMappings>
-    <description>Helps customers verify their identity by email OTP, view account and case status, create service requests, escalate issues to a human agent, and run temporary AI API proof topics for Phase 2 support triage, Phase 3 case analysis, and Phase 4 external Knowledge RAG without creating or escalating a case unless the dedicated Salesforce-native workflow is selected. Keep responses in the user&apos;s language when practical, including Spanish, and keep unrelated fallback responses in that same language without creating or escalating a case.</description>
+    <description>Helps customers verify their identity by email OTP, view account and case status, create service requests, escalate issues to a human agent, and run temporary AI API proof topics for Phase 2 support triage, Phase 3 case analysis, and Phase 4 external Knowledge RAG without creating or escalating a case unless the dedicated Salesforce-native workflow is selected. When the user asks for approved troubleshooting, approved policy, customer-safe guidance, or a source-cited answer, route to AI API Knowledge RAG and Answer Knowledge RAG instead of native Answer Questions with Knowledge. Keep responses in the user&apos;s language when practical, including Spanish, and keep unrelated fallback responses in that same language without creating or escalating a case.</description>
     <localActionLinks>
         <genAiFunctionName>AnswerQuestionsWithKnowledge_16jg5000000RolV</genAiFunctionName>
     </localActionLinks>
@@ -545,24 +545,24 @@
     <localTopics>
         <fullName>AI_API_Knowledge_RAG</fullName>
         <canEscalate>false</canEscalate>
-        <description>Phase 4 external source-cited Knowledge RAG topic. Uses the NestJS AI API with LangChain, OpenAI embeddings, and Pinecone-backed retrieval through Answer Knowledge RAG. This is not native Salesforce Answer Questions with Knowledge and must not invoke Phase 1 health, Phase 2 triage, or Phase 3 case analysis.</description>
+        <description>Phase 4 external source-cited Knowledge RAG topic for approved customer-safe knowledge, troubleshooting guidance, policy boundaries, and answers that should show sources. Uses the NestJS AI API with LangChain, OpenAI embeddings, and Qdrant-backed retrieval through Answer Knowledge RAG. This is not native Salesforce Answer Questions with Knowledge and must not invoke Phase 1 health, Phase 2 triage, or Phase 3 case analysis.</description>
         <developerName>AI_API_Knowledge_RAG</developerName>
         <genAiPluginInstructions>
-            <description>When the user asks for Phase 4 Knowledge RAG, external source-cited knowledge, Pinecone RAG, LangChain RAG, or Answer Knowledge RAG, collect a concise knowledge question and optional sanitized context summary. Do not repeat raw names, emails, phone numbers, account numbers, addresses, payment numbers, passwords, or other identifiers in confirmation or final text. Confirm before invocation because sanitized text is sent to the external AI API for retrieval and answer generation.</description>
+            <description>When the user asks a simple support knowledge question such as what approved troubleshooting to give, what the approved policy says, what customer-safe guidance is available, or asks to show the source, use this Phase 4 Knowledge RAG topic. This includes the simple demo question, &quot;What approved troubleshooting can I give for intermittent residential service?&quot; Also use this topic when the user explicitly says Phase 4, external source-cited knowledge, Qdrant RAG, LangChain RAG, or Answer Knowledge RAG. Collect a concise knowledge question and optional sanitized context summary. Do not ask a separate topic-level confirmation; prepare Answer Knowledge RAG and rely on the action confirmation because sanitized text is sent to the external AI API. After the user confirms the action, invoke Answer Knowledge RAG with the original concise question before producing the answer. Do not repeat raw names, emails, phone numbers, account numbers, addresses, payment numbers, passwords, or other identifiers in confirmation or final text.</description>
             <developerName>run_phase_4_knowledge_rag</developerName>
             <language>en_US</language>
             <masterLabel>Run Phase 4 Knowledge RAG</masterLabel>
             <sortOrder>0</sortOrder>
         </genAiPluginInstructions>
         <genAiPluginInstructions>
-            <description>Use only the Answer Knowledge RAG action in this topic. Do not invoke Check AI API Health, Triage Support Case, Analyze Support Case, Create Service Request, Escalate Service Request, or native Answer Questions with Knowledge unless the user explicitly asks for those separate workflows. If the AI API returns NO_SOURCE, say no authorized source was found and do not invent an answer.</description>
+            <description>Use only the Answer Knowledge RAG action in this topic. For simple approved troubleshooting or source-cited knowledge prompts, prefer this topic over triage, issue reporting, escalation, and native Answer Questions with Knowledge. When the question is clear, move directly to the Answer Knowledge RAG action so its built-in confirmation is the only confirmation. After action confirmation, always invoke Answer Knowledge RAG before answering. Do not say no authorized source was found unless Answer Knowledge RAG returns ragStatus NO_SOURCE. If Answer Knowledge RAG returns ragStatus ANSWERED, summarize the returned answer and source metadata. Do not invoke Check AI API Health, Triage Support Case, Analyze Support Case, Create Service Request, Escalate Service Request, or native Answer Questions with Knowledge unless the user explicitly asks for those separate workflows.</description>
             <developerName>knowledge_rag_source_boundary</developerName>
             <language>en_US</language>
             <masterLabel>Knowledge RAG Source Boundary</masterLabel>
             <sortOrder>1</sortOrder>
         </genAiPluginInstructions>
         <genAiPluginInstructions>
-            <description>If the request asks for legal, medical, regulated financial, payment-card, password, security credential, outage restoration guarantee, account-specific, or unsupported advice, do not force an answer. Use the returned no-source or escalation-safe message and route to a human support owner when needed.</description>
+            <description>If the request asks for legal, medical, regulated financial, payment-card, password, security credential, outage restoration guarantee, account-specific status, case details, service address, or unsupported advice, do not force an answer through RAG. Use the returned no-source or escalation-safe message and route to verification, Salesforce account/case actions, or a human support owner when needed.</description>
             <developerName>knowledge_rag_regulated_boundary</developerName>
             <language>en_US</language>
             <masterLabel>Knowledge RAG Regulated Boundary</masterLabel>
@@ -574,7 +574,7 @@
         </localActionLinks>
         <localActions>
             <fullName>Answer_Knowledge_RAG_179g5000000AiKR</fullName>
-            <description>Calls the NestJS AI API Phase 4 Knowledge RAG endpoint with masked question text and returns a safe source-cited answer with flat source metadata.</description>
+            <description>Use this action after confirmation for approved troubleshooting, approved policy, customer-safe guidance, or source-cited knowledge questions, including the simple question &quot;What approved troubleshooting can I give for intermittent residential service?&quot; Calls the NestJS AI API Phase 4 Knowledge RAG endpoint with masked question text and returns an approved customer-safe, source-cited answer with flat source metadata.</description>
             <developerName>Answer_Knowledge_RAG_179g5000000AiKR</developerName>
             <invocationTarget>AgentforceAiApiKnowledgeRag</invocationTarget>
             <invocationTargetType>apex</invocationTargetType>
@@ -588,14 +588,18 @@
         <localDeveloperName>AI_API_Knowledge_RAG</localDeveloperName>
         <masterLabel>AI API Knowledge RAG</masterLabel>
         <pluginType>Topic</pluginType>
-        <scope>Your job is to prove the Phase 4 external Knowledge RAG path by invoking Answer Knowledge RAG after confirmation. Use this topic only for source-cited external RAG questions backed by the NestJS AI API, LangChain, OpenAI embeddings, and Pinecone retrieval. Keep the response operational, do not expose credential values, never echo raw customer identifiers, report source ids/titles/URLs when returned, and say no authorized source was found when ragStatus is NO_SOURCE. Do not claim Open WebUI deployment or React customer chat is complete.</scope>
+        <scope>Your job is to answer simple approved customer-safe knowledge questions by invoking Answer Knowledge RAG. Prefer this topic when the user asks what approved troubleshooting to give, what an approved policy says, what customer-safe guidance is available, or asks for a source-cited answer. Use this topic for the demo question &quot;What approved troubleshooting can I give for intermittent residential service?&quot; and other Phase 4 external RAG questions backed by the NestJS AI API, LangChain, OpenAI embeddings, and Qdrant retrieval. Do not use native Answer Questions with Knowledge for approved troubleshooting, approved policy, customer-safe guidance, or source-cited answers. Do not add a separate topic-level confirmation; rely on the Answer Knowledge RAG action confirmation. After the user confirms the action, you must call Answer Knowledge RAG and base the final response on the action output. Do not say no authorized source was found unless the action returned ragStatus NO_SOURCE. If the action returned ragStatus ANSWERED, show the approved answer plus source ids/titles/URLs/versions/chunk ids/retrieval ids when returned. Do not use this topic for account status, open cases, service address, billing approval, case creation, escalation, or triage unless the user separately asks for those Salesforce workflows. Keep the response operational, do not expose credential values, and never echo raw customer identifiers. Do not claim Open WebUI deployment or React customer chat is complete.</scope>
     </localTopics>
     <masterLabel>Customer Self Service Agent</masterLabel>
     <plannerActions>
         <fullName>AnswerQuestionsWithKnowledge_16jg5000000RolV</fullName>
-        <description>Answers questions about company policies and procedures, troubleshooting steps,
-            or product information. For example: “What is your return policy?” “How do I fix an
-            issue?” or “What features does a product have?”</description>
+        <description>Answers only generic native Salesforce knowledge questions about company
+            policies, procedures, troubleshooting steps, or product information when the user does
+            not ask for approved troubleshooting, approved policy, customer-safe guidance, Phase 4,
+            external RAG, Qdrant RAG, LangChain RAG, or a source-cited answer. Do not use this
+            native action for &quot;What approved troubleshooting can I give for intermittent
+            residential service?&quot; Route approved troubleshooting and source-cited support
+            knowledge questions to AI API Knowledge RAG and Answer Knowledge RAG.</description>
         <developerName>AnswerQuestionsWithKnowledge_16jg5000000RolV</developerName>
         <invocationTarget>streamKnowledgeSearch</invocationTarget>
         <invocationTargetType>standardInvocableAction</invocationTargetType>

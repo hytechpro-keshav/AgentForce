@@ -66,36 +66,40 @@ release validation:
   running 12/12 `AgentforceAiApiKnowledgeRagTest` tests.
 - Final planner deploy passed with deploy id `0Afg5000007upftCAA` after
   deactivating `Customer_Self_Service_Agent`; the agent was reactivated.
+- Simple-prompt planner updates were later deployed through the same
+  deactivate/deploy/reactivate lifecycle. Deploy `0Afg5000007vPbyCAE` tightened
+  the Phase 4 topic and native Knowledge action boundaries so the simple prompt
+  routes to external Knowledge RAG.
 
 ## Live Proof Fields
 
 Fill these after deploying and proving the path in the target org and Railway
 environment.
 
-| Field                            | Value                                                                                                                              |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Railway deployment id            | `7c310667-493f-4f69-a88e-0f930034b55f`                                                                                             |
-| Railway URL                      | `https://ai-api-production-03f5.up.railway.app`                                                                                    |
-| Qdrant service                   | `qdrant`                                                                                                                           |
-| Qdrant collection                | `agentforce-knowledge-rag`                                                                                                         |
-| RAG namespace                    | `customer-self-service`                                                                                                            |
-| Salesforce core validation id    | `0Afg5000007sK2XCAU`                                                                                                               |
-| Salesforce core deploy id        | `0Afg5000007uddmCAA`                                                                                                               |
-| Salesforce planner validation id | `0Afg5000007tef9CAA`                                                                                                               |
-| Salesforce planner deploy id     | `0Afg5000007upftCAA`                                                                                                               |
-| Credential value id              | `0pwg5000000JRNtAAO`                                                                                                               |
-| Credential revision              | `3`                                                                                                                                |
-| Sample ingestion request id      | `phase4-sample-ingest`                                                                                                             |
-| Direct API answer request id     | `phase4-rag-smoke-answer`                                                                                                          |
-| Direct no-source request id      | `phase4-no-source-proof`                                                                                                           |
-| Agentforce preview session id    | `019e1b14-b15b-7eed-b6f7-b23ccc7bbcb4`                                                                                             |
-| Agentforce trace path            | `.sfdx/agents/0Xxg5000000kZUDCA2/sessions/019e1b14-b15b-7eed-b6f7-b23ccc7bbcb4`                                                    |
-| Apex log id                      | `07Lg5000006ww1qEAA`                                                                                                               |
-| Telemetry request ids            | `sf-knowledge-rag-1778570852155-0`, `sf-knowledge-rag-1778570900356-0`                                                             |
-| Retrieval ids                    | `rag-f9a46283-1bc6-4403-aca3-8d0540ae76da`, `rag-65b4a589-7084-4168-b8f4-c6302ed5ad4e`, `rag-a2334fff-68ba-4481-b634-c6bdc47175b2` |
-| Source ids                       | `kb-troubleshoot-intermittent-service-v1`                                                                                          |
-| Token/cost fields                | `OpenAI embeddings + gpt-4o-mini answer path`                                                                                      |
-| Raw-identifier safety check      | `No raw synthetic identifiers found in Railway app logs`                                                                           |
+| Field                            | Value                                                                                                                                                                          |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Railway deployment id            | `7c310667-493f-4f69-a88e-0f930034b55f`                                                                                                                                         |
+| Railway URL                      | `https://ai-api-production-03f5.up.railway.app`                                                                                                                                |
+| Qdrant service                   | `qdrant`                                                                                                                                                                       |
+| Qdrant collection                | `agentforce-knowledge-rag`                                                                                                                                                     |
+| RAG namespace                    | `customer-self-service`                                                                                                                                                        |
+| Salesforce core validation id    | `0Afg5000007sK2XCAU`                                                                                                                                                           |
+| Salesforce core deploy id        | `0Afg5000007uddmCAA`                                                                                                                                                           |
+| Salesforce planner validation id | `0Afg5000007tef9CAA`                                                                                                                                                           |
+| Salesforce planner deploy id     | `0Afg5000007vPbyCAE`                                                                                                                                                           |
+| Credential value id              | `0pwg5000000JRNtAAO`                                                                                                                                                           |
+| Credential revision              | `4`                                                                                                                                                                            |
+| Sample ingestion request id      | `phase4-sample-ingest`                                                                                                                                                         |
+| Direct API answer request id     | `phase4-rag-smoke-answer`                                                                                                                                                      |
+| Direct no-source request id      | `phase4-no-source-proof`                                                                                                                                                       |
+| Agentforce preview session id    | `019e1ba9-1b8e-7bed-905c-ad19a788a563`                                                                                                                                         |
+| Agentforce trace path            | `.sfdx/agents/0Xxg5000000kZUDCA2/sessions/019e1ba9-1b8e-7bed-905c-ad19a788a563`                                                                                                |
+| Apex log id                      | `07Lg5000006ww1qEAA`                                                                                                                                                           |
+| Telemetry request ids            | `sf-knowledge-rag-1778570852155-0`, `sf-knowledge-rag-1778570900356-0`                                                                                                         |
+| Retrieval ids                    | `rag-f9a46283-1bc6-4403-aca3-8d0540ae76da`, `rag-65b4a589-7084-4168-b8f4-c6302ed5ad4e`, `rag-a2334fff-68ba-4481-b634-c6bdc47175b2`, `rag-67921a30-bdb9-4915-9dbb-cee046380d2d` |
+| Source ids                       | `kb-troubleshoot-intermittent-service-v1`                                                                                                                                      |
+| Token/cost fields                | `OpenAI embeddings + gpt-4o-mini answer path`                                                                                                                                  |
+| Raw-identifier safety check      | `No raw synthetic identifiers found in Railway app logs`                                                                                                                       |
 
 ## Live Railway Preflight
 
@@ -164,7 +168,7 @@ Salesforce credential refresh on 2026-05-12:
 - custom value `AI_API_PHASE2_BEARER_JWT`
 - endpoint `/services/data/v66.0/named-credentials/credential`
 - method `PUT`
-- response id `0pwg5000000JRNtAAO`, revision `3`, encrypted `true`
+- response id `0pwg5000000JRNtAAO`, latest revision `4`, encrypted `true`
 - final body included `encrypted: true` for the Custom authentication parameter;
   omitting it returns `INVALID_API_INPUT` in this org.
 
@@ -193,6 +197,24 @@ Additional manual stakeholder preview proof on 2026-05-12:
   returned no authorized knowledge source instead of a generic answer
 - placeholder PII prompt was refused before processing names, emails, phones,
   or account numbers
+
+Simple stakeholder prompt proof on 2026-05-12 after planner deploy
+`0Afg5000007vPbyCAE`:
+
+- prompt: `What approved troubleshooting can I give for intermittent residential
+service?`
+- confirmation: `yes`
+- preview session id: `019e1ba9-1b8e-7bed-905c-ad19a788a563`
+- trace path:
+  `.sfdx/agents/0Xxg5000000kZUDCA2/sessions/019e1ba9-1b8e-7bed-905c-ad19a788a563`
+- result: Agentforce returned approved troubleshooting steps and linked the
+  source `Troubleshooting Intermittent Residential Service Guide` at
+  `https://help.example.invalid/kb/troubleshoot-intermittent-service`
+- companion direct Apex proof for the same simple phrase returned
+  `ragStatus=ANSWERED`, source `kb-troubleshoot-intermittent-service-v1`, chunk
+  `kb-troubleshoot-intermittent-service-v1:2026.05.11:chunk-1`, source count
+  `1`, retrieval id `rag-67921a30-bdb9-4915-9dbb-cee046380d2d`, vector DB
+  provider `qdrant`, and HTTP status `201`
 
 Guarded helpers added for the remaining live proof:
 

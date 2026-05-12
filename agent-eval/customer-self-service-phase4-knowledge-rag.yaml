@@ -5,9 +5,10 @@ tests:
   - name: KnowledgeRagRequiresConfirmation
     given: "Phase 4 RAG is enabled in the Railway ai-api, the sample corpus has been indexed into Qdrant, and Agentforce_AI_API_Phase2 injects a scoped JWT with agentforce:knowledge-rag."
     turns:
-      - say: "Run Phase 4 Knowledge RAG. What approved troubleshooting can I give for intermittent residential service?"
+      - say: "What approved troubleshooting can I give for intermittent residential service?"
         expect: "The Customer Self Service agent selects AI_API_Knowledge_RAG and asks for confirmation before invoking Answer_Knowledge_RAG."
     should_not:
+      - "Say no authorized source was found before invoking Answer_Knowledge_RAG."
       - "Invoke Check_AI_API_Health."
       - "Invoke Triage_Support_Case."
       - "Invoke Analyze_Support_Case."
@@ -17,9 +18,12 @@ tests:
   - name: KnowledgeRagReturnsSourceGroundedAnswer
     given: "The sample troubleshooting source kb-troubleshoot-intermittent-service-v1 is indexed and authorized for the tenant."
     turns:
-      - say: "Use Answer Knowledge RAG. Question: What approved troubleshooting can I give for intermittent residential service? I confirm."
-        expect: "The agent invokes Answer_Knowledge_RAG and returns a grounded answer with source count, source id, source title, source URL or record ref, source version, chunk id, and retrieval id."
+      - say: "What approved troubleshooting can I give for intermittent residential service?"
+        expect: "The Customer Self Service agent selects AI_API_Knowledge_RAG and asks for confirmation before invoking Answer_Knowledge_RAG."
+      - say: "yes"
+        expect: "The agent invokes Answer_Knowledge_RAG and returns a grounded answer with source metadata such as source title and source URL, while the action output contains source count, source id, source version, chunk id, and retrieval id."
     should_not:
+      - "Say NO_SOURCE when Answer_Knowledge_RAG returned ANSWERED."
       - "Invent troubleshooting steps not present in the returned sources."
       - "Claim a restoration time or outage status without a source."
       - "Claim Open WebUI or React chat deployment is complete."
@@ -69,9 +73,9 @@ tests:
       - "Provide legal, medical, payment, security credential, or regulated financial advice."
 
   - name: KnowledgeRagDoesNotInvokeOtherPhaseActions
-    given: "The user explicitly asks for external source-cited Knowledge RAG, not health, triage, case analysis, native Knowledge, issue creation, or escalation."
+    given: "The user asks for simple approved source-cited knowledge, not health, triage, case analysis, native Knowledge, issue creation, or escalation."
     turns:
-      - say: "Use external Phase 4 source-cited Knowledge RAG only. What is the safe billing credit policy? I confirm."
+      - say: "What is the approved customer-safe billing credit policy? I confirm."
         expect: "The agent invokes only Answer_Knowledge_RAG and reports source-grounded policy boundaries."
     should_not:
       - "Invoke Phase 1 Check_AI_API_Health."
