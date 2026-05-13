@@ -3,6 +3,9 @@ import { Module } from "@nestjs/common";
 import { AppConfigService } from "../config/app-config.service";
 import { EmbeddingRouter, EMBEDDING_PROVIDERS } from "./embedding-router";
 import { ModelRouter, LLM_PROVIDERS } from "./model-router";
+import { ModelRoutingPolicyService } from "./model-routing-policy.service";
+import { AnthropicProviderFactory } from "./providers/anthropic-messages.provider";
+import { GeminiProviderFactory } from "./providers/gemini-generate-content.provider";
 import {
   OpenAiCompletionsProvider,
   OpenAiProviderFactory
@@ -17,19 +20,33 @@ import type { LlmProvider } from "./interfaces/llm-provider";
 @Module({
   providers: [
     OpenAiProviderFactory,
+    AnthropicProviderFactory,
+    GeminiProviderFactory,
     EmbeddingProviderFactory,
     {
       provide: LLM_PROVIDERS,
-      inject: [OpenAiProviderFactory, AppConfigService],
+      inject: [
+        OpenAiProviderFactory,
+        AnthropicProviderFactory,
+        GeminiProviderFactory,
+        AppConfigService
+      ],
       useFactory: (
         factory: OpenAiProviderFactory,
+        anthropicFactory: AnthropicProviderFactory,
+        geminiFactory: GeminiProviderFactory,
         _config: AppConfigService
       ): LlmProvider[] => {
         const providers: LlmProvider[] = [];
         const openAi = factory.createOpenAi();
         if (openAi) providers.push(openAi);
-        const compat = factory.createOpenAiCompatible();
-        if (compat) providers.push(compat);
+        const azure = factory.createAzureOpenAi();
+        if (azure) providers.push(azure);
+        providers.push(...factory.createOpenAiCompatibleProviders());
+        const anthropic = anthropicFactory.createAnthropic();
+        if (anthropic) providers.push(anthropic);
+        const gemini = geminiFactory.createGemini();
+        if (gemini) providers.push(gemini);
         return providers;
       }
     },
@@ -45,6 +62,7 @@ import type { LlmProvider } from "./interfaces/llm-provider";
         return providers;
       }
     },
+    ModelRoutingPolicyService,
     ModelRouter,
     EmbeddingRouter
   ],
@@ -55,6 +73,7 @@ export class LlmModule {}
 export {
   ModelRouter,
   EmbeddingRouter,
+  ModelRoutingPolicyService,
   OpenAiCompletionsProvider,
   OpenAiEmbeddingsProvider,
   LLM_PROVIDERS,

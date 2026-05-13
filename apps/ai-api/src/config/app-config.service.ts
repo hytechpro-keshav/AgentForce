@@ -1,5 +1,10 @@
 import { Injectable } from "@nestjs/common";
 
+import {
+  LLM_USE_CASES,
+  type LlmUseCase
+} from "../llm/interfaces/llm-contracts";
+
 export interface OpenAiProviderConfig {
   apiKey: string;
   baseUrl: string;
@@ -12,11 +17,89 @@ export interface OpenAiCompatibleProviderConfig {
   defaultModel: string;
 }
 
+export interface NamedOpenAiCompatibleProviderConfig extends OpenAiCompatibleProviderConfig {
+  name: string;
+}
+
+export interface AnthropicProviderConfig {
+  apiKey: string;
+  baseUrl: string;
+  defaultModel: string;
+}
+
+export interface AzureOpenAiProviderConfig {
+  apiKey: string;
+  endpoint: string;
+  deployment: string;
+  apiVersion: string;
+  defaultModel: string;
+}
+
+export interface GeminiProviderConfig {
+  apiKey: string;
+  baseUrl: string;
+  defaultModel: string;
+}
+
+export interface LlmModelTargetConfig {
+  provider: string;
+  model?: string;
+}
+
+export interface LlmSmallModelRoutingConfig extends LlmModelTargetConfig {
+  maxInputTokens?: number;
+  maxMessages?: number;
+  maxTotalMessageChars?: number;
+}
+
+export interface LlmTokenBudgetConfig {
+  maxInputTokensPerRequest?: number;
+  maxOutputTokensPerRequest?: number;
+  maxTotalTokensPerRequest?: number;
+  maxTokensPerMinute?: number;
+}
+
+export interface LlmRouteConfig {
+  provider: string;
+  model?: string;
+  fallbacks: LlmModelTargetConfig[];
+  smallModel?: LlmSmallModelRoutingConfig;
+  budget: LlmTokenBudgetConfig;
+  allowProviderOverride: boolean;
+  allowModelOverride: boolean;
+  allowedProviders?: string[];
+  allowedModels?: string[];
+}
+
+export interface LlmPricingConfig {
+  provider: string;
+  model: string;
+  inputUsdPer1MTokens: number;
+  outputUsdPer1MTokens: number;
+  source: string;
+}
+
+export interface LlmRoutingConfig {
+  routes: Record<LlmUseCase, LlmRouteConfig>;
+  pricing: LlmPricingConfig[];
+}
+
 export interface JwtAuthConfig {
   secret?: string;
   issuer?: string;
   audience?: string;
   disabled: boolean;
+}
+
+export interface CorsConfig {
+  allowedOrigins: string[];
+}
+
+export interface CustomerChatSessionConfig {
+  accessCode?: string;
+  ttlSeconds: number;
+  rateLimitWindowMs: number;
+  rateLimitMaxRequests: number;
 }
 
 export interface OpenAiEmbeddingProviderConfig {
@@ -51,6 +134,8 @@ export interface RagRuntimeConfig {
   topK: number;
   scoreThreshold: number;
   embeddingCacheMaxItems: number;
+  responseCacheMaxItems: number;
+  responseCacheTtlMs: number;
   rateLimitWindowMs: number;
   rateLimitMaxRequests: number;
   ingestRateLimitMaxRequests: number;
@@ -69,9 +154,16 @@ export interface AppRuntimeConfig {
   productionLike: boolean;
   openAi?: OpenAiProviderConfig;
   openAiCompatible?: OpenAiCompatibleProviderConfig;
+  openAiCompatibleProviders: NamedOpenAiCompatibleProviderConfig[];
+  anthropic?: AnthropicProviderConfig;
+  azureOpenAi?: AzureOpenAiProviderConfig;
+  gemini?: GeminiProviderConfig;
   defaultProvider: string;
   fallbackProvider?: string;
+  modelRouting: LlmRoutingConfig;
   jwt: JwtAuthConfig;
+  cors: CorsConfig;
+  customerChatSession: CustomerChatSessionConfig;
   telemetryEnabled: boolean;
   rag: RagRuntimeConfig;
   openAiGateway: OpenAiCompatibleGatewayConfig;
@@ -85,9 +177,16 @@ export class AppConfigService {
   readonly productionLike: boolean;
   readonly openAi?: OpenAiProviderConfig;
   readonly openAiCompatible?: OpenAiCompatibleProviderConfig;
+  readonly openAiCompatibleProviders: NamedOpenAiCompatibleProviderConfig[];
+  readonly anthropic?: AnthropicProviderConfig;
+  readonly azureOpenAi?: AzureOpenAiProviderConfig;
+  readonly gemini?: GeminiProviderConfig;
   readonly defaultProvider: string;
   readonly fallbackProvider?: string;
+  readonly modelRouting: LlmRoutingConfig;
   readonly jwt: JwtAuthConfig;
+  readonly cors: CorsConfig;
+  readonly customerChatSession: CustomerChatSessionConfig;
   readonly telemetryEnabled: boolean;
   readonly rag: RagRuntimeConfig;
   readonly openAiGateway: OpenAiCompatibleGatewayConfig;
@@ -100,9 +199,16 @@ export class AppConfigService {
     this.productionLike = config.productionLike;
     this.openAi = config.openAi;
     this.openAiCompatible = config.openAiCompatible;
+    this.openAiCompatibleProviders = config.openAiCompatibleProviders;
+    this.anthropic = config.anthropic;
+    this.azureOpenAi = config.azureOpenAi;
+    this.gemini = config.gemini;
     this.defaultProvider = config.defaultProvider;
     this.fallbackProvider = config.fallbackProvider;
+    this.modelRouting = config.modelRouting;
     this.jwt = config.jwt;
+    this.cors = config.cors;
+    this.customerChatSession = config.customerChatSession;
     this.telemetryEnabled = config.telemetryEnabled;
     this.rag = config.rag;
     this.openAiGateway = config.openAiGateway;
@@ -133,6 +239,11 @@ export class AppConfigService {
 
     const openAi = AppConfigService.loadOpenAi(env);
     const openAiCompatible = AppConfigService.loadOpenAiCompatible(env);
+    const openAiCompatibleProviders =
+      AppConfigService.loadOpenAiCompatibleProviders(env, openAiCompatible);
+    const anthropic = AppConfigService.loadAnthropic(env);
+    const azureOpenAi = AppConfigService.loadAzureOpenAi(env);
+    const gemini = AppConfigService.loadGemini(env);
     const configuredDefaultProvider = AppConfigService.normalize(
       env.LLM_DEFAULT_PROVIDER
     );
@@ -146,12 +257,46 @@ export class AppConfigService {
         "OPENAI_API_KEY is required when LLM_DEFAULT_PROVIDER=openai in production-like deployments."
       );
     }
+    const configuredProviderNames = new Set<string>();
+    if (openAi) configuredProviderNames.add("openai");
+    for (const provider of openAiCompatibleProviders) {
+      configuredProviderNames.add(provider.name);
+    }
+    if (anthropic) configuredProviderNames.add("anthropic");
+    if (azureOpenAi) configuredProviderNames.add("azure-openai");
+    if (gemini) configuredProviderNames.add("gemini");
+    if (
+      productionLike &&
+      configuredDefaultProvider &&
+      configuredDefaultProvider !== "openai" &&
+      !configuredProviderNames.has(configuredDefaultProvider)
+    ) {
+      throw new Error(
+        `Provider config is required when LLM_DEFAULT_PROVIDER=${configuredDefaultProvider} in production-like deployments.`
+      );
+    }
+    if (
+      productionLike &&
+      fallbackProvider &&
+      !configuredProviderNames.has(fallbackProvider)
+    ) {
+      throw new Error(
+        `Provider config is required when LLM_FALLBACK_PROVIDER=${fallbackProvider} in production-like deployments.`
+      );
+    }
 
     const jwt = AppConfigService.loadJwt(env, productionLike);
+    const cors = AppConfigService.loadCors(env, productionLike);
+    const customerChatSession = AppConfigService.loadCustomerChatSession(env);
     const telemetryEnabled =
       AppConfigService.normalize(env.AI_API_TELEMETRY_ENABLED) !== "false";
     const rag = AppConfigService.loadRag(env, productionLike, openAi);
     const openAiGateway = AppConfigService.loadOpenAiGateway(env);
+    const modelRouting = AppConfigService.loadModelRouting(
+      env,
+      defaultProvider,
+      fallbackProvider
+    );
 
     return {
       port: AppConfigService.parsePort(env.PORT),
@@ -160,9 +305,16 @@ export class AppConfigService {
       productionLike,
       openAi,
       openAiCompatible,
+      openAiCompatibleProviders,
+      anthropic,
+      azureOpenAi,
+      gemini,
       defaultProvider,
       fallbackProvider,
+      modelRouting,
       jwt,
+      cors,
+      customerChatSession,
       telemetryEnabled,
       rag,
       openAiGateway
@@ -201,6 +353,425 @@ export class AppConfigService {
     };
   }
 
+  private static loadOpenAiCompatibleProviders(
+    env: NodeJS.ProcessEnv,
+    legacy: OpenAiCompatibleProviderConfig | undefined
+  ): NamedOpenAiCompatibleProviderConfig[] {
+    const providers: NamedOpenAiCompatibleProviderConfig[] = [];
+    if (legacy) {
+      providers.push({ name: "openai-compatible", ...legacy });
+    }
+
+    const rawProviders = AppConfigService.normalize(
+      env.OPENAI_COMPAT_PROVIDERS_JSON
+    );
+    if (!rawProviders) {
+      return providers;
+    }
+
+    const parsed = AppConfigService.parseJsonValue(
+      rawProviders,
+      "OPENAI_COMPAT_PROVIDERS_JSON"
+    );
+    if (!Array.isArray(parsed)) {
+      throw new Error("OPENAI_COMPAT_PROVIDERS_JSON must be a JSON array.");
+    }
+
+    for (const item of parsed) {
+      if (!AppConfigService.isRecord(item)) {
+        throw new Error(
+          "OPENAI_COMPAT_PROVIDERS_JSON entries must be JSON objects."
+        );
+      }
+      const name = AppConfigService.readSafeIdentifier(
+        item,
+        "name",
+        "OPENAI_COMPAT_PROVIDERS_JSON.name"
+      );
+      const baseUrl = AppConfigService.readUrl(
+        item,
+        "baseUrl",
+        "OPENAI_COMPAT_PROVIDERS_JSON.baseUrl"
+      );
+      const defaultModel = AppConfigService.readSafeModelId(
+        item,
+        "defaultModel",
+        "OPENAI_COMPAT_PROVIDERS_JSON.defaultModel"
+      );
+      const apiKey = AppConfigService.readOptionalString(item, "apiKey");
+      providers.push({ name, baseUrl, defaultModel, apiKey });
+    }
+
+    const seen = new Set<string>();
+    for (const provider of providers) {
+      if (provider.name === "openai") {
+        throw new Error(
+          "OPENAI_COMPAT_PROVIDERS_JSON provider names cannot be openai."
+        );
+      }
+      if (seen.has(provider.name)) {
+        throw new Error(
+          `Duplicate OpenAI-compatible provider name: ${provider.name}.`
+        );
+      }
+      seen.add(provider.name);
+    }
+    return providers;
+  }
+
+  private static loadAnthropic(
+    env: NodeJS.ProcessEnv
+  ): AnthropicProviderConfig | undefined {
+    const apiKey = AppConfigService.normalize(env.ANTHROPIC_API_KEY);
+    if (!apiKey) return undefined;
+    return {
+      apiKey,
+      baseUrl:
+        AppConfigService.normalize(env.ANTHROPIC_BASE_URL) ??
+        "https://api.anthropic.com/v1",
+      defaultModel:
+        AppConfigService.normalize(env.ANTHROPIC_DEFAULT_MODEL) ??
+        "claude-3-5-haiku-latest"
+    };
+  }
+
+  private static loadAzureOpenAi(
+    env: NodeJS.ProcessEnv
+  ): AzureOpenAiProviderConfig | undefined {
+    const apiKey = AppConfigService.normalize(env.AZURE_OPENAI_API_KEY);
+    const endpoint = AppConfigService.normalize(env.AZURE_OPENAI_ENDPOINT);
+    const deployment = AppConfigService.normalize(
+      env.AZURE_OPENAI_CHAT_DEPLOYMENT
+    );
+    if (!apiKey && !endpoint && !deployment) return undefined;
+    if (!apiKey || !endpoint || !deployment) {
+      throw new Error(
+        "AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT, and AZURE_OPENAI_CHAT_DEPLOYMENT must be set together."
+      );
+    }
+    return {
+      apiKey,
+      endpoint,
+      deployment,
+      apiVersion:
+        AppConfigService.normalize(env.AZURE_OPENAI_API_VERSION) ??
+        "2024-10-21",
+      defaultModel:
+        AppConfigService.normalize(env.AZURE_OPENAI_CHAT_MODEL) ?? deployment
+    };
+  }
+
+  private static loadGemini(
+    env: NodeJS.ProcessEnv
+  ): GeminiProviderConfig | undefined {
+    const apiKey = AppConfigService.normalize(env.GEMINI_API_KEY);
+    if (!apiKey) return undefined;
+    return {
+      apiKey,
+      baseUrl:
+        AppConfigService.normalize(env.GEMINI_BASE_URL) ??
+        "https://generativelanguage.googleapis.com/v1beta",
+      defaultModel:
+        AppConfigService.normalize(env.GEMINI_DEFAULT_MODEL) ??
+        "gemini-1.5-flash"
+    };
+  }
+
+  private static loadModelRouting(
+    env: NodeJS.ProcessEnv,
+    defaultProvider: string,
+    fallbackProvider: string | undefined
+  ): LlmRoutingConfig {
+    const routes = {} as Record<LlmUseCase, LlmRouteConfig>;
+    for (const useCase of LLM_USE_CASES) {
+      routes[useCase] = AppConfigService.defaultRoute(
+        defaultProvider,
+        fallbackProvider
+      );
+    }
+
+    const rawRouting = AppConfigService.normalize(
+      env.MODEL_ROUTING_CONFIG_JSON
+    );
+    const pricing: LlmPricingConfig[] = [];
+    if (rawRouting) {
+      const parsed = AppConfigService.parseJsonValue(
+        rawRouting,
+        "MODEL_ROUTING_CONFIG_JSON"
+      );
+      if (!AppConfigService.isRecord(parsed)) {
+        throw new Error("MODEL_ROUTING_CONFIG_JSON must be a JSON object.");
+      }
+      const routeOverrides = parsed["routes"];
+      if (routeOverrides !== undefined) {
+        if (!AppConfigService.isRecord(routeOverrides)) {
+          throw new Error(
+            "MODEL_ROUTING_CONFIG_JSON.routes must be a JSON object."
+          );
+        }
+        for (const [useCase, value] of Object.entries(routeOverrides)) {
+          if (!LLM_USE_CASES.includes(useCase as LlmUseCase)) {
+            throw new Error(`Unknown model routing use case: ${useCase}.`);
+          }
+          routes[useCase as LlmUseCase] = AppConfigService.parseRouteConfig(
+            value,
+            routes[useCase as LlmUseCase],
+            `MODEL_ROUTING_CONFIG_JSON.routes.${useCase}`
+          );
+        }
+      }
+      const routingPricing = parsed["pricing"] ?? parsed["modelPricing"];
+      if (routingPricing !== undefined) {
+        pricing.push(
+          ...AppConfigService.parsePricingArray(
+            routingPricing,
+            "MODEL_ROUTING_CONFIG_JSON.pricing"
+          )
+        );
+      }
+    }
+
+    const rawPricing = AppConfigService.normalize(env.MODEL_PRICING_JSON);
+    if (rawPricing) {
+      pricing.push(
+        ...AppConfigService.parsePricingArray(
+          AppConfigService.parseJsonValue(rawPricing, "MODEL_PRICING_JSON"),
+          "MODEL_PRICING_JSON"
+        )
+      );
+    }
+
+    return { routes, pricing };
+  }
+
+  private static defaultRoute(
+    defaultProvider: string,
+    fallbackProvider: string | undefined
+  ): LlmRouteConfig {
+    return {
+      provider: defaultProvider,
+      fallbacks: fallbackProvider ? [{ provider: fallbackProvider }] : [],
+      budget: {},
+      allowProviderOverride: true,
+      allowModelOverride: true
+    };
+  }
+
+  private static parseRouteConfig(
+    value: unknown,
+    fallback: LlmRouteConfig,
+    path: string
+  ): LlmRouteConfig {
+    if (!AppConfigService.isRecord(value)) {
+      throw new Error(`${path} must be a JSON object.`);
+    }
+    const provider =
+      AppConfigService.readOptionalSafeIdentifier(value, "provider") ??
+      fallback.provider;
+    const model =
+      AppConfigService.readOptionalSafeModelId(value, "model") ??
+      fallback.model;
+    const fallbacks =
+      value["fallbacks"] !== undefined
+        ? AppConfigService.parseFallbacks(
+            value["fallbacks"],
+            `${path}.fallbacks`
+          )
+        : value["fallbackProviders"] !== undefined
+          ? AppConfigService.parseFallbackProviders(
+              value["fallbackProviders"],
+              `${path}.fallbackProviders`
+            )
+          : fallback.fallbacks;
+    const smallModel =
+      value["smallModel"] !== undefined
+        ? AppConfigService.parseSmallModel(
+            value["smallModel"],
+            `${path}.smallModel`
+          )
+        : fallback.smallModel;
+    const budget =
+      value["budget"] !== undefined
+        ? AppConfigService.parseBudget(value["budget"], `${path}.budget`)
+        : fallback.budget;
+    return {
+      provider,
+      model,
+      fallbacks,
+      smallModel,
+      budget,
+      allowProviderOverride:
+        AppConfigService.readOptionalBoolean(value, "allowProviderOverride") ??
+        fallback.allowProviderOverride,
+      allowModelOverride:
+        AppConfigService.readOptionalBoolean(value, "allowModelOverride") ??
+        fallback.allowModelOverride,
+      allowedProviders:
+        value["allowedProviders"] !== undefined
+          ? AppConfigService.parseStringArray(
+              value["allowedProviders"],
+              `${path}.allowedProviders`,
+              AppConfigService.isSafeIdentifier
+            )
+          : fallback.allowedProviders,
+      allowedModels:
+        value["allowedModels"] !== undefined
+          ? AppConfigService.parseStringArray(
+              value["allowedModels"],
+              `${path}.allowedModels`,
+              AppConfigService.isSafeModelId
+            )
+          : fallback.allowedModels
+    };
+  }
+
+  private static parseFallbacks(
+    value: unknown,
+    path: string
+  ): LlmModelTargetConfig[] {
+    if (!Array.isArray(value)) {
+      throw new Error(`${path} must be a JSON array.`);
+    }
+    return value.map((item, index) => {
+      if (!AppConfigService.isRecord(item)) {
+        throw new Error(`${path}[${index}] must be a JSON object.`);
+      }
+      return {
+        provider: AppConfigService.readSafeIdentifier(
+          item,
+          "provider",
+          `${path}[${index}].provider`
+        ),
+        model: AppConfigService.readOptionalSafeModelId(item, "model")
+      };
+    });
+  }
+
+  private static parseFallbackProviders(
+    value: unknown,
+    path: string
+  ): LlmModelTargetConfig[] {
+    return AppConfigService.parseStringArray(
+      value,
+      path,
+      AppConfigService.isSafeIdentifier
+    ).map((provider) => ({ provider }));
+  }
+
+  private static parseSmallModel(
+    value: unknown,
+    path: string
+  ): LlmSmallModelRoutingConfig {
+    if (!AppConfigService.isRecord(value)) {
+      throw new Error(`${path} must be a JSON object.`);
+    }
+    return {
+      provider: AppConfigService.readSafeIdentifier(
+        value,
+        "provider",
+        `${path}.provider`
+      ),
+      model: AppConfigService.readSafeModelId(value, "model", `${path}.model`),
+      maxInputTokens: AppConfigService.readOptionalPositiveInteger(
+        value,
+        "maxInputTokens",
+        `${path}.maxInputTokens`
+      ),
+      maxMessages: AppConfigService.readOptionalPositiveInteger(
+        value,
+        "maxMessages",
+        `${path}.maxMessages`
+      ),
+      maxTotalMessageChars: AppConfigService.readOptionalPositiveInteger(
+        value,
+        "maxTotalMessageChars",
+        `${path}.maxTotalMessageChars`
+      )
+    };
+  }
+
+  private static parseBudget(
+    value: unknown,
+    path: string
+  ): LlmTokenBudgetConfig {
+    if (!AppConfigService.isRecord(value)) {
+      throw new Error(`${path} must be a JSON object.`);
+    }
+    const budget = {
+      maxInputTokensPerRequest: AppConfigService.readOptionalPositiveInteger(
+        value,
+        "maxInputTokensPerRequest",
+        `${path}.maxInputTokensPerRequest`
+      ),
+      maxOutputTokensPerRequest: AppConfigService.readOptionalPositiveInteger(
+        value,
+        "maxOutputTokensPerRequest",
+        `${path}.maxOutputTokensPerRequest`
+      ),
+      maxTotalTokensPerRequest: AppConfigService.readOptionalPositiveInteger(
+        value,
+        "maxTotalTokensPerRequest",
+        `${path}.maxTotalTokensPerRequest`
+      ),
+      maxTokensPerMinute: AppConfigService.readOptionalPositiveInteger(
+        value,
+        "maxTokensPerMinute",
+        `${path}.maxTokensPerMinute`
+      )
+    };
+    if (
+      budget.maxTokensPerMinute !== undefined &&
+      budget.maxOutputTokensPerRequest === undefined &&
+      budget.maxTotalTokensPerRequest === undefined
+    ) {
+      throw new Error(
+        `${path}.maxTokensPerMinute requires maxOutputTokensPerRequest or maxTotalTokensPerRequest.`
+      );
+    }
+    return budget;
+  }
+
+  private static parsePricingArray(
+    value: unknown,
+    path: string
+  ): LlmPricingConfig[] {
+    if (!Array.isArray(value)) {
+      throw new Error(`${path} must be a JSON array.`);
+    }
+    return value.map((item, index) => {
+      if (!AppConfigService.isRecord(item)) {
+        throw new Error(`${path}[${index}] must be a JSON object.`);
+      }
+      return {
+        provider: AppConfigService.readSafeIdentifier(
+          item,
+          "provider",
+          `${path}[${index}].provider`
+        ),
+        model: AppConfigService.readSafeModelId(
+          item,
+          "model",
+          `${path}[${index}].model`
+        ),
+        inputUsdPer1MTokens: AppConfigService.readNonNegativeNumber(
+          item,
+          "inputUsdPer1MTokens",
+          `${path}[${index}].inputUsdPer1MTokens`
+        ),
+        outputUsdPer1MTokens: AppConfigService.readNonNegativeNumber(
+          item,
+          "outputUsdPer1MTokens",
+          `${path}[${index}].outputUsdPer1MTokens`
+        ),
+        source: AppConfigService.readSafeIdentifier(
+          item,
+          "source",
+          `${path}[${index}].source`
+        )
+      };
+    });
+  }
+
   private static loadJwt(
     env: NodeJS.ProcessEnv,
     productionLike: boolean
@@ -208,6 +779,12 @@ export class AppConfigService {
     const disabled =
       AppConfigService.normalize(env.AI_API_AUTH_DISABLED) === "true";
     const secret = AppConfigService.normalize(env.AI_API_JWT_SECRET);
+
+    if (productionLike && disabled) {
+      throw new Error(
+        "AI_API_AUTH_DISABLED=true is not allowed in production-like deployments."
+      );
+    }
 
     return {
       secret,
@@ -281,6 +858,19 @@ export class AppConfigService {
       2048,
       "EMBEDDING_CACHE_MAX_ITEMS"
     );
+    const responseCacheMaxItems = AppConfigService.parseNonNegativeInteger(
+      env.RAG_RESPONSE_CACHE_MAX_ITEMS,
+      256,
+      "RAG_RESPONSE_CACHE_MAX_ITEMS"
+    );
+    const responseCacheTtlMs = AppConfigService.parsePositiveInteger(
+      env.RAG_RESPONSE_CACHE_TTL_MS,
+      300000,
+      "RAG_RESPONSE_CACHE_TTL_MS"
+    );
+    if (responseCacheTtlMs > 3600000) {
+      throw new Error("RAG_RESPONSE_CACHE_TTL_MS must be at most 3600000.");
+    }
     const rateLimitWindowMs = AppConfigService.parsePositiveInteger(
       env.RAG_RATE_LIMIT_WINDOW_MS,
       60000,
@@ -374,6 +964,8 @@ export class AppConfigService {
       topK,
       scoreThreshold,
       embeddingCacheMaxItems,
+      responseCacheMaxItems,
+      responseCacheTtlMs,
       rateLimitWindowMs,
       rateLimitMaxRequests,
       ingestRateLimitMaxRequests
@@ -404,6 +996,91 @@ export class AppConfigService {
         "OPENAI_COMPAT_GATEWAY_RATE_LIMIT_MAX_REQUESTS"
       ),
       ragModelId
+    };
+  }
+
+  private static loadCors(
+    env: NodeJS.ProcessEnv,
+    productionLike: boolean
+  ): CorsConfig {
+    const rawOrigins =
+      AppConfigService.normalize(env.AI_API_CORS_ORIGINS) ??
+      AppConfigService.normalize(env.CORS_ORIGIN);
+
+    if (!rawOrigins) {
+      return {
+        allowedOrigins: productionLike
+          ? []
+          : [
+              "http://localhost:5173",
+              "http://127.0.0.1:5173",
+              "http://localhost:4173",
+              "http://127.0.0.1:4173"
+            ]
+      };
+    }
+
+    const allowedOrigins = rawOrigins
+      .split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean)
+      .map((origin) => AppConfigService.parseCorsOrigin(origin));
+
+    return { allowedOrigins: Array.from(new Set(allowedOrigins)) };
+  }
+
+  private static parseCorsOrigin(origin: string): string {
+    if (origin === "*") {
+      throw new Error(
+        "AI_API_CORS_ORIGINS must list explicit http(s) origins; wildcard is not allowed."
+      );
+    }
+
+    let parsedOrigin: URL;
+    try {
+      parsedOrigin = new URL(origin);
+    } catch {
+      throw new Error(
+        "AI_API_CORS_ORIGINS must contain comma-separated valid http(s) origins."
+      );
+    }
+
+    if (!["http:", "https:"].includes(parsedOrigin.protocol)) {
+      throw new Error("AI_API_CORS_ORIGINS must contain only http(s) origins.");
+    }
+    if (
+      parsedOrigin.pathname !== "/" ||
+      parsedOrigin.search ||
+      parsedOrigin.hash
+    ) {
+      throw new Error(
+        "AI_API_CORS_ORIGINS entries must be origins only, without paths, queries, or fragments."
+      );
+    }
+
+    return parsedOrigin.origin;
+  }
+
+  private static loadCustomerChatSession(
+    env: NodeJS.ProcessEnv
+  ): CustomerChatSessionConfig {
+    return {
+      accessCode: AppConfigService.normalize(env.CUSTOMER_CHAT_ACCESS_CODE),
+      ttlSeconds: AppConfigService.parsePositiveInteger(
+        env.CUSTOMER_CHAT_SESSION_TTL_SECONDS,
+        7200,
+        "CUSTOMER_CHAT_SESSION_TTL_SECONDS"
+      ),
+      rateLimitWindowMs: AppConfigService.parsePositiveInteger(
+        env.CUSTOMER_CHAT_SESSION_RATE_LIMIT_WINDOW_MS,
+        60000,
+        "CUSTOMER_CHAT_SESSION_RATE_LIMIT_WINDOW_MS"
+      ),
+      rateLimitMaxRequests: AppConfigService.parsePositiveInteger(
+        env.CUSTOMER_CHAT_SESSION_RATE_LIMIT_MAX_REQUESTS,
+        10,
+        "CUSTOMER_CHAT_SESSION_RATE_LIMIT_MAX_REQUESTS"
+      )
     };
   }
 
@@ -474,6 +1151,166 @@ export class AppConfigService {
     if (normalizedDistance === "dot") return "Dot";
     if (normalizedDistance === "euclid") return "Euclid";
     throw new Error("QDRANT_DISTANCE must be Cosine, Dot, or Euclid.");
+  }
+
+  private static parseJsonValue(value: string, name: string): unknown {
+    try {
+      return JSON.parse(value) as unknown;
+    } catch {
+      throw new Error(`${name} must contain valid JSON.`);
+    }
+  }
+
+  private static isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  }
+
+  private static readOptionalString(
+    record: Record<string, unknown>,
+    key: string
+  ): string | undefined {
+    const value = record[key];
+    if (value === undefined || value === null) return undefined;
+    if (typeof value !== "string") {
+      throw new Error(`${key} must be a string.`);
+    }
+    return AppConfigService.normalize(value);
+  }
+
+  private static readSafeIdentifier(
+    record: Record<string, unknown>,
+    key: string,
+    path: string
+  ): string {
+    const value = AppConfigService.readOptionalString(record, key);
+    if (!value || !AppConfigService.isSafeIdentifier(value)) {
+      throw new Error(`${path} must be 1 to 128 safe identifier characters.`);
+    }
+    return value;
+  }
+
+  private static readOptionalSafeIdentifier(
+    record: Record<string, unknown>,
+    key: string
+  ): string | undefined {
+    const value = AppConfigService.readOptionalString(record, key);
+    if (value !== undefined && !AppConfigService.isSafeIdentifier(value)) {
+      throw new Error(`${key} must be 1 to 128 safe identifier characters.`);
+    }
+    return value;
+  }
+
+  private static readSafeModelId(
+    record: Record<string, unknown>,
+    key: string,
+    path: string
+  ): string {
+    const value = AppConfigService.readOptionalString(record, key);
+    if (!value || !AppConfigService.isSafeModelId(value)) {
+      throw new Error(`${path} must be 1 to 160 safe model id characters.`);
+    }
+    return value;
+  }
+
+  private static readOptionalSafeModelId(
+    record: Record<string, unknown>,
+    key: string
+  ): string | undefined {
+    const value = AppConfigService.readOptionalString(record, key);
+    if (value !== undefined && !AppConfigService.isSafeModelId(value)) {
+      throw new Error(`${key} must be 1 to 160 safe model id characters.`);
+    }
+    return value;
+  }
+
+  private static readUrl(
+    record: Record<string, unknown>,
+    key: string,
+    path: string
+  ): string {
+    const value = AppConfigService.readOptionalString(record, key);
+    if (!value) {
+      throw new Error(`${path} must be a valid http(s) URL.`);
+    }
+    let parsed: URL;
+    try {
+      parsed = new URL(value);
+    } catch {
+      throw new Error(`${path} must be a valid http(s) URL.`);
+    }
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+      throw new Error(`${path} must be a valid http(s) URL.`);
+    }
+    return value.replace(/\/$/, "");
+  }
+
+  private static readOptionalBoolean(
+    record: Record<string, unknown>,
+    key: string
+  ): boolean | undefined {
+    const value = record[key];
+    if (value === undefined || value === null) return undefined;
+    if (typeof value !== "boolean") {
+      throw new Error(`${key} must be a boolean.`);
+    }
+    return value;
+  }
+
+  private static readOptionalPositiveInteger(
+    record: Record<string, unknown>,
+    key: string,
+    path: string
+  ): number | undefined {
+    const value = record[key];
+    if (value === undefined || value === null) return undefined;
+    if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
+      throw new Error(`${path} must be a positive integer.`);
+    }
+    return value;
+  }
+
+  private static readNonNegativeNumber(
+    record: Record<string, unknown>,
+    key: string,
+    path: string
+  ): number {
+    const value = record[key];
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+      throw new Error(`${path} must be a non-negative number.`);
+    }
+    return value;
+  }
+
+  private static parseStringArray(
+    value: unknown,
+    path: string,
+    validator: (item: string) => boolean
+  ): string[] {
+    if (!Array.isArray(value)) {
+      throw new Error(`${path} must be a JSON array.`);
+    }
+    return value.map((item, index) => {
+      if (typeof item !== "string" || !validator(item)) {
+        throw new Error(`${path}[${index}] contains an unsafe value.`);
+      }
+      return item;
+    });
+  }
+
+  private static isSafeIdentifier(value: string): boolean {
+    return (
+      value.length > 0 &&
+      value.length <= 128 &&
+      /^[A-Za-z0-9_.:-]+$/.test(value)
+    );
+  }
+
+  private static isSafeModelId(value: string): boolean {
+    return (
+      value.length > 0 &&
+      value.length <= 160 &&
+      /^[A-Za-z0-9_.:/@-]+$/.test(value)
+    );
   }
 
   private static normalize(value: string | undefined): string | undefined {

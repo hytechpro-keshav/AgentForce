@@ -9,6 +9,10 @@ OpenAI-compatible `/v1/models` and `/v1/chat/completions` gateway routes).
 Phase 4 adds production-sane Knowledge RAG with LangChain chunking/prompt
 composition, OpenAI embeddings through `EmbeddingProvider`, Qdrant/Pinecone
 behind `VectorStore`, and source-cited `/agent/knowledge/answer` responses.
+Phase 7 adds configuration-driven provider/model routing, Anthropic/Azure
+OpenAI/Gemini adapters, multiple OpenAI-compatible providers, per-use-case token
+budget guardrails, cost-reference telemetry, fallback policy, and tenant-safe
+RAG answer caching.
 
 ## Phase 2 Status
 
@@ -78,6 +82,38 @@ scripts/smoke/phase4-rag-ingest-sample.sh
 Phase 4 implements LangChain/Qdrant RAG. Open WebUI production deployment and
 the React customer chat window remain explicit later phases.
 
+## Phase 7 Cost And Model Flexibility Status
+
+Status as of 2026-05-13: Phase 7 backend routing and cost controls are
+implemented locally in `apps/ai-api`.
+
+- `ModelRouter` remains the only dependency used by chat, Agentforce support,
+  Open WebUI, and RAG services.
+- Provider adapters are available for OpenAI, Azure OpenAI, Anthropic, Gemini,
+  and named OpenAI-compatible endpoints. They use mocked tests and do not
+  require live vendor credentials locally.
+- `MODEL_ROUTING_CONFIG_JSON` selects provider/model/fallback chains by use
+  case: `customer_chat`, `openwebui_chat`, `openwebui_rag`,
+  `agentforce_support_triage`, `agentforce_case_analysis`, `knowledge_rag`, and
+  `generic_chat`.
+- Small-model routing can be enabled per use case with a `smallModel` rule for
+  low-complexity requests.
+- Token budgets are enforced before provider calls. Request-level budgets are
+  deterministic; `maxTokensPerMinute` is in-memory per process and is not
+  durable monthly spend enforcement.
+- Customer `chat:write` tokens always use the customer knowledge path. Direct
+  provider/model diagnostic routing through `/chat/message` requires the
+  additional `chat:diagnostic` scope.
+- Fallback runs only for retryable, fallbackable, rate-limit, or quota provider
+  failures. Auth, validation, safety, and budget failures do not fallback.
+- RAG answer caching is in-process and tenant-safe. Keys are hashes over trusted
+  tenant/access context, hashed question/context text, source IDs, chunk IDs,
+  source versions, content hashes, embedding/vector context, and routing
+  fingerprint. Raw questions, retrieved chunks, prompts, secrets, and provider
+  payloads are not cached or logged.
+- Phase 7 rollout details are in
+  [../../docs/deployment/railway-ai-api-phase7.md](../../docs/deployment/railway-ai-api-phase7.md).
+
 ## Local Commands
 
 ```bash
@@ -105,7 +141,7 @@ Detailed Railway setup is in [../../docs/deployment/railway-ai-api-phase1.md](..
 All provider-backed routes require `Authorization: Bearer <jwt>` unless
 `AI_API_AUTH_DISABLED=true`. Health routes remain public. The support triage route requires JWT scope `agentforce:support-triage`; the case-analysis route requires JWT scope `agentforce:case-analysis`.
 
-- `POST /chat/message` — DTO-validated chat call. Body: `{ messages, provider?, model?, maxTokens?, requestId? }`. Returns normalized `{ content, usage, provider, model, fallbackUsed, attemptedProviders, latencyMs, responseId? }`.
+- `POST /chat/message` — DTO-validated chat call. Body: `{ messages, provider?, model?, maxTokens?, requestId? }`. Returns normalized `{ content, usage, provider, model, fallbackUsed, attemptedProviders, latencyMs, responseId? }`. Customer `chat:write` tokens use Knowledge RAG even if provider/model fields are present; direct diagnostic routing requires `chat:diagnostic`.
 - `POST /agent/support/triage-case` — Bulk-safe support triage helper. Body: `{ subject, description, reportedPriority?, caseId?, requestId? }`. Returns `{ recommendedPriority, summary, suggestedNextStep, provider, model, fallbackUsed, latencyMs }`.
 - `POST /agent/support/analyze-case` — Phase 3 Support Operations case-analysis helper. Body: `{ caseSubject, caseDescription, caseStatus?, caseType?, caseOrigin?, reportedPriority?, caseId?, requestId? }`. Returns `{ summary, category, recommendedPriority, confidence, nextAction, provider, model, fallbackUsed, latencyMs }`.
 - `GET /v1/models` — OpenAI-compatible model listing for Open WebUI-style clients. Requires scope `openwebui:chat`. Phase 5 intentionally returns only `knowledge-rag` so Open WebUI does not show direct GPT/provider model options.
@@ -117,6 +153,10 @@ Provider rules (see `.github/instructions/llm-provider.instructions.md` and ADR 
 - Vendor SDKs/HTTP live exclusively inside provider adapters.
 - OpenAI is the production v1 provider; OpenAI-compatible providers cover Open WebUI-style self-hosted endpoints. Anthropic, Azure OpenAI, and Gemini remain extension paths.
 - Provider selection is configuration-driven (`LLM_DEFAULT_PROVIDER`, `LLM_FALLBACK_PROVIDER`). Fallbackable errors (5xx, rate-limit, quota) trigger fallback; auth/validation/safety errors do not.
+
+Phase 7 expands provider selection with `MODEL_ROUTING_CONFIG_JSON`. Existing
+`LLM_DEFAULT_PROVIDER` and `LLM_FALLBACK_PROVIDER` remain the default route when
+no use-case-specific routing JSON is configured.
 
 ## Sensitive Data Masking
 
@@ -149,7 +189,7 @@ Phase 2 and Phase 3:
 - `OPENAI_COMPAT_DEFAULT_MODEL` — default `default`.
 - `AI_API_JWT_SECRET` — HS256 shared secret for protected provider-backed routes. Missing secrets fail closed at protected routes so Phase 1 health can stay online during staged setup.
 - `AI_API_JWT_ISSUER`, `AI_API_JWT_AUDIENCE` — optional issuer/audience constraints.
-- `AI_API_AUTH_DISABLED=true` — explicit dev/test escape hatch. Logs an unauthenticated profile.
+- `AI_API_AUTH_DISABLED=true` — explicit local dev/test escape hatch. Production-like deployments fail startup if this is set.
 - `AI_API_TELEMETRY_ENABLED=false` — disables the structured `gen_ai.*` telemetry sink. Telemetry is no-op safe by design.
 
 Phase 4 RAG:
@@ -189,6 +229,27 @@ Phase 5 Open WebUI gateway:
   `/v1/chat/completions`.
 - `OPENAI_COMPAT_RAG_MODEL_ID` — default `knowledge-rag`; exposed from
   `/v1/models` only when `RAG_ENABLED=true`.
+
+Phase 7 providers, routing, budgets, pricing, and cache:
+
+- `OPENAI_COMPAT_PROVIDERS_JSON` — optional array of named OpenAI-compatible
+  providers, each with `name`, `baseUrl`, `defaultModel`, and optional `apiKey`.
+- `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL`, `ANTHROPIC_DEFAULT_MODEL` — enable
+  the Anthropic messages provider.
+- `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`,
+  `AZURE_OPENAI_CHAT_DEPLOYMENT`, `AZURE_OPENAI_API_VERSION`,
+  `AZURE_OPENAI_CHAT_MODEL` — enable the Azure OpenAI chat-completions provider.
+- `GEMINI_API_KEY`, `GEMINI_BASE_URL`, `GEMINI_DEFAULT_MODEL` — enable the
+  Gemini generateContent provider.
+- `MODEL_ROUTING_CONFIG_JSON` — use-case route rules with `provider`, `model`,
+  `fallbacks`, `smallModel`, `budget`, override flags, and optional pricing.
+  Providers named in routing JSON must be configured; missing route providers
+  fail closed rather than falling through to fallback.
+- `MODEL_PRICING_JSON` — optional array of exact provider/model pricing
+  references for telemetry cost estimates.
+- `RAG_RESPONSE_CACHE_MAX_ITEMS` — default `256`; set `0` to disable the
+  in-process RAG answer cache.
+- `RAG_RESPONSE_CACHE_TTL_MS` — default `300000`, maximum `3600000`.
 
 For the deployed Railway app, set secrets in Railway variables only. Required production values for Phase 2 and Phase 3 are:
 
@@ -230,3 +291,6 @@ Phase 2 telemetry is no-op safe and records structured `gen_ai.*` fields into Ra
 - Current built-in cost reference coverage is intentionally narrow: `gpt-4o-mini` is priced in code because it is the live production proof model. Unknown models still log tokens safely without cost fields.
 
 These are cost references for observability, not authoritative billing exports.
+Phase 7 can add configured pricing references for additional providers/models;
+unknown pricing safely omits cost fields while preserving token and routing
+telemetry.

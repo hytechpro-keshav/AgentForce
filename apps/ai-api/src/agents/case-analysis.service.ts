@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 
+import type { AuthPrincipal } from "../auth/jwt-auth.guard";
 import { ModelRouter } from "../llm/model-router";
 import type { LlmChatRequest } from "../llm/interfaces/llm-contracts";
 import { redactSensitiveText } from "../security/sensitive-data-redactor";
@@ -32,7 +33,8 @@ export class CaseAnalysisService {
   constructor(private readonly modelRouter: ModelRouter) {}
 
   async analyze(
-    request: AnalyzeCaseRequestDto
+    request: AnalyzeCaseRequestDto,
+    principal?: AuthPrincipal
   ): Promise<AnalyzeCaseResponseDto> {
     const safeSubject = redactSensitiveText(request.caseSubject);
     const safeDescription = redactSensitiveText(request.caseDescription);
@@ -57,6 +59,10 @@ export class CaseAnalysisService {
 
     const llmRequest: LlmChatRequest = {
       requestId: request.requestId,
+      useCase: "agentforce_case_analysis",
+      tenantId: principal?.tenantId,
+      clientId: principal?.tenantId ?? principal?.subject,
+      surface: "agentforce",
       messages: [
         { role: "system", content: ANALYSIS_SYSTEM_PROMPT },
         { role: "user", content: userContent }

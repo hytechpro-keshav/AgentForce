@@ -45,6 +45,58 @@ describe("TelemetryService", () => {
     );
   });
 
+  it("emits routing, budget, and configured pricing references safely", () => {
+    const service = new TelemetryService({
+      telemetryEnabled: true,
+      modelRouting: {
+        routes: {},
+        pricing: [
+          {
+            provider: "openai-compatible",
+            model: "local-small",
+            inputUsdPer1MTokens: 0.01,
+            outputUsdPer1MTokens: 0.02,
+            source: "internal_reference"
+          }
+        ]
+      }
+    } as unknown as AppConfigService);
+    const logSpy = jest
+      .spyOn(getLogger(service), "log")
+      .mockImplementation(() => undefined);
+
+    service.recordChatCompletion({
+      provider: "openai-compatible",
+      model: "local-small",
+      latencyMs: 12,
+      inputTokens: 100,
+      outputTokens: 50,
+      totalTokens: 150,
+      fallbackUsed: true,
+      attemptedProviders: ["openai", "openai-compatible"],
+      useCase: "customer_chat",
+      routingRule: "customer_chat:small",
+      modelTier: "small",
+      budgetKey: "customer_chat:abc123",
+      estimatedInputTokens: 100,
+      reservedTokens: 612,
+      budgetOutcome: "allowed",
+      outcome: "success"
+    });
+
+    expect(logSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        "gen_ai.router.use_case": "customer_chat",
+        "gen_ai.router.rule": "customer_chat:small",
+        "gen_ai.router.model_tier": "small",
+        "gen_ai.budget.key": "customer_chat:abc123",
+        "gen_ai.budget.outcome": "allowed",
+        "gen_ai.pricing.source": "internal_reference",
+        "gen_ai.usage.total_cost_usd_estimate": 0.000002
+      })
+    );
+  });
+
   it("keeps core telemetry when no pricing reference exists", () => {
     const service = new TelemetryService({
       telemetryEnabled: true
@@ -92,6 +144,33 @@ describe("TelemetryService", () => {
         outcome: "success"
       })
     ).not.toThrow();
+  });
+
+  it("emits RAG cache-hit metrics without prompt or chunk text", () => {
+    const service = new TelemetryService({
+      telemetryEnabled: true
+    } as AppConfigService);
+    const logSpy = jest
+      .spyOn(getLogger(service), "log")
+      .mockImplementation(() => undefined);
+
+    service.recordRagWorkflow({
+      operation: "answer",
+      tenantId: "tenant-demo",
+      namespace: "customer-self-service",
+      provider: "openai",
+      model: "gpt-4o-mini",
+      cacheHit: true,
+      cacheKeyHash: "abc123",
+      totalLatencyMs: 4,
+      outcome: "success"
+    });
+
+    const event = logSpy.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(event["gen_ai.rag.cache_hit"]).toBe(true);
+    expect(event["gen_ai.rag.cache_key_hash"]).toBe("abc123");
+    expect(JSON.stringify(event)).not.toContain("Question:");
+    expect(JSON.stringify(event)).not.toContain("Authorized source excerpts");
   });
 
   it("does nothing when telemetry is disabled", () => {

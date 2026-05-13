@@ -9,12 +9,14 @@ import {
   IsString,
   Max,
   MaxLength,
+  Matches,
   Min,
   MinLength,
   ValidateNested
 } from "class-validator";
 
 export const CHAT_ROLES = ["system", "user", "assistant"] as const;
+export const SAFE_CHAT_REQUEST_ID_PATTERN = /^[A-Za-z0-9_.:-]+$/;
 export type ChatRoleDto = (typeof CHAT_ROLES)[number];
 
 export class ChatMessageItemDto {
@@ -54,6 +56,7 @@ export class ChatMessageRequestDto {
   @IsOptional()
   @IsString()
   @MaxLength(64)
+  @Matches(SAFE_CHAT_REQUEST_ID_PATTERN)
   requestId?: string;
 }
 

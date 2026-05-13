@@ -4,7 +4,8 @@ import { AppConfigService } from "../config/app-config.service";
 
 interface ModelPricingReference {
   provider: string;
-  modelPattern: RegExp;
+  model?: string;
+  modelPattern?: RegExp;
   inputUsdPer1MTokens: number;
   outputUsdPer1MTokens: number;
   source: string;
@@ -33,6 +34,13 @@ export interface ChatCompletionTelemetry {
   requestId?: string;
   fallbackUsed: boolean;
   attemptedProviders: string[];
+  useCase?: string;
+  routingRule?: string;
+  modelTier?: string;
+  budgetKey?: string;
+  estimatedInputTokens?: number;
+  reservedTokens?: number;
+  budgetOutcome?: "allowed" | "rejected";
   outcome: LlmCallOutcome;
   errorKind?: string;
 }
@@ -74,6 +82,8 @@ export interface RagWorkflowTelemetry {
   accessFilteredCount?: number;
   emptyRetrieval?: boolean;
   fallbackReason?: string;
+  cacheHit?: boolean;
+  cacheKeyHash?: string;
   inputTokens?: number;
   outputTokens?: number;
   totalTokens?: number;
@@ -103,9 +113,20 @@ export interface RagWorkflowTelemetry {
 export class TelemetryService {
   private readonly logger = new Logger("ai.telemetry");
   private readonly enabled: boolean;
+  private readonly pricingReferences: ModelPricingReference[];
 
   constructor(config: AppConfigService) {
     this.enabled = config.telemetryEnabled;
+    this.pricingReferences = [
+      ...MODEL_PRICING_REFERENCES,
+      ...(config.modelRouting?.pricing ?? []).map((pricing) => ({
+        provider: pricing.provider,
+        model: pricing.model,
+        inputUsdPer1MTokens: pricing.inputUsdPer1MTokens,
+        outputUsdPer1MTokens: pricing.outputUsdPer1MTokens,
+        source: pricing.source
+      }))
+    ];
   }
 
   recordChatCompletion(event: ChatCompletionTelemetry): void {
@@ -113,7 +134,7 @@ export class TelemetryService {
       return;
     }
     try {
-      const costReference = TelemetryService.buildCostReference(event);
+      const costReference = this.buildCostReference(event);
       this.logger.log({
         // OpenTelemetry gen_ai.* aligned attribute names.
         event: "gen_ai.client.operation",
@@ -128,6 +149,13 @@ export class TelemetryService {
         "gen_ai.response.error_kind": event.errorKind,
         "gen_ai.router.fallback_used": event.fallbackUsed,
         "gen_ai.router.attempted_providers": event.attemptedProviders,
+        "gen_ai.router.use_case": event.useCase,
+        "gen_ai.router.rule": event.routingRule,
+        "gen_ai.router.model_tier": event.modelTier,
+        "gen_ai.budget.key": event.budgetKey,
+        "gen_ai.budget.estimated_input_tokens": event.estimatedInputTokens,
+        "gen_ai.budget.reserved_tokens": event.reservedTokens,
+        "gen_ai.budget.outcome": event.budgetOutcome,
         request_id: event.requestId,
         ...costReference
       });
@@ -189,6 +217,8 @@ export class TelemetryService {
         "gen_ai.rag.access_filtered_count": event.accessFilteredCount,
         "gen_ai.rag.empty_retrieval": event.emptyRetrieval,
         "gen_ai.rag.fallback_reason": event.fallbackReason,
+        "gen_ai.rag.cache_hit": event.cacheHit,
+        "gen_ai.rag.cache_key_hash": event.cacheKeyHash,
         "gen_ai.embedding.input_tokens": event.embeddingInputTokens,
         "gen_ai.embedding.total_tokens": event.embeddingTotalTokens,
         "gen_ai.usage.input_tokens": event.inputTokens,
@@ -202,7 +232,7 @@ export class TelemetryService {
         "gen_ai.response.outcome": event.outcome,
         "gen_ai.response.error_kind": event.errorKind,
         request_id: event.requestId,
-        ...TelemetryService.buildCostReference({
+        ...this.buildCostReference({
           provider: event.provider ?? "",
           model: event.model,
           latencyMs: event.generationLatencyMs ?? event.totalLatencyMs,
@@ -219,13 +249,10 @@ export class TelemetryService {
     }
   }
 
-  private static buildCostReference(
+  private buildCostReference(
     event: ChatCompletionTelemetry
   ): Record<string, number | string> {
-    const pricing = TelemetryService.findPricingReference(
-      event.provider,
-      event.model
-    );
+    const pricing = this.findPricingReference(event.provider, event.model);
 
     if (!pricing) {
       return {};
@@ -250,7 +277,7 @@ export class TelemetryService {
     };
   }
 
-  private static findPricingReference(
+  private findPricingReference(
     provider: string,
     model?: string
   ): ModelPricingReference | undefined {
@@ -258,9 +285,10 @@ export class TelemetryService {
       return undefined;
     }
 
-    return MODEL_PRICING_REFERENCES.find(
+    return this.pricingReferences.find(
       (candidate) =>
-        candidate.provider === provider && candidate.modelPattern.test(model)
+        candidate.provider === provider &&
+        (candidate.model === model || candidate.modelPattern?.test(model))
     );
   }
 

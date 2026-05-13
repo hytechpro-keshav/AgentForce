@@ -11,7 +11,7 @@ const TEST_JWT_SECRET = "phase4-test-secret";
 
 describe("Knowledge RAG endpoints (e2e)", () => {
   let app: INestApplication;
-  let router: { chat: jest.Mock };
+  let router: { chat: jest.Mock; describeRoute: jest.Mock };
 
   beforeAll(async () => {
     process.env.AI_API_JWT_SECRET = TEST_JWT_SECRET;
@@ -24,6 +24,9 @@ describe("Knowledge RAG endpoints (e2e)", () => {
     delete process.env.OPENAI_API_KEY;
 
     router = {
+      describeRoute: jest.fn(() => ({
+        routingFingerprint: "rag-e2e-route"
+      })),
       chat: jest.fn(async () => ({
         content:
           "Power cycle the gateway for 30 seconds and escalate if unresolved. Sources: kb-e2e-troubleshoot kb-e2e-troubleshoot:v1:chunk-1.",
@@ -271,6 +274,78 @@ describe("Knowledge RAG endpoints (e2e)", () => {
       vectorDbProvider: "memory"
     });
     expect(response.body.sourcesJson).toContain("kb-e2e-troubleshoot");
+  });
+
+  it("serves repeated authorized RAG answers from the tenant-safe cache", async () => {
+    const namespace = "phase7-e2e-cache";
+    await ingest(namespace);
+    router.chat.mockClear();
+
+    await request(app.getHttpServer())
+      .post("/agent/knowledge/answer")
+      .set("authorization", `Bearer ${signToken({}, namespace)}`)
+      .send({
+        namespace,
+        question:
+          "What should I tell the customer about gateway troubleshooting?",
+        scoreThreshold: 0,
+        requestId: "cache-e2e-first"
+      })
+      .expect(201);
+
+    const secondResponse = await request(app.getHttpServer())
+      .post("/agent/knowledge/answer")
+      .set("authorization", `Bearer ${signToken({}, namespace)}`)
+      .send({
+        namespace,
+        question:
+          "What should I tell the customer about gateway troubleshooting?",
+        scoreThreshold: 0,
+        requestId: "cache-e2e-second"
+      })
+      .expect(201);
+
+    expect(secondResponse.body.answerStatus).toBe("ANSWERED");
+    expect(secondResponse.body.usage).toEqual({
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0
+    });
+    expect(router.chat).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reuse cached RAG answers across tenant claims", async () => {
+    const namespace = "phase7-e2e-cache-tenant";
+    await ingest(namespace);
+    router.chat.mockClear();
+
+    await request(app.getHttpServer())
+      .post("/agent/knowledge/answer")
+      .set("authorization", `Bearer ${signToken({}, namespace)}`)
+      .send({
+        namespace,
+        question:
+          "What should I tell the customer about gateway troubleshooting?",
+        scoreThreshold: 0
+      })
+      .expect(201);
+
+    const otherTenantResponse = await request(app.getHttpServer())
+      .post("/agent/knowledge/answer")
+      .set(
+        "authorization",
+        `Bearer ${signToken({ tenant: "tenant-other" }, namespace)}`
+      )
+      .send({
+        namespace,
+        question:
+          "What should I tell the customer about gateway troubleshooting?",
+        scoreThreshold: 0
+      })
+      .expect(201);
+
+    expect(otherTenantResponse.body.answerStatus).toBe("NO_SOURCE");
+    expect(router.chat).toHaveBeenCalledTimes(1);
   });
 
   it("returns no-source uncertainty without generation", async () => {

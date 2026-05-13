@@ -106,6 +106,11 @@ export class OpenAiCompatibleController {
     const llmRequest: LlmChatRequest = {
       provider: providerName,
       model: body.model,
+      useCase: "openwebui_chat",
+      tenantId: request.authPrincipal?.tenantId,
+      clientId:
+        request.authPrincipal?.tenantId ?? request.authPrincipal?.subject,
+      surface: "openwebui",
       messages: body.messages.map((m) => ({
         role: m.role,
         content: m.content,
@@ -208,7 +213,8 @@ export class OpenAiCompatibleController {
           contextSummary: OpenAiCompatibleController.contextSummary(body),
           requestId: OpenAiCompatibleController.gatewayRequestId()
         },
-        context
+        context,
+        { useCase: "openwebui_rag" }
       )
       .catch((err) => {
         throw this.toClientError(err, "openai-compatible.knowledge-rag");

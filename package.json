@@ -8,6 +8,7 @@
   },
   "workspaces": [
     "apps/ai-api",
+    "apps/react-chat-window",
     "packages/*"
   ],
   "scripts": {
@@ -19,6 +20,11 @@
     "ai-api:test": "npm --workspace @agentforce/ai-api run test",
     "ai-api:test:e2e": "npm --workspace @agentforce/ai-api run test:e2e",
     "ai-api:typecheck": "npm --workspace @agentforce/ai-api run typecheck",
+    "react-chat:dev": "npm --workspace @agentforce/react-chat-window run dev",
+    "react-chat:build": "npm --workspace @agentforce/react-chat-window run build",
+    "react-chat:preview": "npm --workspace @agentforce/react-chat-window run preview",
+    "react-chat:test": "npm --workspace @agentforce/react-chat-window run test",
+    "react-chat:typecheck": "npm --workspace @agentforce/react-chat-window run typecheck",
     "lint": "eslint \"**/{aura,lwc}/**/*.js\" --no-error-on-unmatched-pattern",
     "test": "npm run test:unit",
     "test:unit": "sfdx-lwc-jest",

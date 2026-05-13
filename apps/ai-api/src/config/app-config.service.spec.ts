@@ -50,6 +50,107 @@ describe("AppConfigService", () => {
     });
   });
 
+  it("loads Phase 7 provider configs without requiring live credentials in tests", () => {
+    const config = AppConfigService.load({
+      OPENAI_COMPAT_PROVIDERS_JSON: JSON.stringify([
+        {
+          name: "local-llama",
+          baseUrl: "https://llm.internal/v1",
+          defaultModel: "llama-3.1-8b"
+        }
+      ]),
+      ANTHROPIC_API_KEY: "anthropic-test",
+      ANTHROPIC_DEFAULT_MODEL: "claude-test",
+      AZURE_OPENAI_API_KEY: "azure-test",
+      AZURE_OPENAI_ENDPOINT: "https://azure-openai.test",
+      AZURE_OPENAI_CHAT_DEPLOYMENT: "support-chat",
+      GEMINI_API_KEY: "gemini-test",
+      GEMINI_DEFAULT_MODEL: "gemini-test"
+    });
+
+    expect(config.openAiCompatibleProviders).toEqual([
+      {
+        name: "local-llama",
+        baseUrl: "https://llm.internal/v1",
+        defaultModel: "llama-3.1-8b",
+        apiKey: undefined
+      }
+    ]);
+    expect(config.anthropic?.defaultModel).toBe("claude-test");
+    expect(config.azureOpenAi).toMatchObject({
+      endpoint: "https://azure-openai.test",
+      deployment: "support-chat",
+      defaultModel: "support-chat"
+    });
+    expect(config.gemini?.defaultModel).toBe("gemini-test");
+  });
+
+  it("loads model routing rules, budgets, and pricing references", () => {
+    const config = AppConfigService.load({
+      MODEL_ROUTING_CONFIG_JSON: JSON.stringify({
+        routes: {
+          customer_chat: {
+            provider: "openai-compatible",
+            model: "llama-small",
+            fallbacks: [{ provider: "openai", model: "gpt-4o-mini" }],
+            smallModel: {
+              provider: "openai-compatible",
+              model: "llama-tiny",
+              maxInputTokens: 256
+            },
+            budget: {
+              maxInputTokensPerRequest: 2000,
+              maxOutputTokensPerRequest: 512,
+              maxTotalTokensPerRequest: 2500,
+              maxTokensPerMinute: 10000
+            },
+            allowProviderOverride: false,
+            allowModelOverride: false,
+            allowedProviders: ["openai-compatible"],
+            allowedModels: ["llama-small", "llama-tiny"]
+          }
+        },
+        pricing: [
+          {
+            provider: "openai-compatible",
+            model: "llama-small",
+            inputUsdPer1MTokens: 0.01,
+            outputUsdPer1MTokens: 0.02,
+            source: "internal_reference"
+          }
+        ]
+      })
+    });
+
+    expect(config.modelRouting.routes.customer_chat).toMatchObject({
+      provider: "openai-compatible",
+      model: "llama-small",
+      fallbacks: [{ provider: "openai", model: "gpt-4o-mini" }],
+      smallModel: {
+        provider: "openai-compatible",
+        model: "llama-tiny",
+        maxInputTokens: 256
+      },
+      budget: {
+        maxInputTokensPerRequest: 2000,
+        maxOutputTokensPerRequest: 512,
+        maxTotalTokensPerRequest: 2500,
+        maxTokensPerMinute: 10000
+      },
+      allowProviderOverride: false,
+      allowModelOverride: false
+    });
+    expect(config.modelRouting.pricing).toEqual([
+      {
+        provider: "openai-compatible",
+        model: "llama-small",
+        inputUsdPer1MTokens: 0.01,
+        outputUsdPer1MTokens: 0.02,
+        source: "internal_reference"
+      }
+    ]);
+  });
+
   it("requires the OpenAI key when openai is default in production-like deployments", () => {
     expect(() =>
       AppConfigService.load({
@@ -83,6 +184,80 @@ describe("AppConfigService", () => {
     expect(config.jwt.disabled).toBe(false);
   });
 
+  it("rejects auth-disabled mode in production-like deployments", () => {
+    expect(() =>
+      AppConfigService.load({
+        NODE_ENV: "production",
+        AGENTFORCE_HEALTH_API_KEY: "x",
+        AI_API_AUTH_DISABLED: "true"
+      })
+    ).toThrow("AI_API_AUTH_DISABLED=true is not allowed");
+  });
+
+  it("loads customer chat session defaults and access code", () => {
+    const config = AppConfigService.load({
+      CUSTOMER_CHAT_ACCESS_CODE: "phase6-access"
+    });
+
+    expect(config.customerChatSession).toEqual({
+      accessCode: "phase6-access",
+      ttlSeconds: 7200,
+      rateLimitWindowMs: 60000,
+      rateLimitMaxRequests: 10
+    });
+  });
+
+  it("loads explicit customer chat session limits", () => {
+    const config = AppConfigService.load({
+      CUSTOMER_CHAT_SESSION_TTL_SECONDS: "900",
+      CUSTOMER_CHAT_SESSION_RATE_LIMIT_WINDOW_MS: "30000",
+      CUSTOMER_CHAT_SESSION_RATE_LIMIT_MAX_REQUESTS: "5"
+    });
+
+    expect(config.customerChatSession).toMatchObject({
+      ttlSeconds: 900,
+      rateLimitWindowMs: 30000,
+      rateLimitMaxRequests: 5
+    });
+  });
+
+  it("loads local CORS defaults for React chat development", () => {
+    const config = AppConfigService.load({});
+
+    expect(config.cors.allowedOrigins).toEqual([
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "http://localhost:4173",
+      "http://127.0.0.1:4173"
+    ]);
+  });
+
+  it("loads explicit CORS origins for deployed browser clients", () => {
+    const config = AppConfigService.load({
+      AI_API_CORS_ORIGINS:
+        "https://chat.example.com, https://chat.example.com/, http://localhost:5173"
+    });
+
+    expect(config.cors.allowedOrigins).toEqual([
+      "https://chat.example.com",
+      "http://localhost:5173"
+    ]);
+  });
+
+  it("rejects unsafe CORS origins", () => {
+    expect(() => AppConfigService.load({ AI_API_CORS_ORIGINS: "*" })).toThrow(
+      "wildcard is not allowed"
+    );
+    expect(() =>
+      AppConfigService.load({ AI_API_CORS_ORIGINS: "javascript:alert(1)" })
+    ).toThrow("only http(s) origins");
+    expect(() =>
+      AppConfigService.load({
+        AI_API_CORS_ORIGINS: "https://chat.example.com/path"
+      })
+    ).toThrow("origins only");
+  });
+
   it("loads RAG defaults for local staged setup without requiring secrets", () => {
     const config = AppConfigService.load({});
 
@@ -96,6 +271,8 @@ describe("AppConfigService", () => {
       topK: 4,
       scoreThreshold: 0.68,
       embeddingCacheMaxItems: 2048,
+      responseCacheMaxItems: 256,
+      responseCacheTtlMs: 300000,
       rateLimitWindowMs: 60000,
       rateLimitMaxRequests: 60,
       ingestRateLimitMaxRequests: 10
@@ -132,6 +309,8 @@ describe("AppConfigService", () => {
       RAG_TOP_K: "6",
       RAG_SCORE_THRESHOLD: "0.2",
       EMBEDDING_CACHE_MAX_ITEMS: "16",
+      RAG_RESPONSE_CACHE_MAX_ITEMS: "8",
+      RAG_RESPONSE_CACHE_TTL_MS: "120000",
       RAG_RATE_LIMIT_WINDOW_MS: "30000",
       RAG_RATE_LIMIT_MAX_REQUESTS: "20",
       RAG_INGEST_RATE_LIMIT_MAX_REQUESTS: "3"
@@ -147,6 +326,8 @@ describe("AppConfigService", () => {
       topK: 6,
       scoreThreshold: 0.2,
       embeddingCacheMaxItems: 16,
+      responseCacheMaxItems: 8,
+      responseCacheTtlMs: 120000,
       rateLimitWindowMs: 30000,
       rateLimitMaxRequests: 20,
       ingestRateLimitMaxRequests: 3
@@ -245,11 +426,23 @@ describe("AppConfigService", () => {
       AppConfigService.load({ EMBEDDING_CACHE_MAX_ITEMS: "-1" })
     ).toThrow("EMBEDDING_CACHE_MAX_ITEMS must be a non-negative integer.");
     expect(() =>
+      AppConfigService.load({ RAG_RESPONSE_CACHE_MAX_ITEMS: "-1" })
+    ).toThrow("RAG_RESPONSE_CACHE_MAX_ITEMS must be a non-negative integer.");
+    expect(() =>
+      AppConfigService.load({ RAG_RESPONSE_CACHE_TTL_MS: "0" })
+    ).toThrow("RAG_RESPONSE_CACHE_TTL_MS must be a positive integer.");
+    expect(() =>
+      AppConfigService.load({ RAG_RESPONSE_CACHE_TTL_MS: "3600001" })
+    ).toThrow("RAG_RESPONSE_CACHE_TTL_MS must be at most 3600000.");
+    expect(() =>
       AppConfigService.load({ RAG_RATE_LIMIT_WINDOW_MS: "0" })
     ).toThrow("RAG_RATE_LIMIT_WINDOW_MS must be a positive integer.");
     expect(() =>
       AppConfigService.load({ RAG_RATE_LIMIT_MAX_REQUESTS: "0" })
     ).toThrow("RAG_RATE_LIMIT_MAX_REQUESTS must be a positive integer.");
+    expect(() =>
+      AppConfigService.load({ CUSTOMER_CHAT_SESSION_TTL_SECONDS: "0" })
+    ).toThrow("CUSTOMER_CHAT_SESSION_TTL_SECONDS must be a positive integer.");
     expect(() =>
       AppConfigService.load({ RAG_INGEST_RATE_LIMIT_MAX_REQUESTS: "0" })
     ).toThrow("RAG_INGEST_RATE_LIMIT_MAX_REQUESTS must be a positive integer.");
@@ -266,5 +459,30 @@ describe("AppConfigService", () => {
     expect(() => AppConfigService.load({ QDRANT_DISTANCE: "bad" })).toThrow(
       "QDRANT_DISTANCE must be Cosine, Dot, or Euclid."
     );
+    expect(() =>
+      AppConfigService.load({
+        MODEL_ROUTING_CONFIG_JSON: JSON.stringify({
+          routes: { unknown_use_case: { provider: "openai" } }
+        })
+      })
+    ).toThrow("Unknown model routing use case");
+    expect(() =>
+      AppConfigService.load({
+        MODEL_ROUTING_CONFIG_JSON: JSON.stringify({
+          routes: {
+            customer_chat: { budget: { maxInputTokensPerRequest: 0 } }
+          }
+        })
+      })
+    ).toThrow("maxInputTokensPerRequest must be a positive integer");
+    expect(() =>
+      AppConfigService.load({
+        MODEL_ROUTING_CONFIG_JSON: JSON.stringify({
+          routes: {
+            customer_chat: { budget: { maxTokensPerMinute: 1000 } }
+          }
+        })
+      })
+    ).toThrow("maxTokensPerMinute requires maxOutputTokensPerRequest");
   });
 });

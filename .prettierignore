@@ -12,4 +12,5 @@
 coverage/
 dist/
 **/dist/
+**/.next/
 *.tsbuildinfo

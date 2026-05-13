@@ -14,6 +14,7 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
   let app: INestApplication;
   let router: {
     chat: jest.Mock;
+    chatStream: jest.Mock;
     listAllModels: jest.Mock;
     availableProviders: string[];
   };
@@ -25,11 +26,15 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
     process.env.DEFAULT_EMBEDDING_PROVIDER = "deterministic";
     process.env.VECTOR_DB_PROVIDER = "memory";
     process.env.RAG_DEFAULT_NAMESPACE = "customer-self-service";
+    process.env.CUSTOMER_CHAT_ACCESS_CODE = "phase6-login-code";
+    process.env.CUSTOMER_CHAT_SESSION_TTL_SECONDS = "900";
+    process.env.CUSTOMER_CHAT_SESSION_RATE_LIMIT_MAX_REQUESTS = "100";
     delete process.env.AI_API_AUTH_DISABLED;
     delete process.env.AGENTFORCE_HEALTH_API_KEY;
 
     router = {
       chat: jest.fn(),
+      chatStream: jest.fn(),
       listAllModels: jest.fn(() => [{ id: "gpt-test", provider: "openai" }]),
       availableProviders: ["openai"]
     };
@@ -62,16 +67,26 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
     delete process.env.DEFAULT_EMBEDDING_PROVIDER;
     delete process.env.VECTOR_DB_PROVIDER;
     delete process.env.RAG_DEFAULT_NAMESPACE;
+    delete process.env.CUSTOMER_CHAT_ACCESS_CODE;
+    delete process.env.CUSTOMER_CHAT_SESSION_TTL_SECONDS;
+    delete process.env.CUSTOMER_CHAT_SESSION_RATE_LIMIT_MAX_REQUESTS;
   });
 
   beforeEach(() => {
     router.chat.mockReset();
+    router.chatStream.mockReset();
     ragAnswerService.answer.mockReset();
   });
 
   function signToken(payload: Record<string, unknown> = {}): string {
     return jwt.sign(
-      { sub: "test", scope: "chat:write", ...payload },
+      {
+        sub: "test",
+        scope: "chat:write",
+        tenant: "tenant-demo",
+        roles: ["customer"],
+        ...payload
+      },
       TEST_JWT_SECRET,
       { algorithm: "HS256" }
     );
@@ -87,7 +102,10 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
   it("POST /chat/message validates the request body", async () => {
     await request(app.getHttpServer())
       .post("/chat/message")
-      .set("authorization", `Bearer ${signToken()}`)
+      .set(
+        "authorization",
+        `Bearer ${signToken({ scope: "chat:write chat:diagnostic" })}`
+      )
       .send({ messages: [] })
       .expect(400);
 
@@ -96,9 +114,95 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
       .set("authorization", `Bearer ${signToken()}`)
       .send({ messages: [{ role: "wizard", content: "hi" }] })
       .expect(400);
+
+    await request(app.getHttpServer())
+      .post("/chat/message")
+      .set("authorization", `Bearer ${signToken()}`)
+      .send({
+        messages: [{ role: "user", content: "hi" }],
+        requestId: "jane@example.com"
+      })
+      .expect(400);
   });
 
-  it("POST /chat/message calls ModelRouter and returns a normalized response", async () => {
+  it("POST /chat/message routes default customer chat through Knowledge RAG", async () => {
+    ragAnswerService.answer.mockResolvedValueOnce({
+      answerStatus: "ANSWERED",
+      safeMessage:
+        "Grounded answer generated from authorized knowledge sources.",
+      answer:
+        "Confirm the service light status, power cycle the gateway for 30 seconds, and wait up to 5 minutes. Source: sourceId=kb-1 chunkId=kb-1:v1:chunk-1.",
+      sourceCount: 1,
+      sources: [
+        {
+          sourceId: "kb-1",
+          title: "Troubleshooting intermittent residential service",
+          url: "https://help.example.invalid/kb/troubleshooting",
+          documentVersion: "2026.05.11",
+          chunkId: "kb-1:v1:chunk-1",
+          score: 0.92,
+          retrievalId: "rag-chat-test"
+        }
+      ],
+      sourceIds: "kb-1",
+      sourceTitles: "Troubleshooting intermittent residential service",
+      sourceUrls: "https://help.example.invalid/kb/troubleshooting",
+      sourceVersions: "2026.05.11",
+      sourceChunkIds: "kb-1:v1:chunk-1",
+      retrievalIds: "rag-chat-test",
+      sourcesJson: "[]",
+      provider: "openai",
+      model: "gpt-4o-mini",
+      embeddingProvider: "deterministic",
+      embeddingModel: "deterministic-local-test",
+      vectorDbProvider: "memory",
+      fallbackUsed: false,
+      usage: { inputTokens: 20, outputTokens: 10, totalTokens: 30 },
+      latencyMs: 42,
+      tenantId: "tenant-demo",
+      namespace: "customer-self-service",
+      requestId: "req-abc"
+    });
+
+    const response = await request(app.getHttpServer())
+      .post("/chat/message")
+      .set("authorization", `Bearer ${signToken()}`)
+      .send({
+        messages: [{ role: "user", content: "hi" }],
+        requestId: "req-abc"
+      })
+      .expect(201);
+
+    expect(response.body).toMatchObject({
+      provider: "openai",
+      model: "gpt-4o-mini",
+      fallbackUsed: false,
+      attemptedProviders: ["openai"],
+      usage: { inputTokens: 20, outputTokens: 10, totalTokens: 30 }
+    });
+    expect(response.body.content).toContain("Confirm the service light status");
+    expect(response.body.content).toContain("**Sources**");
+    expect(response.body.content).toContain(
+      "[Troubleshooting intermittent residential service](https://help.example.invalid/kb/troubleshooting)"
+    );
+    expect(response.body.content).not.toContain("chunkId=");
+    expect(response.body.content).not.toContain("rag-chat-test");
+    expect(ragAnswerService.answer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        question: "hi",
+        requestId: "req-abc"
+      }),
+      expect.objectContaining({
+        tenantId: "tenant-demo",
+        namespace: "customer-self-service",
+        scopes: ["chat:write"]
+      }),
+      { useCase: "customer_chat" }
+    );
+    expect(router.chat).not.toHaveBeenCalled();
+  });
+
+  it("POST /chat/message allows explicit provider routing for diagnostics", async () => {
     router.chat.mockResolvedValueOnce({
       content: "hello from openai",
       finishReason: "stop",
@@ -114,10 +218,14 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
 
     const response = await request(app.getHttpServer())
       .post("/chat/message")
-      .set("authorization", `Bearer ${signToken()}`)
+      .set(
+        "authorization",
+        `Bearer ${signToken({ scope: "chat:write chat:diagnostic" })}`
+      )
       .send({
         messages: [{ role: "user", content: "hi" }],
-        requestId: "req-abc"
+        provider: "openai",
+        requestId: "req-direct"
       })
       .expect(201);
 
@@ -132,7 +240,110 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
 
     const call = router.chat.mock.calls[0][0];
     expect(call.messages).toEqual([{ role: "user", content: "hi" }]);
-    expect(call.requestId).toBe("req-abc");
+    expect(call.requestId).toBe("req-direct");
+  });
+
+  it("POST /chat/message ignores customer provider overrides without diagnostic scope", async () => {
+    ragAnswerService.answer.mockResolvedValueOnce({
+      answerStatus: "ANSWERED",
+      safeMessage:
+        "Grounded answer generated from authorized knowledge sources.",
+      answer: "Use the approved customer knowledge path.",
+      sourceCount: 0,
+      sources: [],
+      sourceIds: "",
+      sourceTitles: "",
+      sourceUrls: "",
+      sourceVersions: "",
+      sourceChunkIds: "",
+      retrievalIds: "",
+      sourcesJson: "[]",
+      provider: "openai",
+      model: "gpt-4o-mini",
+      embeddingProvider: "deterministic",
+      embeddingModel: "deterministic-local-test",
+      vectorDbProvider: "memory",
+      fallbackUsed: false,
+      usage: { inputTokens: 8, outputTokens: 6, totalTokens: 14 },
+      latencyMs: 20,
+      tenantId: "tenant-demo",
+      namespace: "customer-self-service",
+      requestId: "req-customer-override"
+    });
+
+    await request(app.getHttpServer())
+      .post("/chat/message")
+      .set("authorization", `Bearer ${signToken()}`)
+      .send({
+        messages: [{ role: "user", content: "hi" }],
+        provider: "openai-compatible",
+        model: "expensive-model",
+        requestId: "req-customer-override"
+      })
+      .expect(201);
+
+    expect(ragAnswerService.answer).toHaveBeenCalledWith(
+      expect.objectContaining({ question: "hi" }),
+      expect.objectContaining({ tenantId: "tenant-demo" }),
+      { useCase: "customer_chat" }
+    );
+    expect(router.chat).not.toHaveBeenCalled();
+  });
+
+  it("POST /chat/message/stream streams grounded Knowledge RAG text", async () => {
+    ragAnswerService.answer.mockResolvedValueOnce({
+      answerStatus: "ANSWERED",
+      safeMessage:
+        "Grounded answer generated from authorized knowledge sources.",
+      answer:
+        "Use the approved gateway power-cycle guidance before escalation.",
+      sourceCount: 1,
+      sources: [
+        {
+          sourceId: "kb-1",
+          title: "Troubleshooting intermittent residential service",
+          url: "https://help.example.invalid/kb/troubleshooting",
+          documentVersion: "2026.05.11",
+          chunkId: "kb-1:v1:chunk-1",
+          score: 0.92,
+          retrievalId: "rag-chat-stream-test"
+        }
+      ],
+      sourceIds: "kb-1",
+      sourceTitles: "Troubleshooting intermittent residential service",
+      sourceUrls: "https://help.example.invalid/kb/troubleshooting",
+      sourceVersions: "2026.05.11",
+      sourceChunkIds: "kb-1:v1:chunk-1",
+      retrievalIds: "rag-chat-stream-test",
+      sourcesJson: "[]",
+      provider: "openai",
+      model: "gpt-4o-mini",
+      embeddingProvider: "deterministic",
+      embeddingModel: "deterministic-local-test",
+      vectorDbProvider: "memory",
+      fallbackUsed: false,
+      usage: { inputTokens: 20, outputTokens: 10, totalTokens: 30 },
+      latencyMs: 42,
+      tenantId: "tenant-demo",
+      namespace: "customer-self-service",
+      requestId: "req-stream"
+    });
+
+    const response = await request(app.getHttpServer())
+      .post("/chat/message/stream")
+      .set("authorization", `Bearer ${signToken()}`)
+      .send({
+        messages: [{ role: "user", content: "intermittent service help" }],
+        requestId: "req-stream"
+      })
+      .expect(200)
+      .expect("content-type", /text\/event-stream/);
+
+    expect(response.text).toContain("Use the approved gateway power-cycle");
+    expect(response.text).toContain("**Sources**");
+    expect(response.text).toContain("data: [DONE]");
+    expect(response.text).not.toContain("rag-chat-stream-test");
+    expect(router.chatStream).not.toHaveBeenCalled();
   });
 
   it("POST /chat/message rejects Open WebUI gateway tokens", async () => {
@@ -143,6 +354,113 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
       .expect(403);
   });
 
+  it("POST /auth/customer-chat/session validates the request body", async () => {
+    await request(app.getHttpServer())
+      .post("/auth/customer-chat/session")
+      .send({})
+      .expect(400);
+  });
+
+  it("POST /auth/customer-chat/session rejects an invalid access code", async () => {
+    const response = await request(app.getHttpServer())
+      .post("/auth/customer-chat/session")
+      .send({ accessCode: "wrong" })
+      .expect(401);
+
+    expect(response.body).toMatchObject({
+      error: "customer_chat_login_failed"
+    });
+  });
+
+  it("POST /auth/customer-chat/session mints a chat token for customer login", async () => {
+    const loginResponse = await request(app.getHttpServer())
+      .post("/auth/customer-chat/session")
+      .send({ accessCode: "phase6-login-code", locale: "en-US" })
+      .expect(201);
+
+    expect(loginResponse.body).toMatchObject({
+      tokenType: "Bearer",
+      expiresInSeconds: 900,
+      subject: expect.stringMatching(/^customer-chat:/)
+    });
+    expect(loginResponse.body.accessToken).toEqual(expect.any(String));
+    expect(loginResponse.body.expiresAt).toEqual(expect.any(String));
+
+    await request(app.getHttpServer())
+      .post("/chat/escalate")
+      .set("authorization", `Bearer ${loginResponse.body.accessToken}`)
+      .send({ reason: "Need help after login" })
+      .expect(201);
+  });
+
+  it("POST /chat/escalate rejects requests without a bearer token", async () => {
+    await request(app.getHttpServer())
+      .post("/chat/escalate")
+      .send({ reason: "Need help" })
+      .expect(401);
+  });
+
+  it("POST /chat/escalate rejects Open WebUI gateway tokens", async () => {
+    await request(app.getHttpServer())
+      .post("/chat/escalate")
+      .set("authorization", `Bearer ${signToken({ scope: "openwebui:chat" })}`)
+      .send({ reason: "Need help" })
+      .expect(403);
+  });
+
+  it("POST /chat/escalate validates the request body", async () => {
+    await request(app.getHttpServer())
+      .post("/chat/escalate")
+      .set("authorization", `Bearer ${signToken()}`)
+      .send({ reason: "" })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post("/chat/escalate")
+      .set("authorization", `Bearer ${signToken()}`)
+      .send({ reason: "Need help", urgency: "panic" })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post("/chat/escalate")
+      .set("authorization", `Bearer ${signToken()}`)
+      .send({ reason: "Need help", caseReference: "not safe id!" })
+      .expect(400);
+  });
+
+  it("POST /chat/escalate acknowledges a customer-safe escalation", async () => {
+    const response = await request(app.getHttpServer())
+      .post("/chat/escalate")
+      .set("authorization", `Bearer ${signToken()}`)
+      .send({
+        reason: "Outage continues after troubleshooting",
+        urgency: "high",
+        caseReference: "case-00123456",
+        conversationSummary: "Customer reported repeated dropouts",
+        locale: "en-US",
+        requestId: "req-esc-1"
+      })
+      .expect(201);
+
+    expect(response.body).toMatchObject({
+      status: "received",
+      urgency: "high",
+      requestId: "req-esc-1"
+    });
+    expect(response.body.escalationId).toMatch(/^esc-/);
+    expect(typeof response.body.receivedAt).toBe("string");
+    expect(typeof response.body.nextSteps).toBe("string");
+  });
+
+  it("POST /chat/escalate defaults urgency to normal", async () => {
+    const response = await request(app.getHttpServer())
+      .post("/chat/escalate")
+      .set("authorization", `Bearer ${signToken()}`)
+      .send({ reason: "Need help" })
+      .expect(201);
+    expect(response.body.urgency).toBe("normal");
+  });
+
   it("POST /chat/message surfaces provider failures as 4xx", async () => {
     router.chat.mockRejectedValueOnce(
       new LlmProviderError("openai", "rate_limit", "throttled")
@@ -150,8 +468,14 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
 
     const response = await request(app.getHttpServer())
       .post("/chat/message")
-      .set("authorization", `Bearer ${signToken()}`)
-      .send({ messages: [{ role: "user", content: "hi" }] })
+      .set(
+        "authorization",
+        `Bearer ${signToken({ scope: "chat:write chat:diagnostic" })}`
+      )
+      .send({
+        messages: [{ role: "user", content: "hi" }],
+        provider: "openai"
+      })
       .expect(400);
 
     expect(response.body).toMatchObject({
@@ -369,7 +693,8 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
         namespace: "customer-self-service",
         scopes: ["openwebui:chat"],
         roles: ["support-agent"]
-      })
+      }),
+      { useCase: "openwebui_rag" }
     );
     expect(router.chat).not.toHaveBeenCalled();
     expect(response.body).toMatchObject({

@@ -4,9 +4,11 @@ import {
   Controller,
   Logger,
   Post,
+  Req,
   ServiceUnavailableException
 } from "@nestjs/common";
 
+import type { AuthenticatedRequest } from "../auth/jwt-auth.guard";
 import { RequireScopes } from "../auth/require-scopes.decorator";
 import { LlmProviderError } from "../llm/interfaces/llm-provider";
 import { CaseAnalysisService } from "./case-analysis.service";
@@ -32,10 +34,11 @@ export class SupportAgentController {
   @RequireScopes("agentforce:support-triage")
   @Post("triage-case")
   async triageCase(
-    @Body() body: TriageCaseRequestDto
+    @Body() body: TriageCaseRequestDto,
+    @Req() request: AuthenticatedRequest
   ): Promise<TriageCaseResponseDto> {
     try {
-      return await this.triageService.triage(body);
+      return await this.triageService.triage(body, request.authPrincipal);
     } catch (err) {
       throw this.toClientError(err, "support.triage");
     }
@@ -44,10 +47,14 @@ export class SupportAgentController {
   @RequireScopes("agentforce:case-analysis")
   @Post("analyze-case")
   async analyzeCase(
-    @Body() body: AnalyzeCaseRequestDto
+    @Body() body: AnalyzeCaseRequestDto,
+    @Req() request: AuthenticatedRequest
   ): Promise<AnalyzeCaseResponseDto> {
     try {
-      return await this.caseAnalysisService.analyze(body);
+      return await this.caseAnalysisService.analyze(
+        body,
+        request.authPrincipal
+      );
     } catch (err) {
       throw this.toClientError(err, "support.analyze-case");
     }

@@ -7,6 +7,19 @@
 
 export type LlmRole = "system" | "user" | "assistant" | "tool";
 
+export const LLM_USE_CASES = [
+  "generic_chat",
+  "customer_chat",
+  "openwebui_chat",
+  "openwebui_rag",
+  "agentforce_support_triage",
+  "agentforce_case_analysis",
+  "knowledge_rag"
+] as const;
+
+export type LlmUseCase = (typeof LLM_USE_CASES)[number];
+export type LlmComplexity = "simple" | "standard" | "complex";
+
 export interface LlmMessage {
   role: LlmRole;
   content: string;
@@ -32,6 +45,15 @@ export interface LlmChatRequest {
    * prompt content alongside this id.
    */
   requestId?: string;
+  /**
+   * Logical route key used by ModelRouter. Services provide use-case
+   * metadata only; provider/model selection remains policy-driven.
+   */
+  useCase?: LlmUseCase;
+  complexity?: LlmComplexity;
+  tenantId?: string;
+  clientId?: string;
+  surface?: string;
 }
 
 export interface LlmTokenUsage {
@@ -47,6 +69,10 @@ export interface LlmProviderMetadata {
   latencyMs: number;
   fallbackUsed: boolean;
   attemptedProviders: string[];
+  useCase?: LlmUseCase;
+  routingRule?: string;
+  modelTier?: "default" | "small" | "override";
+  budgetKey?: string;
 }
 
 export interface LlmChatResponse {
@@ -61,3 +87,21 @@ export interface LlmModelDescriptor {
   provider: string;
   displayName?: string;
 }
+
+/**
+ * Streaming chunk emitted by `LlmProvider.chatStream`. Providers
+ * normalize their SDK or HTTP delta events into this shape. The
+ * router and chat services depend only on this contract.
+ *
+ * - `text` chunks carry incremental assistant content deltas.
+ * - `done` chunks carry final usage/metadata and signal completion.
+ *   Exactly one `done` chunk is emitted for a successful stream.
+ */
+export type LlmChatChunk =
+  | { kind: "text"; delta: string }
+  | {
+      kind: "done";
+      finishReason?: string;
+      usage: LlmTokenUsage;
+      metadata: LlmProviderMetadata;
+    };

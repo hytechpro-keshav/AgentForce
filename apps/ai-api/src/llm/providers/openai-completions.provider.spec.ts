@@ -126,4 +126,44 @@ describe("OpenAiCompletionsProvider", () => {
     const headers = init.headers as Record<string, string>;
     expect(headers["authorization"]).toBeUndefined();
   });
+
+  it("supports Azure OpenAI deployment URLs and api-key auth", async () => {
+    const fetchMock = jest.fn(async () =>
+      makeResponse({
+        id: "azure-chat-1",
+        choices: [{ message: { content: "azure ok" } }],
+        usage: { prompt_tokens: 2, completion_tokens: 3, total_tokens: 5 }
+      })
+    );
+    const provider = new OpenAiCompletionsProvider({
+      name: "azure-openai",
+      apiKey: "azure-key",
+      baseUrl: "https://azure-openai.test",
+      defaultModel: "support-deployment",
+      authHeader: "api-key",
+      chatCompletionsPath:
+        "/openai/deployments/support-deployment/chat/completions",
+      queryParams: { "api-version": "2024-10-21" },
+      includeModelInBody: false,
+      http: { fetch: fetchMock as unknown as typeof fetch }
+    });
+
+    const response = await provider.chat({
+      messages: [{ role: "user", content: "hi" }]
+    });
+
+    expect(response.metadata.provider).toBe("azure-openai");
+    expect(response.metadata.model).toBe("support-deployment");
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit
+    ];
+    expect(url).toBe(
+      "https://azure-openai.test/openai/deployments/support-deployment/chat/completions?api-version=2024-10-21"
+    );
+    const headers = init.headers as Record<string, string>;
+    expect(headers["api-key"]).toBe("azure-key");
+    expect(headers["authorization"]).toBeUndefined();
+    expect(JSON.parse(init.body as string)).not.toHaveProperty("model");
+  });
 });

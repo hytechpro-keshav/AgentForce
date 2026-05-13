@@ -3,9 +3,11 @@ import {
   IsOptional,
   IsString,
   MaxLength,
+  Matches,
   MinLength
 } from "class-validator";
 
+import { SAFE_CHAT_REQUEST_ID_PATTERN } from "../../chat/dto/chat-message.dto";
 import { TRIAGE_PRIORITIES, type TriagePriorityDto } from "./triage-case.dto";
 
 export const CASE_ANALYSIS_CATEGORIES = [
@@ -65,6 +67,7 @@ export class AnalyzeCaseRequestDto {
   @IsOptional()
   @IsString()
   @MaxLength(64)
+  @Matches(SAFE_CHAT_REQUEST_ID_PATTERN)
   requestId?: string;
 }
 

@@ -1049,6 +1049,31 @@ Implementation rule:
 - use React/Vite for the customer chat window
 - keep the UI under `apps/react-chat-window` in this monorepo even when a Salesforce-hosted site or app page embeds it
 
+Implementation status, 2026-05-13: complete for the React/Vite customer-chat
+slice. Salesforce escalation wiring remains the next iteration.
+
+- New monorepo workspace `apps/react-chat-window` (Vite + React 18 + TypeScript)
+  with `react-chat:dev`, `react-chat:build`, `react-chat:preview`,
+  `react-chat:test`, and `react-chat:typecheck` root scripts.
+- Customer chat is the first screen — composer, message list, loading/error
+  /retry, customer-safe source display, and "Talk to support" escalation panel.
+- The browser calls only NestJS `POST /chat/message` and the new
+  `POST /chat/escalate`. No OpenAI, Pinecone, Open WebUI, or Salesforce
+  credentials are ever in the frontend.
+- Source rendering allowlists only `title`, `https?://` `url`, and `snippet`;
+  internal IDs, chunk IDs, namespaces, and Salesforce record refs are dropped.
+- New backend endpoint `POST /chat/escalate` validates a customer-safe DTO,
+  enforces `chat:write` scope, rejects `openwebui:chat` tokens, and returns a
+  structured acknowledgement with a UUID `escalationId`. It performs no
+  Salesforce writes; downstream Agentforce/Apex Case-creation wiring is the
+  next iteration.
+- Local validation: `react-chat:typecheck`, `react-chat:test` (11/11),
+  `react-chat:build`, `ai-api:test` (85/85), `ai-api:test:e2e` (35/35),
+  `ai-api:typecheck`, and `ai-api:build` all green.
+- Phase 6 proof: `docs/testing/phase6-react-chat-window-proof.md`.
+- Phase 6 deployment runbook: `docs/deployment/railway-react-chat-phase6.md`.
+- Phase 6 README: `apps/react-chat-window/README.md`.
+
 ### Phase 7: Production Cost Optimization And Model Flexibility
 
 Tasks:
@@ -1066,6 +1091,26 @@ Exit criteria:
 - cost-sensitive clients can use cheaper models and self-hosted models
 - enterprise clients can use their preferred provider
 - provider changes do not require rewriting agent services
+
+Implementation status, 2026-05-13: complete for the backend cost/model
+flexibility slice. Durable monthly spend enforcement remains a future storage
+or billing-export integration.
+
+- Added configuration-driven model routing by use case behind `ModelRouter` for
+  customer chat, Open WebUI chat/RAG, Agentforce support triage, case analysis,
+  knowledge RAG, and generic chat.
+- Added optional Anthropic, Azure OpenAI, Gemini, and multiple named
+  OpenAI-compatible provider adapters with mocked normalization tests.
+- Added small-model routing, per-request token budgets, in-memory per-minute
+  budget guardrails, and fallback chains that exclude auth, validation, safety,
+  and budget failures.
+- Added configured pricing references in telemetry and safe unknown-pricing
+  behavior.
+- Added tenant-safe in-process RAG answer caching keyed by tenant/access context,
+  hashed prompt context, source IDs/chunk IDs/document versions/content hashes,
+  embedding/vector context, and routing fingerprint.
+- Added Phase 7 runbook:
+  `docs/deployment/railway-ai-api-phase7.md`.
 
 ### Phase 8: Services Org Intelligence
 

@@ -1,4 +1,5 @@
 import type {
+  LlmChatChunk,
   LlmChatRequest,
   LlmChatResponse,
   LlmModelDescriptor
@@ -9,6 +10,7 @@ export type LlmErrorKind =
   | "validation"
   | "rate_limit"
   | "quota"
+  | "budget"
   | "safety"
   | "retryable"
   | "fallbackable"
@@ -43,4 +45,12 @@ export interface LlmProvider {
   readonly name: string;
   listModels(): LlmModelDescriptor[];
   chat(request: LlmChatRequest): Promise<LlmChatResponse>;
+  /**
+   * Optional streaming chat. Providers that do not implement this
+   * are excluded from streaming routes; callers must fall back to
+   * `chat()` (non-streaming) explicitly. Errors are surfaced via
+   * `LlmProviderError` thrown either before the first chunk or
+   * inside the async iterator.
+   */
+  chatStream?(request: LlmChatRequest): AsyncIterable<LlmChatChunk>;
 }

@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 
+import type { AuthPrincipal } from "../auth/jwt-auth.guard";
 import { ModelRouter } from "../llm/model-router";
 import type { LlmChatRequest } from "../llm/interfaces/llm-contracts";
 import { redactSensitiveText } from "../security/sensitive-data-redactor";
@@ -23,7 +24,10 @@ const TRIAGE_SYSTEM_PROMPT = [
 export class SupportTriageService {
   constructor(private readonly modelRouter: ModelRouter) {}
 
-  async triage(request: TriageCaseRequestDto): Promise<TriageCaseResponseDto> {
+  async triage(
+    request: TriageCaseRequestDto,
+    principal?: AuthPrincipal
+  ): Promise<TriageCaseResponseDto> {
     const safeSubject = redactSensitiveText(request.subject);
     const safeDescription = redactSensitiveText(request.description);
     const userContent = [
@@ -38,6 +42,10 @@ export class SupportTriageService {
 
     const llmRequest: LlmChatRequest = {
       requestId: request.requestId,
+      useCase: "agentforce_support_triage",
+      tenantId: principal?.tenantId,
+      clientId: principal?.tenantId ?? principal?.subject,
+      surface: "agentforce",
       messages: [
         { role: "system", content: TRIAGE_SYSTEM_PROMPT },
         { role: "user", content: userContent }
