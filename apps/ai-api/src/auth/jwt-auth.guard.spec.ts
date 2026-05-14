@@ -5,6 +5,7 @@ import {
   UnauthorizedException
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
+import { createHash } from "crypto";
 import * as jwt from "jsonwebtoken";
 
 import { AppConfigService } from "../config/app-config.service";
@@ -40,7 +41,7 @@ function makeContext(
 }
 
 function makeGuard(
-  jwtConfig: { disabled?: boolean; secret?: string } = {},
+  jwtConfig: Partial<AppConfigService["jwt"]> = {},
   reflector?: Reflector
 ): JwtAuthGuard {
   const config = {
@@ -129,4 +130,92 @@ describe("JwtAuthGuard", () => {
     const guard = makeGuard({ secret: "test-secret" }, reflector);
     expect(guard.canActivate(ctx)).toBe(true);
   });
+
+  it("accepts a configured Agentforce service bearer without a JWT secret", () => {
+    const token = "opaque-agentforce-service-token";
+    const { ctx, reflector, req } = makeContext(
+      { authorization: `Bearer ${token}` },
+      false,
+      ["agentforce:knowledge-rag"]
+    );
+    const guard = makeGuard(
+      {
+        agentforceServiceBearer: {
+          tokenSha256: sha256(token),
+          subject: "salesforce-agentforce",
+          tenantId: "tenant-demo",
+          ragNamespace: "customer-self-service",
+          scopes: [
+            "agentforce:support-triage",
+            "agentforce:case-analysis",
+            "agentforce:knowledge-rag"
+          ],
+          roles: ["support-agent"]
+        }
+      },
+      reflector
+    );
+
+    expect(guard.canActivate(ctx)).toBe(true);
+    expect(req.authPrincipal).toMatchObject({
+      subject: "salesforce-agentforce",
+      scopes: [
+        "agentforce:support-triage",
+        "agentforce:case-analysis",
+        "agentforce:knowledge-rag"
+      ],
+      tenantId: "tenant-demo",
+      raw: {
+        rag_namespace: "customer-self-service",
+        roles: ["support-agent"]
+      }
+    });
+  });
+
+  it("rejects a configured Agentforce service bearer missing a required scope", () => {
+    const token = "opaque-agentforce-service-token";
+    const { ctx, reflector } = makeContext(
+      { authorization: `Bearer ${token}` },
+      false,
+      ["agentforce:knowledge-rag"]
+    );
+    const guard = makeGuard(
+      {
+        agentforceServiceBearer: {
+          tokenSha256: sha256(token),
+          subject: "salesforce-agentforce",
+          tenantId: "tenant-demo",
+          ragNamespace: "customer-self-service",
+          scopes: ["agentforce:support-triage"],
+          roles: ["support-agent"]
+        }
+      },
+      reflector
+    );
+
+    expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
+  });
+
+  it("rejects an invalid service bearer when no JWT secret is configured", () => {
+    const { ctx, reflector } = makeContext({ authorization: "Bearer wrong" });
+    const guard = makeGuard(
+      {
+        agentforceServiceBearer: {
+          tokenSha256: sha256("expected"),
+          subject: "salesforce-agentforce",
+          tenantId: "tenant-demo",
+          ragNamespace: "customer-self-service",
+          scopes: ["agentforce:knowledge-rag"],
+          roles: ["support-agent"]
+        }
+      },
+      reflector
+    );
+
+    expect(() => guard.canActivate(ctx)).toThrow(UnauthorizedException);
+  });
 });
+
+function sha256(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}

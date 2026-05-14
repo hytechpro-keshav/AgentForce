@@ -1,5 +1,6 @@
 import { INestApplication, ValidationPipe } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
+import { createHash } from "crypto";
 import * as jwt from "jsonwebtoken";
 import request from "supertest";
 
@@ -8,6 +9,7 @@ import { ModelRouter } from "../src/llm/model-router";
 import { LlmProviderError } from "../src/llm/interfaces/llm-provider";
 
 const TEST_JWT_SECRET = "phase4-test-secret";
+const TEST_AGENTFORCE_SERVICE_TOKEN = "opaque-agentforce-service-token";
 
 describe("Knowledge RAG endpoints (e2e)", () => {
   let app: INestApplication;
@@ -15,6 +17,11 @@ describe("Knowledge RAG endpoints (e2e)", () => {
 
   beforeAll(async () => {
     process.env.AI_API_JWT_SECRET = TEST_JWT_SECRET;
+    process.env.AI_API_AGENTFORCE_BEARER_TOKEN_SHA256 = sha256(
+      TEST_AGENTFORCE_SERVICE_TOKEN
+    );
+    process.env.AI_API_AGENTFORCE_BEARER_RAG_NAMESPACE =
+      "phase4-e2e-service-token";
     process.env.RAG_ENABLED = "true";
     process.env.DEFAULT_EMBEDDING_PROVIDER = "deterministic";
     process.env.VECTOR_DB_PROVIDER = "memory";
@@ -63,6 +70,8 @@ describe("Knowledge RAG endpoints (e2e)", () => {
   afterAll(async () => {
     await app?.close();
     delete process.env.AI_API_JWT_SECRET;
+    delete process.env.AI_API_AGENTFORCE_BEARER_TOKEN_SHA256;
+    delete process.env.AI_API_AGENTFORCE_BEARER_RAG_NAMESPACE;
     delete process.env.RAG_ENABLED;
     delete process.env.DEFAULT_EMBEDDING_PROVIDER;
     delete process.env.VECTOR_DB_PROVIDER;
@@ -276,6 +285,31 @@ describe("Knowledge RAG endpoints (e2e)", () => {
     expect(response.body.sourcesJson).toContain("kb-e2e-troubleshoot");
   });
 
+  it("accepts the opaque Agentforce service bearer for answer generation", async () => {
+    const namespace = "phase4-e2e-service-token";
+    await ingest(namespace);
+
+    const response = await request(app.getHttpServer())
+      .post("/agent/knowledge/answer")
+      .set("authorization", `Bearer ${TEST_AGENTFORCE_SERVICE_TOKEN}`)
+      .send({
+        namespace,
+        question:
+          "What should I tell the customer about gateway troubleshooting?",
+        scoreThreshold: 0,
+        requestId: "answer-service-token-e2e"
+      })
+      .expect(201);
+
+    expect(response.body).toMatchObject({
+      answerStatus: "ANSWERED",
+      sourceCount: 1,
+      sourceIds: "kb-e2e-troubleshoot",
+      tenantId: "tenant-demo",
+      namespace
+    });
+  });
+
   it("serves repeated authorized RAG answers from the tenant-safe cache", async () => {
     const namespace = "phase7-e2e-cache";
     await ingest(namespace);
@@ -394,3 +428,7 @@ describe("Knowledge RAG endpoints (e2e)", () => {
     });
   });
 });
+
+function sha256(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}

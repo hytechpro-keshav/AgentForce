@@ -69,6 +69,25 @@ RAG_RATE_LIMIT_MAX_REQUESTS=60
 RAG_INGEST_RATE_LIMIT_MAX_REQUESTS=10
 ```
 
+Preferred live Agentforce runtime auth is an opaque service bearer token, not a
+short-lived JWT stored statically in Salesforce. Store the raw opaque token only
+as the encrypted Salesforce Custom External Credential value and store only its
+SHA-256 hex digest in Railway:
+
+```text
+AI_API_AGENTFORCE_BEARER_TOKEN_SHA256=<sha256-of-salesforce-runtime-token>
+AI_API_AGENTFORCE_BEARER_SUBJECT=salesforce-agentforce
+AI_API_AGENTFORCE_BEARER_TENANT=tenant-demo
+AI_API_AGENTFORCE_BEARER_RAG_NAMESPACE=customer-self-service
+AI_API_AGENTFORCE_BEARER_SCOPES=agentforce:support-triage agentforce:case-analysis agentforce:knowledge-rag
+AI_API_AGENTFORCE_BEARER_ROLES=support-agent
+```
+
+This keeps the existing `Authorization: Bearer ...` Named Credential contract,
+but removes JWT `exp` as a runtime failure mode. Rotate this service token
+through normal credential rotation, not during customer conversations. Continue
+using short-lived JWTs for maintenance ingestion/search smokes.
+
 OpenAI embeddings use the existing `OPENAI_API_KEY` and `OPENAI_BASE_URL`
 configuration through the `EmbeddingProvider` abstraction. RAG services never
 call OpenAI directly. Qdrant and Pinecone access stay behind `VectorStore`.

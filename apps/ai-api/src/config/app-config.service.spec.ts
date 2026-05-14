@@ -184,6 +184,35 @@ describe("AppConfigService", () => {
     expect(config.jwt.disabled).toBe(false);
   });
 
+  it("loads the hash-based Agentforce service bearer config", () => {
+    const config = AppConfigService.load({
+      AI_API_AGENTFORCE_BEARER_TOKEN_SHA256: "b".repeat(64).toUpperCase(),
+      AI_API_AGENTFORCE_BEARER_SUBJECT: "agentforce-runtime",
+      AI_API_AGENTFORCE_BEARER_TENANT: "tenant-prod",
+      AI_API_AGENTFORCE_BEARER_RAG_NAMESPACE: "customer-prod",
+      AI_API_AGENTFORCE_BEARER_SCOPES:
+        "agentforce:support-triage,agentforce:knowledge-rag agentforce:knowledge-rag",
+      AI_API_AGENTFORCE_BEARER_ROLES: "support-agent,rag-agent"
+    });
+
+    expect(config.jwt.agentforceServiceBearer).toEqual({
+      tokenSha256: "b".repeat(64),
+      subject: "agentforce-runtime",
+      tenantId: "tenant-prod",
+      ragNamespace: "customer-prod",
+      scopes: ["agentforce:support-triage", "agentforce:knowledge-rag"],
+      roles: ["support-agent", "rag-agent"]
+    });
+  });
+
+  it("rejects invalid Agentforce service bearer hashes", () => {
+    expect(() =>
+      AppConfigService.load({
+        AI_API_AGENTFORCE_BEARER_TOKEN_SHA256: "not-a-sha"
+      })
+    ).toThrow("AI_API_AGENTFORCE_BEARER_TOKEN_SHA256");
+  });
+
   it("rejects auth-disabled mode in production-like deployments", () => {
     expect(() =>
       AppConfigService.load({

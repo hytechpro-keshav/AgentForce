@@ -154,6 +154,26 @@ alg=HS256
 
 Mint the token from Railway `AI_API_JWT_SECRET` and pipe it directly into Salesforce secure credential storage. Do not print the token, commit it, or put it in Apex source. Use `POST /services/data/v66.0/named-credentials/credential` for the first credential value, and `PUT /services/data/v66.0/named-credentials/credential` when overwriting an existing principal value. After storing the credential, validate with a direct Apex smoke and then through `Customer_Self_Service_Agent` preview.
 
+For live Agentforce runtime connectivity, prefer an opaque service bearer token
+over a static short-lived JWT. The existing header formula can stay the same,
+but the encrypted Salesforce value contains a high-entropy opaque token rather
+than a JWT. Configure Railway with only the token hash and trusted principal
+claims:
+
+```text
+AI_API_AGENTFORCE_BEARER_TOKEN_SHA256=<sha256-of-salesforce-runtime-token>
+AI_API_AGENTFORCE_BEARER_SUBJECT=salesforce-agentforce
+AI_API_AGENTFORCE_BEARER_TENANT=tenant-demo
+AI_API_AGENTFORCE_BEARER_RAG_NAMESPACE=customer-self-service
+AI_API_AGENTFORCE_BEARER_SCOPES=agentforce:support-triage agentforce:case-analysis agentforce:knowledge-rag
+AI_API_AGENTFORCE_BEARER_ROLES=support-agent
+```
+
+Short-lived JWTs remain appropriate for maintenance and direct smoke tests.
+They are not a durable live runtime credential when stored as a static Custom
+External Credential value because Salesforce does not refresh custom bearer
+header values automatically.
+
 Phase 2 proof artifacts are recorded in `docs/testing/phase2-agentforce-support-triage-proof.md`.
 
 Phase 3 proof artifacts are recorded in `docs/testing/phase3-agentforce-case-analysis-proof.md`.

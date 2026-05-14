@@ -89,6 +89,16 @@ export interface JwtAuthConfig {
   issuer?: string;
   audience?: string;
   disabled: boolean;
+  agentforceServiceBearer?: AgentforceServiceBearerConfig;
+}
+
+export interface AgentforceServiceBearerConfig {
+  tokenSha256: string;
+  subject: string;
+  tenantId: string;
+  ragNamespace: string;
+  scopes: string[];
+  roles: string[];
 }
 
 export interface CorsConfig {
@@ -786,12 +796,71 @@ export class AppConfigService {
       );
     }
 
+    const agentforceServiceBearer =
+      AppConfigService.loadAgentforceServiceBearer(env);
+
     return {
       secret,
       issuer: AppConfigService.normalize(env.AI_API_JWT_ISSUER),
       audience: AppConfigService.normalize(env.AI_API_JWT_AUDIENCE),
-      disabled
+      disabled,
+      agentforceServiceBearer
     };
+  }
+
+  private static loadAgentforceServiceBearer(
+    env: NodeJS.ProcessEnv
+  ): AgentforceServiceBearerConfig | undefined {
+    const tokenSha256 = AppConfigService.normalize(
+      env.AI_API_AGENTFORCE_BEARER_TOKEN_SHA256
+    );
+    if (!tokenSha256) {
+      return undefined;
+    }
+    if (!/^[a-f0-9]{64}$/i.test(tokenSha256)) {
+      throw new Error(
+        "AI_API_AGENTFORCE_BEARER_TOKEN_SHA256 must be a 64-character SHA-256 hex digest."
+      );
+    }
+
+    return {
+      tokenSha256: tokenSha256.toLowerCase(),
+      subject:
+        AppConfigService.normalize(env.AI_API_AGENTFORCE_BEARER_SUBJECT) ??
+        "salesforce-agentforce",
+      tenantId:
+        AppConfigService.normalize(env.AI_API_AGENTFORCE_BEARER_TENANT) ??
+        "tenant-demo",
+      ragNamespace:
+        AppConfigService.normalize(
+          env.AI_API_AGENTFORCE_BEARER_RAG_NAMESPACE
+        ) ??
+        AppConfigService.normalize(env.RAG_DEFAULT_NAMESPACE) ??
+        "customer-self-service",
+      scopes: AppConfigService.parseAuthList(
+        env.AI_API_AGENTFORCE_BEARER_SCOPES,
+        "agentforce:support-triage agentforce:case-analysis agentforce:knowledge-rag"
+      ),
+      roles: AppConfigService.parseAuthList(
+        env.AI_API_AGENTFORCE_BEARER_ROLES,
+        "support-agent"
+      )
+    };
+  }
+
+  private static parseAuthList(
+    rawValue: string | undefined,
+    fallback: string
+  ): string[] {
+    const normalizedValue = AppConfigService.normalize(rawValue) ?? fallback;
+    return Array.from(
+      new Set(
+        normalizedValue
+          .split(/[\s,]+/)
+          .map((value) => value.trim())
+          .filter(Boolean)
+      )
+    );
   }
 
   private static loadRag(

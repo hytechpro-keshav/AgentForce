@@ -8,8 +8,10 @@ import {
   UnauthorizedException
 } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
+import { createHash, timingSafeEqual } from "crypto";
 import * as jwt from "jsonwebtoken";
 
+import type { AgentforceServiceBearerConfig } from "../config/app-config.service";
 import { AppConfigService } from "../config/app-config.service";
 import { PUBLIC_ROUTE_KEY } from "./public.decorator";
 import { REQUIRED_SCOPES_KEY } from "./require-scopes.decorator";
@@ -57,13 +59,10 @@ export class JwtAuthGuard implements CanActivate {
       return true;
     }
 
-    const { disabled, secret, issuer, audience } = this.config.jwt;
+    const { disabled, secret, issuer, audience, agentforceServiceBearer } =
+      this.config.jwt;
     if (disabled) {
       return true;
-    }
-    if (!secret) {
-      // Fail closed rather than silently allowing traffic.
-      throw new ServiceUnavailableException("AI API auth is not configured.");
     }
 
     const request = context
@@ -74,6 +73,24 @@ export class JwtAuthGuard implements CanActivate {
     const token = JwtAuthGuard.extractBearer(request.headers);
     if (!token) {
       throw new UnauthorizedException("Missing bearer token.");
+    }
+
+    const servicePrincipal = JwtAuthGuard.authenticateAgentforceServiceBearer(
+      token,
+      agentforceServiceBearer
+    );
+    if (servicePrincipal) {
+      this.assertRequiredScopes(context, servicePrincipal.scopes);
+      request.authPrincipal = servicePrincipal;
+      return true;
+    }
+
+    if (!secret) {
+      if (agentforceServiceBearer) {
+        throw new UnauthorizedException("Invalid bearer token.");
+      }
+      // Fail closed rather than silently allowing traffic.
+      throw new ServiceUnavailableException("AI API auth is not configured.");
     }
 
     let payload: jwt.JwtPayload;
@@ -108,6 +125,16 @@ export class JwtAuthGuard implements CanActivate {
         ? (payload["tenant"] as string)
         : undefined;
 
+    this.assertRequiredScopes(context, scopes);
+
+    request.authPrincipal = { subject, scopes, tenantId, raw: payload };
+    return true;
+  }
+
+  private assertRequiredScopes(
+    context: ExecutionContext,
+    scopes: string[]
+  ): void {
     const requiredScopes = this.reflector.getAllAndOverride<string[]>(
       REQUIRED_SCOPES_KEY,
       [context.getHandler(), context.getClass()]
@@ -118,9 +145,38 @@ export class JwtAuthGuard implements CanActivate {
     ) {
       throw new ForbiddenException("Bearer token is missing a required scope.");
     }
+  }
 
-    request.authPrincipal = { subject, scopes, tenantId, raw: payload };
-    return true;
+  private static authenticateAgentforceServiceBearer(
+    token: string,
+    config: AgentforceServiceBearerConfig | undefined
+  ): AuthPrincipal | undefined {
+    if (!config) {
+      return undefined;
+    }
+    const tokenSha256 = createHash("sha256").update(token).digest("hex");
+    if (!JwtAuthGuard.safeEqualHex(tokenSha256, config.tokenSha256)) {
+      return undefined;
+    }
+    const raw: jwt.JwtPayload = {
+      sub: config.subject,
+      scope: config.scopes.join(" "),
+      tenant: config.tenantId,
+      rag_namespace: config.ragNamespace,
+      roles: config.roles
+    };
+    return {
+      subject: config.subject,
+      scopes: config.scopes,
+      tenantId: config.tenantId,
+      raw
+    };
+  }
+
+  private static safeEqualHex(a: string, b: string): boolean {
+    const left = Buffer.from(a, "hex");
+    const right = Buffer.from(b, "hex");
+    return left.length === right.length && timingSafeEqual(left, right);
   }
 
   private static extractBearer(
