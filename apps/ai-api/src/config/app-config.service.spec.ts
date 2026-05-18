@@ -151,6 +151,38 @@ describe("AppConfigService", () => {
     ]);
   });
 
+  it("loads the Phase 8 services project health route override", () => {
+    const config = AppConfigService.load({
+      MODEL_ROUTING_CONFIG_JSON: JSON.stringify({
+        routes: {
+          agentforce_services_project_health: {
+            provider: "openai",
+            model: "gpt-4o-mini",
+            budget: {
+              maxOutputTokensPerRequest: 320,
+              maxTokensPerMinute: 5000
+            },
+            allowProviderOverride: false,
+            allowModelOverride: false
+          }
+        }
+      })
+    });
+
+    expect(
+      config.modelRouting.routes.agentforce_services_project_health
+    ).toMatchObject({
+      provider: "openai",
+      model: "gpt-4o-mini",
+      budget: {
+        maxOutputTokensPerRequest: 320,
+        maxTokensPerMinute: 5000
+      },
+      allowProviderOverride: false,
+      allowModelOverride: false
+    });
+  });
+
   it("requires the OpenAI key when openai is default in production-like deployments", () => {
     expect(() =>
       AppConfigService.load({
@@ -203,6 +235,115 @@ describe("AppConfigService", () => {
       scopes: ["agentforce:support-triage", "agentforce:knowledge-rag"],
       roles: ["support-agent", "rag-agent"]
     });
+    expect(config.jwt.agentforceServiceBearers).toEqual([
+      config.jwt.agentforceServiceBearer
+    ]);
+  });
+
+  it("loads multiple isolated Agentforce service bearers from JSON", () => {
+    const config = AppConfigService.load({
+      AI_API_AGENTFORCE_BEARERS_JSON: JSON.stringify([
+        {
+          tokenSha256: "a".repeat(64),
+          subject: "certinia-phase8-agentforce",
+          tenantId: "certinia-phase8",
+          ragNamespace: "phase8-rag",
+          scopes: [
+            "agentforce:services-project-health",
+            "agentforce:services-project-health"
+          ],
+          roles: ["services-org-intelligence"]
+        },
+        {
+          token_sha256: "d".repeat(64).toUpperCase(),
+          subject: "other-org-agentforce",
+          tenant: "other-org",
+          rag_namespace: "other-rag",
+          scopes: "agentforce:support-triage agentforce:case-analysis",
+          roles: "support-agent"
+        }
+      ])
+    });
+
+    expect(config.jwt.agentforceServiceBearers).toEqual([
+      {
+        tokenSha256: "a".repeat(64),
+        subject: "certinia-phase8-agentforce",
+        tenantId: "certinia-phase8",
+        ragNamespace: "phase8-rag",
+        scopes: ["agentforce:services-project-health"],
+        roles: ["services-org-intelligence"]
+      },
+      {
+        tokenSha256: "d".repeat(64),
+        subject: "other-org-agentforce",
+        tenantId: "other-org",
+        ragNamespace: "other-rag",
+        scopes: ["agentforce:support-triage", "agentforce:case-analysis"],
+        roles: ["support-agent"]
+      }
+    ]);
+    expect(config.jwt.agentforceServiceBearer).toEqual(
+      config.jwt.agentforceServiceBearers[0]
+    );
+  });
+
+  it("applies defaults for JSON Agentforce service bearer entries", () => {
+    const config = AppConfigService.load({
+      RAG_DEFAULT_NAMESPACE: "services-default",
+      AI_API_AGENTFORCE_BEARERS_JSON: JSON.stringify([
+        {
+          tokenSha256: "e".repeat(64)
+        }
+      ])
+    });
+
+    expect(config.jwt.agentforceServiceBearers[0]).toEqual({
+      tokenSha256: "e".repeat(64),
+      subject: "salesforce-agentforce",
+      tenantId: "tenant-demo",
+      ragNamespace: "services-default",
+      scopes: [
+        "agentforce:support-triage",
+        "agentforce:case-analysis",
+        "agentforce:knowledge-rag",
+        "agentforce:services-project-health"
+      ],
+      roles: ["support-agent"]
+    });
+  });
+
+  it("includes all Agentforce action scopes in the service bearer default", () => {
+    const config = AppConfigService.load({
+      AI_API_AGENTFORCE_BEARER_TOKEN_SHA256: "c".repeat(64)
+    });
+
+    expect(config.jwt.agentforceServiceBearer?.scopes).toEqual([
+      "agentforce:support-triage",
+      "agentforce:case-analysis",
+      "agentforce:knowledge-rag",
+      "agentforce:services-project-health"
+    ]);
+    expect(config.jwt.agentforceServiceBearers[0]?.scopes).toEqual(
+      config.jwt.agentforceServiceBearer?.scopes
+    );
+  });
+
+  it("loads Agentforce route rate-limit defaults and overrides", () => {
+    expect(AppConfigService.load({}).agentforce).toEqual({
+      rateLimitWindowMs: 60000,
+      rateLimitMaxRequests: 60
+    });
+
+    const config = AppConfigService.load({
+      AGENTFORCE_RATE_LIMIT_WINDOW_MS: "30000",
+      AGENTFORCE_RATE_LIMIT_MAX_REQUESTS: "20"
+    });
+
+    expect(config.agentforce).toEqual({
+      rateLimitWindowMs: 30000,
+      rateLimitMaxRequests: 20
+    });
   });
 
   it("rejects invalid Agentforce service bearer hashes", () => {
@@ -211,6 +352,43 @@ describe("AppConfigService", () => {
         AI_API_AGENTFORCE_BEARER_TOKEN_SHA256: "not-a-sha"
       })
     ).toThrow("AI_API_AGENTFORCE_BEARER_TOKEN_SHA256");
+
+    expect(() =>
+      AppConfigService.load({
+        AI_API_AGENTFORCE_BEARERS_JSON: JSON.stringify([
+          { tokenSha256: "not-a-sha" }
+        ])
+      })
+    ).toThrow("AI_API_AGENTFORCE_BEARERS_JSON[0].tokenSha256");
+  });
+
+  it("rejects malformed Agentforce service bearer JSON", () => {
+    expect(() =>
+      AppConfigService.load({
+        AI_API_AGENTFORCE_BEARERS_JSON: JSON.stringify({
+          tokenSha256: "a".repeat(64)
+        })
+      })
+    ).toThrow("AI_API_AGENTFORCE_BEARERS_JSON must be a JSON array.");
+
+    expect(() =>
+      AppConfigService.load({
+        AI_API_AGENTFORCE_BEARERS_JSON: JSON.stringify(["not-an-object"])
+      })
+    ).toThrow("AI_API_AGENTFORCE_BEARERS_JSON entries must be JSON objects.");
+  });
+
+  it("rejects duplicate Agentforce service bearer hashes", () => {
+    expect(() =>
+      AppConfigService.load({
+        AI_API_AGENTFORCE_BEARER_TOKEN_SHA256: "f".repeat(64),
+        AI_API_AGENTFORCE_BEARERS_JSON: JSON.stringify([
+          {
+            tokenSha256: "f".repeat(64)
+          }
+        ])
+      })
+    ).toThrow("Duplicate Agentforce service bearer token hash.");
   });
 
   it("rejects auth-disabled mode in production-like deployments", () => {

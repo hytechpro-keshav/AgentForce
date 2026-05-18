@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<GenAiPlannerBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description
+  >Dedicated Phase 8 Services Org Intelligence employee agent for read-only Certinia PSA project-health, margin-risk, schedule-risk, budget-risk, staffing-risk, risk-driver, and recommended-action summaries.</description>
+    <genAiPlugins>
+        <genAiPluginName
+    >p_16jam000001LYPV_Services_Org_Intelligence_Project_Health_new</genAiPluginName>
+    </genAiPlugins>
+    <masterLabel>Services Org Intelligence Showcase Agent new</masterLabel>
+    <plannerSurfaces>
+        <adaptiveResponseAllowed>true</adaptiveResponseAllowed>
+        <callRecordingAllowed>false</callRecordingAllowed>
+        <surface>SurfaceAction__Messaging</surface>
+        <surfaceType>Messaging</surfaceType>
+    </plannerSurfaces>
+    <plannerType>AiCopilot__ReAct</plannerType>
+</GenAiPlannerBundle>

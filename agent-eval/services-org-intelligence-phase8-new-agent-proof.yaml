@@ -1,0 +1,92 @@
+name: phase8_new_agent_prompt_proof
+subjectName: Services_Org_Intelligence_Showcase_Agent_new
+testCases:
+  - utterance: "Show me the projects in the system."
+    expectedTopic: "p_16jam000001LYPV_Services_Org_Intelligence_Project_Health_new"
+    customEvaluations:
+      - name: string_comparison
+        parameters:
+          - name: operator
+            value: equals
+          - name: actual
+            value: "{gs.response.planner_response.lastExecution.invokedActions[0][0].function.output.directoryStatus}"
+          - name: expected
+            value: "LISTED"
+      - name: string_comparison
+        parameters:
+          - name: operator
+            value: contains
+          - name: actual
+            value: "{gs.response.planner_response.lastExecution.invokedActions[0][0].function.output.projectDirectory}"
+          - name: expected
+            value: "Salesforce Project ID"
+      - name: string_comparison
+        parameters:
+          - name: operator
+            value: contains
+          - name: actual
+            value: "{gs.response.planner_response.lastExecution.invokedActions[0][0].function.output.projectDirectory}"
+          - name: expected
+            value: "Margin signal"
+  - utterance: "I confirm you may send sanitized aggregate project facts to the external AI API. Summarize the project health now."
+    conversationHistory:
+      - role: user
+        message: "Can you summarize the health of project ID aAiam000006oM3eCAE?"
+    expectedTopic: "p_16jam000001LYPV_Services_Org_Intelligence_Project_Health_new"
+    customEvaluations:
+      - name: string_comparison
+        parameters:
+          - name: operator
+            value: contains
+          - name: actual
+            value: "{gs.response.planner_response.lastExecution.invokedActions[0][0].function.name}"
+          - name: expected
+            value: "Summarize_Project_Health_Brief"
+      - name: string_comparison
+        parameters:
+          - name: operator
+            value: equals
+          - name: actual
+            value: "{gs.response.planner_response.lastExecution.invokedActions[0][0].function.output.actionStatus}"
+          - name: expected
+            value: "SUMMARIZED"
+      - name: string_comparison
+        parameters:
+          - name: operator
+            value: equals
+          - name: actual
+            value: "{gs.response.planner_response.lastExecution.invokedActions[0][0].function.output.healthStatus}"
+          - name: expected
+            value: "yellow"
+      - name: string_comparison
+        parameters:
+          - name: operator
+            value: equals
+          - name: actual
+            value: "{gs.response.planner_response.lastExecution.invokedActions[0][0].function.output.model}"
+          - name: expected
+            value: "gpt-4o-mini"
+      - name: string_comparison
+        parameters:
+          - name: operator
+            value: contains
+          - name: actual
+            value: "{gs.response.planner_response.lastExecution.invokedActions[0][0].function.output.executiveBrief}"
+          - name: expected
+            value: "Project Health Brief"
+      - name: string_comparison
+        parameters:
+          - name: operator
+            value: contains
+          - name: actual
+            value: "{gs.response.planner_response.lastExecution.invokedActions[0][0].function.output.executiveBrief}"
+          - name: expected
+            value: "Signals reviewed"
+      - name: string_comparison
+        parameters:
+          - name: operator
+            value: contains
+          - name: actual
+            value: "{gs.response.planner_response.lastExecution.invokedActions[0][0].function.output.executiveBrief}"
+          - name: expected
+            value: "Next best action plan"

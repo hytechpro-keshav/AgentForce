@@ -20,6 +20,9 @@ Start with [ARCHITECTURE.md](ARCHITECTURE.md) and [AGENTS.md](AGENTS.md) before 
 - Phase 7 AI API cost/model flexibility under `apps/ai-api`: provider adapters,
   use-case model routing, token budget guardrails, fallback policy,
   cost-reference telemetry, and tenant-safe RAG answer caching.
+- Phase 8 Services Org Intelligence under `apps/ai-api` and `force-app`: a
+  read-only Certinia PSA project-health action that summarizes delivery risk
+  from sanitized aggregate PSA facts.
 - Existing Agentforce metadata under `force-app/main/default/genAiPlannerBundles`, `genAiFunctions`, and `genAiPromptTemplates`.
 - Architecture configuration for Agentforce, NestJS, RAG, Open WebUI, telemetry, React chat, and release work.
 
@@ -40,6 +43,8 @@ Agentforce -> Apex -> Named Credential -> Railway NestJS -> ModelRouter -> OpenA
 - [docs/testing/agentforce-evals.md](docs/testing/agentforce-evals.md)
 - [docs/agents/support-operations.md](docs/agents/support-operations.md)
 - [docs/deployment/railway-ai-api-phase7.md](docs/deployment/railway-ai-api-phase7.md)
+- [docs/testing/phase8-services-org-intelligence-proof.md](docs/testing/phase8-services-org-intelligence-proof.md)
+- [docs/deployment/railway-ai-api-phase8.md](docs/deployment/railway-ai-api-phase8.md)
 
 ## Local Checks
 
@@ -86,6 +91,12 @@ npm run react-chat:test
 npm run react-chat:build
 npm run react-chat:dev     # local dev on http://localhost:4173
 npm run react-chat:preview # preview the production build on :4173
+```
+
+Phase 8 read-only Certinia PSA discovery:
+
+```bash
+bash scripts/smoke/phase8-certinia-psa-discovery.sh certinia-phase8
 ```
 
 Run the checks that match the files you changed. Org-dependent Agentforce evals should be run after metadata is deployed to an enabled org.

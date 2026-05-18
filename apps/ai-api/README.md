@@ -13,6 +13,9 @@ Phase 7 adds configuration-driven provider/model routing, Anthropic/Azure
 OpenAI/Gemini adapters, multiple OpenAI-compatible providers, per-use-case token
 budget guardrails, cost-reference telemetry, fallback policy, and tenant-safe
 RAG answer caching.
+Phase 8 adds Services Org Intelligence project-health summarization for
+Agentforce over sanitized aggregate Certinia PSA project facts through
+`/agent/services/project-health`.
 
 ## Phase 2 Status
 
@@ -94,8 +97,8 @@ implemented locally in `apps/ai-api`.
   require live vendor credentials locally.
 - `MODEL_ROUTING_CONFIG_JSON` selects provider/model/fallback chains by use
   case: `customer_chat`, `openwebui_chat`, `openwebui_rag`,
-  `agentforce_support_triage`, `agentforce_case_analysis`, `knowledge_rag`, and
-  `generic_chat`.
+  `agentforce_support_triage`, `agentforce_case_analysis`,
+  `agentforce_services_project_health`, `knowledge_rag`, and `generic_chat`.
 - Small-model routing can be enabled per use case with a `smallModel` rule for
   low-complexity requests.
 - Token budgets are enforced before provider calls. Request-level budgets are
@@ -113,6 +116,27 @@ implemented locally in `apps/ai-api`.
   payloads are not cached or logged.
 - Phase 7 rollout details are in
   [../../docs/deployment/railway-ai-api-phase7.md](../../docs/deployment/railway-ai-api-phase7.md).
+
+## Phase 8 Services Org Intelligence Status
+
+Status as of 2026-05-14: Phase 8 is implemented locally for the repo-side
+Services Org Intelligence project-health slice.
+
+- `POST /agent/services/project-health` requires scope
+  `agentforce:services-project-health`.
+- `ProjectHealthService` receives only sanitized and aggregate Certinia PSA facts
+  collected by Apex. The backend does not query Salesforce.
+- Deterministic schedule, budget, staffing, health, and risk fields are computed
+  before the LLM is called; the LLM summarizes and explains those facts through
+  `ModelRouter` only.
+- The ModelRouter use case is `agentforce_services_project_health`.
+- Safe telemetry emits request id, use case, tenant reference, provider/model,
+  latency, tokens, fallback outcome, health status, and risk level without raw
+  prompts, project notes, customer names, secrets, or provider payloads.
+- Salesforce implementation details and validation steps are in
+  [../../docs/testing/phase8-services-org-intelligence-proof.md](../../docs/testing/phase8-services-org-intelligence-proof.md)
+  and
+  [../../docs/deployment/railway-ai-api-phase8.md](../../docs/deployment/railway-ai-api-phase8.md).
 
 ## Local Commands
 
@@ -139,11 +163,12 @@ Detailed Railway setup is in [../../docs/deployment/railway-ai-api-phase1.md](..
 ## Provider-Backed Contracts
 
 All provider-backed routes require `Authorization: Bearer <jwt>` unless
-`AI_API_AUTH_DISABLED=true`. Health routes remain public. The support triage route requires JWT scope `agentforce:support-triage`; the case-analysis route requires JWT scope `agentforce:case-analysis`.
+`AI_API_AUTH_DISABLED=true`. Health routes remain public. The support triage route requires JWT scope `agentforce:support-triage`; the case-analysis route requires JWT scope `agentforce:case-analysis`; the project-health route requires JWT scope `agentforce:services-project-health`.
 
 - `POST /chat/message` — DTO-validated chat call. Body: `{ messages, provider?, model?, maxTokens?, requestId? }`. Returns normalized `{ content, usage, provider, model, fallbackUsed, attemptedProviders, latencyMs, responseId? }`. Customer `chat:write` tokens use Knowledge RAG even if provider/model fields are present; direct diagnostic routing requires `chat:diagnostic`.
 - `POST /agent/support/triage-case` — Bulk-safe support triage helper. Body: `{ subject, description, reportedPriority?, caseId?, requestId? }`. Returns `{ recommendedPriority, summary, suggestedNextStep, provider, model, fallbackUsed, latencyMs }`.
 - `POST /agent/support/analyze-case` — Phase 3 Support Operations case-analysis helper. Body: `{ caseSubject, caseDescription, caseStatus?, caseType?, caseOrigin?, reportedPriority?, caseId?, requestId? }`. Returns `{ summary, category, recommendedPriority, confidence, nextAction, provider, model, fallbackUsed, latencyMs }`.
+- `POST /agent/services/project-health` — Phase 8 Services Org Intelligence helper. Body is a flat sanitized aggregate Certinia PSA project-facts payload from Apex, including project status, schedule, budget, staffing, milestone, timecard, task, resource request, and budget counts. Returns `{ healthStatus, riskLevel, scheduleStatus, budgetStatus, staffingStatus, summary, riskDrivers, recommendedActions, confidence, provider, model, fallbackUsed, latencyMs }`.
 - `GET /v1/models` — OpenAI-compatible model listing for Open WebUI-style clients. Requires scope `openwebui:chat`. Phase 5 intentionally returns only `knowledge-rag` so Open WebUI does not show direct GPT/provider model options.
 - `POST /v1/chat/completions` — OpenAI-compatible chat completion. Requires scope `openwebui:chat`. The `model` field selects the provider when it matches a registered provider name; otherwise the configured default provider is used. When `RAG_ENABLED=true`, virtual model `knowledge-rag` routes through the Phase 4 source-cited RAG answer path. `stream=true` returns a standards-shaped SSE envelope after the shared backend path completes; token-by-token provider streaming remains a later enhancement.
 
@@ -164,6 +189,7 @@ The support triage and case-analysis paths use defense in depth for customer dat
 
 - `AgentforceAiApiSupportTriage` masks common names, emails, phone numbers, account/case/order identifiers, payment-card shaped values, SSNs, long numbers, Salesforce IDs, and street-address shaped values before sending the Salesforce callout to Railway.
 - `AgentforceAiApiCaseAnalysis` applies the same masking approach before sending Phase 3 case-analysis callouts to Railway.
+- `AgentforceAiApiProjectHealth` does not send project names, account names, status notes, timecard notes, internal comments, or raw identifiers to Railway; it sends aggregate PSA metrics only.
 - `ModelRouter` applies the same redaction to every `LlmChatRequest` before any provider adapter is called, covering `/agent/support/triage-case`, `/chat/message`, and `/v1/chat/completions`.
 - `SupportTriageService` redacts model output before returning summaries or next steps to Salesforce.
 - `CaseAnalysisService` redacts parsed model output before returning summaries or next actions to Salesforce.
@@ -251,6 +277,24 @@ Phase 7 providers, routing, budgets, pricing, and cache:
   in-process RAG answer cache.
 - `RAG_RESPONSE_CACHE_TTL_MS` — default `300000`, maximum `3600000`.
 
+Agentforce route security:
+
+- `AI_API_AGENTFORCE_BEARER_TOKEN_SHA256` — SHA-256 digest of the opaque
+  service bearer stored in Salesforce External Credential when using durable
+  Named Credential auth.
+- `AI_API_AGENTFORCE_BEARER_SCOPES` — defaults to support triage, case analysis,
+  Knowledge RAG, and Services project health. Set explicitly in Railway when
+  rotating or narrowing scopes.
+- `AI_API_AGENTFORCE_BEARERS_JSON` — optional JSON array for multiple isolated
+  Agentforce service bearers when more than one Salesforce org uses the same
+  Railway ai-api app. Each entry contains `tokenSha256`, optional `subject`,
+  `tenantId` or `tenant`, `ragNamespace` or `rag_namespace`, `scopes`, and
+  `roles`. Keep each raw bearer only in that org's Salesforce External
+  Credential secure value; Railway stores the hash.
+- `AGENTFORCE_RATE_LIMIT_WINDOW_MS` — default `60000`.
+- `AGENTFORCE_RATE_LIMIT_MAX_REQUESTS` — default `60` for model-backed
+  Agentforce routes such as `/agent/services/project-health`.
+
 For the deployed Railway app, set secrets in Railway variables only. Required production values for Phase 2 and Phase 3 are:
 
 ```text
@@ -262,7 +306,13 @@ OPENAI_DEFAULT_MODEL=gpt-4o-mini
 AI_API_JWT_SECRET=<Railway secret>
 AI_API_JWT_ISSUER=salesforce-agentforce
 AI_API_JWT_AUDIENCE=agentforce-ai-api
+AI_API_AGENTFORCE_BEARER_TOKEN_SHA256=<sha256 of Salesforce External Credential bearer>
+AI_API_AGENTFORCE_BEARER_SCOPES="agentforce:support-triage agentforce:case-analysis agentforce:knowledge-rag agentforce:services-project-health"
 ```
+
+For two or more Salesforce orgs, replace the single-bearer variables with
+`AI_API_AGENTFORCE_BEARERS_JSON` so every org has its own token, tenant, and
+scope set. Duplicate token hashes are rejected at startup/config load.
 
 Use a model the configured OpenAI project can access. The current Railway proof uses `gpt-4o-mini`; direct OpenAI chat calls with `gpt-4.1-mini` returned `model_not_found` for this project. Do not set `AI_API_AUTH_DISABLED=true` in Railway production.
 

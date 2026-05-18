@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<GenAiFunction xmlns="http://soap.sforce.com/2006/04/metadata">
+  <description
+  >Summarizes read-only Certinia PSA project delivery health and displays only a labeled executive-ready brief with next best actions.</description>
+  <developerName>Summarize_Project_Health_Brief</developerName>
+  <invocationTarget>AgentforceAiApiProjectHealth</invocationTarget>
+  <invocationTargetType>apex</invocationTargetType>
+  <isConfirmationRequired>true</isConfirmationRequired>
+  <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+  <localDeveloperName>Summarize_Project_Health_Brief</localDeveloperName>
+  <masterLabel>Summarize Project Health Brief</masterLabel>
+  <progressIndicatorMessage
+  >Summarizing project health</progressIndicatorMessage>
+</GenAiFunction>

@@ -1,0 +1,63 @@
+{
+  "unevaluatedProperties": false,
+  "properties": {
+    "directoryStatus": {
+      "title": "Directory Status",
+      "description": "LISTED, VALIDATION_ERROR, or UNEXPECTED_ERROR.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "safeMessage": {
+      "title": "Safe Message",
+      "description": "Safe status message for the project directory request.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "projectDirectory": {
+      "title": "Project Directory",
+      "description": "Formatted list of visible Certinia PSA projects with copyable Salesforce Project IDs and safe status details.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "projectCount": {
+      "title": "Project Count",
+      "description": "Number of projects returned in this response.",
+      "lightning:type": "lightning__integerType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "resultLimit": {
+      "title": "Result Limit",
+      "description": "Maximum number of projects requested after safety caps.",
+      "lightning:type": "lightning__integerType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "hasMore": {
+      "title": "Has More Projects",
+      "description": "True when more projects are available than this response returned.",
+      "lightning:type": "lightning__booleanType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "projectIds": {
+      "title": "Project Ids",
+      "description": "Semicolon-separated Salesforce Project IDs returned in this response.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    }
+  },
+  "lightning:type": "lightning__objectType",
+  "lightning:textIndexed": true
+}

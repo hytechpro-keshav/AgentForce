@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <agentAccesses>
+        <agentName>Services_Org_Intelligence_Showcase_Agent_new</agentName>
+        <enabled>true</enabled>
+    </agentAccesses>
+    <description
+  >Grants access to the Services Org Intelligence Showcase Agent new employee agent.</description>
+    <label>Services Org Intelligence Showcase Agent New Access</label>
+</PermissionSet>

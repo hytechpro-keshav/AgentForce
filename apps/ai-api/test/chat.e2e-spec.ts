@@ -929,4 +929,175 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
       kind: "validation"
     });
   });
+
+  it("POST /agent/services/project-health rejects requests without a bearer token", async () => {
+    await request(app.getHttpServer())
+      .post("/agent/services/project-health")
+      .send({ projectStatus: "Green" })
+      .expect(401);
+  });
+
+  it("POST /agent/services/project-health requires the services project health scope", async () => {
+    await request(app.getHttpServer())
+      .post("/agent/services/project-health")
+      .set("authorization", `Bearer ${signToken()}`)
+      .send({ projectStatus: "Green" })
+      .expect(403);
+  });
+
+  it("POST /agent/services/project-health validates aggregate facts", async () => {
+    await request(app.getHttpServer())
+      .post("/agent/services/project-health")
+      .set(
+        "authorization",
+        `Bearer ${signToken({ scope: "agentforce:services-project-health" })}`
+      )
+      .send({ percentHoursComplete: 150 })
+      .expect(400);
+  });
+
+  it("POST /agent/services/project-health rejects unknown project status values", async () => {
+    await request(app.getHttpServer())
+      .post("/agent/services/project-health")
+      .set(
+        "authorization",
+        `Bearer ${signToken({ scope: "agentforce:services-project-health" })}`
+      )
+      .send({ projectStatus: "Amber" })
+      .expect(400);
+  });
+
+  it("POST /agent/services/project-health summarizes sanitized PSA aggregates", async () => {
+    router.chat.mockResolvedValueOnce({
+      content:
+        '{"summary":"Delivery health is constrained by milestones and staffing.","riskDrivers":"late milestones; open resource request; hours above plan","recommendedActions":"rebaseline milestones; staff the open role; review scope controls","confidence":"high"}',
+      finishReason: "stop",
+      usage: { inputTokens: 34, outputTokens: 22, totalTokens: 56 },
+      metadata: {
+        provider: "openai",
+        model: "gpt-4o-mini",
+        latencyMs: 44,
+        fallbackUsed: false,
+        attemptedProviders: ["openai"]
+      }
+    });
+
+    const response = await request(app.getHttpServer())
+      .post("/agent/services/project-health")
+      .set(
+        "authorization",
+        `Bearer ${signToken({ scope: "agentforce:services-project-health" })}`
+      )
+      .send({
+        projectStatus: "Yellow",
+        daysUntilEnd: 10,
+        percentHoursComplete: 70,
+        plannedHours: 1000,
+        estimatedHoursAtCompletion: 1300,
+        marginPercent: 10,
+        assignmentCount: 4,
+        assignmentAtRiskCount: 1,
+        milestoneCount: 6,
+        lateMilestoneCount: 2,
+        timecardHeaderCount: 8,
+        submittedTimecardCount: 1,
+        rejectedTimecardCount: 1,
+        projectTaskCount: 20,
+        overdueProjectTaskCount: 2,
+        resourceRequestCount: 1,
+        openResourceRequestCount: 1,
+        budgetCount: 1,
+        budgetAmount: 100000,
+        budgetConsumedAmount: 95000,
+        budgetRemainingAmount: 5000,
+        requestId: "project-health-e2e-1"
+      })
+      .expect(201);
+
+    expect(response.body).toMatchObject({
+      healthStatus: "red",
+      riskLevel: "critical",
+      scheduleStatus: "red",
+      budgetStatus: "red",
+      staffingStatus: "red",
+      summary: "Delivery health is constrained by milestones and staffing.",
+      provider: "openai",
+      model: "gpt-4o-mini",
+      fallbackUsed: false,
+      latencyMs: 44
+    });
+
+    const llmRequest = router.chat.mock.calls.at(-1)?.[0] as {
+      useCase?: string;
+      requestId?: string;
+      messages: Array<{ role: string; content: string }>;
+    };
+    expect(llmRequest.useCase).toBe("agentforce_services_project_health");
+    expect(llmRequest.requestId).toBe("project-health-e2e-1");
+    expect(llmRequest.messages[1].content).toContain(
+      "Deterministic healthStatus: red"
+    );
+    expect(llmRequest.messages[1].content).not.toContain("jane@example.com");
+    expect(llmRequest.messages[1].content).not.toContain("ACCT-123456");
+  });
+
+  it("POST /agent/services/project-health surfaces provider validation as 503", async () => {
+    router.chat.mockRejectedValueOnce(
+      new LlmProviderError("model-router", "validation", "No providers")
+    );
+
+    const response = await request(app.getHttpServer())
+      .post("/agent/services/project-health")
+      .set(
+        "authorization",
+        `Bearer ${signToken({ scope: "agentforce:services-project-health" })}`
+      )
+      .send({ projectStatus: "Green", requestId: "project-health-e2e-2" })
+      .expect(503);
+
+    expect(response.body).toMatchObject({
+      error: "provider_unavailable",
+      provider: "model-router",
+      kind: "validation"
+    });
+  });
+
+  it("POST /agent/services/project-health falls back safely for malformed model output", async () => {
+    router.chat.mockResolvedValueOnce({
+      content: "not json",
+      finishReason: "stop",
+      usage: { inputTokens: 20, outputTokens: 5, totalTokens: 25 },
+      metadata: {
+        provider: "openai",
+        model: "gpt-4o-mini",
+        latencyMs: 30,
+        fallbackUsed: false,
+        attemptedProviders: ["openai"]
+      }
+    });
+
+    const response = await request(app.getHttpServer())
+      .post("/agent/services/project-health")
+      .set(
+        "authorization",
+        `Bearer ${signToken({ scope: "agentforce:services-project-health" })}`
+      )
+      .send({
+        projectStatus: "Green",
+        plannedHours: 100,
+        estimatedHoursAtCompletion: 80,
+        assignmentCount: 2,
+        milestoneCount: 2,
+        lateMilestoneCount: 0,
+        requestId: "project-health-e2e-3"
+      })
+      .expect(201);
+
+    expect(response.body).toMatchObject({
+      healthStatus: "green",
+      riskLevel: "low",
+      riskDrivers: "no major deterministic risk drivers detected",
+      recommendedActions: "continue normal project health monitoring"
+    });
+  });
 });

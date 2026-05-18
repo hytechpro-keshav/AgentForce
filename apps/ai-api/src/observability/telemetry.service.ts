@@ -98,6 +98,25 @@ export interface RagWorkflowTelemetry {
   errorKind?: string;
 }
 
+export interface AgentWorkflowTelemetry {
+  operation: string;
+  requestId?: string;
+  tenantId?: string;
+  useCase?: string;
+  provider?: string;
+  model?: string;
+  latencyMs: number;
+  fallbackUsed?: boolean;
+  narrativeFallbackUsed?: boolean;
+  healthStatus?: string;
+  riskLevel?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  outcome: AiWorkflowOutcome;
+  errorKind?: string;
+}
+
 /**
  * Lightweight, no-op-safe telemetry sink for the AI API.
  *
@@ -241,6 +260,47 @@ export class TelemetryService {
           totalTokens: event.totalTokens ?? 0,
           fallbackUsed: false,
           attemptedProviders: [],
+          outcome: event.outcome === "success" ? "success" : "error"
+        })
+      });
+    } catch {
+      // Telemetry must never break a request. Swallow intentionally.
+    }
+  }
+
+  recordAgentWorkflow(event: AgentWorkflowTelemetry): void {
+    if (!this.enabled) {
+      return;
+    }
+    try {
+      this.logger.log({
+        event: "gen_ai.workflow.operation",
+        "gen_ai.operation.name": event.operation,
+        "gen_ai.router.use_case": event.useCase,
+        "gen_ai.system": event.provider,
+        "gen_ai.request.model": event.model,
+        "gen_ai.client.latency_ms": event.latencyMs,
+        "gen_ai.router.fallback_used": event.fallbackUsed,
+        "gen_ai.services.narrative_fallback_used": event.narrativeFallbackUsed,
+        "gen_ai.services.health_status": event.healthStatus,
+        "gen_ai.services.risk_level": event.riskLevel,
+        "gen_ai.services.tenant_id": event.tenantId,
+        "gen_ai.usage.input_tokens": event.inputTokens,
+        "gen_ai.usage.output_tokens": event.outputTokens,
+        "gen_ai.usage.total_tokens": event.totalTokens,
+        "gen_ai.response.outcome": event.outcome,
+        "gen_ai.response.error_kind": event.errorKind,
+        request_id: event.requestId,
+        ...this.buildCostReference({
+          provider: event.provider ?? "",
+          model: event.model,
+          latencyMs: event.latencyMs,
+          inputTokens: event.inputTokens ?? 0,
+          outputTokens: event.outputTokens ?? 0,
+          totalTokens: event.totalTokens ?? 0,
+          fallbackUsed: Boolean(event.fallbackUsed),
+          attemptedProviders: [],
+          useCase: event.useCase,
           outcome: event.outcome === "success" ? "success" : "error"
         })
       });

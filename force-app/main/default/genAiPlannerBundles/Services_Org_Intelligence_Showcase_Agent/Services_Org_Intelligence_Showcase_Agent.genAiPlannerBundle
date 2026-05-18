@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GenAiPlannerBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>You are an AI Agent whose job is to help services leaders summarize Certinia PSA project delivery health, risks, and recommended actions.</description>
+    <genAiPlugins>
+        <genAiPluginName>p_16jam000001LYNt_Services_Org_Intelligence_Project_Health</genAiPluginName>
+    </genAiPlugins>
+    <masterLabel>Services Org Intelligence Showcase Agent</masterLabel>
+    <plannerSurfaces>
+        <adaptiveResponseAllowed>true</adaptiveResponseAllowed>
+        <callRecordingAllowed>false</callRecordingAllowed>
+        <surface>SurfaceAction__Messaging</surface>
+        <surfaceType>Messaging</surfaceType>
+    </plannerSurfaces>
+    <plannerType>AiCopilot__ReAct</plannerType>
+</GenAiPlannerBundle>

@@ -1116,15 +1116,41 @@ or billing-export integration.
 
 Tasks:
 
-- create custom PSA-like objects
-- seed project/resource/timecard data
+- reuse existing Certinia PSA objects first; create fallback custom objects only
+  if a target org lacks required PSA fields or relationships
+- add read-only discovery for pilot project/resource/timecard data
 - create project health endpoint
 - create Agentforce action
-- add production pilot reports and screens
+- add production pilot reports and screens by reusing Certinia PSA report
+  surfaces first
 
 Exit criteria:
 
 - agent can summarize project risk and delivery health
+
+Implementation status, 2026-05-14: implemented locally for the repo-side Phase 8
+slice. Live deployment, scoped credential refresh, target-agent planner binding,
+and pilot UAT remain release tasks.
+
+- Confirmed `certinia-phase8` has Certinia PSA (`pse`) and PSA AI Agent Service
+  (`certinia`) installed with real PSA project, assignment, milestone,
+  timecard, project-task, resource-request, and budget data.
+- Reused `pse__Proj__c`, `pse__Assignment__c`, `pse__Milestone__c`,
+  `pse__Timecard_Header__c`, `pse__Project_Task__c`,
+  `pse__Resource_Request__c`, and `pse__Budget__c`; no fallback custom objects
+  or seed data were added.
+- Added `POST /agent/services/project-health` with required scope
+  `agentforce:services-project-health` and ModelRouter use case
+  `agentforce_services_project_health`.
+- Added Apex `AgentforceAiApiProjectHealth`, global genAiFunction
+  `Summarize_Project_Health`, dedicated `Services_Org_Intelligence_Agent`
+  permission set, backend unit/e2e tests, Apex tests, eval YAML, and Phase 8
+  proof/deployment docs.
+- Added `scripts/smoke/phase8-certinia-psa-discovery.sh` for read-only pilot
+  candidate discovery using aggregates and ids only.
+- Planner bundle metadata was not edited because the target org has multiple
+  plausible Certinia/services agents. Choose the owner before adding a
+  planner-local topic/action.
 
 ### Phase 9: Revenue Intelligence
 

@@ -172,6 +172,50 @@ describe("JwtAuthGuard", () => {
     });
   });
 
+  it("accepts one of multiple isolated Agentforce service bearers", () => {
+    const phase8Token = "phase8-agentforce-token";
+    const otherOrgToken = "other-org-agentforce-token";
+    const { ctx, reflector, req } = makeContext(
+      { authorization: `Bearer ${otherOrgToken}` },
+      false,
+      ["agentforce:case-analysis"]
+    );
+    const guard = makeGuard(
+      {
+        agentforceServiceBearers: [
+          {
+            tokenSha256: sha256(phase8Token),
+            subject: "certinia-phase8-agentforce",
+            tenantId: "certinia-phase8",
+            ragNamespace: "phase8-rag",
+            scopes: ["agentforce:services-project-health"],
+            roles: ["services-org-intelligence"]
+          },
+          {
+            tokenSha256: sha256(otherOrgToken),
+            subject: "other-org-agentforce",
+            tenantId: "other-org",
+            ragNamespace: "other-rag",
+            scopes: ["agentforce:support-triage", "agentforce:case-analysis"],
+            roles: ["support-agent"]
+          }
+        ]
+      },
+      reflector
+    );
+
+    expect(guard.canActivate(ctx)).toBe(true);
+    expect(req.authPrincipal).toMatchObject({
+      subject: "other-org-agentforce",
+      tenantId: "other-org",
+      scopes: ["agentforce:support-triage", "agentforce:case-analysis"],
+      raw: {
+        rag_namespace: "other-rag",
+        roles: ["support-agent"]
+      }
+    });
+  });
+
   it("rejects a configured Agentforce service bearer missing a required scope", () => {
     const token = "opaque-agentforce-service-token";
     const { ctx, reflector } = makeContext(

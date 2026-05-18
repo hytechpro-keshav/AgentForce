@@ -90,6 +90,7 @@ export interface JwtAuthConfig {
   audience?: string;
   disabled: boolean;
   agentforceServiceBearer?: AgentforceServiceBearerConfig;
+  agentforceServiceBearers: AgentforceServiceBearerConfig[];
 }
 
 export interface AgentforceServiceBearerConfig {
@@ -99,6 +100,11 @@ export interface AgentforceServiceBearerConfig {
   ragNamespace: string;
   scopes: string[];
   roles: string[];
+}
+
+export interface AgentforceRuntimeConfig {
+  rateLimitWindowMs: number;
+  rateLimitMaxRequests: number;
 }
 
 export interface CorsConfig {
@@ -172,6 +178,7 @@ export interface AppRuntimeConfig {
   fallbackProvider?: string;
   modelRouting: LlmRoutingConfig;
   jwt: JwtAuthConfig;
+  agentforce: AgentforceRuntimeConfig;
   cors: CorsConfig;
   customerChatSession: CustomerChatSessionConfig;
   telemetryEnabled: boolean;
@@ -195,6 +202,7 @@ export class AppConfigService {
   readonly fallbackProvider?: string;
   readonly modelRouting: LlmRoutingConfig;
   readonly jwt: JwtAuthConfig;
+  readonly agentforce: AgentforceRuntimeConfig;
   readonly cors: CorsConfig;
   readonly customerChatSession: CustomerChatSessionConfig;
   readonly telemetryEnabled: boolean;
@@ -217,6 +225,7 @@ export class AppConfigService {
     this.fallbackProvider = config.fallbackProvider;
     this.modelRouting = config.modelRouting;
     this.jwt = config.jwt;
+    this.agentforce = config.agentforce;
     this.cors = config.cors;
     this.customerChatSession = config.customerChatSession;
     this.telemetryEnabled = config.telemetryEnabled;
@@ -296,6 +305,7 @@ export class AppConfigService {
     }
 
     const jwt = AppConfigService.loadJwt(env, productionLike);
+    const agentforce = AppConfigService.loadAgentforceRuntime(env);
     const cors = AppConfigService.loadCors(env, productionLike);
     const customerChatSession = AppConfigService.loadCustomerChatSession(env);
     const telemetryEnabled =
@@ -323,6 +333,7 @@ export class AppConfigService {
       fallbackProvider,
       modelRouting,
       jwt,
+      agentforce,
       cors,
       customerChatSession,
       telemetryEnabled,
@@ -796,16 +807,63 @@ export class AppConfigService {
       );
     }
 
-    const agentforceServiceBearer =
-      AppConfigService.loadAgentforceServiceBearer(env);
+    const agentforceServiceBearers =
+      AppConfigService.loadAgentforceServiceBearers(env);
 
     return {
       secret,
       issuer: AppConfigService.normalize(env.AI_API_JWT_ISSUER),
       audience: AppConfigService.normalize(env.AI_API_JWT_AUDIENCE),
       disabled,
-      agentforceServiceBearer
+      agentforceServiceBearer: agentforceServiceBearers[0],
+      agentforceServiceBearers
     };
+  }
+
+  private static loadAgentforceServiceBearers(
+    env: NodeJS.ProcessEnv
+  ): AgentforceServiceBearerConfig[] {
+    const bearers: AgentforceServiceBearerConfig[] = [];
+    const legacyBearer = AppConfigService.loadAgentforceServiceBearer(env);
+    if (legacyBearer) {
+      bearers.push(legacyBearer);
+    }
+
+    const rawBearers = AppConfigService.normalize(
+      env.AI_API_AGENTFORCE_BEARERS_JSON
+    );
+    if (rawBearers) {
+      const parsed = AppConfigService.parseJsonValue(
+        rawBearers,
+        "AI_API_AGENTFORCE_BEARERS_JSON"
+      );
+      if (!Array.isArray(parsed)) {
+        throw new Error("AI_API_AGENTFORCE_BEARERS_JSON must be a JSON array.");
+      }
+      parsed.forEach((item, index) => {
+        if (!AppConfigService.isRecord(item)) {
+          throw new Error(
+            "AI_API_AGENTFORCE_BEARERS_JSON entries must be JSON objects."
+          );
+        }
+        bearers.push(
+          AppConfigService.readAgentforceServiceBearer(
+            item,
+            `AI_API_AGENTFORCE_BEARERS_JSON[${index}]`,
+            env
+          )
+        );
+      });
+    }
+
+    const seenHashes = new Set<string>();
+    for (const bearer of bearers) {
+      if (seenHashes.has(bearer.tokenSha256)) {
+        throw new Error("Duplicate Agentforce service bearer token hash.");
+      }
+      seenHashes.add(bearer.tokenSha256);
+    }
+    return bearers;
   }
 
   private static loadAgentforceServiceBearer(
@@ -839,11 +897,75 @@ export class AppConfigService {
         "customer-self-service",
       scopes: AppConfigService.parseAuthList(
         env.AI_API_AGENTFORCE_BEARER_SCOPES,
-        "agentforce:support-triage agentforce:case-analysis agentforce:knowledge-rag"
+        "agentforce:support-triage agentforce:case-analysis agentforce:knowledge-rag agentforce:services-project-health"
       ),
       roles: AppConfigService.parseAuthList(
         env.AI_API_AGENTFORCE_BEARER_ROLES,
         "support-agent"
+      )
+    };
+  }
+
+  private static readAgentforceServiceBearer(
+    record: Record<string, unknown>,
+    path: string,
+    env: NodeJS.ProcessEnv
+  ): AgentforceServiceBearerConfig {
+    const tokenSha256 =
+      AppConfigService.readOptionalString(record, "tokenSha256") ??
+      AppConfigService.readOptionalString(record, "token_sha256");
+    if (!tokenSha256 || !/^[a-f0-9]{64}$/i.test(tokenSha256)) {
+      throw new Error(
+        `${path}.tokenSha256 must be a 64-character SHA-256 hex digest.`
+      );
+    }
+
+    const subject =
+      AppConfigService.readOptionalSafeIdentifier(record, "subject") ??
+      "salesforce-agentforce";
+    const tenantId =
+      AppConfigService.readOptionalSafeIdentifier(record, "tenantId") ??
+      AppConfigService.readOptionalSafeIdentifier(record, "tenant") ??
+      "tenant-demo";
+    const ragNamespace =
+      AppConfigService.readOptionalSafeIdentifier(record, "ragNamespace") ??
+      AppConfigService.readOptionalSafeIdentifier(record, "rag_namespace") ??
+      AppConfigService.normalize(env.RAG_DEFAULT_NAMESPACE) ??
+      "customer-self-service";
+
+    return {
+      tokenSha256: tokenSha256.toLowerCase(),
+      subject,
+      tenantId,
+      ragNamespace,
+      scopes: AppConfigService.readAuthList(
+        record,
+        "scopes",
+        "agentforce:support-triage agentforce:case-analysis agentforce:knowledge-rag agentforce:services-project-health",
+        `${path}.scopes`
+      ),
+      roles: AppConfigService.readAuthList(
+        record,
+        "roles",
+        "support-agent",
+        `${path}.roles`
+      )
+    };
+  }
+
+  private static loadAgentforceRuntime(
+    env: NodeJS.ProcessEnv
+  ): AgentforceRuntimeConfig {
+    return {
+      rateLimitWindowMs: AppConfigService.parsePositiveInteger(
+        env.AGENTFORCE_RATE_LIMIT_WINDOW_MS,
+        60000,
+        "AGENTFORCE_RATE_LIMIT_WINDOW_MS"
+      ),
+      rateLimitMaxRequests: AppConfigService.parsePositiveInteger(
+        env.AGENTFORCE_RATE_LIMIT_MAX_REQUESTS,
+        60,
+        "AGENTFORCE_RATE_LIMIT_MAX_REQUESTS"
       )
     };
   }
@@ -861,6 +983,33 @@ export class AppConfigService {
           .filter(Boolean)
       )
     );
+  }
+
+  private static readAuthList(
+    record: Record<string, unknown>,
+    key: string,
+    fallback: string,
+    path: string
+  ): string[] {
+    const value = record[key];
+    if (value === undefined || value === null) {
+      return AppConfigService.parseAuthList(undefined, fallback);
+    }
+    if (typeof value === "string") {
+      return AppConfigService.parseAuthList(value, fallback);
+    }
+    if (Array.isArray(value)) {
+      return Array.from(
+        new Set(
+          AppConfigService.parseStringArray(
+            value,
+            path,
+            AppConfigService.isSafeIdentifier
+          )
+        )
+      );
+    }
+    throw new Error(`${path} must be a string or JSON array.`);
   }
 
   private static loadRag(

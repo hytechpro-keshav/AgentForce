@@ -1,0 +1,167 @@
+{
+  "unevaluatedProperties": false,
+  "properties": {
+    "actionStatus": {
+      "title": "Action Status",
+      "description": "SUMMARIZED, VALIDATION_ERROR, NOT_FOUND, AUTH_ERROR, BACKEND_ERROR, CALLOUT_FAILED, MALFORMED_RESPONSE, UNEXPECTED_ERROR, or NOT_SUMMARIZED.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "safeMessage": {
+      "title": "Safe Message",
+      "description": "Safe status message that Agentforce can display.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "executiveBrief": {
+      "title": "Executive Brief",
+      "description": "Labeled executive-ready project health brief with status explanations and next best actions.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "healthStatus": {
+      "title": "Health Status",
+      "description": "Overall delivery health status: green, yellow, or red.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "riskLevel": {
+      "title": "Risk Level",
+      "description": "Overall delivery risk level: low, medium, high, or critical.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "scheduleStatus": {
+      "title": "Schedule Status",
+      "description": "Schedule health status: green, yellow, or red.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "budgetStatus": {
+      "title": "Budget Status",
+      "description": "Budget health status: green, yellow, or red.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "staffingStatus": {
+      "title": "Staffing Status",
+      "description": "Staffing health status: green, yellow, or red.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "summary": {
+      "title": "Summary",
+      "description": "Short safe delivery health summary.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "riskDrivers": {
+      "title": "Risk Drivers",
+      "description": "Semicolon-separated safe risk drivers.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "recommendedActions": {
+      "title": "Recommended Actions",
+      "description": "Semicolon-separated safe recommended actions.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "confidence": {
+      "title": "Confidence",
+      "description": "Summary confidence: low, medium, or high.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "provider": {
+      "title": "Provider",
+      "description": "LLM provider used by the AI API ModelRouter.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "model": {
+      "title": "Model",
+      "description": "LLM model used by the AI API ModelRouter.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "fallbackUsed": {
+      "title": "Fallback Used",
+      "description": "True when the AI API ModelRouter used a fallback provider.",
+      "lightning:type": "lightning__booleanType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "latencyMs": {
+      "title": "Latency Ms",
+      "description": "AI API provider call latency in milliseconds.",
+      "lightning:type": "lightning__numberType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": false
+    },
+    "httpStatusCode": {
+      "title": "HTTP Status Code",
+      "description": "HTTP status code returned by the AI API project-health endpoint.",
+      "lightning:type": "lightning__numberType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": false
+    },
+    "endpoint": {
+      "title": "Endpoint",
+      "description": "AI API endpoint called by Apex.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": false
+    },
+    "requestId": {
+      "title": "Request Id",
+      "description": "Safe correlation id sent to backend telemetry.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": false
+    },
+    "summarizedAt": {
+      "title": "Summarized At",
+      "description": "Timestamp when Apex summarized project health.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": false
+    }
+  },
+  "lightning:type": "lightning__objectType",
+  "lightning:textIndexed": true
+}

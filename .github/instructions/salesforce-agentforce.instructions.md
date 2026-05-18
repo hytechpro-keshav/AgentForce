@@ -30,8 +30,10 @@ applyTo:
 - Active agents block `GenAiPlannerBundle` redeployment. For an existing active agent, use the supported lifecycle commands: `sf agent deactivate --api-name <AgentApiName> --target-org <org>`, deploy the planner bundle, then `sf agent activate --api-name <AgentApiName> --target-org <org>`.
 - After reactivation, validate the published runtime with `sf agent preview start --api-name <AgentApiName>`, `sf agent preview send --session-id <id> --utterance "..." --api-name <AgentApiName>`, and `sf agent preview end --session-id <id> --api-name <AgentApiName>`.
 - Planner bundle caching can make topic/action changes look stale. Reactivation often refreshes the binding.
+- If an Employee Agent still shows stale output labels or stale displayable fields after a schema/output change, the active planner-scoped local action copy may still be bound to the old action identity. In that case, create a fresh global `genAiFunction` identity, deploy the planner bundle together with the plugin and functions while the agent is deactivated, then reactivate and re-test.
 - Prompt template `activeVersionIdentifier` and inner `versionIdentifier` can be fragile. Preserve current values unless intentionally creating a new version.
 - Schema-only changes may not deploy as expected unless the sibling genAiFunction metadata is included in the payload.
+- For user-facing output cleanups, keep the planner-visible raw fields available only for reasoning, and direct Agentforce to display only the formatted field that owns the UX contract.
 
 ## Verification Flow Notes
 

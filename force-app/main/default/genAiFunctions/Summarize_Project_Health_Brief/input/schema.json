@@ -1,0 +1,50 @@
+{
+  "required": ["projectKey"],
+  "unevaluatedProperties": false,
+  "properties": {
+    "projectKey": {
+      "title": "Project Key",
+      "description": "Certinia PSA project name, project id, project code, or Salesforce record id. Used only to find the project.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isUserInput": true
+    },
+    "projectName": {
+      "title": "Project Name",
+      "description": "Optional Certinia PSA project name. Used only to find the project and not sent to the external AI API.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isUserInput": true
+    },
+    "projectCode": {
+      "title": "Project Code",
+      "description": "Optional Certinia PSA project id or code. Used only to find the project and not sent to the external AI API.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isUserInput": true
+    },
+    "projectId": {
+      "title": "Project Id",
+      "description": "Optional Certinia PSA project id or Salesforce project record id.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isUserInput": true
+    },
+    "recordId": {
+      "title": "Record Id",
+      "description": "Optional Salesforce pse__Proj__c record id.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isUserInput": true
+    },
+    "requestId": {
+      "title": "Request Id",
+      "description": "Optional safe correlation id for backend telemetry. Do not use Salesforce record ids.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": false
+    }
+  },
+  "lightning:type": "lightning__objectType",
+  "lightning:textIndexed": true
+}

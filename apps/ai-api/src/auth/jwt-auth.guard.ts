@@ -59,8 +59,19 @@ export class JwtAuthGuard implements CanActivate {
       return true;
     }
 
-    const { disabled, secret, issuer, audience, agentforceServiceBearer } =
-      this.config.jwt;
+    const {
+      disabled,
+      secret,
+      issuer,
+      audience,
+      agentforceServiceBearer,
+      agentforceServiceBearers = []
+    } = this.config.jwt;
+    const configuredServiceBearers = agentforceServiceBearers.length
+      ? agentforceServiceBearers
+      : agentforceServiceBearer
+        ? [agentforceServiceBearer]
+        : [];
     if (disabled) {
       return true;
     }
@@ -77,7 +88,7 @@ export class JwtAuthGuard implements CanActivate {
 
     const servicePrincipal = JwtAuthGuard.authenticateAgentforceServiceBearer(
       token,
-      agentforceServiceBearer
+      configuredServiceBearers
     );
     if (servicePrincipal) {
       this.assertRequiredScopes(context, servicePrincipal.scopes);
@@ -86,7 +97,7 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     if (!secret) {
-      if (agentforceServiceBearer) {
+      if (configuredServiceBearers.length) {
         throw new UnauthorizedException("Invalid bearer token.");
       }
       // Fail closed rather than silently allowing traffic.
@@ -149,13 +160,13 @@ export class JwtAuthGuard implements CanActivate {
 
   private static authenticateAgentforceServiceBearer(
     token: string,
-    config: AgentforceServiceBearerConfig | undefined
+    configs: AgentforceServiceBearerConfig[]
   ): AuthPrincipal | undefined {
-    if (!config) {
-      return undefined;
-    }
     const tokenSha256 = createHash("sha256").update(token).digest("hex");
-    if (!JwtAuthGuard.safeEqualHex(tokenSha256, config.tokenSha256)) {
+    const config = configs.find((candidate) =>
+      JwtAuthGuard.safeEqualHex(tokenSha256, candidate.tokenSha256)
+    );
+    if (!config) {
       return undefined;
     }
     const raw: jwt.JwtPayload = {

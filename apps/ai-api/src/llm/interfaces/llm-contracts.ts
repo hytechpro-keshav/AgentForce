@@ -14,6 +14,7 @@ export const LLM_USE_CASES = [
   "openwebui_rag",
   "agentforce_support_triage",
   "agentforce_case_analysis",
+  "agentforce_services_project_health",
   "knowledge_rag"
 ] as const;
 

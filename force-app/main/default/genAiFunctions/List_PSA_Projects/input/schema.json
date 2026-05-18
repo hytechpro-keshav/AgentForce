@@ -1,0 +1,29 @@
+{
+  "required": [],
+  "unevaluatedProperties": false,
+  "properties": {
+    "statusFilter": {
+      "title": "Status Filter",
+      "description": "Optional Certinia PSA project status filter: Green, Yellow, or Red.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    },
+    "searchText": {
+      "title": "Search Text",
+      "description": "Optional project name or PSA project id search text.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isUserInput": true
+    },
+    "maxResults": {
+      "title": "Max Results",
+      "description": "Optional maximum number of projects to list. Defaults to 10 and caps at 25.",
+      "lightning:type": "lightning__integerType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    }
+  },
+  "lightning:type": "lightning__objectType",
+  "lightning:textIndexed": true
+}

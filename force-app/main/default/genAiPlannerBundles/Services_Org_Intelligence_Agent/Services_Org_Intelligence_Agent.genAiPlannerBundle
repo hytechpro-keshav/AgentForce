@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<GenAiPlannerBundle xmlns="http://soap.sforce.com/2006/04/metadata">
+  <description
+  >Dedicated Phase 8 pilot agent for read-only Certinia PSA Services Org Intelligence project-health summaries. It invokes the Summarize Project Health action and returns executive-safe delivery health, risk drivers, and recommended actions without mutating PSA records.</description>
+  <localTopicLinks>
+    <genAiPluginName>Services_Org_Intelligence_Project_Health</genAiPluginName>
+  </localTopicLinks>
+  <localTopics>
+    <fullName>Services_Org_Intelligence_Project_Health</fullName>
+    <canEscalate>false</canEscalate>
+    <description
+    >Summarizes read-only Certinia PSA project delivery health through the Phase 8 AI API bridge using sanitized aggregate project facts.</description>
+    <developerName>Services_Org_Intelligence_Project_Health</developerName>
+    <genAiPluginInstructions>
+      <description
+      >Use this topic when the user asks for Services Org Intelligence, project health, delivery health, project risk, schedule risk, budget risk, staffing risk, risk drivers, or recommended project actions for a Certinia PSA project.</description>
+      <developerName>route_project_health_requests</developerName>
+      <language>en_US</language>
+      <masterLabel>Route Project Health Requests</masterLabel>
+      <sortOrder>0</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+      <description
+      >Collect one project key before invoking the action. The project key can be a Certinia PSA project name, PSA project id, project code, or Salesforce pse__Proj__c record id. If the project is missing or ambiguous, ask for a more specific project id or record id.</description>
+      <developerName>collect_project_key</developerName>
+      <language>en_US</language>
+      <masterLabel>Collect Project Key</masterLabel>
+      <sortOrder>1</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+      <description
+      >Before invoking Summarize Project Health, rely on the action confirmation because sanitized aggregate project facts are sent to the external AI API through the approved Named Credential. After confirmation, invoke the action before answering.</description>
+      <developerName>confirm_external_context</developerName>
+      <language>en_US</language>
+      <masterLabel>Confirm External Context</masterLabel>
+      <sortOrder>2</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+      <description
+      >Summarize only the returned safe fields: action status, health status, risk level, schedule status, budget status, staffing status, summary, risk drivers, recommended actions, confidence, provider, model, latency, and request id.</description>
+      <developerName>summarize_safe_fields</developerName>
+      <language>en_US</language>
+      <masterLabel>Summarize Safe Fields</masterLabel>
+      <sortOrder>3</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+      <description
+      >Do not create, update, close, rebaseline, staff, approve, reject, or otherwise mutate projects, assignments, milestones, budgets, timecards, resource requests, or project tasks. If the user asks for a mutation, explain that this pilot is analysis-only.</description>
+      <developerName>read_only_boundary</developerName>
+      <language>en_US</language>
+      <masterLabel>Read Only Boundary</masterLabel>
+      <sortOrder>4</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+      <description
+      >Never reveal project notes, timecard notes, internal comments, raw Salesforce record payloads, raw prompts, raw backend payloads, Authorization headers, bearer tokens, JWTs, Named Credential secrets, or other credential values.</description>
+      <developerName>protect_sensitive_data</developerName>
+      <language>en_US</language>
+      <masterLabel>Protect Sensitive Data</masterLabel>
+      <sortOrder>5</sortOrder>
+    </genAiPluginInstructions>
+    <language>en_US</language>
+    <localActionLinks>
+      <functionName>Summarize_Project_Health_179g5000000SoIP</functionName>
+    </localActionLinks>
+    <localActions>
+      <fullName>Summarize_Project_Health_179g5000000SoIP</fullName>
+      <description
+      >Calls the NestJS AI API Phase 8 project-health endpoint through Apex with sanitized aggregate Certinia PSA facts and returns safe project health, risk, and recommendation fields.</description>
+      <developerName>Summarize_Project_Health_179g5000000SoIP</developerName>
+      <invocationTarget>AgentforceAiApiProjectHealth</invocationTarget>
+      <invocationTargetType>apex</invocationTargetType>
+      <isConfirmationRequired>true</isConfirmationRequired>
+      <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+      <localDeveloperName>Summarize_Project_Health</localDeveloperName>
+      <masterLabel>Summarize Project Health</masterLabel>
+      <progressIndicatorMessage
+      >Summarizing project health</progressIndicatorMessage>
+      <source>Summarize_Project_Health</source>
+    </localActions>
+    <localDeveloperName
+    >Services_Org_Intelligence_Project_Health</localDeveloperName>
+    <masterLabel>Services Org Intelligence Project Health</masterLabel>
+    <pluginType>Topic</pluginType>
+    <scope
+    >Your job is to summarize read-only Certinia PSA project delivery health for Services leaders by invoking Summarize Project Health after confirmation. Use this topic for project health, project risk, delivery health, schedule, budget, staffing, risk drivers, and recommended action questions. Keep the response executive-safe and operational. Do not expose sensitive notes, raw payloads, prompts, or credentials. Do not mutate PSA records.</scope>
+  </localTopics>
+  <masterLabel>Services Org Intelligence Agent</masterLabel>
+  <plannerSurfaces>
+    <adaptiveResponseAllowed>true</adaptiveResponseAllowed>
+    <callRecordingAllowed>false</callRecordingAllowed>
+    <surface>SurfaceAction__Messaging</surface>
+    <surfaceType>Messaging</surfaceType>
+  </plannerSurfaces>
+  <plannerType>AiCopilot__ReAct</plannerType>
+</GenAiPlannerBundle>

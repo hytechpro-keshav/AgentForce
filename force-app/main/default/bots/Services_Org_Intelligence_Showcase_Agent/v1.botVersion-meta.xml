@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<BotVersion xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>v1</fullName>
+    <articleAnswersGPTEnabled>false</articleAnswersGPTEnabled>
+    <botDialogs>
+        <botSteps>
+            <botMessages>
+                <message
+        >Hi, I&apos;m an AI assistant. How can I help you?</message>
+                <messageIdentifier
+        >9cde396c-9424-423c-affc-83f041b76dd2</messageIdentifier>
+            </botMessages>
+            <stepIdentifier
+      >9a83cd68-6778-4810-8838-720fc79086a9</stepIdentifier>
+            <type>Message</type>
+        </botSteps>
+        <botSteps>
+            <stepIdentifier
+      >f0f4abe1-3d2f-40f5-8736-1d9def9aab27</stepIdentifier>
+            <type>Wait</type>
+        </botSteps>
+        <developerName>Welcome</developerName>
+        <isPlaceholderDialog>false</isPlaceholderDialog>
+        <label>Hi! I&apos;m your helpful bot.</label>
+        <showInFooterMenu>false</showInFooterMenu>
+    </botDialogs>
+    <botDialogs>
+        <botSteps>
+            <botMessages>
+                <message
+        >Sorry, it looks like something has gone wrong.</message>
+                <messageIdentifier
+        >b0c5e1f7-57ef-43be-8235-ca34755079d8</messageIdentifier>
+            </botMessages>
+            <stepIdentifier
+      >95a64db2-0a1b-4b1d-875a-1557c376bec8</stepIdentifier>
+            <type>Message</type>
+        </botSteps>
+        <botSteps>
+            <stepIdentifier
+      >8846023f-4ea2-4943-b09c-f982b7ae4e1d</stepIdentifier>
+            <type>Wait</type>
+        </botSteps>
+        <developerName>Error_Handling</developerName>
+        <isPlaceholderDialog>false</isPlaceholderDialog>
+        <label
+    >Unfortunately, a system error occurred. Let us start again.</label>
+        <showInFooterMenu>false</showInFooterMenu>
+    </botDialogs>
+    <botDialogs>
+        <botSteps>
+            <botMessages>
+                <message
+        >One moment while I connect you to the next available service representative.</message>
+                <messageIdentifier
+        >e80752d6-8d9f-4c3e-a305-d03c606136a3</messageIdentifier>
+            </botMessages>
+            <stepIdentifier
+      >99dd5dec-f94a-443f-a88f-b2c830ba8f76</stepIdentifier>
+            <type>Message</type>
+        </botSteps>
+        <botSteps>
+            <conversationSystemMessage>
+                <type>Transfer</type>
+            </conversationSystemMessage>
+            <stepIdentifier
+      >7a33a965-8df4-4842-bedc-1d24569fe4e4</stepIdentifier>
+            <type>SystemMessage</type>
+        </botSteps>
+        <developerName>Transfer_To_Agent</developerName>
+        <isPlaceholderDialog>false</isPlaceholderDialog>
+        <label>Transfer To Agent</label>
+        <showInFooterMenu>false</showInFooterMenu>
+    </botDialogs>
+    <citationsEnabled>false</citationsEnabled>
+    <company>AgentForce Services Org Intelligence</company>
+    <conversationDefinitionPlanners>
+        <genAiPlannerName
+    >Services_Org_Intelligence_Showcase_Agent</genAiPlannerName>
+    </conversationDefinitionPlanners>
+    <conversationVariables>
+        <dataType>Text</dataType>
+        <description
+    >This variable may also be referred to as VerifiedCustomerId</description>
+        <developerName>VerifiedCustomerId</developerName>
+        <includeInPrompt>false</includeInPrompt>
+        <label>VerifiedCustomerId</label>
+        <visibility>Internal</visibility>
+    </conversationVariables>
+    <defaultStdObjForContactIdFltrEnabled
+  >false</defaultStdObjForContactIdFltrEnabled>
+    <entryDialog>Welcome</entryDialog>
+    <intentDisambiguationEnabled>false</intentDisambiguationEnabled>
+    <intentV3Enabled>false</intentV3Enabled>
+    <isScriptCompatibleAgent>false</isScriptCompatibleAgent>
+    <knowledgeActionEnabled>false</knowledgeActionEnabled>
+    <knowledgeFallbackEnabled>false</knowledgeFallbackEnabled>
+    <role
+  >Help services leaders summarize Certinia PSA project delivery health, delivery risk, schedule risk, budget risk, staffing risk, risk drivers, and recommended next actions using a read-only Services Org Intelligence action.</role>
+    <smallTalkEnabled>false</smallTalkEnabled>
+    <staticPromptsEnabled>false</staticPromptsEnabled>
+    <stopRecPrompts>false</stopRecPrompts>
+    <stopWelcomePrompts>false</stopWelcomePrompts>
+    <surfacesEnabled>false</surfacesEnabled>
+    <toneType>Formal</toneType>
+</BotVersion>
