@@ -1,5 +1,7 @@
 import {
   BadRequestException,
+  HttpException,
+  HttpStatus,
   Injectable,
   Logger,
   ServiceUnavailableException,
@@ -57,14 +59,57 @@ export class OAuthTokenService {
     }
 
     if (!this.matchesSecret(request.client_secret, client)) {
-      await this.warnRejected("secret_mismatch", request.client_id, clientKey);
+      await this.warnRejected(
+        "secret_mismatch",
+        request.client_id,
+        clientKey,
+        client.tenantId
+      );
       throw new UnauthorizedException({
         error: "invalid_client",
         message: "Client authentication failed."
       });
     }
 
-    const scopes = OAuthTokenService.resolveScopes(request.scope, client);
+    let scopes: string[];
+    try {
+      scopes = OAuthTokenService.resolveScopes(request.scope, client);
+    } catch (err) {
+      await this.warnRejected(
+        "invalid_scope",
+        request.client_id,
+        clientKey,
+        client.tenantId
+      );
+      throw err;
+    }
+
+    const quota = await this.tenantRegistry.checkOAuthTokenQuota(client);
+    if (!quota.allowed) {
+      await this.warnRejected(
+        quota.reason ?? "quota_exceeded",
+        client.clientId,
+        clientKey,
+        client.tenantId
+      );
+      await this.tenantRegistry.recordAuditEvent({
+        eventType: "quota_exceeded",
+        clientId: client.clientId,
+        tenantId: client.tenantId,
+        outcome: "error",
+        reason: quota.reason,
+        clientHash: this.safeHash(client.clientId),
+        sourceHash: this.safeHash(clientKey)
+      });
+      throw new HttpException(
+        {
+          error: "quota_exceeded",
+          message: "OAuth token quota has been exceeded for this tenant."
+        },
+        HttpStatus.TOO_MANY_REQUESTS
+      );
+    }
+
     const nowSeconds = Math.floor(Date.now() / 1000);
     const expiresAtSeconds =
       nowSeconds + this.config.oauth.accessTokenTtlSeconds;
@@ -172,7 +217,8 @@ export class OAuthTokenService {
   private async warnRejected(
     reason: string,
     clientId: string,
-    clientKey: string
+    clientKey: string,
+    tenantId?: string
   ): Promise<void> {
     this.logger.warn(
       `OAuth token request rejected reason=${reason} clientHash=${this.safeHash(clientId)} sourceHash=${this.safeHash(clientKey)}`
@@ -180,6 +226,7 @@ export class OAuthTokenService {
     await this.tenantRegistry.recordAuditEvent({
       eventType: "token_rejected",
       clientId,
+      tenantId,
       outcome: "error",
       reason,
       clientHash: this.safeHash(clientId),

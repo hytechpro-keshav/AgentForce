@@ -20,6 +20,7 @@ if (!command || args.help === "true") {
 
 const databaseUrl =
   args["database-url"] ??
+  readOptionalSecretTextFile(args["database-url-file"], "database-url-file") ??
   process.env.AI_API_TENANT_REGISTRY_DATABASE_URL ??
   process.env.DATABASE_URL;
 
@@ -92,6 +93,22 @@ async function upsertOAuthClient() {
     args["pending-secret-expires-at"],
     "pending-secret-expires-at"
   );
+  const rotationDueAt = readOptionalIsoDatetime(
+    args["rotation-due-at"],
+    "rotation-due-at"
+  );
+  const dailyTokenQuota = readOptionalInteger(
+    args["daily-token-quota"],
+    "daily-token-quota"
+  );
+  const monthlyTokenQuota = readOptionalInteger(
+    args["monthly-token-quota"],
+    "monthly-token-quota"
+  );
+  const monthlyCostLimitCents = readOptionalInteger(
+    args["monthly-cost-limit-cents"],
+    "monthly-cost-limit-cents"
+  );
 
   const client = await pool.connect();
   try {
@@ -107,8 +124,12 @@ async function upsertOAuthClient() {
           allowed_scopes,
           roles,
           model_routing_profile,
-          rate_limit_profile
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          rate_limit_profile,
+          alert_policy,
+          daily_token_quota,
+          monthly_token_quota,
+          monthly_cost_limit_cents
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         ON CONFLICT (tenant_id) DO UPDATE SET
           salesforce_org_id = excluded.salesforce_org_id,
           salesforce_instance_url = excluded.salesforce_instance_url,
@@ -118,6 +139,10 @@ async function upsertOAuthClient() {
           roles = excluded.roles,
           model_routing_profile = excluded.model_routing_profile,
           rate_limit_profile = excluded.rate_limit_profile,
+          alert_policy = excluded.alert_policy,
+          daily_token_quota = excluded.daily_token_quota,
+          monthly_token_quota = excluded.monthly_token_quota,
+          monthly_cost_limit_cents = excluded.monthly_cost_limit_cents,
           updated_at = now()
       `,
       [
@@ -129,7 +154,11 @@ async function upsertOAuthClient() {
         tenantScopes,
         tenantRoles,
         args["model-routing-profile"] ?? null,
-        args["rate-limit-profile"] ?? null
+        args["rate-limit-profile"] ?? null,
+        args["alert-policy"] ?? null,
+        dailyTokenQuota,
+        monthlyTokenQuota,
+        monthlyCostLimitCents
       ]
     );
     await client.query(
@@ -141,16 +170,18 @@ async function upsertOAuthClient() {
           client_secret_sha256,
           pending_client_secret_sha256,
           pending_secret_expires_at,
+          rotation_due_at,
           allowed_scopes,
           roles,
           status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         ON CONFLICT (client_id) DO UPDATE SET
           tenant_id = excluded.tenant_id,
           subject = excluded.subject,
           client_secret_sha256 = excluded.client_secret_sha256,
           pending_client_secret_sha256 = excluded.pending_client_secret_sha256,
           pending_secret_expires_at = excluded.pending_secret_expires_at,
+          rotation_due_at = excluded.rotation_due_at,
           allowed_scopes = excluded.allowed_scopes,
           roles = excluded.roles,
           status = excluded.status,
@@ -163,6 +194,7 @@ async function upsertOAuthClient() {
         clientSecretSha256,
         pendingClientSecretSha256,
         pendingSecretExpiresAt,
+        rotationDueAt,
         clientScopes,
         clientRoles,
         clientStatus
@@ -205,6 +237,11 @@ async function upsertOAuthClient() {
         clientStatus,
         tenantScopes,
         clientScopes,
+        alertPolicy: args["alert-policy"] ?? null,
+        dailyTokenQuota,
+        monthlyTokenQuota,
+        monthlyCostLimitCents,
+        rotationDueAt,
         secretMaterialPrinted: false
       },
       null,
@@ -216,34 +253,101 @@ async function upsertOAuthClient() {
 async function setTenantStatus() {
   const tenantId = readIdentifier("tenant-id");
   const status = readStatus(args.status, "status");
-  const result = await pool.query(
-    `
-      UPDATE ai_api_tenants
-      SET status = $2, updated_at = now()
-      WHERE tenant_id = $1
-    `,
-    [tenantId, status]
-  );
+  const client = await pool.connect();
+  let rowCount = 0;
+  try {
+    await client.query("BEGIN");
+    const result = await client.query(
+      `
+        UPDATE ai_api_tenants
+        SET status = $2, updated_at = now()
+        WHERE tenant_id = $1
+      `,
+      [tenantId, status]
+    );
+    rowCount = result.rowCount;
+    if (rowCount > 0) {
+      await client.query(
+        `
+          INSERT INTO ai_api_oauth_audit_events (
+            event_type,
+            client_id,
+            tenant_id,
+            outcome,
+            reason,
+            client_hash
+          ) VALUES ($1, $2, $3, $4, $5, $6)
+        `,
+        [
+          "tenant_status_changed",
+          null,
+          tenantId,
+          "success",
+          `status:${status}`,
+          safeHash(tenantId)
+        ]
+      );
+    }
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
   process.stdout.write(
-    JSON.stringify({ tenantId, status, updated: result.rowCount }, null, 2) +
-      "\n"
+    JSON.stringify({ tenantId, status, updated: rowCount }, null, 2) + "\n"
   );
 }
 
 async function setClientStatus() {
   const clientId = readIdentifier("client-id");
   const status = readStatus(args.status, "status");
-  const result = await pool.query(
-    `
-      UPDATE ai_api_oauth_clients
-      SET status = $2, updated_at = now()
-      WHERE client_id = $1
-    `,
-    [clientId, status]
-  );
+  const client = await pool.connect();
+  let rowCount = 0;
+  try {
+    await client.query("BEGIN");
+    const result = await client.query(
+      `
+        UPDATE ai_api_oauth_clients
+        SET status = $2, updated_at = now()
+        WHERE client_id = $1
+        RETURNING tenant_id
+      `,
+      [clientId, status]
+    );
+    rowCount = result.rowCount;
+    if (rowCount > 0) {
+      await client.query(
+        `
+          INSERT INTO ai_api_oauth_audit_events (
+            event_type,
+            client_id,
+            tenant_id,
+            outcome,
+            reason,
+            client_hash
+          ) VALUES ($1, $2, $3, $4, $5, $6)
+        `,
+        [
+          status === "revoked" ? "client_revoked" : "client_status_changed",
+          clientId,
+          result.rows[0].tenant_id,
+          "success",
+          `status:${status}`,
+          safeHash(clientId)
+        ]
+      );
+    }
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
   process.stdout.write(
-    JSON.stringify({ clientId, status, updated: result.rowCount }, null, 2) +
-      "\n"
+    JSON.stringify({ clientId, status, updated: rowCount }, null, 2) + "\n"
   );
 }
 
@@ -259,10 +363,17 @@ async function showTenant() {
         t.rag_namespace,
         t.allowed_scopes AS tenant_scopes,
         t.roles AS tenant_roles,
+        t.model_routing_profile,
+        t.rate_limit_profile,
+        t.alert_policy,
+        t.daily_token_quota,
+        t.monthly_token_quota,
+        t.monthly_cost_limit_cents,
         c.client_id,
         c.status AS client_status,
         c.allowed_scopes AS client_scopes,
         c.roles AS client_roles,
+        c.rotation_due_at,
         c.last_used_at
       FROM ai_api_tenants t
       LEFT JOIN ai_api_oauth_clients c ON c.tenant_id = t.tenant_id
@@ -327,6 +438,13 @@ function readSecretFile(path) {
   return value;
 }
 
+function readOptionalSecretTextFile(path, name) {
+  if (!path) return null;
+  const value = readFileSync(path, "utf8").replace(/\r?\n$/, "");
+  if (!value) fail(`--${name} did not contain a value.`);
+  return value;
+}
+
 function writeSecretFile(path, secret) {
   if (existsSync(path)) {
     fail(
@@ -384,6 +502,15 @@ function readOptionalIsoDatetime(value, name) {
   return value;
 }
 
+function readOptionalInteger(value, name) {
+  if (value === undefined || value === null || value === "") return null;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    fail(`--${name} must be a non-negative integer.`);
+  }
+  return parsed;
+}
+
 function readBoolean(rawValue) {
   if (!rawValue) return false;
   if (rawValue === "true") return true;
@@ -424,7 +551,10 @@ function printHelp() {
   process.stdout.write(`Usage:
   node scripts/smoke/phase2-tenant-registry-admin.mjs upsert-oauth-client \\
     --tenant-id TENANT --salesforce-org-id ORG_ID --client-id CLIENT \\
-    --client-generate-secret --client-secret-output-file /tmp/client.secret
+    --client-generate-secret --client-secret-output-file /tmp/client.secret \
+    --model-routing-profile services-default --rate-limit-profile standard \
+    --alert-policy ops-default --daily-token-quota 100 --monthly-token-quota 3000 \
+    --monthly-cost-limit-cents 25000 --rotation-due-at 2026-06-01T00:00:00Z
 
   node scripts/smoke/phase2-tenant-registry-admin.mjs set-tenant-status \\
     --tenant-id TENANT --status suspended
@@ -435,7 +565,7 @@ function printHelp() {
   node scripts/smoke/phase2-tenant-registry-admin.mjs show-tenant \\
     --tenant-id TENANT
 
-Secrets are read from files, generated into files, or supplied as hashes. Raw secrets are never printed.
+Secrets and database URLs may be read from files. Raw secrets are never printed.
 `);
 }
 

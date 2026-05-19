@@ -16,6 +16,45 @@ describe("AppConfigService", () => {
     expect(config.agentforceHealthApiKey).toBeUndefined();
   });
 
+  it("loads Salesforce OAuth onboarding defaults and public URL overrides", () => {
+    const config = AppConfigService.load({
+      AI_API_PUBLIC_BASE_URL: "https://ai-api.example.test/",
+      AI_API_SALESFORCE_NAMED_CREDENTIAL: "Agentforce_AI_API_Phase2",
+      AI_API_SALESFORCE_EXTERNAL_CREDENTIAL: "Agentforce_AI_API_Phase2",
+      AI_API_SALESFORCE_PRINCIPAL: "Agentforce_AI_API_Phase2_Principal",
+      AI_API_SALESFORCE_PERMISSION_SET: "Services_Org_Intelligence_Agent"
+    });
+
+    expect(config.salesforceOnboarding).toEqual({
+      publicBaseUrl: "https://ai-api.example.test",
+      namedCredentialApiName: "Agentforce_AI_API_Phase2",
+      externalCredentialApiName: "Agentforce_AI_API_Phase2",
+      principalApiName: "Agentforce_AI_API_Phase2_Principal",
+      permissionSetApiName: "Services_Org_Intelligence_Agent",
+      secureClientIdField: "AI_API_OAUTH_CLIENT_ID",
+      secureClientSecretField: "AI_API_OAUTH_CLIENT_SECRET",
+      tokenEndpointPath: "/oauth/token",
+      projectHealthPath: "/agent/services/project-health",
+      setupGuidePath: "docs/deployment/salesforce-oauth-onboarding-phase3.md"
+    });
+  });
+
+  it("rejects unsafe Salesforce onboarding config", () => {
+    expect(() =>
+      AppConfigService.load({
+        AI_API_PUBLIC_BASE_URL: "not-a-url"
+      })
+    ).toThrow("AI_API_PUBLIC_BASE_URL must be a valid http(s) URL.");
+
+    expect(() =>
+      AppConfigService.load({
+        AI_API_SALESFORCE_NAMED_CREDENTIAL: "bad value"
+      })
+    ).toThrow(
+      "AI_API_SALESFORCE_NAMED_CREDENTIAL must be 1 to 128 safe identifier characters."
+    );
+  });
+
   it("rejects invalid ports", () => {
     expect(() => AppConfigService.load({ PORT: "not-a-port" })).toThrow(
       "PORT must be an integer from 1 to 65535."

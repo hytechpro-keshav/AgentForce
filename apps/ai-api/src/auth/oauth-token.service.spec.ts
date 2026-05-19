@@ -11,7 +11,8 @@ import { AppConfigService } from "../config/app-config.service";
 import { OAuthTokenService } from "./oauth-token.service";
 import type {
   OAuthAuditEvent,
-  OAuthClientGrant
+  OAuthClientGrant,
+  OAuthQuotaDecision
 } from "./tenant-registry.service";
 
 function sha256(value: string): string {
@@ -45,11 +46,16 @@ function buildService(
     client?: OAuthClientGrant;
     jwtSecret?: string;
     clientSecretHashPepper?: string;
+    quotaDecision?: OAuthQuotaDecision;
   } = {}
 ): {
   service: OAuthTokenService;
   registry: {
     findOAuthClient: jest.Mock<Promise<OAuthClientGrant | undefined>, [string]>;
+    checkOAuthTokenQuota: jest.Mock<
+      Promise<OAuthQuotaDecision>,
+      [OAuthClientGrant]
+    >;
     recordOAuthClientUsed: jest.Mock<Promise<void>, [string]>;
     recordAuditEvent: jest.Mock<Promise<void>, [OAuthAuditEvent]>;
   };
@@ -73,6 +79,14 @@ function buildService(
   const registry = {
     findOAuthClient: jest.fn(
       async (_clientId: string) => options.client ?? baseClient()
+    ),
+    checkOAuthTokenQuota: jest.fn(
+      async (_client: OAuthClientGrant) =>
+        options.quotaDecision ?? {
+          allowed: true,
+          dailyIssued: 0,
+          monthlyIssued: 0
+        }
     ),
     recordOAuthClientUsed: jest.fn(async (_clientId: string) => undefined),
     recordAuditEvent: jest.fn(async (_event: OAuthAuditEvent) => undefined)
@@ -253,7 +267,9 @@ describe("OAuthTokenService", () => {
   });
 
   it("rejects scopes outside the client grant", async () => {
-    const { service } = buildService({ jwtSecret: "oauth-test-secret" });
+    const { service, registry } = buildService({
+      jwtSecret: "oauth-test-secret"
+    });
 
     await expect(
       service.issueToken(
@@ -266,6 +282,49 @@ describe("OAuthTokenService", () => {
         "127.0.0.1"
       )
     ).rejects.toThrow(BadRequestException);
+    expect(registry.recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "token_rejected",
+        reason: "invalid_scope",
+        tenantId: "certinia-phase8"
+      })
+    );
+  });
+
+  it("rejects tenants over their OAuth token quota", async () => {
+    const { service, registry } = buildService({
+      jwtSecret: "oauth-test-secret",
+      quotaDecision: {
+        allowed: false,
+        reason: "daily_token_quota_exceeded",
+        dailyIssued: 10,
+        monthlyIssued: 10,
+        dailyTokenQuota: 10
+      }
+    });
+
+    await expect(
+      service.issueToken(
+        {
+          grant_type: "client_credentials",
+          client_id: "certinia-phase8-oauth",
+          client_secret: "phase8-secret",
+          scope: "agentforce:services-project-health"
+        },
+        "127.0.0.1"
+      )
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ error: "quota_exceeded" }),
+      status: 429
+    });
+    expect(registry.recordOAuthClientUsed).not.toHaveBeenCalled();
+    expect(registry.recordAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "quota_exceeded",
+        reason: "daily_token_quota_exceeded",
+        tenantId: "certinia-phase8"
+      })
+    );
   });
 
   it("fails closed when token signing is not configured", async () => {

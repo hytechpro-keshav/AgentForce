@@ -173,3 +173,10 @@ Still pending for Phase 3:
 - Salesforce OAuth External Credential metadata/setup for the new token endpoint.
 - Named Credential smoke from two Salesforce orgs using their own secure client credentials.
 - Customer-admin setup instructions and repeatable onboarding package.
+
+Follow-on artifacts added during Phase 3/4:
+
+- `docs/deployment/salesforce-oauth-onboarding-phase3.md`
+- `docs/testing/multi-tenant-oauth-phase3-proof.md`
+- `docs/deployment/multi-tenant-saas-controls-phase4.md`
+- `docs/testing/multi-tenant-oauth-phase4-proof.md`

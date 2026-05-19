@@ -166,6 +166,8 @@ Rollback:
 
 Goal: Make onboarding repeatable for customer orgs with minimal manual Salesforce setup.
 
+Status on 2026-05-19: backend setup support is implemented and deployed with a protected `tenant:admin` setup endpoint, Salesforce onboarding guide, secure credential mapping, response-shape tests, e2e route coverage, and direct Railway setup/report smoke. See `docs/deployment/salesforce-oauth-onboarding-phase3.md` and `docs/testing/multi-tenant-oauth-phase3-proof.md`. Final Salesforce sandbox OAuth External Credential smoke still requires secure per-org credential entry outside source control.
+
 Implementation tasks:
 
 1. Create or document a deployable Salesforce metadata package for OAuth External Credential, Named Credential, permission set, Apex actions, and Agentforce function bindings.
@@ -199,6 +201,8 @@ Rollback:
 ## Phase 4 - SaaS Controls, Observability, And Production Readiness
 
 Goal: Add the controls needed to operate many customer orgs safely.
+
+Status on 2026-05-19: API/CLI SaaS controls are implemented and deployed for tenant reports, readiness/alerts, durable OAuth token quotas, rotation due dates, policy metadata, quota rejection auditing, and direct Railway quota smoke. See `docs/deployment/multi-tenant-saas-controls-phase4.md` and `docs/testing/multi-tenant-oauth-phase4-proof.md`. Cost-limit enforcement is stored as policy and ready for telemetry rollup enforcement after model usage/cost aggregation is connected.
 
 Implementation tasks:
 

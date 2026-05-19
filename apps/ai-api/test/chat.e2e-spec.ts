@@ -36,6 +36,7 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
     process.env.CUSTOMER_CHAT_SESSION_TTL_SECONDS = "900";
     process.env.CUSTOMER_CHAT_SESSION_RATE_LIMIT_MAX_REQUESTS = "100";
     process.env.AI_API_OAUTH_ACCESS_TOKEN_TTL_SECONDS = "900";
+    process.env.AI_API_PUBLIC_BASE_URL = "https://ai-api.example.test";
     process.env.AI_API_OAUTH_CLIENTS_JSON = JSON.stringify([
       {
         clientId: "certinia-phase8-oauth",
@@ -92,6 +93,7 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
     delete process.env.CUSTOMER_CHAT_SESSION_TTL_SECONDS;
     delete process.env.CUSTOMER_CHAT_SESSION_RATE_LIMIT_MAX_REQUESTS;
     delete process.env.AI_API_OAUTH_ACCESS_TOKEN_TTL_SECONDS;
+    delete process.env.AI_API_PUBLIC_BASE_URL;
     delete process.env.AI_API_OAUTH_CLIENTS_JSON;
   });
 
@@ -999,6 +1001,59 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
         scope: "agentforce:services-project-health"
       })
       .expect(401);
+  });
+
+  it("GET /admin/tenants/:tenantId/salesforce-setup returns secret-safe setup instructions", async () => {
+    const response = await request(app.getHttpServer())
+      .get("/admin/tenants/certinia-phase8/salesforce-setup")
+      .set("authorization", `Bearer ${signToken({ scope: "tenant:admin" })}`)
+      .expect(200);
+
+    expect(response.body).toMatchObject({
+      tenant: {
+        tenantId: "certinia-phase8",
+        salesforceOrgId: "00D000000000001",
+        status: "active"
+      },
+      oauthClient: {
+        clientId: "certinia-phase8-oauth",
+        secretHandling: {
+          valuePrinted: false
+        }
+      },
+      aiApi: {
+        tokenEndpoint: "https://ai-api.example.test/oauth/token",
+        protectedSmokeEndpoint:
+          "https://ai-api.example.test/agent/services/project-health"
+      },
+      validation: {
+        requiredScope: "agentforce:services-project-health"
+      }
+    });
+    expect(JSON.stringify(response.body)).not.toContain(
+      TEST_OAUTH_CLIENT_SECRET
+    );
+  });
+
+  it("GET /admin/tenants/:tenantId/report requires tenant admin scope", async () => {
+    await request(app.getHttpServer())
+      .get("/admin/tenants/certinia-phase8/report")
+      .set("authorization", `Bearer ${signToken()}`)
+      .expect(403);
+
+    const response = await request(app.getHttpServer())
+      .get("/admin/tenants/certinia-phase8/report")
+      .set("authorization", `Bearer ${signToken({ scope: "tenant:admin" })}`)
+      .expect(200);
+
+    expect(response.body).toMatchObject({
+      tenantId: "certinia-phase8",
+      readiness: expect.arrayContaining([
+        "tenant_active",
+        "project_health_scope_granted",
+        "active_oauth_client_present"
+      ])
+    });
   });
 
   it("OAuth-issued tokens can call project health when scoped", async () => {

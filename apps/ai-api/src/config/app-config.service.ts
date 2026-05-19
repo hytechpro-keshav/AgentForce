@@ -136,6 +136,19 @@ export interface OAuthRuntimeConfig {
   tenantRegistry: TenantRegistryConfig;
 }
 
+export interface SalesforceOnboardingConfig {
+  publicBaseUrl?: string;
+  namedCredentialApiName: string;
+  externalCredentialApiName: string;
+  principalApiName: string;
+  permissionSetApiName: string;
+  secureClientIdField: string;
+  secureClientSecretField: string;
+  tokenEndpointPath: string;
+  projectHealthPath: string;
+  setupGuidePath: string;
+}
+
 export interface AgentforceRuntimeConfig {
   rateLimitWindowMs: number;
   rateLimitMaxRequests: number;
@@ -213,6 +226,7 @@ export interface AppRuntimeConfig {
   modelRouting: LlmRoutingConfig;
   jwt: JwtAuthConfig;
   oauth: OAuthRuntimeConfig;
+  salesforceOnboarding: SalesforceOnboardingConfig;
   agentforce: AgentforceRuntimeConfig;
   cors: CorsConfig;
   customerChatSession: CustomerChatSessionConfig;
@@ -238,6 +252,7 @@ export class AppConfigService {
   readonly modelRouting: LlmRoutingConfig;
   readonly jwt: JwtAuthConfig;
   readonly oauth: OAuthRuntimeConfig;
+  readonly salesforceOnboarding: SalesforceOnboardingConfig;
   readonly agentforce: AgentforceRuntimeConfig;
   readonly cors: CorsConfig;
   readonly customerChatSession: CustomerChatSessionConfig;
@@ -262,6 +277,7 @@ export class AppConfigService {
     this.modelRouting = config.modelRouting;
     this.jwt = config.jwt;
     this.oauth = config.oauth;
+    this.salesforceOnboarding = config.salesforceOnboarding;
     this.agentforce = config.agentforce;
     this.cors = config.cors;
     this.customerChatSession = config.customerChatSession;
@@ -343,6 +359,7 @@ export class AppConfigService {
 
     const jwt = AppConfigService.loadJwt(env, productionLike);
     const oauth = AppConfigService.loadOAuth(env);
+    const salesforceOnboarding = AppConfigService.loadSalesforceOnboarding(env);
     const agentforce = AppConfigService.loadAgentforceRuntime(env);
     const cors = AppConfigService.loadCors(env, productionLike);
     const customerChatSession = AppConfigService.loadCustomerChatSession(env);
@@ -372,6 +389,7 @@ export class AppConfigService {
       modelRouting,
       jwt,
       oauth,
+      salesforceOnboarding,
       agentforce,
       cors,
       customerChatSession,
@@ -1248,6 +1266,61 @@ export class AppConfigService {
     };
   }
 
+  private static loadSalesforceOnboarding(
+    env: NodeJS.ProcessEnv
+  ): SalesforceOnboardingConfig {
+    const railwayPublicDomain = AppConfigService.normalize(
+      env.RAILWAY_PUBLIC_DOMAIN
+    );
+    const rawPublicBaseUrl =
+      AppConfigService.normalize(env.AI_API_PUBLIC_BASE_URL) ??
+      AppConfigService.normalize(env.RAILWAY_SERVICE_AI_API_URL) ??
+      (railwayPublicDomain ? `https://${railwayPublicDomain}` : undefined);
+
+    return {
+      publicBaseUrl: rawPublicBaseUrl
+        ? AppConfigService.readUrl(
+            { publicBaseUrl: rawPublicBaseUrl },
+            "publicBaseUrl",
+            "AI_API_PUBLIC_BASE_URL"
+          )
+        : undefined,
+      namedCredentialApiName: AppConfigService.readSafeIdentifierEnv(
+        env.AI_API_SALESFORCE_NAMED_CREDENTIAL,
+        "Agentforce_AI_API_Phase2",
+        "AI_API_SALESFORCE_NAMED_CREDENTIAL"
+      ),
+      externalCredentialApiName: AppConfigService.readSafeIdentifierEnv(
+        env.AI_API_SALESFORCE_EXTERNAL_CREDENTIAL,
+        "Agentforce_AI_API_Phase2",
+        "AI_API_SALESFORCE_EXTERNAL_CREDENTIAL"
+      ),
+      principalApiName: AppConfigService.readSafeIdentifierEnv(
+        env.AI_API_SALESFORCE_PRINCIPAL,
+        "Agentforce_AI_API_Phase2_Principal",
+        "AI_API_SALESFORCE_PRINCIPAL"
+      ),
+      permissionSetApiName: AppConfigService.readSafeIdentifierEnv(
+        env.AI_API_SALESFORCE_PERMISSION_SET,
+        "Services_Org_Intelligence_Agent",
+        "AI_API_SALESFORCE_PERMISSION_SET"
+      ),
+      secureClientIdField: AppConfigService.readSafeIdentifierEnv(
+        env.AI_API_SALESFORCE_CLIENT_ID_FIELD,
+        "AI_API_OAUTH_CLIENT_ID",
+        "AI_API_SALESFORCE_CLIENT_ID_FIELD"
+      ),
+      secureClientSecretField: AppConfigService.readSafeIdentifierEnv(
+        env.AI_API_SALESFORCE_CLIENT_SECRET_FIELD,
+        "AI_API_OAUTH_CLIENT_SECRET",
+        "AI_API_SALESFORCE_CLIENT_SECRET_FIELD"
+      ),
+      tokenEndpointPath: "/oauth/token",
+      projectHealthPath: "/agent/services/project-health",
+      setupGuidePath: "docs/deployment/salesforce-oauth-onboarding-phase3.md"
+    };
+  }
+
   private static parseAuthList(
     rawValue: string | undefined,
     fallback: string
@@ -1631,6 +1704,18 @@ export class AppConfigService {
     const value = Number(normalizedValue);
     if (!Number.isInteger(value) || value < 0) {
       throw new Error(`${name} must be a non-negative integer.`);
+    }
+    return value;
+  }
+
+  private static readSafeIdentifierEnv(
+    rawValue: string | undefined,
+    fallback: string,
+    name: string
+  ): string {
+    const value = AppConfigService.normalize(rawValue) ?? fallback;
+    if (!AppConfigService.isSafeIdentifier(value)) {
+      throw new Error(`${name} must be 1 to 128 safe identifier characters.`);
     }
     return value;
   }
