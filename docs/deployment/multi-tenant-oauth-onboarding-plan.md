@@ -28,6 +28,10 @@ A customer admin should be able to connect a Salesforce org with minimal manual 
 
 No customer org should require Railway environment-variable edits or manually minted long-lived JWTs.
 
+For the repeatable operator workflow, use
+`docs/deployment/new-org-tenant-onboarding.md` and the workspace
+`Tenant Onboarding Operator` custom agent.
+
 ## Current Baseline
 
 The existing AI API supports two proof-era auth paths:
