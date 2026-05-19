@@ -165,7 +165,7 @@ AI_API_AGENTFORCE_BEARER_TOKEN_SHA256=<sha256-of-salesforce-runtime-token>
 AI_API_AGENTFORCE_BEARER_SUBJECT=salesforce-agentforce
 AI_API_AGENTFORCE_BEARER_TENANT=tenant-demo
 AI_API_AGENTFORCE_BEARER_RAG_NAMESPACE=customer-self-service
-AI_API_AGENTFORCE_BEARER_SCOPES=agentforce:support-triage agentforce:case-analysis agentforce:knowledge-rag
+AI_API_AGENTFORCE_BEARER_SCOPES=agentforce:support-triage agentforce:case-analysis agentforce:knowledge-rag agentforce:services-project-health
 AI_API_AGENTFORCE_BEARER_ROLES=support-agent
 ```
 

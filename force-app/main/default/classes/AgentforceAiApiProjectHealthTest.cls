@@ -129,6 +129,32 @@ private class AgentforceAiApiProjectHealthTest {
     );
     Test.setMock(
       HttpCalloutMock.class,
+      new ProjectHealthMock(401, '{"message":"unauthorized"}')
+    );
+
+    Test.startTest();
+    List<AgentforceAiApiProjectHealth.ProjectHealthResponse> responses = AgentforceAiApiProjectHealth.summarizeProjectHealth(
+      new List<AgentforceAiApiProjectHealth.ProjectHealthRequest>{
+        projectRequest('aAi000000000002')
+      }
+    );
+    Test.stopTest();
+
+    System.assertEquals('AUTH_ERROR', responses[0].actionStatus);
+    System.assertEquals(401, responses[0].httpStatusCode);
+    System.assertEquals(
+      'The AI API project-health bearer token was rejected. Confirm the Salesforce external credential secret matches the deployed AI API bearer configuration.',
+      responses[0].safeMessage
+    );
+  }
+
+  @IsTest
+  static void summarizeReturnsAuthErrorForForbiddenStatus() {
+    AgentforceAiApiProjectHealth.dataProvider = new FakeProjectHealthDataProvider(
+      new List<AgentforceAiApiProjectHealth.ProjectHealthFacts>{ baseFacts() }
+    );
+    Test.setMock(
+      HttpCalloutMock.class,
       new ProjectHealthMock(403, '{"message":"forbidden"}')
     );
 
@@ -142,6 +168,10 @@ private class AgentforceAiApiProjectHealthTest {
 
     System.assertEquals('AUTH_ERROR', responses[0].actionStatus);
     System.assertEquals(403, responses[0].httpStatusCode);
+    System.assertEquals(
+      'The AI API project-health bearer is authenticated but missing the required agentforce:services-project-health scope.',
+      responses[0].safeMessage
+    );
   }
 
   @IsTest

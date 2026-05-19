@@ -273,7 +273,7 @@ Add docs like:
 ```text
 docs/agents/support-operations.md
 docs/agents/knowledge-rag.md
-docs/agents/revenue-intelligence.md
+docs/agents/revenue-operations-intelligence.md
 docs/agents/services-org-intelligence.md
 ```
 
@@ -1152,18 +1152,92 @@ and pilot UAT remain release tasks.
   plausible Certinia/services agents. Choose the owner before adding a
   planner-local topic/action.
 
-### Phase 9: Revenue Intelligence
+### Phase 9: Revenue Operations Intelligence
+
+Goal:
+
+- evolve from a narrow revenue assistant into a unified revenue, delivery, and
+  operations intelligence layer for Salesforce and Certinia ecosystems
+- keep deterministic scoring in the backend and reserve ModelRouter for
+  summarization, explanation, and next-best-action recommendations
+
+Foundation requirement before prompt expansion:
+
+- define a canonical revenue signal model covering source systems, objects,
+  fields, normalization rules, weighting, explanation fields, and escalation
+  thresholds
+
+Core signal families:
+
+- customer health and renewal risk
+- expansion potential and whitespace signals
+- services delivery risk and staffing pressure
+- support burden and escalation trends
+- finance risk, margin pressure, and payment behavior
+- executive engagement and stakeholder inactivity
+- product usage decline and adoption changes
+
+Phase 9A: Revenue Foundations
 
 Tasks:
 
-- create account health endpoint
-- create churn and upsell scoring service
-- create Agentforce action
-- add account summary prompt
+- create a deterministic revenue scoring engine for account health, churn risk,
+  expansion likelihood, delivery risk, and operational blockers
+- define revenue DTO contracts with normalized scores, severity bands,
+  explanations, and recommended intervention slots
+- implement `POST /agent/revenue/account-health`
+- add Apex and Named Credential integration path plus focused backend and Apex
+  test scaffolding
 
 Exit criteria:
 
-- agent can summarize account risk and next best action
+- backend returns stable structured revenue signals before any LLM narrative is
+  generated
+- Agentforce can request a controlled account-health summary using approved
+  contracts
+
+Phase 9B: Cross-System Intelligence
+
+Tasks:
+
+- add Salesforce opportunity, renewal, activity, case, and CPQ signals
+- add Certinia PSA delivery, staffing, burn-rate, and margin signals
+- add support, product telemetry, and finance indicators where approved
+- build a unified customer reality model that merges cross-system facts into
+  one scoring payload
+
+Exit criteria:
+
+- revenue scoring reflects CRM, delivery, support, telemetry, and finance
+  inputs in one normalized account view
+
+Phase 9C: Action Intelligence
+
+Tasks:
+
+- generate deterministic next-best-action candidates and intervention reasons
+- add recovery-plan, executive-briefing, and expansion-recommendation outputs
+- expose Agentforce topics/actions for operational guidance rather than passive
+  reporting alone
+
+Exit criteria:
+
+- agent can explain what will affect future revenue, why it matters, how severe
+  it is, and what action should happen next
+
+Phase 9D: Predictive Operations
+
+Tasks:
+
+- add scenario simulation and forecast inputs for revenue-at-risk questions
+- support coordinator-style synthesis across specialist intelligence services
+- prepare for specialist agents such as churn, expansion, services delivery,
+  finance risk, customer health, and executive briefing
+
+Exit criteria:
+
+- platform can simulate key revenue-impact scenarios and synthesize prioritized
+  interventions across multiple intelligence domains
 
 ### Phase 10: Field Service
 

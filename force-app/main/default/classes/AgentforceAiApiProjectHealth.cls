@@ -102,12 +102,16 @@ public with sharing class AgentforceAiApiProjectHealth {
       HttpResponse httpResponse = new Http().send(request);
       response.httpStatusCode = httpResponse.getStatusCode();
 
-      if (
-        httpResponse.getStatusCode() == 401 ||
-        httpResponse.getStatusCode() == 403
-      ) {
+      if (httpResponse.getStatusCode() == 401) {
         response.actionStatus = 'AUTH_ERROR';
-        response.safeMessage = 'The AI API project-health credentials were rejected.';
+        response.safeMessage = 'The AI API project-health bearer token was rejected. Confirm the Salesforce external credential secret matches the deployed AI API bearer configuration.';
+        response.executiveBrief = response.safeMessage;
+        return response;
+      }
+
+      if (httpResponse.getStatusCode() == 403) {
+        response.actionStatus = 'AUTH_ERROR';
+        response.safeMessage = 'The AI API project-health bearer is authenticated but missing the required agentforce:services-project-health scope.';
         response.executiveBrief = response.safeMessage;
         return response;
       }

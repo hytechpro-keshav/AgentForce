@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 
 const PURPOSE_SCOPES = {
   agentforce:
-    "agentforce:support-triage agentforce:case-analysis agentforce:knowledge-rag",
+    "agentforce:support-triage agentforce:case-analysis agentforce:knowledge-rag agentforce:services-project-health",
   maintenance: "rag:ingest rag:search agentforce:knowledge-rag"
 };
 
