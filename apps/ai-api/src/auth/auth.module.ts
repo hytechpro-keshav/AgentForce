@@ -5,13 +5,16 @@ import { CustomerChatSessionController } from "./customer-chat-session.controlle
 import { CustomerChatSessionRateLimitGuard } from "./customer-chat-session-rate-limit.guard";
 import { CustomerChatSessionService } from "./customer-chat-session.service";
 import { JwtAuthGuard } from "./jwt-auth.guard";
+import { OAuthTokenController } from "./oauth-token.controller";
+import { OAuthTokenService } from "./oauth-token.service";
 
 @Module({
-  controllers: [CustomerChatSessionController],
+  controllers: [CustomerChatSessionController, OAuthTokenController],
   providers: [
     JwtAuthGuard,
     CustomerChatSessionService,
     CustomerChatSessionRateLimitGuard,
+    OAuthTokenService,
     {
       provide: APP_GUARD,
       useExisting: JwtAuthGuard

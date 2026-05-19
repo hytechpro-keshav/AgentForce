@@ -279,6 +279,17 @@ Phase 7 providers, routing, budgets, pricing, and cache:
 
 Agentforce route security:
 
+- `AI_API_OAUTH_CLIENTS_JSON` — Phase 1 multi-tenant OAuth client registry for
+  Salesforce orgs using `POST /oauth/token` with `grant_type=client_credentials`.
+  Each entry contains `clientId`, `clientSecretSha256`, `tenantId`,
+  `salesforceOrgId`, optional `salesforceInstanceUrl`, optional `subject`,
+  `ragNamespace`, `scopes`, `roles`, and `status` (`active`, `suspended`, or
+  `revoked`). Store only the SHA-256 digest in Railway; store the raw client
+  secret only in the Salesforce External Credential secure value.
+- `AI_API_OAUTH_ACCESS_TOKEN_TTL_SECONDS` — default `900`; allowed range is 300
+  to 3600 seconds. OAuth-issued access tokens are signed with
+  `AI_API_JWT_SECRET` and carry trusted `tenant`, `sf_org_id`, `scope`, roles,
+  and `rag_namespace` claims for the existing route guards.
 - `AI_API_AGENTFORCE_BEARER_TOKEN_SHA256` — SHA-256 digest of the opaque
   service bearer stored in Salesforce External Credential when using durable
   Named Credential auth.
@@ -309,6 +320,11 @@ AI_API_JWT_AUDIENCE=agentforce-ai-api
 AI_API_AGENTFORCE_BEARER_TOKEN_SHA256=<sha256 of Salesforce External Credential bearer>
 AI_API_AGENTFORCE_BEARER_SCOPES="agentforce:support-triage agentforce:case-analysis agentforce:knowledge-rag agentforce:services-project-health"
 ```
+
+For OAuth client-credentials onboarding, keep `AI_API_JWT_SECRET` and replace
+manual runtime JWT minting with `AI_API_OAUTH_CLIENTS_JSON`. The static
+Agentforce bearer variables remain supported as a rollout fallback until the
+tenant registry is durable.
 
 For two or more Salesforce orgs, replace the single-bearer variables with
 `AI_API_AGENTFORCE_BEARERS_JSON` so every org has its own token, tenant, and

@@ -1,5 +1,6 @@
 import { INestApplication, ValidationPipe } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
+import { createHash } from "crypto";
 import * as jwt from "jsonwebtoken";
 import request from "supertest";
 
@@ -9,6 +10,11 @@ import { LlmProviderError } from "../src/llm/interfaces/llm-provider";
 import { RagAnswerService } from "../src/rag/rag-answer.service";
 
 const TEST_JWT_SECRET = "phase2-test-secret";
+const TEST_OAUTH_CLIENT_SECRET = "phase8-oauth-client-secret";
+
+function sha256(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
 
 describe("Chat and OpenAI-compatible (e2e)", () => {
   let app: INestApplication;
@@ -29,6 +35,21 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
     process.env.CUSTOMER_CHAT_ACCESS_CODE = "phase6-login-code";
     process.env.CUSTOMER_CHAT_SESSION_TTL_SECONDS = "900";
     process.env.CUSTOMER_CHAT_SESSION_RATE_LIMIT_MAX_REQUESTS = "100";
+    process.env.AI_API_OAUTH_ACCESS_TOKEN_TTL_SECONDS = "900";
+    process.env.AI_API_OAUTH_CLIENTS_JSON = JSON.stringify([
+      {
+        clientId: "certinia-phase8-oauth",
+        clientSecretSha256: sha256(TEST_OAUTH_CLIENT_SECRET),
+        tenantId: "certinia-phase8",
+        salesforceOrgId: "00D000000000001",
+        ragNamespace: "certinia-phase8",
+        scopes: [
+          "agentforce:support-triage",
+          "agentforce:services-project-health"
+        ],
+        roles: ["services-org-intelligence"]
+      }
+    ]);
     delete process.env.AI_API_AUTH_DISABLED;
     delete process.env.AGENTFORCE_HEALTH_API_KEY;
 
@@ -70,6 +91,8 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
     delete process.env.CUSTOMER_CHAT_ACCESS_CODE;
     delete process.env.CUSTOMER_CHAT_SESSION_TTL_SECONDS;
     delete process.env.CUSTOMER_CHAT_SESSION_RATE_LIMIT_MAX_REQUESTS;
+    delete process.env.AI_API_OAUTH_ACCESS_TOKEN_TTL_SECONDS;
+    delete process.env.AI_API_OAUTH_CLIENTS_JSON;
   });
 
   beforeEach(() => {
@@ -935,6 +958,96 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
       .post("/agent/services/project-health")
       .send({ projectStatus: "Green" })
       .expect(401);
+  });
+
+  it("POST /oauth/token issues a scoped token for a configured Salesforce client", async () => {
+    const response = await request(app.getHttpServer())
+      .post("/oauth/token")
+      .send({
+        grant_type: "client_credentials",
+        client_id: "certinia-phase8-oauth",
+        client_secret: TEST_OAUTH_CLIENT_SECRET,
+        scope: "agentforce:services-project-health"
+      })
+      .expect(201);
+
+    expect(response.body).toMatchObject({
+      token_type: "Bearer",
+      expires_in: 900,
+      scope: "agentforce:services-project-health"
+    });
+    const payload = jwt.verify(
+      response.body.access_token,
+      TEST_JWT_SECRET
+    ) as jwt.JwtPayload;
+    expect(payload).toMatchObject({
+      tenant: "certinia-phase8",
+      sf_org_id: "00D000000000001",
+      client_id: "certinia-phase8-oauth",
+      rag_namespace: "certinia-phase8",
+      scope: "agentforce:services-project-health"
+    });
+  });
+
+  it("POST /oauth/token rejects invalid Salesforce client credentials", async () => {
+    await request(app.getHttpServer())
+      .post("/oauth/token")
+      .send({
+        grant_type: "client_credentials",
+        client_id: "certinia-phase8-oauth",
+        client_secret: "wrong-secret",
+        scope: "agentforce:services-project-health"
+      })
+      .expect(401);
+  });
+
+  it("OAuth-issued tokens can call project health when scoped", async () => {
+    router.chat.mockResolvedValueOnce({
+      content:
+        '{"summary":"Project health is stable.","riskDrivers":"no major risk drivers detected","recommendedActions":"continue normal project monitoring","confidence":"medium"}',
+      finishReason: "stop",
+      usage: { inputTokens: 20, outputTokens: 12, totalTokens: 32 },
+      metadata: {
+        provider: "openai",
+        model: "gpt-4o-mini",
+        latencyMs: 25,
+        fallbackUsed: false,
+        attemptedProviders: ["openai"]
+      }
+    });
+    const tokenResponse = await request(app.getHttpServer())
+      .post("/oauth/token")
+      .send({
+        grant_type: "client_credentials",
+        client_id: "certinia-phase8-oauth",
+        client_secret: TEST_OAUTH_CLIENT_SECRET,
+        scope: "agentforce:services-project-health"
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post("/agent/services/project-health")
+      .set("authorization", `Bearer ${tokenResponse.body.access_token}`)
+      .send({ projectStatus: "Green", percentHoursComplete: 20 })
+      .expect(201);
+  });
+
+  it("OAuth-issued tokens without project-health scope receive 403", async () => {
+    const tokenResponse = await request(app.getHttpServer())
+      .post("/oauth/token")
+      .send({
+        grant_type: "client_credentials",
+        client_id: "certinia-phase8-oauth",
+        client_secret: TEST_OAUTH_CLIENT_SECRET,
+        scope: "agentforce:support-triage"
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post("/agent/services/project-health")
+      .set("authorization", `Bearer ${tokenResponse.body.access_token}`)
+      .send({ projectStatus: "Green" })
+      .expect(403);
   });
 
   it("POST /agent/services/project-health requires the services project health scope", async () => {

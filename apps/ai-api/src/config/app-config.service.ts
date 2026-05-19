@@ -102,6 +102,26 @@ export interface AgentforceServiceBearerConfig {
   roles: string[];
 }
 
+export type OAuthClientStatus = "active" | "suspended" | "revoked";
+
+export interface OAuthClientConfig {
+  clientId: string;
+  clientSecretSha256: string;
+  subject: string;
+  tenantId: string;
+  salesforceOrgId: string;
+  salesforceInstanceUrl?: string;
+  ragNamespace: string;
+  scopes: string[];
+  roles: string[];
+  status: OAuthClientStatus;
+}
+
+export interface OAuthRuntimeConfig {
+  accessTokenTtlSeconds: number;
+  clients: OAuthClientConfig[];
+}
+
 export interface AgentforceRuntimeConfig {
   rateLimitWindowMs: number;
   rateLimitMaxRequests: number;
@@ -178,6 +198,7 @@ export interface AppRuntimeConfig {
   fallbackProvider?: string;
   modelRouting: LlmRoutingConfig;
   jwt: JwtAuthConfig;
+  oauth: OAuthRuntimeConfig;
   agentforce: AgentforceRuntimeConfig;
   cors: CorsConfig;
   customerChatSession: CustomerChatSessionConfig;
@@ -202,6 +223,7 @@ export class AppConfigService {
   readonly fallbackProvider?: string;
   readonly modelRouting: LlmRoutingConfig;
   readonly jwt: JwtAuthConfig;
+  readonly oauth: OAuthRuntimeConfig;
   readonly agentforce: AgentforceRuntimeConfig;
   readonly cors: CorsConfig;
   readonly customerChatSession: CustomerChatSessionConfig;
@@ -225,6 +247,7 @@ export class AppConfigService {
     this.fallbackProvider = config.fallbackProvider;
     this.modelRouting = config.modelRouting;
     this.jwt = config.jwt;
+    this.oauth = config.oauth;
     this.agentforce = config.agentforce;
     this.cors = config.cors;
     this.customerChatSession = config.customerChatSession;
@@ -305,6 +328,7 @@ export class AppConfigService {
     }
 
     const jwt = AppConfigService.loadJwt(env, productionLike);
+    const oauth = AppConfigService.loadOAuth(env);
     const agentforce = AppConfigService.loadAgentforceRuntime(env);
     const cors = AppConfigService.loadCors(env, productionLike);
     const customerChatSession = AppConfigService.loadCustomerChatSession(env);
@@ -333,6 +357,7 @@ export class AppConfigService {
       fallbackProvider,
       modelRouting,
       jwt,
+      oauth,
       agentforce,
       cors,
       customerChatSession,
@@ -906,6 +931,167 @@ export class AppConfigService {
     };
   }
 
+  private static loadOAuth(env: NodeJS.ProcessEnv): OAuthRuntimeConfig {
+    const rawClients = AppConfigService.normalize(
+      env.AI_API_OAUTH_CLIENTS_JSON
+    );
+    const clients: OAuthClientConfig[] = [];
+
+    if (rawClients) {
+      const parsed = AppConfigService.parseJsonValue(
+        rawClients,
+        "AI_API_OAUTH_CLIENTS_JSON"
+      );
+      if (!Array.isArray(parsed)) {
+        throw new Error("AI_API_OAUTH_CLIENTS_JSON must be a JSON array.");
+      }
+      parsed.forEach((item, index) => {
+        if (!AppConfigService.isRecord(item)) {
+          throw new Error(
+            "AI_API_OAUTH_CLIENTS_JSON entries must be JSON objects."
+          );
+        }
+        clients.push(
+          AppConfigService.readOAuthClient(
+            item,
+            `AI_API_OAUTH_CLIENTS_JSON[${index}]`,
+            env
+          )
+        );
+      });
+    }
+
+    const seenClientIds = new Set<string>();
+    for (const client of clients) {
+      if (seenClientIds.has(client.clientId)) {
+        throw new Error("Duplicate OAuth client id.");
+      }
+      seenClientIds.add(client.clientId);
+    }
+
+    return {
+      accessTokenTtlSeconds: AppConfigService.parseOAuthAccessTokenTtl(
+        env.AI_API_OAUTH_ACCESS_TOKEN_TTL_SECONDS
+      ),
+      clients
+    };
+  }
+
+  private static readOAuthClient(
+    record: Record<string, unknown>,
+    path: string,
+    env: NodeJS.ProcessEnv
+  ): OAuthClientConfig {
+    const clientId =
+      AppConfigService.readOptionalSafeIdentifier(record, "clientId") ??
+      AppConfigService.readOptionalSafeIdentifier(record, "client_id");
+    if (!clientId) {
+      throw new Error(
+        `${path}.clientId must be 1 to 128 safe identifier characters.`
+      );
+    }
+
+    const clientSecretSha256 =
+      AppConfigService.readOptionalString(record, "clientSecretSha256") ??
+      AppConfigService.readOptionalString(record, "client_secret_sha256");
+    if (!clientSecretSha256 || !/^[a-f0-9]{64}$/i.test(clientSecretSha256)) {
+      throw new Error(
+        `${path}.clientSecretSha256 must be a 64-character SHA-256 hex digest.`
+      );
+    }
+
+    const tenantId =
+      AppConfigService.readOptionalSafeIdentifier(record, "tenantId") ??
+      AppConfigService.readOptionalSafeIdentifier(record, "tenant");
+    if (!tenantId) {
+      throw new Error(
+        `${path}.tenantId must be 1 to 128 safe identifier characters.`
+      );
+    }
+
+    const salesforceOrgId =
+      AppConfigService.readOptionalSafeIdentifier(record, "salesforceOrgId") ??
+      AppConfigService.readOptionalSafeIdentifier(record, "salesforce_org_id");
+    if (!salesforceOrgId) {
+      throw new Error(
+        `${path}.salesforceOrgId must be 1 to 128 safe identifier characters.`
+      );
+    }
+
+    const status =
+      AppConfigService.readOptionalOAuthClientStatus(record, "status", path) ??
+      "active";
+    const ragNamespace =
+      AppConfigService.readOptionalSafeIdentifier(record, "ragNamespace") ??
+      AppConfigService.readOptionalSafeIdentifier(record, "rag_namespace") ??
+      AppConfigService.normalize(env.RAG_DEFAULT_NAMESPACE) ??
+      tenantId;
+
+    return {
+      clientId,
+      clientSecretSha256: clientSecretSha256.toLowerCase(),
+      subject:
+        AppConfigService.readOptionalSafeIdentifier(record, "subject") ??
+        `salesforce-org:${salesforceOrgId}`,
+      tenantId,
+      salesforceOrgId,
+      salesforceInstanceUrl:
+        AppConfigService.readOptionalUrl(
+          record,
+          "salesforceInstanceUrl",
+          path
+        ) ??
+        AppConfigService.readOptionalUrl(
+          record,
+          "salesforce_instance_url",
+          path
+        ),
+      ragNamespace,
+      scopes: AppConfigService.readAuthList(
+        record,
+        "scopes",
+        "agentforce:support-triage agentforce:case-analysis agentforce:knowledge-rag agentforce:services-project-health",
+        `${path}.scopes`
+      ),
+      roles: AppConfigService.readAuthList(
+        record,
+        "roles",
+        "salesforce-agentforce",
+        `${path}.roles`
+      ),
+      status
+    };
+  }
+
+  private static parseOAuthAccessTokenTtl(
+    rawValue: string | undefined
+  ): number {
+    const ttl = AppConfigService.parsePositiveInteger(
+      rawValue,
+      900,
+      "AI_API_OAUTH_ACCESS_TOKEN_TTL_SECONDS"
+    );
+    if (ttl < 300 || ttl > 3600) {
+      throw new Error(
+        "AI_API_OAUTH_ACCESS_TOKEN_TTL_SECONDS must be from 300 to 3600 seconds."
+      );
+    }
+    return ttl;
+  }
+
+  private static readOptionalOAuthClientStatus(
+    record: Record<string, unknown>,
+    key: string,
+    path: string
+  ): OAuthClientStatus | undefined {
+    const value = AppConfigService.readOptionalString(record, key);
+    if (value === undefined) return undefined;
+    if (!["active", "suspended", "revoked"].includes(value)) {
+      throw new Error(`${path}.${key} must be active, suspended, or revoked.`);
+    }
+    return value as OAuthClientStatus;
+  }
+
   private static readAgentforceServiceBearer(
     record: Record<string, unknown>,
     path: string,
@@ -1460,6 +1646,16 @@ export class AppConfigService {
       throw new Error(`${path} must be a valid http(s) URL.`);
     }
     return value.replace(/\/$/, "");
+  }
+
+  private static readOptionalUrl(
+    record: Record<string, unknown>,
+    key: string,
+    path: string
+  ): string | undefined {
+    const value = AppConfigService.readOptionalString(record, key);
+    if (!value) return undefined;
+    return AppConfigService.readUrl({ [key]: value }, key, `${path}.${key}`);
   }
 
   private static readOptionalBoolean(

@@ -1,4 +1,9 @@
 import { AppConfigService } from "./app-config.service";
+import { createHash } from "crypto";
+
+function sha256(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
 
 describe("AppConfigService", () => {
   it("defaults local development to port 3000", () => {
@@ -326,6 +331,68 @@ describe("AppConfigService", () => {
     ]);
     expect(config.jwt.agentforceServiceBearers[0]?.scopes).toEqual(
       config.jwt.agentforceServiceBearer?.scopes
+    );
+  });
+
+  it("loads config-backed OAuth clients for Salesforce org onboarding", () => {
+    const config = AppConfigService.load({
+      RAG_DEFAULT_NAMESPACE: "services-default",
+      AI_API_OAUTH_ACCESS_TOKEN_TTL_SECONDS: "1200",
+      AI_API_OAUTH_CLIENTS_JSON: JSON.stringify([
+        {
+          clientId: "certinia-phase8-oauth",
+          clientSecretSha256: sha256("phase8-secret"),
+          tenantId: "certinia-phase8",
+          salesforceOrgId: "00D000000000001",
+          salesforceInstanceUrl: "https://certinia.example.my.salesforce.com/",
+          scopes: [
+            "agentforce:services-project-health",
+            "agentforce:services-project-health"
+          ],
+          roles: "services-org-intelligence"
+        }
+      ])
+    });
+
+    expect(config.oauth).toEqual({
+      accessTokenTtlSeconds: 1200,
+      clients: [
+        {
+          clientId: "certinia-phase8-oauth",
+          clientSecretSha256: sha256("phase8-secret"),
+          subject: "salesforce-org:00D000000000001",
+          tenantId: "certinia-phase8",
+          salesforceOrgId: "00D000000000001",
+          salesforceInstanceUrl: "https://certinia.example.my.salesforce.com",
+          ragNamespace: "services-default",
+          scopes: ["agentforce:services-project-health"],
+          roles: ["services-org-intelligence"],
+          status: "active"
+        }
+      ]
+    });
+  });
+
+  it("rejects unsafe OAuth client configuration", () => {
+    expect(() =>
+      AppConfigService.load({
+        AI_API_OAUTH_CLIENTS_JSON: JSON.stringify([
+          {
+            clientId: "certinia-phase8-oauth",
+            clientSecretSha256: "not-a-hash",
+            tenantId: "certinia-phase8",
+            salesforceOrgId: "00D000000000001"
+          }
+        ])
+      })
+    ).toThrow("AI_API_OAUTH_CLIENTS_JSON[0].clientSecretSha256");
+
+    expect(() =>
+      AppConfigService.load({
+        AI_API_OAUTH_ACCESS_TOKEN_TTL_SECONDS: "60"
+      })
+    ).toThrow(
+      "AI_API_OAUTH_ACCESS_TOKEN_TTL_SECONDS must be from 300 to 3600 seconds."
     );
   });
 
