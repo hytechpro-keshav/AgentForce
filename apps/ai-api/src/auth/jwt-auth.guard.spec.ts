@@ -12,6 +12,8 @@ import { AppConfigService } from "../config/app-config.service";
 import { JwtAuthGuard } from "./jwt-auth.guard";
 import { PUBLIC_ROUTE_KEY } from "./public.decorator";
 import { REQUIRED_SCOPES_KEY } from "./require-scopes.decorator";
+import type { OAuthClientGrant } from "./tenant-registry.service";
+import { TenantRegistryService } from "./tenant-registry.service";
 
 function makeContext(
   headers: Record<string, string> = {},
@@ -42,48 +44,57 @@ function makeContext(
 
 function makeGuard(
   jwtConfig: Partial<AppConfigService["jwt"]> = {},
-  reflector?: Reflector
+  reflector?: Reflector,
+  tenantRegistry: Partial<TenantRegistryService> = {
+    findOAuthClient: jest.fn(async () => undefined)
+  }
 ): JwtAuthGuard {
   const config = {
     jwt: { disabled: false, ...jwtConfig }
   } as unknown as AppConfigService;
-  return new JwtAuthGuard(reflector ?? ({} as Reflector), config);
+  return new JwtAuthGuard(
+    reflector ?? ({} as Reflector),
+    config,
+    tenantRegistry as TenantRegistryService
+  );
 }
 
 describe("JwtAuthGuard", () => {
-  it("allows requests when AI_API_AUTH_DISABLED=true", () => {
+  it("allows requests when AI_API_AUTH_DISABLED=true", async () => {
     const { ctx, reflector } = makeContext({});
     const guard = makeGuard({ disabled: true }, reflector);
-    expect(guard.canActivate(ctx)).toBe(true);
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
   });
 
-  it("allows public routes without a token", () => {
+  it("allows public routes without a token", async () => {
     const { ctx, reflector } = makeContext({}, true);
     const guard = makeGuard({}, reflector);
-    expect(guard.canActivate(ctx)).toBe(true);
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
   });
 
-  it("fails closed when no secret is configured", () => {
+  it("fails closed when no secret is configured", async () => {
     const { ctx, reflector } = makeContext({ authorization: "Bearer x" });
     const guard = makeGuard({}, reflector);
-    expect(() => guard.canActivate(ctx)).toThrow(ServiceUnavailableException);
+    await expect(guard.canActivate(ctx)).rejects.toThrow(
+      ServiceUnavailableException
+    );
   });
 
-  it("rejects missing bearer token", () => {
+  it("rejects missing bearer token", async () => {
     const { ctx, reflector } = makeContext({});
     const guard = makeGuard({ secret: "test-secret" }, reflector);
-    expect(() => guard.canActivate(ctx)).toThrow(UnauthorizedException);
+    await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
   });
 
-  it("rejects an invalid bearer token", () => {
+  it("rejects an invalid bearer token", async () => {
     const { ctx, reflector } = makeContext({
       authorization: "Bearer not-a-jwt"
     });
     const guard = makeGuard({ secret: "test-secret" }, reflector);
-    expect(() => guard.canActivate(ctx)).toThrow(UnauthorizedException);
+    await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
   });
 
-  it("accepts a valid HS256 token and stores the principal", () => {
+  it("accepts a valid HS256 token and stores the principal", async () => {
     const token = jwt.sign(
       { sub: "service-account", scope: "chat:write", tenant: "tenant-a" },
       "test-secret",
@@ -93,7 +104,7 @@ describe("JwtAuthGuard", () => {
       authorization: `Bearer ${token}`
     });
     const guard = makeGuard({ secret: "test-secret" }, reflector);
-    expect(guard.canActivate(ctx)).toBe(true);
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
     expect(req.authPrincipal).toMatchObject({
       subject: "service-account",
       scopes: ["chat:write"],
@@ -101,7 +112,7 @@ describe("JwtAuthGuard", () => {
     });
   });
 
-  it("rejects a valid token missing a required scope", () => {
+  it("rejects a valid token missing a required scope", async () => {
     const token = jwt.sign(
       { sub: "service-account", scope: "chat:write" },
       "test-secret",
@@ -113,10 +124,10 @@ describe("JwtAuthGuard", () => {
       ["agentforce:support-triage"]
     );
     const guard = makeGuard({ secret: "test-secret" }, reflector);
-    expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
   });
 
-  it("accepts a valid token with all required scopes", () => {
+  it("accepts a valid token with all required scopes", async () => {
     const token = jwt.sign(
       { sub: "service-account", scope: "chat:write agentforce:support-triage" },
       "test-secret",
@@ -128,10 +139,90 @@ describe("JwtAuthGuard", () => {
       ["agentforce:support-triage"]
     );
     const guard = makeGuard({ secret: "test-secret" }, reflector);
-    expect(guard.canActivate(ctx)).toBe(true);
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
   });
 
-  it("accepts a configured Agentforce service bearer without a JWT secret", () => {
+  it("checks durable tenant status for OAuth-issued access tokens", async () => {
+    const client = baseClientGrant();
+    const token = jwt.sign(
+      {
+        sub: client.subject,
+        scope: "agentforce:services-project-health",
+        tenant: client.tenantId,
+        client_id: client.clientId
+      },
+      "test-secret",
+      { algorithm: "HS256" }
+    );
+    const { ctx, reflector } = makeContext(
+      { authorization: `Bearer ${token}` },
+      false,
+      ["agentforce:services-project-health"]
+    );
+    const tenantRegistry = {
+      findOAuthClient: jest.fn(async () => client)
+    };
+    const guard = makeGuard(
+      { secret: "test-secret" },
+      reflector,
+      tenantRegistry
+    );
+
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
+    expect(tenantRegistry.findOAuthClient).toHaveBeenCalledWith(
+      "certinia-phase8-oauth"
+    );
+  });
+
+  it("rejects OAuth-issued tokens for suspended tenants", async () => {
+    const client = baseClientGrant({ tenantStatus: "suspended" });
+    const token = jwt.sign(
+      {
+        sub: client.subject,
+        scope: "agentforce:services-project-health",
+        tenant: client.tenantId,
+        client_id: client.clientId
+      },
+      "test-secret",
+      { algorithm: "HS256" }
+    );
+    const { ctx, reflector } = makeContext({
+      authorization: `Bearer ${token}`
+    });
+    const guard = makeGuard({ secret: "test-secret" }, reflector, {
+      findOAuthClient: jest.fn(async () => client)
+    });
+
+    await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
+  });
+
+  it("fails closed when OAuth tenant registry lookup fails", async () => {
+    const client = baseClientGrant();
+    const token = jwt.sign(
+      {
+        sub: client.subject,
+        scope: "agentforce:services-project-health",
+        tenant: client.tenantId,
+        client_id: client.clientId
+      },
+      "test-secret",
+      { algorithm: "HS256" }
+    );
+    const { ctx, reflector } = makeContext({
+      authorization: `Bearer ${token}`
+    });
+    const guard = makeGuard({ secret: "test-secret" }, reflector, {
+      findOAuthClient: jest.fn(async () => {
+        throw new Error("database unavailable");
+      })
+    });
+
+    await expect(guard.canActivate(ctx)).rejects.toThrow(
+      ServiceUnavailableException
+    );
+  });
+
+  it("accepts a configured Agentforce service bearer without a JWT secret", async () => {
     const token = "opaque-agentforce-service-token";
     const { ctx, reflector, req } = makeContext(
       { authorization: `Bearer ${token}` },
@@ -156,7 +247,7 @@ describe("JwtAuthGuard", () => {
       reflector
     );
 
-    expect(guard.canActivate(ctx)).toBe(true);
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
     expect(req.authPrincipal).toMatchObject({
       subject: "salesforce-agentforce",
       scopes: [
@@ -172,7 +263,7 @@ describe("JwtAuthGuard", () => {
     });
   });
 
-  it("accepts one of multiple isolated Agentforce service bearers", () => {
+  it("accepts one of multiple isolated Agentforce service bearers", async () => {
     const phase8Token = "phase8-agentforce-token";
     const otherOrgToken = "other-org-agentforce-token";
     const { ctx, reflector, req } = makeContext(
@@ -204,7 +295,7 @@ describe("JwtAuthGuard", () => {
       reflector
     );
 
-    expect(guard.canActivate(ctx)).toBe(true);
+    await expect(guard.canActivate(ctx)).resolves.toBe(true);
     expect(req.authPrincipal).toMatchObject({
       subject: "other-org-agentforce",
       tenantId: "other-org",
@@ -216,7 +307,7 @@ describe("JwtAuthGuard", () => {
     });
   });
 
-  it("rejects a configured Agentforce service bearer missing a required scope", () => {
+  it("rejects a configured Agentforce service bearer missing a required scope", async () => {
     const token = "opaque-agentforce-service-token";
     const { ctx, reflector } = makeContext(
       { authorization: `Bearer ${token}` },
@@ -237,10 +328,10 @@ describe("JwtAuthGuard", () => {
       reflector
     );
 
-    expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
+    await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
   });
 
-  it("rejects an invalid service bearer when no JWT secret is configured", () => {
+  it("rejects an invalid service bearer when no JWT secret is configured", async () => {
     const { ctx, reflector } = makeContext({ authorization: "Bearer wrong" });
     const guard = makeGuard(
       {
@@ -256,9 +347,27 @@ describe("JwtAuthGuard", () => {
       reflector
     );
 
-    expect(() => guard.canActivate(ctx)).toThrow(UnauthorizedException);
+    await expect(guard.canActivate(ctx)).rejects.toThrow(UnauthorizedException);
   });
 });
+
+function baseClientGrant(
+  overrides: Partial<OAuthClientGrant> = {}
+): OAuthClientGrant {
+  return {
+    clientId: "certinia-phase8-oauth",
+    clientSecretSha256: sha256("phase8-secret"),
+    subject: "salesforce-org:00D000000000001",
+    tenantId: "certinia-phase8",
+    salesforceOrgId: "00D000000000001",
+    ragNamespace: "certinia-phase8",
+    scopes: ["agentforce:services-project-health"],
+    roles: ["services-org-intelligence"],
+    status: "active",
+    tenantStatus: "active",
+    ...overrides
+  };
+}
 
 function sha256(value: string): string {
   return createHash("sha256").update(value).digest("hex");

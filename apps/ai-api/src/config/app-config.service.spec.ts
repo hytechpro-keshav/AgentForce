@@ -345,6 +345,8 @@ describe("AppConfigService", () => {
           tenantId: "certinia-phase8",
           salesforceOrgId: "00D000000000001",
           salesforceInstanceUrl: "https://certinia.example.my.salesforce.com/",
+          pendingClientSecretSha256: sha256("phase8-secret-next"),
+          pendingSecretExpiresAt: "2026-01-02T03:04:05.000Z",
           scopes: [
             "agentforce:services-project-health",
             "agentforce:services-project-health"
@@ -356,10 +358,13 @@ describe("AppConfigService", () => {
 
     expect(config.oauth).toEqual({
       accessTokenTtlSeconds: 1200,
+      clientSecretHashPepper: undefined,
       clients: [
         {
           clientId: "certinia-phase8-oauth",
           clientSecretSha256: sha256("phase8-secret"),
+          pendingClientSecretSha256: sha256("phase8-secret-next"),
+          pendingSecretExpiresAt: "2026-01-02T03:04:05.000Z",
           subject: "salesforce-org:00D000000000001",
           tenantId: "certinia-phase8",
           salesforceOrgId: "00D000000000001",
@@ -369,8 +374,64 @@ describe("AppConfigService", () => {
           roles: ["services-org-intelligence"],
           status: "active"
         }
-      ]
+      ],
+      tenantRegistry: {
+        provider: "config",
+        databaseUrl: undefined,
+        autoMigrate: true,
+        ssl: false,
+        maxPoolSize: 5
+      }
     });
+  });
+
+  it("loads Postgres-backed tenant registry settings", () => {
+    const config = AppConfigService.load({
+      AI_API_TENANT_REGISTRY_PROVIDER: "postgres",
+      AI_API_TENANT_REGISTRY_DATABASE_URL:
+        "postgres://agentforce:secret@localhost:5432/agentforce",
+      AI_API_TENANT_REGISTRY_AUTO_MIGRATE: "false",
+      AI_API_TENANT_REGISTRY_DATABASE_SSL: "true",
+      AI_API_TENANT_REGISTRY_MAX_POOL_SIZE: "3"
+    });
+
+    expect(config.oauth.tenantRegistry).toEqual({
+      provider: "postgres",
+      databaseUrl: "postgres://agentforce:secret@localhost:5432/agentforce",
+      autoMigrate: false,
+      ssl: true,
+      maxPoolSize: 3
+    });
+  });
+
+  it("loads an optional OAuth client secret pepper", () => {
+    const config = AppConfigService.load({
+      AI_API_OAUTH_CLIENT_SECRET_PEPPER: "phase2-pepper"
+    });
+
+    expect(config.oauth.clientSecretHashPepper).toBe("phase2-pepper");
+  });
+
+  it("rejects unsafe tenant registry configuration", () => {
+    expect(() =>
+      AppConfigService.load({
+        AI_API_TENANT_REGISTRY_PROVIDER: "sqlite"
+      })
+    ).toThrow("AI_API_TENANT_REGISTRY_PROVIDER must be config or postgres.");
+
+    expect(() =>
+      AppConfigService.load({
+        AI_API_TENANT_REGISTRY_PROVIDER: "postgres"
+      })
+    ).toThrow(
+      "AI_API_TENANT_REGISTRY_DATABASE_URL or DATABASE_URL is required when AI_API_TENANT_REGISTRY_PROVIDER=postgres."
+    );
+
+    expect(() =>
+      AppConfigService.load({
+        AI_API_TENANT_REGISTRY_AUTO_MIGRATE: "yes"
+      })
+    ).toThrow("AI_API_TENANT_REGISTRY_AUTO_MIGRATE must be true or false.");
   });
 
   it("rejects unsafe OAuth client configuration", () => {
@@ -394,6 +455,20 @@ describe("AppConfigService", () => {
     ).toThrow(
       "AI_API_OAUTH_ACCESS_TOKEN_TTL_SECONDS must be from 300 to 3600 seconds."
     );
+
+    expect(() =>
+      AppConfigService.load({
+        AI_API_OAUTH_CLIENTS_JSON: JSON.stringify([
+          {
+            clientId: "certinia-phase8-oauth",
+            clientSecretSha256: sha256("phase8-secret"),
+            pendingClientSecretSha256: "not-a-hash",
+            tenantId: "certinia-phase8",
+            salesforceOrgId: "00D000000000001"
+          }
+        ])
+      })
+    ).toThrow("AI_API_OAUTH_CLIENTS_JSON[0].pendingClientSecretSha256");
   });
 
   it("loads Agentforce route rate-limit defaults and overrides", () => {

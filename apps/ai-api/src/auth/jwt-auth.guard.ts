@@ -15,6 +15,7 @@ import type { AgentforceServiceBearerConfig } from "../config/app-config.service
 import { AppConfigService } from "../config/app-config.service";
 import { PUBLIC_ROUTE_KEY } from "./public.decorator";
 import { REQUIRED_SCOPES_KEY } from "./require-scopes.decorator";
+import { TenantRegistryService } from "./tenant-registry.service";
 
 export interface AuthenticatedRequest {
   authPrincipal?: AuthPrincipal;
@@ -47,10 +48,11 @@ export class JwtAuthGuard implements CanActivate {
 
   constructor(
     private readonly reflector: Reflector,
-    private readonly config: AppConfigService
+    private readonly config: AppConfigService,
+    private readonly tenantRegistry: TenantRegistryService
   ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(
       PUBLIC_ROUTE_KEY,
       [context.getHandler(), context.getClass()]
@@ -136,10 +138,49 @@ export class JwtAuthGuard implements CanActivate {
         ? (payload["tenant"] as string)
         : undefined;
 
+    await this.assertOAuthTenantActive(payload, scopes, tenantId);
     this.assertRequiredScopes(context, scopes);
 
     request.authPrincipal = { subject, scopes, tenantId, raw: payload };
     return true;
+  }
+
+  private async assertOAuthTenantActive(
+    payload: jwt.JwtPayload,
+    scopes: string[],
+    tokenTenantId: string | undefined
+  ): Promise<void> {
+    const clientId = payload["client_id"];
+    if (typeof clientId !== "string") {
+      return;
+    }
+
+    let client;
+    try {
+      client = await this.tenantRegistry.findOAuthClient(clientId);
+    } catch (err) {
+      this.logger.warn(
+        `OAuth tenant registry lookup failed: ${(err as Error).name}`
+      );
+      throw new ServiceUnavailableException(
+        "AI API tenant registry is unavailable."
+      );
+    }
+    if (
+      !client ||
+      client.status !== "active" ||
+      client.tenantStatus !== "active" ||
+      (tokenTenantId && tokenTenantId !== client.tenantId)
+    ) {
+      throw new UnauthorizedException("Bearer token tenant is not active.");
+    }
+
+    const allowedScopes = new Set(client.scopes);
+    if (scopes.some((scope) => !allowedScopes.has(scope))) {
+      throw new ForbiddenException(
+        "Bearer token includes a scope that is no longer allowed."
+      );
+    }
   }
 
   private assertRequiredScopes(

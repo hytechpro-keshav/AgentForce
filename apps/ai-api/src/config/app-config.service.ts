@@ -107,6 +107,8 @@ export type OAuthClientStatus = "active" | "suspended" | "revoked";
 export interface OAuthClientConfig {
   clientId: string;
   clientSecretSha256: string;
+  pendingClientSecretSha256?: string;
+  pendingSecretExpiresAt?: string;
   subject: string;
   tenantId: string;
   salesforceOrgId: string;
@@ -117,9 +119,21 @@ export interface OAuthClientConfig {
   status: OAuthClientStatus;
 }
 
+export type TenantRegistryProvider = "config" | "postgres";
+
+export interface TenantRegistryConfig {
+  provider: TenantRegistryProvider;
+  databaseUrl?: string;
+  autoMigrate: boolean;
+  ssl: boolean;
+  maxPoolSize: number;
+}
+
 export interface OAuthRuntimeConfig {
   accessTokenTtlSeconds: number;
+  clientSecretHashPepper?: string;
   clients: OAuthClientConfig[];
+  tenantRegistry: TenantRegistryConfig;
 }
 
 export interface AgentforceRuntimeConfig {
@@ -973,7 +987,11 @@ export class AppConfigService {
       accessTokenTtlSeconds: AppConfigService.parseOAuthAccessTokenTtl(
         env.AI_API_OAUTH_ACCESS_TOKEN_TTL_SECONDS
       ),
-      clients
+      clientSecretHashPepper: AppConfigService.normalize(
+        env.AI_API_OAUTH_CLIENT_SECRET_PEPPER
+      ),
+      clients,
+      tenantRegistry: AppConfigService.loadTenantRegistry(env)
     };
   }
 
@@ -997,6 +1015,36 @@ export class AppConfigService {
     if (!clientSecretSha256 || !/^[a-f0-9]{64}$/i.test(clientSecretSha256)) {
       throw new Error(
         `${path}.clientSecretSha256 must be a 64-character SHA-256 hex digest.`
+      );
+    }
+
+    const pendingClientSecretSha256 =
+      AppConfigService.readOptionalString(
+        record,
+        "pendingClientSecretSha256"
+      ) ??
+      AppConfigService.readOptionalString(
+        record,
+        "pending_client_secret_sha256"
+      );
+    if (
+      pendingClientSecretSha256 !== undefined &&
+      !/^[a-f0-9]{64}$/i.test(pendingClientSecretSha256)
+    ) {
+      throw new Error(
+        `${path}.pendingClientSecretSha256 must be a 64-character SHA-256 hex digest.`
+      );
+    }
+
+    const pendingSecretExpiresAt =
+      AppConfigService.readOptionalString(record, "pendingSecretExpiresAt") ??
+      AppConfigService.readOptionalString(record, "pending_secret_expires_at");
+    if (
+      pendingSecretExpiresAt !== undefined &&
+      Number.isNaN(Date.parse(pendingSecretExpiresAt))
+    ) {
+      throw new Error(
+        `${path}.pendingSecretExpiresAt must be an ISO datetime.`
       );
     }
 
@@ -1030,6 +1078,8 @@ export class AppConfigService {
     return {
       clientId,
       clientSecretSha256: clientSecretSha256.toLowerCase(),
+      pendingClientSecretSha256: pendingClientSecretSha256?.toLowerCase(),
+      pendingSecretExpiresAt,
       subject:
         AppConfigService.readOptionalSafeIdentifier(record, "subject") ??
         `salesforce-org:${salesforceOrgId}`,
@@ -1060,6 +1110,48 @@ export class AppConfigService {
         `${path}.roles`
       ),
       status
+    };
+  }
+
+  private static loadTenantRegistry(
+    env: NodeJS.ProcessEnv
+  ): TenantRegistryConfig {
+    const provider =
+      AppConfigService.normalize(env.AI_API_TENANT_REGISTRY_PROVIDER) ??
+      "config";
+    if (!["config", "postgres"].includes(provider)) {
+      throw new Error(
+        "AI_API_TENANT_REGISTRY_PROVIDER must be config or postgres."
+      );
+    }
+
+    const databaseUrl =
+      AppConfigService.normalize(env.AI_API_TENANT_REGISTRY_DATABASE_URL) ??
+      AppConfigService.normalize(env.DATABASE_URL);
+    if (provider === "postgres" && !databaseUrl) {
+      throw new Error(
+        "AI_API_TENANT_REGISTRY_DATABASE_URL or DATABASE_URL is required when AI_API_TENANT_REGISTRY_PROVIDER=postgres."
+      );
+    }
+
+    return {
+      provider: provider as TenantRegistryProvider,
+      databaseUrl,
+      autoMigrate: AppConfigService.parseBooleanFlag(
+        env.AI_API_TENANT_REGISTRY_AUTO_MIGRATE,
+        true,
+        "AI_API_TENANT_REGISTRY_AUTO_MIGRATE"
+      ),
+      ssl: AppConfigService.parseBooleanFlag(
+        env.AI_API_TENANT_REGISTRY_DATABASE_SSL,
+        false,
+        "AI_API_TENANT_REGISTRY_DATABASE_SSL"
+      ),
+      maxPoolSize: AppConfigService.parsePositiveInteger(
+        env.AI_API_TENANT_REGISTRY_MAX_POOL_SIZE,
+        5,
+        "AI_API_TENANT_REGISTRY_MAX_POOL_SIZE"
+      )
     };
   }
 
@@ -1513,6 +1605,18 @@ export class AppConfigService {
       throw new Error(`${name} must be a positive integer.`);
     }
     return value;
+  }
+
+  private static parseBooleanFlag(
+    rawValue: string | undefined,
+    fallback: boolean,
+    name: string
+  ): boolean {
+    const normalizedValue = AppConfigService.normalize(rawValue);
+    if (!normalizedValue) return fallback;
+    if (normalizedValue === "true") return true;
+    if (normalizedValue === "false") return false;
+    throw new Error(`${name} must be true or false.`);
   }
 
   private static parseNonNegativeInteger(

@@ -126,6 +126,8 @@ Rollback:
 
 Goal: Move tenant/client state out of environment variables into durable storage and add rotation controls.
 
+Status on 2026-05-19: backend Phase 2 is implemented and deployed with Railway Postgres. Direct deployed API smoke passed for two Postgres-backed tenants, including scope rejection, tenant suspension, already-minted token blocking, tenant isolation, and audit readback. See `docs/testing/multi-tenant-oauth-phase2-proof.md`. Salesforce OAuth External Credential setup for two orgs remains in Phase 3.
+
 Implementation tasks:
 
 1. Add database-backed tenant and OAuth client persistence.

@@ -21,7 +21,7 @@ export class OAuthTokenController {
   issueToken(
     @Body() body: OAuthTokenRequestDto,
     @Req() request: OAuthRequest
-  ): OAuthTokenResponseDto {
+  ): Promise<OAuthTokenResponseDto> {
     return this.tokens.issueToken(body, this.clientKey(request));
   }
 

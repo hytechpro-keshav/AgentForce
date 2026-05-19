@@ -5,26 +5,32 @@ import {
   ServiceUnavailableException,
   UnauthorizedException
 } from "@nestjs/common";
-import { createHash, timingSafeEqual } from "crypto";
+import { createHash, createHmac, timingSafeEqual } from "crypto";
 import * as jwt from "jsonwebtoken";
 
-import type { OAuthClientConfig } from "../config/app-config.service";
 import { AppConfigService } from "../config/app-config.service";
 import type {
   OAuthTokenRequestDto,
   OAuthTokenResponseDto
 } from "./dto/oauth-token.dto";
+import {
+  TenantRegistryService,
+  type OAuthClientGrant
+} from "./tenant-registry.service";
 
 @Injectable()
 export class OAuthTokenService {
   private readonly logger = new Logger(OAuthTokenService.name);
 
-  constructor(private readonly config: AppConfigService) {}
+  constructor(
+    private readonly config: AppConfigService,
+    private readonly tenantRegistry: TenantRegistryService
+  ) {}
 
-  issueToken(
+  async issueToken(
     request: OAuthTokenRequestDto,
     clientKey: string
-  ): OAuthTokenResponseDto {
+  ): Promise<OAuthTokenResponseDto> {
     const { secret, issuer, audience } = this.config.jwt;
     if (!secret) {
       throw new ServiceUnavailableException({
@@ -33,19 +39,25 @@ export class OAuthTokenService {
       });
     }
 
-    const client = this.config.oauth.clients.find(
-      (candidate) => candidate.clientId === request.client_id
-    );
-    if (!client || client.status !== "active") {
-      this.warnRejected("client_unavailable", request.client_id, clientKey);
+    const client = await this.tenantRegistry.findOAuthClient(request.client_id);
+    if (
+      !client ||
+      client.status !== "active" ||
+      client.tenantStatus !== "active"
+    ) {
+      await this.warnRejected(
+        "client_unavailable",
+        request.client_id,
+        clientKey
+      );
       throw new UnauthorizedException({
         error: "invalid_client",
         message: "Client authentication failed."
       });
     }
 
-    if (!OAuthTokenService.matchesSecret(request.client_secret, client)) {
-      this.warnRejected("secret_mismatch", request.client_id, clientKey);
+    if (!this.matchesSecret(request.client_secret, client)) {
+      await this.warnRejected("secret_mismatch", request.client_id, clientKey);
       throw new UnauthorizedException({
         error: "invalid_client",
         message: "Client authentication failed."
@@ -74,17 +86,31 @@ export class OAuthTokenService {
       ...(audience ? { audience } : {})
     });
 
-    return {
+    const tokenResponse: OAuthTokenResponseDto = {
       access_token: accessToken,
       token_type: "Bearer",
       expires_in: this.config.oauth.accessTokenTtlSeconds,
       scope: scopes.join(" ")
     };
+
+    await Promise.all([
+      this.tenantRegistry.recordOAuthClientUsed(client.clientId),
+      this.tenantRegistry.recordAuditEvent({
+        eventType: "token_issued",
+        clientId: client.clientId,
+        tenantId: client.tenantId,
+        outcome: "success",
+        clientHash: this.safeHash(client.clientId),
+        sourceHash: this.safeHash(clientKey)
+      })
+    ]);
+
+    return tokenResponse;
   }
 
   private static resolveScopes(
     requestedScope: string | undefined,
-    client: OAuthClientConfig
+    client: OAuthClientGrant
   ): string[] {
     const requestedScopes = requestedScope
       ? requestedScope
@@ -105,24 +131,60 @@ export class OAuthTokenService {
     return Array.from(new Set(requestedScopes));
   }
 
-  private static matchesSecret(
+  private matchesSecret(
     clientSecret: string,
-    client: OAuthClientConfig
+    client: OAuthClientGrant
   ): boolean {
-    const actual = createHash("sha256").update(clientSecret).digest("hex");
-    const left = Buffer.from(actual, "hex");
-    const right = Buffer.from(client.clientSecretSha256, "hex");
+    const actual = this.hashClientSecret(clientSecret);
+    if (OAuthTokenService.safeEqualHex(actual, client.clientSecretSha256)) {
+      return true;
+    }
+
+    if (!client.pendingClientSecretSha256) {
+      return false;
+    }
+    if (
+      client.pendingSecretExpiresAt &&
+      client.pendingSecretExpiresAt.getTime() <= Date.now()
+    ) {
+      return false;
+    }
+    return OAuthTokenService.safeEqualHex(
+      actual,
+      client.pendingClientSecretSha256
+    );
+  }
+
+  private hashClientSecret(clientSecret: string): string {
+    const pepper = this.config.oauth.clientSecretHashPepper;
+    if (pepper) {
+      return createHmac("sha256", pepper).update(clientSecret).digest("hex");
+    }
+    return createHash("sha256").update(clientSecret).digest("hex");
+  }
+
+  private static safeEqualHex(leftHex: string, rightHex: string): boolean {
+    const left = Buffer.from(leftHex, "hex");
+    const right = Buffer.from(rightHex, "hex");
     return left.length === right.length && timingSafeEqual(left, right);
   }
 
-  private warnRejected(
+  private async warnRejected(
     reason: string,
     clientId: string,
     clientKey: string
-  ): void {
+  ): Promise<void> {
     this.logger.warn(
       `OAuth token request rejected reason=${reason} clientHash=${this.safeHash(clientId)} sourceHash=${this.safeHash(clientKey)}`
     );
+    await this.tenantRegistry.recordAuditEvent({
+      eventType: "token_rejected",
+      clientId,
+      outcome: "error",
+      reason,
+      clientHash: this.safeHash(clientId),
+      sourceHash: this.safeHash(clientKey)
+    });
   }
 
   private safeHash(value: string): string {
