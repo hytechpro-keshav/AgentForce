@@ -98,7 +98,8 @@ implemented locally in `apps/ai-api`.
 - `MODEL_ROUTING_CONFIG_JSON` selects provider/model/fallback chains by use
   case: `customer_chat`, `openwebui_chat`, `openwebui_rag`,
   `agentforce_support_triage`, `agentforce_case_analysis`,
-  `agentforce_services_project_health`, `knowledge_rag`, and `generic_chat`.
+  `agentforce_services_project_health`, `agentforce_revenue_account_health`,
+  `knowledge_rag`, and `generic_chat`.
 - Small-model routing can be enabled per use case with a `smallModel` rule for
   low-complexity requests.
 - Token budgets are enforced before provider calls. Request-level budgets are
@@ -138,6 +139,23 @@ Services Org Intelligence project-health slice.
   and
   [../../docs/deployment/railway-ai-api-phase8.md](../../docs/deployment/railway-ai-api-phase8.md).
 
+## Phase 9 Revenue Operations Intelligence Status
+
+Status as of 2026-05-19: Phase 9A is implemented locally for the LLM-led
+Revenue Operations Intelligence account-health slice.
+
+- `POST /agent/revenue/account-health` requires scope
+  `agentforce:revenue-account-health`.
+- `RevenueAccountHealthService` receives sanitized aggregate facts and calls
+  `ModelRouter`; it does not compute deterministic revenue scores.
+- The LLM owns account health score/band, churn risk, expansion potential,
+  delivery risk, financial risk, support risk, executive engagement, rationale,
+  revenue impact, operational blockers, and recommended actions.
+- The service validates the structured JSON response, redacts sensitive text,
+  emits safe telemetry, and falls back to `unknown` decisions for malformed
+  model output instead of inventing backend scores.
+- The ModelRouter use case is `agentforce_revenue_account_health`.
+
 ## Local Commands
 
 ```bash
@@ -163,7 +181,7 @@ Detailed Railway setup is in [../../docs/deployment/railway-ai-api-phase1.md](..
 ## Provider-Backed Contracts
 
 All provider-backed routes require `Authorization: Bearer <jwt>` unless
-`AI_API_AUTH_DISABLED=true`. Health routes remain public. The support triage route requires JWT scope `agentforce:support-triage`; the case-analysis route requires JWT scope `agentforce:case-analysis`; the project-health route requires JWT scope `agentforce:services-project-health`.
+`AI_API_AUTH_DISABLED=true`. Health routes remain public. The support triage route requires JWT scope `agentforce:support-triage`; the case-analysis route requires JWT scope `agentforce:case-analysis`; the project-health route requires JWT scope `agentforce:services-project-health`; the revenue account-health route requires JWT scope `agentforce:revenue-account-health`.
 
 - `POST /chat/message` — DTO-validated chat call. Body: `{ messages, provider?, model?, maxTokens?, requestId? }`. Returns normalized `{ content, usage, provider, model, fallbackUsed, attemptedProviders, latencyMs, responseId? }`. Customer `chat:write` tokens use Knowledge RAG even if provider/model fields are present; direct diagnostic routing requires `chat:diagnostic`.
 - `POST /agent/support/triage-case` — Bulk-safe support triage helper. Body: `{ subject, description, reportedPriority?, caseId?, requestId? }`. Returns `{ recommendedPriority, summary, suggestedNextStep, provider, model, fallbackUsed, latencyMs }`.
@@ -318,7 +336,7 @@ AI_API_JWT_SECRET=<Railway secret>
 AI_API_JWT_ISSUER=salesforce-agentforce
 AI_API_JWT_AUDIENCE=agentforce-ai-api
 AI_API_AGENTFORCE_BEARER_TOKEN_SHA256=<sha256 of Salesforce External Credential bearer>
-AI_API_AGENTFORCE_BEARER_SCOPES="agentforce:support-triage agentforce:case-analysis agentforce:knowledge-rag agentforce:services-project-health"
+AI_API_AGENTFORCE_BEARER_SCOPES="agentforce:support-triage agentforce:case-analysis agentforce:knowledge-rag agentforce:services-project-health agentforce:revenue-account-health"
 ```
 
 For OAuth client-credentials onboarding, keep `AI_API_JWT_SECRET` and replace

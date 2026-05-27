@@ -1158,14 +1158,18 @@ Goal:
 
 - evolve from a narrow revenue assistant into a unified revenue, delivery, and
   operations intelligence layer for Salesforce and Certinia ecosystems
-- keep deterministic scoring in the backend and reserve ModelRouter for
-  summarization, explanation, and next-best-action recommendations
+- make Phase 9 account-health, churn-risk, expansion, risk-level, and
+  next-best-action decisions LLM-led through ModelRouter, while the backend
+  owns DTO validation, redaction, telemetry, auth, and response schema safety
+- package the Phase 9 account-health capability as an Account Manager-facing
+  operating mode focused on commercial health, account retention, expansion,
+  and executive-ready account health summaries
 
 Foundation requirement before prompt expansion:
 
 - define a canonical revenue signal model covering source systems, objects,
-  fields, normalization rules, weighting, explanation fields, and escalation
-  thresholds
+  fields, LLM decision rubric, score vocabulary, missing-data behavior,
+  explanation fields, and escalation guidance
 
 Core signal families:
 
@@ -1181,20 +1185,48 @@ Phase 9A: Revenue Foundations
 
 Tasks:
 
-- create a deterministic revenue scoring engine for account health, churn risk,
-  expansion likelihood, delivery risk, and operational blockers
-- define revenue DTO contracts with normalized scores, severity bands,
-  explanations, and recommended intervention slots
+- create an LLM-led revenue decision service for account health, churn risk,
+  expansion likelihood, delivery risk, financial risk, support burden,
+  engagement, operational blockers, and next best actions
+- define revenue DTO contracts with normalized LLM-owned scores, severity bands,
+  explanations, revenue impact, blockers, and recommended intervention slots
 - implement `POST /agent/revenue/account-health`
 - add Apex and Named Credential integration path plus focused backend and Apex
   test scaffolding
 
 Exit criteria:
 
-- backend returns stable structured revenue signals before any LLM narrative is
-  generated
+- backend returns stable structured LLM-led revenue decisions that pass schema
+  validation and redaction before Agentforce receives them
 - Agentforce can request a controlled account-health summary using approved
   contracts
+
+Implementation status, 2026-05-19: implemented locally for the Phase 9A
+contract-first slice.
+
+- Added `POST /agent/revenue/account-health` with scope
+  `agentforce:revenue-account-health` and ModelRouter use case
+  `agentforce_revenue_account_health`.
+- Added `RevenueAccountHealthService`, request/response DTOs, safe JSON parsing,
+  redaction, telemetry, unit tests, and e2e tests.
+- The service does not compute deterministic revenue scores. The LLM decides the
+  scores, risk levels, primary decision, rationale, revenue impact, blockers,
+  and recommended actions from approved aggregate facts.
+- Added Apex `AgentforceAiApiRevenueAccountHealth`, global genAiFunction
+  `Summarize_Revenue_Account_Health`, dedicated Revenue Operations
+  Intelligence plugin/planner scaffold, permission metadata, eval YAML, and
+  agent spec.
+- Apex gathers standard Account, Opportunity, Case, and Task aggregates today;
+  optional Certinia PSA project aggregates are included when the target org has
+  the expected Account lookup. Finance and product usage fields are available in
+  the backend contract for future source-system integrations.
+- The original Phase 9 slice covered the core single-account summary use case
+  for revenue and account leaders. Account Manager v1 now repackages that
+  existing contract with a dedicated Account Manager persona, AM-specific evals,
+  a lightweight Salesforce-only account directory for choosing one Account from
+  a book of business, and planner-visible top-account fields so Agentforce can
+  hand off autonomously into the existing account-health summary after
+  confirmation.
 
 Phase 9B: Cross-System Intelligence
 
@@ -1208,15 +1240,24 @@ Tasks:
 
 Exit criteria:
 
-- revenue scoring reflects CRM, delivery, support, telemetry, and finance
-  inputs in one normalized account view
+- LLM-led revenue decisions reflect CRM, delivery, support, telemetry, and
+  finance inputs in one normalized account view
 
 Phase 9C: Action Intelligence
 
 Tasks:
 
-- generate deterministic next-best-action candidates and intervention reasons
-- add recovery-plan, executive-briefing, and expansion-recommendation outputs
+- deepen the dedicated Account Manager topic or agent without changing the
+  backend DTO contract
+- use planner-visible directory outputs for autonomous handoff into the existing
+  single-account summary when the top target account is already clear
+- generate LLM-led next-best-action candidates and intervention reasons from
+  approved aggregate facts
+- add recovery-plan, executive-briefing, account-review, and
+  expansion-recommendation outputs
+- extend Account Manager eval coverage beyond v1 churn rescue, renewal
+  readiness, expansion whitespace, QBR preparation, and executive account-review
+  prompts
 - expose Agentforce topics/actions for operational guidance rather than passive
   reporting alone
 
@@ -1224,20 +1265,32 @@ Exit criteria:
 
 - agent can explain what will affect future revenue, why it matters, how severe
   it is, and what action should happen next
+- Agentforce can return an Account Manager-ready account health summary for one
+  selected account with commercial health, retention risk, expansion path, and
+  next-best-action guidance
 
 Phase 9D: Predictive Operations
 
 Tasks:
 
+- evolve the v1 account directory or watchlist action using the Phase 8
+  directory pattern so Account Managers can choose accounts from a book of
+  business
 - add scenario simulation and forecast inputs for revenue-at-risk questions
 - support coordinator-style synthesis across specialist intelligence services
+- prioritize accounts by churn risk, expansion opportunity, and intervention
+  urgency so one user can scale account coverage
 - prepare for specialist agents such as churn, expansion, services delivery,
-  finance risk, customer health, and executive briefing
+  finance risk, customer health, executive briefing, and Account Manager
+  coverage orchestration
 
 Exit criteria:
 
 - platform can simulate key revenue-impact scenarios and synthesize prioritized
   interventions across multiple intelligence domains
+- platform can help an Account Manager scale coverage across a portfolio by
+  surfacing the highest-risk and highest-opportunity accounts before deeper
+  single-account analysis
 
 ### Phase 10: Field Service
 

@@ -1,0 +1,95 @@
+{
+  "unevaluatedProperties": false,
+  "properties": {
+    "directoryStatus": {
+      "title": "Directory Status",
+      "description": "LISTED, VALIDATION_ERROR, or UNEXPECTED_ERROR.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "safeMessage": {
+      "title": "Safe Message",
+      "description": "Safe status message for the Account Manager account directory request.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "accountDirectory": {
+      "title": "Account Manager Account Directory",
+      "description": "Formatted list of Account Manager Accounts with copyable Salesforce Account IDs and safe commercial attention signals.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "accountCount": {
+      "title": "Account Count",
+      "description": "Number of Accounts returned in this response.",
+      "lightning:type": "lightning__integerType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "resultLimit": {
+      "title": "Result Limit",
+      "description": "Maximum number of Accounts requested after safety caps.",
+      "lightning:type": "lightning__integerType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "hasMore": {
+      "title": "Has More Accounts",
+      "description": "True when more Accounts may be available than this response returned.",
+      "lightning:type": "lightning__booleanType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "accountIds": {
+      "title": "Account Ids",
+      "description": "Semicolon-separated Salesforce Account IDs returned in this response.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "topAccountId": {
+      "title": "Top Account Id",
+      "description": "Planner-only Salesforce Account ID for the top-ranked account so the agent can hand off into the account-health summary after confirmation without requiring manual copy/paste.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "topAccountName": {
+      "title": "Top Account Name",
+      "description": "Planner-only Account name for the top-ranked account in the directory response.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "topAccountAttentionSignals": {
+      "title": "Top Account Attention Signals",
+      "description": "Planner-only safe attention-signal summary for the top-ranked account in the directory response.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "attentionBasis": {
+      "title": "Attention Basis",
+      "description": "Planner-only explanation that the directory uses Salesforce-visible signals for selection, not LLM-led portfolio scoring.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    }
+  },
+  "lightning:type": "lightning__objectType",
+  "lightning:textIndexed": true
+}

@@ -954,7 +954,7 @@ export class AppConfigService {
         "customer-self-service",
       scopes: AppConfigService.parseAuthList(
         env.AI_API_AGENTFORCE_BEARER_SCOPES,
-        "agentforce:support-triage agentforce:case-analysis agentforce:knowledge-rag agentforce:services-project-health"
+        "agentforce:support-triage agentforce:case-analysis agentforce:knowledge-rag agentforce:services-project-health agentforce:revenue-account-health"
       ),
       roles: AppConfigService.parseAuthList(
         env.AI_API_AGENTFORCE_BEARER_ROLES,
@@ -1118,7 +1118,7 @@ export class AppConfigService {
       scopes: AppConfigService.readAuthList(
         record,
         "scopes",
-        "agentforce:support-triage agentforce:case-analysis agentforce:knowledge-rag agentforce:services-project-health",
+        "agentforce:support-triage agentforce:case-analysis agentforce:knowledge-rag agentforce:services-project-health agentforce:revenue-account-health",
         `${path}.scopes`
       ),
       roles: AppConfigService.readAuthList(
@@ -1237,7 +1237,7 @@ export class AppConfigService {
       scopes: AppConfigService.readAuthList(
         record,
         "scopes",
-        "agentforce:support-triage agentforce:case-analysis agentforce:knowledge-rag agentforce:services-project-health",
+        "agentforce:support-triage agentforce:case-analysis agentforce:knowledge-rag agentforce:services-project-health agentforce:revenue-account-health",
         `${path}.scopes`
       ),
       roles: AppConfigService.readAuthList(

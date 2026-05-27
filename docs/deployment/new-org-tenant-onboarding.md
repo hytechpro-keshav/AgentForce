@@ -47,17 +47,17 @@ Do not use this runbook to rotate all production credentials at once. Rotate one
 
 Capture these values before changing anything:
 
-| Field                   | Example                                                      | Notes                                                                |
-| ----------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------- |
-| Salesforce CLI alias    | `customer-prod`                                              | Must resolve with `sf org display`.                                  |
-| Salesforce org id       | `00D...`                                                     | Use the real org id, not a sandbox placeholder.                      |
-| Salesforce instance URL | `https://example.my.salesforce.com`                          | Store in the tenant registry.                                        |
-| Tenant id               | `customer-prod`                                              | Safe identifier, stable across API audit records.                    |
-| OAuth client id         | `customer-prod-agentforce`                                   | One client per org/runtime surface is preferred.                     |
-| RAG namespace           | `customer-self-service`                                      | Required for RAG isolation.                                          |
-| Enabled capabilities    | `support-triage`, `knowledge-rag`, `services-project-health` | Drives scopes and metadata package.                                  |
-| Runtime user            | Einstein Agent runtime user or employee user                 | Assign permission sets to the user that actually invokes the action. |
-| Release owner           | Name or team                                                 | Required for credential and deployment approval.                     |
+| Field                   | Example                                                                                | Notes                                                                |
+| ----------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| Salesforce CLI alias    | `customer-prod`                                                                        | Must resolve with `sf org display`.                                  |
+| Salesforce org id       | `00D...`                                                                               | Use the real org id, not a sandbox placeholder.                      |
+| Salesforce instance URL | `https://example.my.salesforce.com`                                                    | Store in the tenant registry.                                        |
+| Tenant id               | `customer-prod`                                                                        | Safe identifier, stable across API audit records.                    |
+| OAuth client id         | `customer-prod-agentforce`                                                             | One client per org/runtime surface is preferred.                     |
+| RAG namespace           | `customer-self-service`                                                                | Required for RAG isolation.                                          |
+| Enabled capabilities    | `support-triage`, `knowledge-rag`, `services-project-health`, `revenue-account-health` | Drives scopes and metadata package.                                  |
+| Runtime user            | Einstein Agent runtime user or employee user                                           | Assign permission sets to the user that actually invokes the action. |
+| Release owner           | Name or team                                                                           | Required for credential and deployment approval.                     |
 
 Confirm org identity without exposing tokens:
 
@@ -73,12 +73,13 @@ Only summarize `alias`, `username`, `orgId`, `instanceUrl`, and `connectedStatus
 
 Choose the setup slice before deployment.
 
-| Capability              | Required scopes                      | Salesforce metadata                                                                                                                                          | Org prerequisites                        | Smoke path                                                   |
-| ----------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------- | ------------------------------------------------------------ |
-| Support triage          | `agentforce:support-triage`          | `AgentforceAiApiSupportTriage`, `Triage_Support_Case`, `Customer_Self_Service_Agent` permission/planner metadata                                             | Case access for runtime user             | Apex test and Agentforce triage prompt                       |
-| Case analysis           | `agentforce:case-analysis`           | `AgentforceAiApiCaseAnalysis`, `Analyze_Support_Case`, customer self-service metadata                                                                        | Case access for runtime user             | Apex test and case-analysis prompt                           |
-| Knowledge RAG           | `agentforce:knowledge-rag`           | `AgentforceAiApiKnowledgeRag`, `Answer_Knowledge_RAG`, customer self-service metadata                                                                        | RAG corpus ingested for tenant/namespace | `/rag/search`, `/agent/knowledge/answer`, Agentforce preview |
-| Services project health | `agentforce:services-project-health` | `AgentforceAiApiProjectHealth`, `AgentforcePsaProjectDirectory`, `Summarize_Project_Health_Brief`, `List_PSA_Projects`, services permission/planner metadata | Certinia PSA package and `pse__` objects | Direct Apex project-health smoke and Agentforce preview/eval |
+| Capability              | Required scopes                      | Salesforce metadata                                                                                                                                                                                | Org prerequisites                                                                          | Smoke path                                                                                                                            |
+| ----------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Support triage          | `agentforce:support-triage`          | `AgentforceAiApiSupportTriage`, `Triage_Support_Case`, `Customer_Self_Service_Agent` permission/planner metadata                                                                                   | Case access for runtime user                                                               | Apex test and Agentforce triage prompt                                                                                                |
+| Case analysis           | `agentforce:case-analysis`           | `AgentforceAiApiCaseAnalysis`, `Analyze_Support_Case`, customer self-service metadata                                                                                                              | Case access for runtime user                                                               | Apex test and case-analysis prompt                                                                                                    |
+| Knowledge RAG           | `agentforce:knowledge-rag`           | `AgentforceAiApiKnowledgeRag`, `Answer_Knowledge_RAG`, customer self-service metadata                                                                                                              | RAG corpus ingested for tenant/namespace                                                   | `/rag/search`, `/agent/knowledge/answer`, Agentforce preview                                                                          |
+| Services project health | `agentforce:services-project-health` | `AgentforceAiApiProjectHealth`, `AgentforcePsaProjectDirectory`, `Summarize_Project_Health_Brief`, `List_PSA_Projects`, services permission/planner metadata                                       | Certinia PSA package and `pse__` objects                                                   | Direct Apex project-health smoke and Agentforce preview/eval                                                                          |
+| Revenue account health  | `agentforce:revenue-account-health`  | `AgentforceAccountManagerAccountDirectory`, `List_Account_Manager_Accounts`, `AgentforceAiApiRevenueAccountHealth`, `Summarize_Revenue_Account_Health`, revenue permission/plugin/planner metadata | Account, Opportunity, Case, and Task access; optional Certinia PSA Account-project mapping | Direct Apex account-directory smoke, autonomous top-account handoff check, revenue account-health smoke, plus Agentforce preview/eval |
 
 Check Certinia PSA readiness before deploying the services slice:
 
@@ -118,7 +119,7 @@ node scripts/smoke/phase2-tenant-registry-admin.mjs upsert-oauth-client \
   --client-id "$CLIENT_ID" \
   --client-generate-secret \
   --client-secret-output-file "$CLIENT_SECRET_FILE" \
-  --tenant-scopes "agentforce:support-triage agentforce:case-analysis agentforce:knowledge-rag agentforce:services-project-health" \
+  --tenant-scopes "agentforce:support-triage agentforce:case-analysis agentforce:knowledge-rag agentforce:services-project-health agentforce:revenue-account-health" \
   --client-scopes "<space-separated-approved-scopes>" \
   --tenant-roles "salesforce-agentforce" \
   --client-roles "salesforce-agentforce" \

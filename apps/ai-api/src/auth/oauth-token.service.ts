@@ -33,6 +33,13 @@ export class OAuthTokenService {
     request: OAuthTokenRequestDto,
     clientKey: string
   ): Promise<OAuthTokenResponseDto> {
+    if (!request.client_id || !request.client_secret) {
+      throw new BadRequestException({
+        error: "invalid_request",
+        message: "Client credentials are required."
+      });
+    }
+
     const { secret, issuer, audience } = this.config.jwt;
     if (!secret) {
       throw new ServiceUnavailableException({

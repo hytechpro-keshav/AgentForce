@@ -46,7 +46,8 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
         ragNamespace: "certinia-phase8",
         scopes: [
           "agentforce:support-triage",
-          "agentforce:services-project-health"
+          "agentforce:services-project-health",
+          "agentforce:revenue-account-health"
         ],
         roles: ["services-org-intelligence"]
       }
@@ -991,6 +992,28 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
     });
   });
 
+  it("POST /oauth/token accepts Salesforce-style Basic auth client credentials", async () => {
+    const basicAuthorization = Buffer.from(
+      `certinia-phase8-oauth:${TEST_OAUTH_CLIENT_SECRET}`
+    ).toString("base64");
+
+    const response = await request(app.getHttpServer())
+      .post("/oauth/token")
+      .set("authorization", `Basic ${basicAuthorization}`)
+      .type("form")
+      .send({
+        grant_type: "client_credentials",
+        scope: "agentforce:services-project-health"
+      })
+      .expect(201);
+
+    expect(response.body).toMatchObject({
+      token_type: "Bearer",
+      expires_in: 900,
+      scope: "agentforce:services-project-health"
+    });
+  });
+
   it("POST /oauth/token rejects invalid Salesforce client credentials", async () => {
     await request(app.getHttpServer())
       .post("/oauth/token")
@@ -1266,6 +1289,126 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
       riskLevel: "low",
       riskDrivers: "no major deterministic risk drivers detected",
       recommendedActions: "continue normal project health monitoring"
+    });
+  });
+
+  it("POST /agent/revenue/account-health requires the revenue scope", async () => {
+    await request(app.getHttpServer())
+      .post("/agent/revenue/account-health")
+      .set(
+        "authorization",
+        `Bearer ${signToken({ scope: "agentforce:services-project-health" })}`
+      )
+      .send({ openOpportunityCount: 1 })
+      .expect(403);
+  });
+
+  it("POST /agent/revenue/account-health returns an LLM-led revenue decision", async () => {
+    router.chat.mockResolvedValueOnce({
+      content:
+        '{"accountHealthScore":46,"accountHealthBand":"at_risk","churnRiskScore":82,"churnRiskLevel":"high","expansionScore":64,"expansionLevel":"medium","deliveryRiskLevel":"high","financialRiskLevel":"medium","supportRiskLevel":"high","executiveEngagementLevel":"weak","primaryDecision":"Prioritize retention before expansion.","summary":"Revenue health is pressured by support, delivery, and engagement signals while expansion remains possible.","decisionRationale":"Escalated cases; late milestones; overdue invoices; low activity","revenueImpact":"Renewal and expansion timing may slip without intervention.","operationalBlockers":"Support escalations; delivery delays; overdue invoices","recommendedActions":"Run executive save plan; resolve top escalations; assign delivery recovery owner; review renewal path","confidence":"high"}',
+      finishReason: "stop",
+      usage: { inputTokens: 72, outputTokens: 48, totalTokens: 120 },
+      metadata: {
+        provider: "openai",
+        model: "gpt-4o-mini",
+        latencyMs: 58,
+        fallbackUsed: false,
+        attemptedProviders: ["openai"]
+      }
+    });
+
+    const response = await request(app.getHttpServer())
+      .post("/agent/revenue/account-health")
+      .set(
+        "authorization",
+        `Bearer ${signToken({ scope: "agentforce:revenue-account-health" })}`
+      )
+      .send({
+        accountType: "Customer",
+        accountIndustry: "Software",
+        annualRevenue: 2500000,
+        openOpportunityCount: 4,
+        openOpportunityAmount: 460000,
+        weightedPipelineAmount: 220000,
+        renewalOpportunityCount: 1,
+        expansionOpportunityCount: 2,
+        openCaseCount: 7,
+        escalatedCaseCount: 2,
+        highPriorityCaseCount: 3,
+        activityCountLast30Days: 1,
+        daysSinceLastActivity: 37,
+        activeProjectCount: 2,
+        atRiskProjectCount: 1,
+        lateMilestoneCount: 3,
+        overdueInvoiceCount: 2,
+        overdueInvoiceAmount: 42000,
+        productUsageTrendPercent: -22,
+        sourceSystems: "Salesforce CRM aggregates; Certinia PSA aggregates",
+        requestId: "revenue-health-e2e-1"
+      })
+      .expect(201);
+
+    expect(response.body).toMatchObject({
+      accountHealthScore: 46,
+      accountHealthBand: "at_risk",
+      churnRiskScore: 82,
+      churnRiskLevel: "high",
+      expansionScore: 64,
+      expansionLevel: "medium",
+      deliveryRiskLevel: "high",
+      financialRiskLevel: "medium",
+      supportRiskLevel: "high",
+      executiveEngagementLevel: "weak",
+      provider: "openai",
+      model: "gpt-4o-mini",
+      fallbackUsed: false,
+      latencyMs: 58
+    });
+
+    const llmRequest = router.chat.mock.calls.at(-1)?.[0] as {
+      useCase?: string;
+      requestId?: string;
+      messages: Array<{ role: string; content: string }>;
+    };
+    expect(llmRequest.useCase).toBe("agentforce_revenue_account_health");
+    expect(llmRequest.requestId).toBe("revenue-health-e2e-1");
+    expect(llmRequest.messages[0].content).toContain(
+      "The model is responsible for the account health score"
+    );
+    expect(llmRequest.messages[1].content).toContain("Decision mode: LLM-led");
+    expect(llmRequest.messages[1].content).not.toContain("Deterministic");
+  });
+
+  it("POST /agent/revenue/account-health validates request facts", async () => {
+    await request(app.getHttpServer())
+      .post("/agent/revenue/account-health")
+      .set(
+        "authorization",
+        `Bearer ${signToken({ scope: "agentforce:revenue-account-health" })}`
+      )
+      .send({ accountHealthScore: 90, annualRevenue: -1 })
+      .expect(400);
+  });
+
+  it("POST /agent/revenue/account-health surfaces provider validation as 503", async () => {
+    router.chat.mockRejectedValueOnce(
+      new LlmProviderError("model-router", "validation", "No providers")
+    );
+
+    const response = await request(app.getHttpServer())
+      .post("/agent/revenue/account-health")
+      .set(
+        "authorization",
+        `Bearer ${signToken({ scope: "agentforce:revenue-account-health" })}`
+      )
+      .send({ openOpportunityCount: 1, requestId: "revenue-health-e2e-2" })
+      .expect(503);
+
+    expect(response.body).toMatchObject({
+      error: "provider_unavailable",
+      provider: "model-router",
+      kind: "validation"
     });
   });
 });

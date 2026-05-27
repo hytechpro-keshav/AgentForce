@@ -1,0 +1,43 @@
+{
+  "required": ["accountKey"],
+  "unevaluatedProperties": false,
+  "properties": {
+    "accountKey": {
+      "title": "Account Key",
+      "description": "Salesforce Account name or record id. Used only by Apex to collect aggregate revenue facts.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isUserInput": true
+    },
+    "accountName": {
+      "title": "Account Name",
+      "description": "Optional Salesforce Account name. Used only to find the Account and not sent to the external AI API.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isUserInput": true
+    },
+    "accountId": {
+      "title": "Account Id",
+      "description": "Optional Salesforce Account record id.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isUserInput": true
+    },
+    "recordId": {
+      "title": "Record Id",
+      "description": "Optional Salesforce Account record id from the current record context.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isUserInput": true
+    },
+    "requestId": {
+      "title": "Request Id",
+      "description": "Optional safe correlation id for backend telemetry. Do not use Salesforce record ids.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": false
+    }
+  },
+  "lightning:type": "lightning__objectType",
+  "lightning:textIndexed": true
+}

@@ -108,8 +108,15 @@ export interface AgentWorkflowTelemetry {
   latencyMs: number;
   fallbackUsed?: boolean;
   narrativeFallbackUsed?: boolean;
+  decisionFallbackUsed?: boolean;
   healthStatus?: string;
   riskLevel?: string;
+  accountHealthBand?: string;
+  churnRiskLevel?: string;
+  expansionLevel?: string;
+  deliveryRiskLevel?: string;
+  financialRiskLevel?: string;
+  supportRiskLevel?: string;
   inputTokens?: number;
   outputTokens?: number;
   totalTokens?: number;
@@ -282,8 +289,15 @@ export class TelemetryService {
         "gen_ai.client.latency_ms": event.latencyMs,
         "gen_ai.router.fallback_used": event.fallbackUsed,
         "gen_ai.services.narrative_fallback_used": event.narrativeFallbackUsed,
+        "gen_ai.revenue.decision_fallback_used": event.decisionFallbackUsed,
         "gen_ai.services.health_status": event.healthStatus,
         "gen_ai.services.risk_level": event.riskLevel,
+        "gen_ai.revenue.account_health_band": event.accountHealthBand,
+        "gen_ai.revenue.churn_risk_level": event.churnRiskLevel,
+        "gen_ai.revenue.expansion_level": event.expansionLevel,
+        "gen_ai.revenue.delivery_risk_level": event.deliveryRiskLevel,
+        "gen_ai.revenue.financial_risk_level": event.financialRiskLevel,
+        "gen_ai.revenue.support_risk_level": event.supportRiskLevel,
         "gen_ai.services.tenant_id": event.tenantId,
         "gen_ai.usage.input_tokens": event.inputTokens,
         "gen_ai.usage.output_tokens": event.outputTokens,

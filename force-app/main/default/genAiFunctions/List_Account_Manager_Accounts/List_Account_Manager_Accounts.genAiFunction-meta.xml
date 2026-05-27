@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<GenAiFunction xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description
+  >Lists read-only Account Manager Accounts visible to the running user with safe attention signals, copyable Salesforce Account IDs, and planner-only top-account fields for autonomous handoff into the existing account-health summary after confirmation.</description>
+    <developerName>List_Account_Manager_Accounts</developerName>
+    <invocationTarget
+  >AgentforceAccountManagerAccountDirectory</invocationTarget>
+    <invocationTargetType>apex</invocationTargetType>
+    <isConfirmationRequired>false</isConfirmationRequired>
+    <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+    <localDeveloperName>List_Account_Manager_Accounts</localDeveloperName>
+    <masterLabel>List Account Manager Accounts</masterLabel>
+    <progressIndicatorMessage
+  >Listing Account Manager accounts</progressIndicatorMessage>
+</GenAiFunction>

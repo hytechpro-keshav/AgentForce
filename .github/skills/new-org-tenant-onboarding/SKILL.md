@@ -39,7 +39,7 @@ Load capability-specific docs as needed:
 6. Validate or deploy the minimal Salesforce metadata slice for the selected capability.
 7. Configure Salesforce secure credential values in the External Credential. Prefer OAuth client credentials for new tenants. Use the Custom bearer compatibility path only when explicitly approved.
 8. Assign permission sets to the actual Agentforce runtime user or employee pilot user.
-9. Run backend health, token issuance, Apex tests, direct Apex smoke, and Agentforce preview/eval where supported.
+9. Run backend health, token issuance, Apex tests, direct Apex smoke, and Agentforce preview/eval where supported. For Account Manager Revenue Intelligence, include the directory smoke, the autonomous top-account handoff check after confirmation, and the single-account revenue summary smoke.
 10. Capture sanitized evidence and rollback commands.
 
 ## Safety Rules

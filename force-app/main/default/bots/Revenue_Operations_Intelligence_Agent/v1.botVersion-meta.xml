@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<BotVersion xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>v1</fullName>
+    <articleAnswersGPTEnabled>false</articleAnswersGPTEnabled>
+    <botDialogs>
+        <botSteps>
+            <botMessages>
+                <message
+        >Hi! I&apos;m your Account Manager Revenue Intelligence assistant.</message>
+                <messageIdentifier
+        >093c6352-2282-4b0a-93e8-c1d8ab83e0aa</messageIdentifier>
+            </botMessages>
+            <stepIdentifier
+      >f9b90b72-7b66-40e0-b78d-4c249f4a6f33</stepIdentifier>
+            <type>Message</type>
+        </botSteps>
+        <botSteps>
+            <stepIdentifier
+      >d06d7a9d-7f0b-4ee7-b2d0-b2341be11c4f</stepIdentifier>
+            <type>Wait</type>
+        </botSteps>
+        <developerName>Welcome</developerName>
+        <isPlaceholderDialog>false</isPlaceholderDialog>
+        <label
+    >Hi! I&apos;m your Revenue Operations Intelligence assistant.</label>
+        <showInFooterMenu>false</showInFooterMenu>
+    </botDialogs>
+    <botDialogs>
+        <botSteps>
+            <botMessages>
+                <message
+        >Unfortunately, a system error occurred. Let us start again.</message>
+                <messageIdentifier
+        >1de27820-7ad9-4f85-8fd7-59080da27145</messageIdentifier>
+            </botMessages>
+            <stepIdentifier
+      >a2f37847-5187-4311-a790-c3644b580d7e</stepIdentifier>
+            <type>Message</type>
+        </botSteps>
+        <botSteps>
+            <stepIdentifier
+      >6dfbf3af-9bd0-4612-bae2-6fb0a03dbef0</stepIdentifier>
+            <type>Wait</type>
+        </botSteps>
+        <developerName>Error_Handling</developerName>
+        <isPlaceholderDialog>false</isPlaceholderDialog>
+        <label
+    >Unfortunately, a system error occurred. Let us start again.</label>
+        <showInFooterMenu>false</showInFooterMenu>
+    </botDialogs>
+    <citationsEnabled>false</citationsEnabled>
+    <company>AgentForce Account Manager Revenue Intelligence</company>
+    <conversationDefinitionPlanners>
+        <genAiPlannerName
+    >Revenue_Operations_Intelligence_Agent</genAiPlannerName>
+    </conversationDefinitionPlanners>
+    <conversationVariables>
+        <dataType>Text</dataType>
+        <description
+    >This variable may also be referred to as VerifiedCustomerId</description>
+        <developerName>VerifiedCustomerId</developerName>
+        <includeInPrompt>false</includeInPrompt>
+        <label>VerifiedCustomerId</label>
+        <visibility>Internal</visibility>
+    </conversationVariables>
+    <defaultStdObjForContactIdFltrEnabled
+  >true</defaultStdObjForContactIdFltrEnabled>
+    <entryDialog>Welcome</entryDialog>
+    <intentDisambiguationEnabled>false</intentDisambiguationEnabled>
+    <intentV3Enabled>false</intentV3Enabled>
+    <isScriptCompatibleAgent>false</isScriptCompatibleAgent>
+    <knowledgeActionEnabled>false</knowledgeActionEnabled>
+    <knowledgeFallbackEnabled>false</knowledgeFallbackEnabled>
+    <role
+  >Help Account Managers scale account coverage by listing accounts in their book of business, identifying Salesforce-visible attention signals, autonomously recommending the top account to review first, and after confirmation summarizing that account&apos;s health, churn risk, renewal readiness, expansion potential, delivery risk, support risk, financial risk, executive engagement, revenue impact, operational blockers, and recommended next actions using read-only Revenue Operations Intelligence actions.</role>
+    <smallTalkEnabled>false</smallTalkEnabled>
+    <staticPromptsEnabled>false</staticPromptsEnabled>
+    <stopRecPrompts>false</stopRecPrompts>
+    <stopWelcomePrompts>false</stopWelcomePrompts>
+    <surfacesEnabled>false</surfacesEnabled>
+    <toneType>Formal</toneType>
+</BotVersion>

@@ -19,6 +19,7 @@ applyTo:
 - Each production action should have a genAiFunction metadata file, `input/schema.json`, `output/schema.json`, implementation, tests, and eval coverage.
 - New `genAiFunction` schemas should copy local sibling conventions for `lightning:type`, `lightning:isPII`, `copilotAction:isUserInput`, `copilotAction:isDisplayable`, and `copilotAction:isUsedByPlanner`.
 - Use planner-visible descriptions carefully. Agentforce reads them at runtime, so do not bury warnings or implementation notes in user-facing descriptions.
+- When one action is expected to chain into another, expose the minimum planner-only fields needed for safe handoff such as a top record id, safe summary reason, or next-step key. Keep those fields non-displayable and do not force manual copy/paste when the planner already has a safe identifier.
 - Prefer narrow topics and explicit action descriptions over one broad topic with many ambiguous actions.
 - For external AI calls, Apex should call a Named Credential route on NestJS and return structured output. Apex should not call OpenAI, Pinecone, LangChain, or vendor SDKs directly.
 - Keep org-specific IDs, generated-only values, secrets, and production-only metadata out of version control unless they are required deployable metadata.

@@ -189,6 +189,23 @@ describe("OAuthTokenService", () => {
     expect(response.access_token).toBeTruthy();
   });
 
+  it("rejects requests missing client credentials", async () => {
+    const { service } = buildService({
+      jwtSecret: "oauth-test-secret"
+    });
+
+    await expect(
+      service.issueToken(
+        {
+          grant_type: "client_credentials",
+          client_id: "",
+          client_secret: ""
+        },
+        "127.0.0.1"
+      )
+    ).rejects.toThrow(BadRequestException);
+  });
+
   it("rejects expired pending rotation secrets", async () => {
     const { service } = buildService({
       jwtSecret: "oauth-test-secret",
