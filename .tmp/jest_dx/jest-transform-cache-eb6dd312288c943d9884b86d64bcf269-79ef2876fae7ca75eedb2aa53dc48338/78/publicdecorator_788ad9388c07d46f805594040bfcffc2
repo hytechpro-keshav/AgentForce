@@ -1,0 +1,13 @@
+90b3d28564905b7bcbf49bc8a7b700a0
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Public = exports.PUBLIC_ROUTE_KEY = void 0;
+const common_1 = require("@nestjs/common");
+exports.PUBLIC_ROUTE_KEY = "ai_api_public_route";
+/**
+ * Marks a route as public — the JWT guard will not enforce auth.
+ * Use for health, liveness, and other unauthenticated probes.
+ */
+const Public = () => (0, common_1.SetMetadata)(exports.PUBLIC_ROUTE_KEY, true);
+exports.Public = Public;
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy9hdXRoL3B1YmxpYy5kZWNvcmF0b3IudHMiLCJtYXBwaW5ncyI6Ijs7O0FBQUEsMkNBQTZDO0FBRWhDLFFBQUEsZ0JBQWdCLEdBQUcscUJBQXFCLENBQUM7QUFFdEQ7OztHQUdHO0FBQ0ksTUFBTSxNQUFNLEdBQUcsR0FBcUMsRUFBRSxDQUMzRCxJQUFBLG9CQUFXLEVBQUMsd0JBQWdCLEVBQUUsSUFBSSxDQUFDLENBQUM7QUFEekIsUUFBQSxNQUFNLFVBQ21CIiwibmFtZXMiOltdLCJzb3VyY2VzIjpbIi9Vc2Vycy9rZXNoYXZjaGF1ZGhhcnkvQWdlbnRGb3JjZS9hcHBzL2FpLWFwaS9zcmMvYXV0aC9wdWJsaWMuZGVjb3JhdG9yLnRzIl0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IFNldE1ldGFkYXRhIH0gZnJvbSBcIkBuZXN0anMvY29tbW9uXCI7XG5cbmV4cG9ydCBjb25zdCBQVUJMSUNfUk9VVEVfS0VZID0gXCJhaV9hcGlfcHVibGljX3JvdXRlXCI7XG5cbi8qKlxuICogTWFya3MgYSByb3V0ZSBhcyBwdWJsaWMg4oCUIHRoZSBKV1QgZ3VhcmQgd2lsbCBub3QgZW5mb3JjZSBhdXRoLlxuICogVXNlIGZvciBoZWFsdGgsIGxpdmVuZXNzLCBhbmQgb3RoZXIgdW5hdXRoZW50aWNhdGVkIHByb2Jlcy5cbiAqL1xuZXhwb3J0IGNvbnN0IFB1YmxpYyA9ICgpOiBNZXRob2REZWNvcmF0b3IgJiBDbGFzc0RlY29yYXRvciA9PlxuICBTZXRNZXRhZGF0YShQVUJMSUNfUk9VVEVfS0VZLCB0cnVlKTtcbiJdLCJ2ZXJzaW9uIjozfQ==

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GenAiPlugin xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <aiPluginUtterances>
+        <developerName>summarizet0</developerName>
+        <language xsi:nil="true"/>
+        <masterLabel>summarizet</masterLabel>
+        <utterance>Summarize the Prestige Worldwide account for me</utterance>
+    </aiPluginUtterances>
+    <aiPluginUtterances>
+        <developerName>canyoucrea1</developerName>
+        <language xsi:nil="true"/>
+        <masterLabel>canyoucrea</masterLabel>
+        <utterance>Can you create a CS Cloud summary for the Prestige Worldwide account</utterance>
+    </aiPluginUtterances>
+    <aiPluginUtterances>
+        <developerName>canyoucrea2</developerName>
+        <language xsi:nil="true"/>
+        <masterLabel>canyoucrea</masterLabel>
+        <utterance>Can you create a customer success summary for the Prestige Worldwide account</utterance>
+    </aiPluginUtterances>
+    <canEscalate>false</canEscalate>
+    <description>This topic should be called when a user asks for a customer success (CS Cloud) summary of an account.  Or if a user with the title (on their user record) of &quot;Customer Success Manager&quot; or &quot;Customer Success Leader&quot; asks you to summarize an account (without specifying the want a customer success summary), they want this topic.</description>
+    <developerName>Customer_Success_Summary_MDO</developerName>
+    <genAiFunctions>
+        <functionName>EmployeeCopilot__IdentifyRecordByName</functionName>
+    </genAiFunctions>
+    <genAiFunctions>
+        <functionName>Generate_CS_Summary1</functionName>
+    </genAiFunctions>
+    <genAiPluginInstructions>
+        <description>Identify accounts with Identify Record By Name action</description>
+        <developerName>instruction_identifyac0</developerName>
+        <language xsi:nil="true"/>
+        <masterLabel>instruction_identifyac0</masterLabel>
+        <sortOrder>0</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+        <description>Once the &quot;Generate CS Summary1&quot; action has completed, ask the user if they would like to check for any up-sell or cross-sell opportunities for the account</description>
+        <developerName>instruction_oncethegen1</developerName>
+        <language xsi:nil="true"/>
+        <masterLabel>instruction_oncethegen1</masterLabel>
+        <sortOrder>0</sortOrder>
+    </genAiPluginInstructions>
+    <language>en_US</language>
+    <masterLabel>Customer Success Summary MDO</masterLabel>
+    <pluginType>Topic</pluginType>
+    <scope>Your job is to provide customer success (CS cloud) account summaries</scope>
+</GenAiPlugin>

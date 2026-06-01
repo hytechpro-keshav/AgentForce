@@ -1,0 +1,1 @@
+{"file":"/Users/keshavchaudhary/AgentForce/apps/ai-api/src/openai-compatible/openai-compatible.constants.ts","mappings":";;;AAAa,QAAA,oBAAoB,GAAG,gBAAgB,CAAC","names":[],"sources":["/Users/keshavchaudhary/AgentForce/apps/ai-api/src/openai-compatible/openai-compatible.constants.ts"],"sourcesContent":["export const OPENWEBUI_CHAT_SCOPE = \"openwebui:chat\";\n"],"version":3}

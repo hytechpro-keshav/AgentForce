@@ -1,0 +1,72 @@
+7afd912397657e79705eec8c111fcc08
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var _a;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.HealthService = void 0;
+const common_1 = require("@nestjs/common");
+const app_config_service_1 = require("../config/app-config.service");
+let HealthService = class HealthService {
+    constructor(config) {
+        this.config = config;
+    }
+    getLiveness() {
+        return {
+            status: "ok"
+        };
+    }
+    getHealth() {
+        const configurationStatus = this.config.isHealthBridgeKeyConfigured
+            ? "ok"
+            : "degraded";
+        return {
+            status: configurationStatus,
+            service: {
+                name: "ai-api",
+                version: process.env.npm_package_version ?? "0.1.0",
+                environment: this.config.nodeEnv,
+                timestamp: new Date().toISOString(),
+                uptimeSeconds: Math.round(process.uptime())
+            },
+            salesforceBridge: {
+                phase: "phase-1-external-bridge",
+                namedCredential: "Agentforce_AI_API",
+                apexAction: "AgentforceAiApiHealthCheck",
+                endpoint: "/health"
+            },
+            deferredCapabilities: {
+                providerRouting: "phase-2",
+                rag: "phase-4",
+                openWebUi: "phase-5",
+                reactChat: "phase-6"
+            },
+            checks: [
+                {
+                    name: "api",
+                    status: "ok"
+                },
+                {
+                    name: "phase-1-configuration",
+                    status: configurationStatus,
+                    details: this.config.isHealthBridgeKeyConfigured
+                        ? "Phase 1 health bridge authentication is configured."
+                        : "Phase 1 health bridge authentication is not configured for this non-production runtime."
+                }
+            ]
+        };
+    }
+};
+exports.HealthService = HealthService;
+exports.HealthService = HealthService = __decorate([
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [typeof (_a = typeof app_config_service_1.AppConfigService !== "undefined" && app_config_service_1.AppConfigService) === "function" ? _a : Object])
+], HealthService);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy9oZWFsdGgvaGVhbHRoLnNlcnZpY2UudHMiLCJtYXBwaW5ncyI6Ijs7Ozs7Ozs7Ozs7OztBQUFBLDJDQUE0QztBQUU1QyxxRUFBZ0U7QUFPekQsSUFBTSxhQUFhLEdBQW5CLE1BQU0sYUFBYTtJQUN4QixZQUE2QixNQUF3QjtRQUF4QixXQUFNLEdBQU4sTUFBTSxDQUFrQjtJQUFHLENBQUM7SUFFekQsV0FBVztRQUNULE9BQU87WUFDTCxNQUFNLEVBQUUsSUFBSTtTQUNiLENBQUM7SUFDSixDQUFDO0lBRUQsU0FBUztRQUNQLE1BQU0sbUJBQW1CLEdBQUcsSUFBSSxDQUFDLE1BQU0sQ0FBQywyQkFBMkI7WUFDakUsQ0FBQyxDQUFDLElBQUk7WUFDTixDQUFDLENBQUMsVUFBVSxDQUFDO1FBRWYsT0FBTztZQUNMLE1BQU0sRUFBRSxtQkFBbUI7WUFDM0IsT0FBTyxFQUFFO2dCQUNQLElBQUksRUFBRSxRQUFRO2dCQUNkLE9BQU8sRUFBRSxPQUFPLENBQUMsR0FBRyxDQUFDLG1CQUFtQixJQUFJLE9BQU87Z0JBQ25ELFdBQVcsRUFBRSxJQUFJLENBQUMsTUFBTSxDQUFDLE9BQU87Z0JBQ2hDLFNBQVMsRUFBRSxJQUFJLElBQUksRUFBRSxDQUFDLFdBQVcsRUFBRTtnQkFDbkMsYUFBYSxFQUFFLElBQUksQ0FBQyxLQUFLLENBQUMsT0FBTyxDQUFDLE1BQU0sRUFBRSxDQUFDO2FBQzVDO1lBQ0QsZ0JBQWdCLEVBQUU7Z0JBQ2hCLEtBQUssRUFBRSx5QkFBeUI7Z0JBQ2hDLGVBQWUsRUFBRSxtQkFBbUI7Z0JBQ3BDLFVBQVUsRUFBRSw0QkFBNEI7Z0JBQ3hDLFFBQVEsRUFBRSxTQUFTO2FBQ3BCO1lBQ0Qsb0JBQW9CLEVBQUU7Z0JBQ3BCLGVBQWUsRUFBRSxTQUFTO2dCQUMxQixHQUFHLEVBQUUsU0FBUztnQkFDZCxTQUFTLEVBQUUsU0FBUztnQkFDcEIsU0FBUyxFQUFFLFNBQVM7YUFDckI7WUFDRCxNQUFNLEVBQUU7Z0JBQ047b0JBQ0UsSUFBSSxFQUFFLEtBQUs7b0JBQ1gsTUFBTSxFQUFFLElBQUk7aUJBQ2I7Z0JBQ0Q7b0JBQ0UsSUFBSSxFQUFFLHVCQUF1QjtvQkFDN0IsTUFBTSxFQUFFLG1CQUFtQjtvQkFDM0IsT0FBTyxFQUFFLElBQUksQ0FBQyxNQUFNLENBQUMsMkJBQTJCO3dCQUM5QyxDQUFDLENBQUMscURBQXFEO3dCQUN2RCxDQUFDLENBQUMseUZBQXlGO2lCQUM5RjthQUNGO1NBQ0YsQ0FBQztJQUNKLENBQUM7Q0FDRixDQUFBO0FBbERZLHNDQUFhO3dCQUFiLGFBQWE7SUFEekIsSUFBQSxtQkFBVSxHQUFFO3lEQUUwQixxQ0FBZ0Isb0JBQWhCLHFDQUFnQjtHQUQxQyxhQUFhLENBa0R6QiIsIm5hbWVzIjpbXSwic291cmNlcyI6WyIvVXNlcnMva2VzaGF2Y2hhdWRoYXJ5L0FnZW50Rm9yY2UvYXBwcy9haS1hcGkvc3JjL2hlYWx0aC9oZWFsdGguc2VydmljZS50cyJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyBJbmplY3RhYmxlIH0gZnJvbSBcIkBuZXN0anMvY29tbW9uXCI7XG5cbmltcG9ydCB7IEFwcENvbmZpZ1NlcnZpY2UgfSBmcm9tIFwiLi4vY29uZmlnL2FwcC1jb25maWcuc2VydmljZVwiO1xuaW1wb3J0IHR5cGUge1xuICBIZWFsdGhDb250ZXh0UmVzcG9uc2UsXG4gIEhlYWx0aExpdmVuZXNzUmVzcG9uc2Vcbn0gZnJvbSBcIi4vaGVhbHRoLnR5cGVzXCI7XG5cbkBJbmplY3RhYmxlKClcbmV4cG9ydCBjbGFzcyBIZWFsdGhTZXJ2aWNlIHtcbiAgY29uc3RydWN0b3IocHJpdmF0ZSByZWFkb25seSBjb25maWc6IEFwcENvbmZpZ1NlcnZpY2UpIHt9XG5cbiAgZ2V0TGl2ZW5lc3MoKTogSGVhbHRoTGl2ZW5lc3NSZXNwb25zZSB7XG4gICAgcmV0dXJuIHtcbiAgICAgIHN0YXR1czogXCJva1wiXG4gICAgfTtcbiAgfVxuXG4gIGdldEhlYWx0aCgpOiBIZWFsdGhDb250ZXh0UmVzcG9uc2Uge1xuICAgIGNvbnN0IGNvbmZpZ3VyYXRpb25TdGF0dXMgPSB0aGlzLmNvbmZpZy5pc0hlYWx0aEJyaWRnZUtleUNvbmZpZ3VyZWRcbiAgICAgID8gXCJva1wiXG4gICAgICA6IFwiZGVncmFkZWRcIjtcblxuICAgIHJldHVybiB7XG4gICAgICBzdGF0dXM6IGNvbmZpZ3VyYXRpb25TdGF0dXMsXG4gICAgICBzZXJ2aWNlOiB7XG4gICAgICAgIG5hbWU6IFwiYWktYXBpXCIsXG4gICAgICAgIHZlcnNpb246IHByb2Nlc3MuZW52Lm5wbV9wYWNrYWdlX3ZlcnNpb24gPz8gXCIwLjEuMFwiLFxuICAgICAgICBlbnZpcm9ubWVudDogdGhpcy5jb25maWcubm9kZUVudixcbiAgICAgICAgdGltZXN0YW1wOiBuZXcgRGF0ZSgpLnRvSVNPU3RyaW5nKCksXG4gICAgICAgIHVwdGltZVNlY29uZHM6IE1hdGgucm91bmQocHJvY2Vzcy51cHRpbWUoKSlcbiAgICAgIH0sXG4gICAgICBzYWxlc2ZvcmNlQnJpZGdlOiB7XG4gICAgICAgIHBoYXNlOiBcInBoYXNlLTEtZXh0ZXJuYWwtYnJpZGdlXCIsXG4gICAgICAgIG5hbWVkQ3JlZGVudGlhbDogXCJBZ2VudGZvcmNlX0FJX0FQSVwiLFxuICAgICAgICBhcGV4QWN0aW9uOiBcIkFnZW50Zm9yY2VBaUFwaUhlYWx0aENoZWNrXCIsXG4gICAgICAgIGVuZHBvaW50OiBcIi9oZWFsdGhcIlxuICAgICAgfSxcbiAgICAgIGRlZmVycmVkQ2FwYWJpbGl0aWVzOiB7XG4gICAgICAgIHByb3ZpZGVyUm91dGluZzogXCJwaGFzZS0yXCIsXG4gICAgICAgIHJhZzogXCJwaGFzZS00XCIsXG4gICAgICAgIG9wZW5XZWJVaTogXCJwaGFzZS01XCIsXG4gICAgICAgIHJlYWN0Q2hhdDogXCJwaGFzZS02XCJcbiAgICAgIH0sXG4gICAgICBjaGVja3M6IFtcbiAgICAgICAge1xuICAgICAgICAgIG5hbWU6IFwiYXBpXCIsXG4gICAgICAgICAgc3RhdHVzOiBcIm9rXCJcbiAgICAgICAgfSxcbiAgICAgICAge1xuICAgICAgICAgIG5hbWU6IFwicGhhc2UtMS1jb25maWd1cmF0aW9uXCIsXG4gICAgICAgICAgc3RhdHVzOiBjb25maWd1cmF0aW9uU3RhdHVzLFxuICAgICAgICAgIGRldGFpbHM6IHRoaXMuY29uZmlnLmlzSGVhbHRoQnJpZGdlS2V5Q29uZmlndXJlZFxuICAgICAgICAgICAgPyBcIlBoYXNlIDEgaGVhbHRoIGJyaWRnZSBhdXRoZW50aWNhdGlvbiBpcyBjb25maWd1cmVkLlwiXG4gICAgICAgICAgICA6IFwiUGhhc2UgMSBoZWFsdGggYnJpZGdlIGF1dGhlbnRpY2F0aW9uIGlzIG5vdCBjb25maWd1cmVkIGZvciB0aGlzIG5vbi1wcm9kdWN0aW9uIHJ1bnRpbWUuXCJcbiAgICAgICAgfVxuICAgICAgXVxuICAgIH07XG4gIH1cbn1cbiJdLCJ2ZXJzaW9uIjozfQ==

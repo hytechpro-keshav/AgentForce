@@ -1,0 +1,71 @@
+c21948455fa406c1b9315ba2784bc744
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
+var _a, _b, _c, _d;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.TenantOperationsController = void 0;
+const common_1 = require("@nestjs/common");
+const require_scopes_decorator_1 = require("./require-scopes.decorator");
+const tenant_operations_service_1 = require("./tenant-operations.service");
+const SAFE_TENANT_ID = /^[A-Za-z0-9_.:-]{1,128}$/;
+let TenantOperationsController = class TenantOperationsController {
+    constructor(tenantOperations) {
+        this.tenantOperations = tenantOperations;
+    }
+    async listReports() {
+        return this.tenantOperations.listTenantReports();
+    }
+    async getReport(tenantId) {
+        return this.tenantOperations.getTenantReport(this.safeTenantId(tenantId));
+    }
+    async getSalesforceSetup(tenantId) {
+        return this.tenantOperations.getSalesforceSetupInstructions(this.safeTenantId(tenantId));
+    }
+    safeTenantId(tenantId) {
+        if (!SAFE_TENANT_ID.test(tenantId)) {
+            throw new common_1.BadRequestException({
+                error: "invalid_tenant_id",
+                message: "Tenant id must use safe identifier characters."
+            });
+        }
+        return tenantId;
+    }
+};
+exports.TenantOperationsController = TenantOperationsController;
+__decorate([
+    (0, common_1.Get)("report"),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", typeof (_b = typeof Promise !== "undefined" && Promise) === "function" ? _b : Object)
+], TenantOperationsController.prototype, "listReports", null);
+__decorate([
+    (0, common_1.Get)(":tenantId/report"),
+    __param(0, (0, common_1.Param)("tenantId")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", typeof (_c = typeof Promise !== "undefined" && Promise) === "function" ? _c : Object)
+], TenantOperationsController.prototype, "getReport", null);
+__decorate([
+    (0, common_1.Get)(":tenantId/salesforce-setup"),
+    __param(0, (0, common_1.Param)("tenantId")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", typeof (_d = typeof Promise !== "undefined" && Promise) === "function" ? _d : Object)
+], TenantOperationsController.prototype, "getSalesforceSetup", null);
+exports.TenantOperationsController = TenantOperationsController = __decorate([
+    (0, common_1.Controller)("admin/tenants"),
+    (0, require_scopes_decorator_1.RequireScopes)("tenant:admin"),
+    __metadata("design:paramtypes", [typeof (_a = typeof tenant_operations_service_1.TenantOperationsService !== "undefined" && tenant_operations_service_1.TenantOperationsService) === "function" ? _a : Object])
+], TenantOperationsController);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy9hdXRoL3RlbmFudC1vcGVyYXRpb25zLmNvbnRyb2xsZXIudHMiLCJtYXBwaW5ncyI6Ijs7Ozs7Ozs7Ozs7Ozs7OztBQUFBLDJDQUE2RTtBQUU3RSx5RUFBMkQ7QUFDM0QsMkVBR3FDO0FBR3JDLE1BQU0sY0FBYyxHQUFHLDBCQUEwQixDQUFDO0FBSTNDLElBQU0sMEJBQTBCLEdBQWhDLE1BQU0sMEJBQTBCO0lBQ3JDLFlBQTZCLGdCQUF5QztRQUF6QyxxQkFBZ0IsR0FBaEIsZ0JBQWdCLENBQXlCO0lBQUcsQ0FBQztJQUdwRSxBQUFOLEtBQUssQ0FBQyxXQUFXO1FBQ2YsT0FBTyxJQUFJLENBQUMsZ0JBQWdCLENBQUMsaUJBQWlCLEVBQUUsQ0FBQztJQUNuRCxDQUFDO0lBR0ssQUFBTixLQUFLLENBQUMsU0FBUyxDQUNNLFFBQWdCO1FBRW5DLE9BQU8sSUFBSSxDQUFDLGdCQUFnQixDQUFDLGVBQWUsQ0FBQyxJQUFJLENBQUMsWUFBWSxDQUFDLFFBQVEsQ0FBQyxDQUFDLENBQUM7SUFDNUUsQ0FBQztJQUdLLEFBQU4sS0FBSyxDQUFDLGtCQUFrQixDQUNILFFBQWdCO1FBRW5DLE9BQU8sSUFBSSxDQUFDLGdCQUFnQixDQUFDLDhCQUE4QixDQUN6RCxJQUFJLENBQUMsWUFBWSxDQUFDLFFBQVEsQ0FBQyxDQUM1QixDQUFDO0lBQ0osQ0FBQztJQUVPLFlBQVksQ0FBQyxRQUFnQjtRQUNuQyxJQUFJLENBQUMsY0FBYyxDQUFDLElBQUksQ0FBQyxRQUFRLENBQUMsRUFBRSxDQUFDO1lBQ25DLE1BQU0sSUFBSSw0QkFBbUIsQ0FBQztnQkFDNUIsS0FBSyxFQUFFLG1CQUFtQjtnQkFDMUIsT0FBTyxFQUFFLGdEQUFnRDthQUMxRCxDQUFDLENBQUM7UUFDTCxDQUFDO1FBQ0QsT0FBTyxRQUFRLENBQUM7SUFDbEIsQ0FBQztDQUNGLENBQUE7QUFqQ1ksZ0VBQTBCO0FBSS9CO0lBREwsSUFBQSxZQUFHLEVBQUMsUUFBUSxDQUFDOzs7d0RBQ08sT0FBTyxvQkFBUCxPQUFPOzZEQUUzQjtBQUdLO0lBREwsSUFBQSxZQUFHLEVBQUMsa0JBQWtCLENBQUM7SUFFckIsV0FBQSxJQUFBLGNBQUssRUFBQyxVQUFVLENBQUMsQ0FBQTs7O3dEQUNqQixPQUFPLG9CQUFQLE9BQU87MkRBRVQ7QUFHSztJQURMLElBQUEsWUFBRyxFQUFDLDRCQUE0QixDQUFDO0lBRS9CLFdBQUEsSUFBQSxjQUFLLEVBQUMsVUFBVSxDQUFDLENBQUE7Ozt3REFDakIsT0FBTyxvQkFBUCxPQUFPO29FQUlUO3FDQXRCVSwwQkFBMEI7SUFGdEMsSUFBQSxtQkFBVSxFQUFDLGVBQWUsQ0FBQztJQUMzQixJQUFBLHdDQUFhLEVBQUMsY0FBYyxDQUFDO3lEQUVtQixtREFBdUIsb0JBQXZCLG1EQUF1QjtHQUQzRCwwQkFBMEIsQ0FpQ3RDIiwibmFtZXMiOltdLCJzb3VyY2VzIjpbIi9Vc2Vycy9rZXNoYXZjaGF1ZGhhcnkvQWdlbnRGb3JjZS9hcHBzL2FpLWFwaS9zcmMvYXV0aC90ZW5hbnQtb3BlcmF0aW9ucy5jb250cm9sbGVyLnRzIl0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IEJhZFJlcXVlc3RFeGNlcHRpb24sIENvbnRyb2xsZXIsIEdldCwgUGFyYW0gfSBmcm9tIFwiQG5lc3Rqcy9jb21tb25cIjtcblxuaW1wb3J0IHsgUmVxdWlyZVNjb3BlcyB9IGZyb20gXCIuL3JlcXVpcmUtc2NvcGVzLmRlY29yYXRvclwiO1xuaW1wb3J0IHtcbiAgVGVuYW50T3BlcmF0aW9uc1NlcnZpY2UsXG4gIHR5cGUgU2FsZXNmb3JjZVNldHVwSW5zdHJ1Y3Rpb25zXG59IGZyb20gXCIuL3RlbmFudC1vcGVyYXRpb25zLnNlcnZpY2VcIjtcbmltcG9ydCB0eXBlIHsgVGVuYW50T3BlcmF0aW9uc1JlcG9ydCB9IGZyb20gXCIuL3RlbmFudC1yZWdpc3RyeS5zZXJ2aWNlXCI7XG5cbmNvbnN0IFNBRkVfVEVOQU5UX0lEID0gL15bQS1aYS16MC05Xy46LV17MSwxMjh9JC87XG5cbkBDb250cm9sbGVyKFwiYWRtaW4vdGVuYW50c1wiKVxuQFJlcXVpcmVTY29wZXMoXCJ0ZW5hbnQ6YWRtaW5cIilcbmV4cG9ydCBjbGFzcyBUZW5hbnRPcGVyYXRpb25zQ29udHJvbGxlciB7XG4gIGNvbnN0cnVjdG9yKHByaXZhdGUgcmVhZG9ubHkgdGVuYW50T3BlcmF0aW9uczogVGVuYW50T3BlcmF0aW9uc1NlcnZpY2UpIHt9XG5cbiAgQEdldChcInJlcG9ydFwiKVxuICBhc3luYyBsaXN0UmVwb3J0cygpOiBQcm9taXNlPHsgdGVuYW50czogVGVuYW50T3BlcmF0aW9uc1JlcG9ydFtdIH0+IHtcbiAgICByZXR1cm4gdGhpcy50ZW5hbnRPcGVyYXRpb25zLmxpc3RUZW5hbnRSZXBvcnRzKCk7XG4gIH1cblxuICBAR2V0KFwiOnRlbmFudElkL3JlcG9ydFwiKVxuICBhc3luYyBnZXRSZXBvcnQoXG4gICAgQFBhcmFtKFwidGVuYW50SWRcIikgdGVuYW50SWQ6IHN0cmluZ1xuICApOiBQcm9taXNlPFRlbmFudE9wZXJhdGlvbnNSZXBvcnQ+IHtcbiAgICByZXR1cm4gdGhpcy50ZW5hbnRPcGVyYXRpb25zLmdldFRlbmFudFJlcG9ydCh0aGlzLnNhZmVUZW5hbnRJZCh0ZW5hbnRJZCkpO1xuICB9XG5cbiAgQEdldChcIjp0ZW5hbnRJZC9zYWxlc2ZvcmNlLXNldHVwXCIpXG4gIGFzeW5jIGdldFNhbGVzZm9yY2VTZXR1cChcbiAgICBAUGFyYW0oXCJ0ZW5hbnRJZFwiKSB0ZW5hbnRJZDogc3RyaW5nXG4gICk6IFByb21pc2U8U2FsZXNmb3JjZVNldHVwSW5zdHJ1Y3Rpb25zPiB7XG4gICAgcmV0dXJuIHRoaXMudGVuYW50T3BlcmF0aW9ucy5nZXRTYWxlc2ZvcmNlU2V0dXBJbnN0cnVjdGlvbnMoXG4gICAgICB0aGlzLnNhZmVUZW5hbnRJZCh0ZW5hbnRJZClcbiAgICApO1xuICB9XG5cbiAgcHJpdmF0ZSBzYWZlVGVuYW50SWQodGVuYW50SWQ6IHN0cmluZyk6IHN0cmluZyB7XG4gICAgaWYgKCFTQUZFX1RFTkFOVF9JRC50ZXN0KHRlbmFudElkKSkge1xuICAgICAgdGhyb3cgbmV3IEJhZFJlcXVlc3RFeGNlcHRpb24oe1xuICAgICAgICBlcnJvcjogXCJpbnZhbGlkX3RlbmFudF9pZFwiLFxuICAgICAgICBtZXNzYWdlOiBcIlRlbmFudCBpZCBtdXN0IHVzZSBzYWZlIGlkZW50aWZpZXIgY2hhcmFjdGVycy5cIlxuICAgICAgfSk7XG4gICAgfVxuICAgIHJldHVybiB0ZW5hbnRJZDtcbiAgfVxufVxuIl0sInZlcnNpb24iOjN9

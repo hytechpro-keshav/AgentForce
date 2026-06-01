@@ -30,6 +30,16 @@ public with sharing class AgentforceAiApiRevenueAccountHealth {
     'weak',
     'unknown'
   };
+  private static final Set<String> VALID_ANALYSIS_INTENTS = new Set<String>{
+    'general',
+    'qbr_preparation',
+    'renewal_readiness',
+    'churn_risk',
+    'expansion_upside',
+    'future_revenue',
+    'risk_severity',
+    'next_action'
+  };
   private static final Set<String> VALID_CONFIDENCES = new Set<String>{
     'low',
     'medium',
@@ -104,7 +114,9 @@ public with sharing class AgentforceAiApiRevenueAccountHealth {
     request.setHeader('Accept', 'application/json');
     request.setHeader('Content-Type', 'application/json');
     request.setHeader('X-Agentforce-Bridge', 'phase-9-revenue-account-health');
-    request.setBody(JSON.serialize(buildPayload(facts, response.requestId)));
+    request.setBody(
+      JSON.serialize(buildPayload(facts, response.requestId, input))
+    );
 
     try {
       HttpResponse httpResponse = new Http().send(request);
@@ -154,10 +166,12 @@ public with sharing class AgentforceAiApiRevenueAccountHealth {
 
   private static Map<String, Object> buildPayload(
     RevenueAccountFacts facts,
-    String requestId
+    String requestId,
+    AccountHealthRequest input
   ) {
     Map<String, Object> payload = new Map<String, Object>();
     payload.put('requestId', requestId);
+    payload.put('analysisIntent', analysisIntentValue(input));
     putString(payload, 'accountType', facts.accountType);
     putString(payload, 'accountIndustry', facts.accountIndustry);
     putDecimal(payload, 'annualRevenue', facts.annualRevenue);
@@ -400,16 +414,17 @@ public with sharing class AgentforceAiApiRevenueAccountHealth {
     lines.add('Revenue Account Health Brief');
     lines.add('');
     lines.add('Overall');
+    lines.add('- Health: ' + scoreLabel(response.accountHealthScore) + '.');
+    lines.add('- Band: ' + label(response.accountHealthBand) + '.');
     lines.add(
-      'Health ' +
-        scoreLabel(response.accountHealthScore) +
-        ', band ' +
-        label(response.accountHealthBand) +
-        '; churn risk ' +
+      '- Churn risk: ' +
         scoreLabel(response.churnRiskScore) +
         ' ' +
         label(response.churnRiskLevel) +
-        '; expansion ' +
+        '.'
+    );
+    lines.add(
+      '- Expansion: ' +
         scoreLabel(response.expansionScore) +
         ' ' +
         label(response.expansionLevel) +
@@ -432,10 +447,16 @@ public with sharing class AgentforceAiApiRevenueAccountHealth {
     lines.add('');
     lines.add('Why this result');
     lines.add(ensureSentence(response.decisionRationale));
-    lines.add('Revenue impact: ' + ensureSentence(response.revenueImpact));
-    lines.add(
-      'Operational blockers: ' + listAsSentence(response.operationalBlockers)
-    );
+    lines.add('- Revenue impact: ' + ensureSentence(response.revenueImpact));
+    List<String> blockers = splitList(response.operationalBlockers);
+    if (blockers.isEmpty()) {
+      lines.add('- Operational blockers: None provided.');
+    } else {
+      lines.add('- Operational blockers:');
+      for (String blocker : blockers) {
+        lines.add('  - ' + ensureSentence(blocker));
+      }
+    }
     lines.add('');
     lines.add('Next best action plan');
     for (String action : splitList(response.recommendedActions)) {
@@ -443,10 +464,12 @@ public with sharing class AgentforceAiApiRevenueAccountHealth {
     }
     lines.add('');
     lines.add('Signals reviewed');
-    lines.add(signalSummary(facts));
+    for (String signal : signalLines(facts)) {
+      lines.add('- ' + signal);
+    }
     lines.add('');
     lines.add('Confidence');
-    lines.add(label(response.confidence));
+    lines.add('- ' + label(response.confidence) + '.');
     return String.join(lines, '\n');
   }
 
@@ -508,7 +531,26 @@ public with sharing class AgentforceAiApiRevenueAccountHealth {
             LIMIT 2
           ];
         }
-        String pattern = '%' + key.trim() + '%';
+        String exactKey = key.trim();
+        List<Account> exactMatches = [
+          SELECT
+            Id,
+            Type,
+            Industry,
+            AnnualRevenue,
+            NumberOfEmployees,
+            CreatedDate,
+            LastActivityDate
+          FROM Account
+          WHERE Name = :exactKey
+          WITH USER_MODE
+          ORDER BY LastModifiedDate DESC
+          LIMIT 2
+        ];
+        if (!exactMatches.isEmpty()) {
+          return exactMatches;
+        }
+        String pattern = '%' + exactKey + '%';
         return [
           SELECT
             Id,
@@ -539,7 +581,19 @@ public with sharing class AgentforceAiApiRevenueAccountHealth {
           LIMIT 2
         ];
       }
-      String pattern = '%' + key.trim() + '%';
+      String exactKey = key.trim();
+      List<Account> exactMatches = [
+        SELECT Id, Name
+        FROM Account
+        WHERE Name = :exactKey
+        WITH USER_MODE
+        ORDER BY LastModifiedDate DESC
+        LIMIT 2
+      ];
+      if (!exactMatches.isEmpty()) {
+        return exactMatches;
+      }
+      String pattern = '%' + exactKey + '%';
       return [
         SELECT Id, Name
         FROM Account
@@ -1122,20 +1176,38 @@ public with sharing class AgentforceAiApiRevenueAccountHealth {
     return result;
   }
 
-  private static String signalSummary(RevenueAccountFacts facts) {
+  private static String analysisIntentValue(AccountHealthRequest input) {
+    if (input == null || String.isBlank(input.analysisIntent)) {
+      return 'general';
+    }
+    String normalized = input.analysisIntent.trim().toLowerCase();
+    return VALID_ANALYSIS_INTENTS.contains(normalized) ? normalized : 'general';
+  }
+
+  private static List<String> signalLines(RevenueAccountFacts facts) {
     List<String> signals = new List<String>();
     signals.add(
-      'Open opportunities: ' + safeNumber(facts.openOpportunityCount)
+      'Open opportunities: ' + safeNumber(facts.openOpportunityCount) + '.'
     );
-    signals.add('Open cases: ' + safeNumber(facts.openCaseCount));
-    signals.add('Escalated cases: ' + safeNumber(facts.escalatedCaseCount));
+    signals.add('Open cases: ' + safeNumber(facts.openCaseCount) + '.');
     signals.add(
-      'Days since last activity: ' + safeNumber(facts.daysSinceLastActivity)
+      'Escalated cases: ' + safeNumber(facts.escalatedCaseCount) + '.'
     );
-    signals.add('Active projects: ' + safeNumber(facts.activeProjectCount));
-    signals.add('At-risk projects: ' + safeNumber(facts.atRiskProjectCount));
-    signals.add('Overdue invoices: ' + safeNumber(facts.overdueInvoiceCount));
-    return String.join(signals, '; ') + '.';
+    signals.add(
+      'Days since last activity: ' +
+        safeNumber(facts.daysSinceLastActivity) +
+        '.'
+    );
+    signals.add(
+      'Active projects: ' + safeNumber(facts.activeProjectCount) + '.'
+    );
+    signals.add(
+      'At-risk projects: ' + safeNumber(facts.atRiskProjectCount) + '.'
+    );
+    signals.add(
+      'Overdue invoices: ' + safeNumber(facts.overdueInvoiceCount) + '.'
+    );
+    return signals;
   }
 
   private static String safeNumber(Object value) {
@@ -1193,7 +1265,7 @@ public with sharing class AgentforceAiApiRevenueAccountHealth {
 
   public class AccountHealthRequest {
     @InvocableVariable(
-      label='Account Key'
+      label='Selected Account'
       description='Salesforce Account name or record id. Used only by Apex to collect aggregate revenue facts.'
     )
     public String accountKey;
@@ -1215,6 +1287,12 @@ public with sharing class AgentforceAiApiRevenueAccountHealth {
       description='Optional Salesforce Account record id from the current record context.'
     )
     public String recordId;
+
+    @InvocableVariable(
+      label='Analysis Intent'
+      description='Optional planner-only follow-up angle such as qbr_preparation, renewal_readiness, churn_risk, expansion_upside, future_revenue, risk_severity, next_action, or general.'
+    )
+    public String analysisIntent;
 
     @InvocableVariable(
       label='Request Id'

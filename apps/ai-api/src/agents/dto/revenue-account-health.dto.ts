@@ -1,13 +1,17 @@
 import { Type } from "class-transformer";
 import {
+  ArrayMaxSize,
   IsInt,
+  IsArray,
+  IsIn,
   IsNumber,
   IsOptional,
   IsString,
   Matches,
   Max,
   MaxLength,
-  Min
+  Min,
+  ValidateNested
 } from "class-validator";
 
 export const REVENUE_HEALTH_BANDS = [
@@ -50,10 +54,48 @@ export type RevenueEngagementLevelDto =
 export const REVENUE_CONFIDENCES = ["low", "medium", "high"] as const;
 export type RevenueConfidenceDto = (typeof REVENUE_CONFIDENCES)[number];
 
+export const REVENUE_ACCOUNT_ANALYSIS_INTENTS = [
+  "general",
+  "qbr_preparation",
+  "renewal_readiness",
+  "churn_risk",
+  "expansion_upside",
+  "future_revenue",
+  "risk_severity",
+  "next_action"
+] as const;
+export type RevenueAccountAnalysisIntentDto =
+  (typeof REVENUE_ACCOUNT_ANALYSIS_INTENTS)[number];
+
+export const REVENUE_PORTFOLIO_STATUSES = [
+  "STABLE",
+  "WATCH",
+  "ATTENTION_REQUIRED",
+  "CRITICAL",
+  "INSUFFICIENT_DATA"
+] as const;
+export type RevenuePortfolioStatusDto =
+  (typeof REVENUE_PORTFOLIO_STATUSES)[number];
+
+export const REVENUE_PORTFOLIO_FOCUS_VALUES = [
+  "general",
+  "risk",
+  "expansion",
+  "churn",
+  "weekly_plan"
+] as const;
+export type RevenuePortfolioFocusDto =
+  (typeof REVENUE_PORTFOLIO_FOCUS_VALUES)[number];
+
 const SAFE_REVENUE_REQUEST_ID_PATTERN =
   /^(?![A-Za-z0-9]{15}(?:[A-Za-z0-9]{3})?$)[A-Za-z0-9_.:-]{1,64}$/;
+const SAFE_REVENUE_ACCOUNT_REFERENCE_PATTERN = /^account-[1-9][0-9]{0,2}$/;
 
 export class RevenueAccountHealthRequestDto {
+  @IsOptional()
+  @IsIn([...REVENUE_ACCOUNT_ANALYSIS_INTENTS])
+  analysisIntent?: RevenueAccountAnalysisIntentDto;
+
   @IsOptional()
   @IsString()
   @MaxLength(80)
@@ -271,6 +313,96 @@ export class RevenueAccountHealthRequestDto {
   @MaxLength(64)
   @Matches(SAFE_REVENUE_REQUEST_ID_PATTERN)
   requestId?: string;
+}
+
+export class RevenuePortfolioAccountFactsDto extends RevenueAccountHealthRequestDto {
+  @IsString()
+  @MaxLength(64)
+  @Matches(SAFE_REVENUE_ACCOUNT_REFERENCE_PATTERN)
+  accountReference!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  accountSegment?: string;
+}
+
+export class RevenuePortfolioIntelligenceRequestDto {
+  @IsOptional()
+  @IsIn([...REVENUE_PORTFOLIO_FOCUS_VALUES])
+  analysisFocus?: RevenuePortfolioFocusDto;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(25)
+  @ValidateNested({ each: true })
+  @Type(() => RevenuePortfolioAccountFactsDto)
+  accounts?: RevenuePortfolioAccountFactsDto[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  sourceSystems?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  @Matches(SAFE_REVENUE_REQUEST_ID_PATTERN)
+  requestId?: string;
+}
+
+export interface RevenuePortfolioRankedAccountDto {
+  accountReference: string;
+  rank: number;
+  score: number | null;
+  level: string;
+  reason: string;
+  supportingSignals: string[];
+  recommendedAction: string;
+}
+
+export interface RevenuePortfolioWatchlistDto {
+  name: string;
+  accountReferences: string[];
+  rationale: string;
+}
+
+export interface RevenuePortfolioTrendDto {
+  trend: string;
+  direction: string;
+  severity: string;
+  rationale: string;
+}
+
+export interface RevenuePortfolioRecommendedActionDto {
+  priority: string;
+  action: string;
+  accountReferences: string[];
+  rationale: string;
+}
+
+export interface RevenuePortfolioWeeklyPlanDayDto {
+  day: string;
+  actions: string[];
+}
+
+export interface RevenuePortfolioIntelligenceResponseDto {
+  portfolioStatus: RevenuePortfolioStatusDto;
+  summary: string;
+  topRiskAccounts: RevenuePortfolioRankedAccountDto[];
+  topExpansionAccounts: RevenuePortfolioRankedAccountDto[];
+  urgentRenewals: RevenuePortfolioRankedAccountDto[];
+  escalationAccounts: RevenuePortfolioRankedAccountDto[];
+  silentAccounts: RevenuePortfolioRankedAccountDto[];
+  portfolioWatchlists: RevenuePortfolioWatchlistDto[];
+  portfolioTrends: RevenuePortfolioTrendDto[];
+  recommendedActions: RevenuePortfolioRecommendedActionDto[];
+  weeklyExecutionPlan: RevenuePortfolioWeeklyPlanDayDto[];
+  provider: string;
+  model: string;
+  fallbackUsed: boolean;
+  decisionFallbackUsed: boolean;
+  latencyMs: number;
 }
 
 export interface RevenueAccountHealthResponseDto {

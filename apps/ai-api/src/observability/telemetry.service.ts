@@ -117,6 +117,10 @@ export interface AgentWorkflowTelemetry {
   deliveryRiskLevel?: string;
   financialRiskLevel?: string;
   supportRiskLevel?: string;
+  portfolioStatus?: string;
+  portfolioAccountCount?: number;
+  topRiskAccountCount?: number;
+  watchlistCount?: number;
   inputTokens?: number;
   outputTokens?: number;
   totalTokens?: number;
@@ -298,6 +302,10 @@ export class TelemetryService {
         "gen_ai.revenue.delivery_risk_level": event.deliveryRiskLevel,
         "gen_ai.revenue.financial_risk_level": event.financialRiskLevel,
         "gen_ai.revenue.support_risk_level": event.supportRiskLevel,
+        "gen_ai.revenue.portfolio_status": event.portfolioStatus,
+        "gen_ai.revenue.portfolio_account_count": event.portfolioAccountCount,
+        "gen_ai.revenue.top_risk_account_count": event.topRiskAccountCount,
+        "gen_ai.revenue.watchlist_count": event.watchlistCount,
         "gen_ai.services.tenant_id": event.tenantId,
         "gen_ai.usage.input_tokens": event.inputTokens,
         "gen_ai.usage.output_tokens": event.outputTokens,

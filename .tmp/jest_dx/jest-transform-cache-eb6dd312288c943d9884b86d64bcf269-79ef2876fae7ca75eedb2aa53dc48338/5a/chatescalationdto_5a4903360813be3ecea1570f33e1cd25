@@ -1,0 +1,67 @@
+11778be902aef934b70a3028ee560b90
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var _a;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ChatEscalationRequestDto = exports.ESCALATION_REF_PATTERN = exports.ESCALATION_URGENCIES = void 0;
+const class_validator_1 = require("class-validator");
+const chat_message_dto_1 = require("./chat-message.dto");
+exports.ESCALATION_URGENCIES = ["low", "normal", "high"];
+exports.ESCALATION_REF_PATTERN = /^[A-Za-z0-9_.:-]{1,80}$/;
+/**
+ * Phase 6 customer-chat escalation contract.
+ *
+ * The browser does not call Salesforce directly. It posts a
+ * minimal, customer-safe handoff descriptor to NestJS. NestJS
+ * acknowledges and assigns an `escalationId`; downstream
+ * Agentforce/Salesforce action wiring is intentionally out of
+ * scope for this DTO-tested contract.
+ */
+class ChatEscalationRequestDto {
+}
+exports.ChatEscalationRequestDto = ChatEscalationRequestDto;
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(1),
+    (0, class_validator_1.MaxLength)(500),
+    __metadata("design:type", String)
+], ChatEscalationRequestDto.prototype, "reason", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(exports.ESCALATION_URGENCIES),
+    __metadata("design:type", typeof (_a = typeof EscalationUrgency !== "undefined" && EscalationUrgency) === "function" ? _a : Object)
+], ChatEscalationRequestDto.prototype, "urgency", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(2000),
+    __metadata("design:type", String)
+], ChatEscalationRequestDto.prototype, "conversationSummary", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Matches)(exports.ESCALATION_REF_PATTERN),
+    __metadata("design:type", String)
+], ChatEscalationRequestDto.prototype, "caseReference", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(16),
+    __metadata("design:type", String)
+], ChatEscalationRequestDto.prototype, "locale", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(64),
+    (0, class_validator_1.Matches)(chat_message_dto_1.SAFE_CHAT_REQUEST_ID_PATTERN),
+    __metadata("design:type", String)
+], ChatEscalationRequestDto.prototype, "requestId", void 0);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy9jaGF0L2R0by9jaGF0LWVzY2FsYXRpb24uZHRvLnRzIiwibWFwcGluZ3MiOiI7Ozs7Ozs7Ozs7Ozs7QUFBQSxxREFPeUI7QUFFekIseURBQWtFO0FBRXJELFFBQUEsb0JBQW9CLEdBQUcsQ0FBQyxLQUFLLEVBQUUsUUFBUSxFQUFFLE1BQU0sQ0FBVSxDQUFDO0FBRzFELFFBQUEsc0JBQXNCLEdBQUcseUJBQXlCLENBQUM7QUFFaEU7Ozs7Ozs7O0dBUUc7QUFDSCxNQUFhLHdCQUF3QjtDQW9DcEM7QUFwQ0QsNERBb0NDO0FBL0JDO0lBSEMsSUFBQSwwQkFBUSxHQUFFO0lBQ1YsSUFBQSwyQkFBUyxFQUFDLENBQUMsQ0FBQztJQUNaLElBQUEsMkJBQVMsRUFBQyxHQUFHLENBQUM7O3dEQUNDO0FBSWhCO0lBRkMsSUFBQSw0QkFBVSxHQUFFO0lBQ1osSUFBQSxzQkFBSSxFQUFDLDRCQUFvQixDQUFDO2tEQUNqQixpQkFBaUIsb0JBQWpCLGlCQUFpQjt5REFBQztBQU01QjtJQUhDLElBQUEsNEJBQVUsR0FBRTtJQUNaLElBQUEsMEJBQVEsR0FBRTtJQUNWLElBQUEsMkJBQVMsRUFBQyxJQUFJLENBQUM7O3FFQUNhO0FBUzdCO0lBSEMsSUFBQSw0QkFBVSxHQUFFO0lBQ1osSUFBQSwwQkFBUSxHQUFFO0lBQ1YsSUFBQSx5QkFBTyxFQUFDLDhCQUFzQixDQUFDOzsrREFDVDtBQUt2QjtJQUhDLElBQUEsNEJBQVUsR0FBRTtJQUNaLElBQUEsMEJBQVEsR0FBRTtJQUNWLElBQUEsMkJBQVMsRUFBQyxFQUFFLENBQUM7O3dEQUNFO0FBTWhCO0lBSkMsSUFBQSw0QkFBVSxHQUFFO0lBQ1osSUFBQSwwQkFBUSxHQUFFO0lBQ1YsSUFBQSwyQkFBUyxFQUFDLEVBQUUsQ0FBQztJQUNiLElBQUEseUJBQU8sRUFBQywrQ0FBNEIsQ0FBQzs7MkRBQ25CIiwibmFtZXMiOltdLCJzb3VyY2VzIjpbIi9Vc2Vycy9rZXNoYXZjaGF1ZGhhcnkvQWdlbnRGb3JjZS9hcHBzL2FpLWFwaS9zcmMvY2hhdC9kdG8vY2hhdC1lc2NhbGF0aW9uLmR0by50cyJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQge1xuICBJc0luLFxuICBJc09wdGlvbmFsLFxuICBJc1N0cmluZyxcbiAgTWF4TGVuZ3RoLFxuICBNYXRjaGVzLFxuICBNaW5MZW5ndGhcbn0gZnJvbSBcImNsYXNzLXZhbGlkYXRvclwiO1xuXG5pbXBvcnQgeyBTQUZFX0NIQVRfUkVRVUVTVF9JRF9QQVRURVJOIH0gZnJvbSBcIi4vY2hhdC1tZXNzYWdlLmR0b1wiO1xuXG5leHBvcnQgY29uc3QgRVNDQUxBVElPTl9VUkdFTkNJRVMgPSBbXCJsb3dcIiwgXCJub3JtYWxcIiwgXCJoaWdoXCJdIGFzIGNvbnN0O1xuZXhwb3J0IHR5cGUgRXNjYWxhdGlvblVyZ2VuY3kgPSAodHlwZW9mIEVTQ0FMQVRJT05fVVJHRU5DSUVTKVtudW1iZXJdO1xuXG5leHBvcnQgY29uc3QgRVNDQUxBVElPTl9SRUZfUEFUVEVSTiA9IC9eW0EtWmEtejAtOV8uOi1dezEsODB9JC87XG5cbi8qKlxuICogUGhhc2UgNiBjdXN0b21lci1jaGF0IGVzY2FsYXRpb24gY29udHJhY3QuXG4gKlxuICogVGhlIGJyb3dzZXIgZG9lcyBub3QgY2FsbCBTYWxlc2ZvcmNlIGRpcmVjdGx5LiBJdCBwb3N0cyBhXG4gKiBtaW5pbWFsLCBjdXN0b21lci1zYWZlIGhhbmRvZmYgZGVzY3JpcHRvciB0byBOZXN0SlMuIE5lc3RKU1xuICogYWNrbm93bGVkZ2VzIGFuZCBhc3NpZ25zIGFuIGBlc2NhbGF0aW9uSWRgOyBkb3duc3RyZWFtXG4gKiBBZ2VudGZvcmNlL1NhbGVzZm9yY2UgYWN0aW9uIHdpcmluZyBpcyBpbnRlbnRpb25hbGx5IG91dCBvZlxuICogc2NvcGUgZm9yIHRoaXMgRFRPLXRlc3RlZCBjb250cmFjdC5cbiAqL1xuZXhwb3J0IGNsYXNzIENoYXRFc2NhbGF0aW9uUmVxdWVzdER0byB7XG4gIC8qKiBGcmVlLXRleHQgcmVhc29uIGZyb20gdGhlIGN1c3RvbWVyLCByZWRhY3RlZCBzZXJ2ZXItc2lkZSBiZWZvcmUgbG9nZ2luZy4gKi9cbiAgQElzU3RyaW5nKClcbiAgQE1pbkxlbmd0aCgxKVxuICBATWF4TGVuZ3RoKDUwMClcbiAgcmVhc29uITogc3RyaW5nO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQElzSW4oRVNDQUxBVElPTl9VUkdFTkNJRVMpXG4gIHVyZ2VuY3k/OiBFc2NhbGF0aW9uVXJnZW5jeTtcblxuICAvKiogT3B0aW9uYWwgY3VzdG9tZXItc3VwcGxpZWQgY29udmVyc2F0aW9uIHN1bW1hcnk7IG5vdCBmdWxsIHRyYW5zY3JpcHQuICovXG4gIEBJc09wdGlvbmFsKClcbiAgQElzU3RyaW5nKClcbiAgQE1heExlbmd0aCgyMDAwKVxuICBjb252ZXJzYXRpb25TdW1tYXJ5Pzogc3RyaW5nO1xuXG4gIC8qKlxuICAgKiBPcHRpb25hbCBjYXNlIG51bWJlciAvIHJlY29yZCByZWZlcmVuY2UgdGhlIGN1c3RvbWVyIGFscmVhZHkgaGFzLlxuICAgKiBNdXN0IGJlIGEgc2FmZSBpZGVudGlmaWVyIHNoYXBlIOKAlCBubyBmcmVlLWZvcm0gU2FsZXNmb3JjZSBJRHMuXG4gICAqL1xuICBASXNPcHRpb25hbCgpXG4gIEBJc1N0cmluZygpXG4gIEBNYXRjaGVzKEVTQ0FMQVRJT05fUkVGX1BBVFRFUk4pXG4gIGNhc2VSZWZlcmVuY2U/OiBzdHJpbmc7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBASXNTdHJpbmcoKVxuICBATWF4TGVuZ3RoKDE2KVxuICBsb2NhbGU/OiBzdHJpbmc7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBASXNTdHJpbmcoKVxuICBATWF4TGVuZ3RoKDY0KVxuICBATWF0Y2hlcyhTQUZFX0NIQVRfUkVRVUVTVF9JRF9QQVRURVJOKVxuICByZXF1ZXN0SWQ/OiBzdHJpbmc7XG59XG5cbmV4cG9ydCBpbnRlcmZhY2UgQ2hhdEVzY2FsYXRpb25SZXNwb25zZUR0byB7XG4gIGVzY2FsYXRpb25JZDogc3RyaW5nO1xuICBzdGF0dXM6IFwicmVjZWl2ZWRcIjtcbiAgdXJnZW5jeTogRXNjYWxhdGlvblVyZ2VuY3k7XG4gIHJlY2VpdmVkQXQ6IHN0cmluZztcbiAgbmV4dFN0ZXBzOiBzdHJpbmc7XG4gIHJlcXVlc3RJZD86IHN0cmluZztcbn1cbiJdLCJ2ZXJzaW9uIjozfQ==

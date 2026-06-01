@@ -1,34 +1,34 @@
 {
-  "required": ["accountKey"],
+  "required": [],
   "unevaluatedProperties": false,
   "properties": {
     "accountKey": {
-      "title": "Account Key",
-      "description": "Salesforce Account name or record id. Used only by Apex to collect aggregate revenue facts.",
-      "lightning:type": "lightning__textType",
-      "lightning:isPII": true,
-      "copilotAction:isUserInput": true
-    },
-    "accountName": {
-      "title": "Account Name",
-      "description": "Optional Salesforce Account name. Used only to find the Account and not sent to the external AI API.",
+      "title": "Selected Account",
+      "description": "Salesforce Account name or record id for one selected Account. Use this when the user directly names one Account or pastes one Salesforce Account record id. Do not ask for this field when the planner already has a selected accountId or current recordId.",
       "lightning:type": "lightning__textType",
       "lightning:isPII": true,
       "copilotAction:isUserInput": true
     },
     "accountId": {
       "title": "Account Id",
-      "description": "Optional Salesforce Account record id.",
+      "description": "Optional planner-only Salesforce Account record id from a prior directory or portfolio handoff. Do not ask the user for this field when accountKey is already available.",
       "lightning:type": "lightning__textType",
       "lightning:isPII": true,
-      "copilotAction:isUserInput": true
+      "copilotAction:isUserInput": false
     },
     "recordId": {
       "title": "Record Id",
-      "description": "Optional Salesforce Account record id from the current record context.",
+      "description": "Optional planner-only Salesforce Account record id from the current record context. Do not ask the user for this field.",
       "lightning:type": "lightning__textType",
       "lightning:isPII": true,
-      "copilotAction:isUserInput": true
+      "copilotAction:isUserInput": false
+    },
+    "analysisIntent": {
+      "title": "Analysis Intent",
+      "description": "Optional planner-only follow-up angle for this Account. Set this to General, QBR Preparation, Renewal Readiness, Churn Risk, Expansion Upside, Future Revenue, Risk Severity, or Next Action based on the user's requested view. Do not ask the user for this field.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": false
     },
     "requestId": {
       "title": "Request Id",

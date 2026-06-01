@@ -1,0 +1,39 @@
+3947bf562dc9feec1e6f4c4a515cfef8
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AppModule = void 0;
+const common_1 = require("@nestjs/common");
+const agents_module_1 = require("./agents/agents.module");
+const auth_module_1 = require("./auth/auth.module");
+const chat_module_1 = require("./chat/chat.module");
+const app_config_module_1 = require("./config/app-config.module");
+const health_module_1 = require("./health/health.module");
+const llm_module_1 = require("./llm/llm.module");
+const observability_module_1 = require("./observability/observability.module");
+const openai_compatible_module_1 = require("./openai-compatible/openai-compatible.module");
+const rag_module_1 = require("./rag/rag.module");
+let AppModule = class AppModule {
+};
+exports.AppModule = AppModule;
+exports.AppModule = AppModule = __decorate([
+    (0, common_1.Module)({
+        imports: [
+            app_config_module_1.AppConfigModule,
+            observability_module_1.ObservabilityModule,
+            auth_module_1.AuthModule,
+            llm_module_1.LlmModule,
+            health_module_1.HealthModule,
+            chat_module_1.ChatModule,
+            agents_module_1.AgentsModule,
+            rag_module_1.RagModule,
+            openai_compatible_module_1.OpenAiCompatibleModule
+        ]
+    })
+], AppModule);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy9hcHAubW9kdWxlLnRzIiwibWFwcGluZ3MiOiI7Ozs7Ozs7OztBQUFBLDJDQUF3QztBQUV4QywwREFBc0Q7QUFDdEQsb0RBQWdEO0FBQ2hELG9EQUFnRDtBQUNoRCxrRUFBNkQ7QUFDN0QsMERBQXNEO0FBQ3RELGlEQUE2QztBQUM3QywrRUFBMkU7QUFDM0UsMkZBQXNGO0FBQ3RGLGlEQUE2QztBQWV0QyxJQUFNLFNBQVMsR0FBZixNQUFNLFNBQVM7Q0FBRyxDQUFBO0FBQVosOEJBQVM7b0JBQVQsU0FBUztJQWJyQixJQUFBLGVBQU0sRUFBQztRQUNOLE9BQU8sRUFBRTtZQUNQLG1DQUFlO1lBQ2YsMENBQW1CO1lBQ25CLHdCQUFVO1lBQ1Ysc0JBQVM7WUFDVCw0QkFBWTtZQUNaLHdCQUFVO1lBQ1YsNEJBQVk7WUFDWixzQkFBUztZQUNULGlEQUFzQjtTQUN2QjtLQUNGLENBQUM7R0FDVyxTQUFTLENBQUciLCJuYW1lcyI6W10sInNvdXJjZXMiOlsiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy9hcHAubW9kdWxlLnRzIl0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IE1vZHVsZSB9IGZyb20gXCJAbmVzdGpzL2NvbW1vblwiO1xuXG5pbXBvcnQgeyBBZ2VudHNNb2R1bGUgfSBmcm9tIFwiLi9hZ2VudHMvYWdlbnRzLm1vZHVsZVwiO1xuaW1wb3J0IHsgQXV0aE1vZHVsZSB9IGZyb20gXCIuL2F1dGgvYXV0aC5tb2R1bGVcIjtcbmltcG9ydCB7IENoYXRNb2R1bGUgfSBmcm9tIFwiLi9jaGF0L2NoYXQubW9kdWxlXCI7XG5pbXBvcnQgeyBBcHBDb25maWdNb2R1bGUgfSBmcm9tIFwiLi9jb25maWcvYXBwLWNvbmZpZy5tb2R1bGVcIjtcbmltcG9ydCB7IEhlYWx0aE1vZHVsZSB9IGZyb20gXCIuL2hlYWx0aC9oZWFsdGgubW9kdWxlXCI7XG5pbXBvcnQgeyBMbG1Nb2R1bGUgfSBmcm9tIFwiLi9sbG0vbGxtLm1vZHVsZVwiO1xuaW1wb3J0IHsgT2JzZXJ2YWJpbGl0eU1vZHVsZSB9IGZyb20gXCIuL29ic2VydmFiaWxpdHkvb2JzZXJ2YWJpbGl0eS5tb2R1bGVcIjtcbmltcG9ydCB7IE9wZW5BaUNvbXBhdGlibGVNb2R1bGUgfSBmcm9tIFwiLi9vcGVuYWktY29tcGF0aWJsZS9vcGVuYWktY29tcGF0aWJsZS5tb2R1bGVcIjtcbmltcG9ydCB7IFJhZ01vZHVsZSB9IGZyb20gXCIuL3JhZy9yYWcubW9kdWxlXCI7XG5cbkBNb2R1bGUoe1xuICBpbXBvcnRzOiBbXG4gICAgQXBwQ29uZmlnTW9kdWxlLFxuICAgIE9ic2VydmFiaWxpdHlNb2R1bGUsXG4gICAgQXV0aE1vZHVsZSxcbiAgICBMbG1Nb2R1bGUsXG4gICAgSGVhbHRoTW9kdWxlLFxuICAgIENoYXRNb2R1bGUsXG4gICAgQWdlbnRzTW9kdWxlLFxuICAgIFJhZ01vZHVsZSxcbiAgICBPcGVuQWlDb21wYXRpYmxlTW9kdWxlXG4gIF1cbn0pXG5leHBvcnQgY2xhc3MgQXBwTW9kdWxlIHt9XG4iXSwidmVyc2lvbiI6M30=

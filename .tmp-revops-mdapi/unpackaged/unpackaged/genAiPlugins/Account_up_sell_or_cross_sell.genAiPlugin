@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GenAiPlugin xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <canEscalate>false</canEscalate>
+    <description>This topic encompasses requests relating to up-sell and cross-sell opportunities for accounts. This topic should be called if the user asks for recommendations for cross-sell or up-sells for an account.</description>
+    <developerName>Account_up_sell_or_cross_sell</developerName>
+    <genAiFunctions>
+        <functionName>Create_an_up_sell_cross_sell_Opportunity</functionName>
+    </genAiFunctions>
+    <genAiFunctions>
+        <functionName>EmployeeCopilot__IdentifyRecordByName</functionName>
+    </genAiFunctions>
+    <genAiFunctions>
+        <functionName>Account_Up_sell_Or_Cross_sell_Suggestion</functionName>
+    </genAiFunctions>
+    <genAiPluginInstructions>
+        <description>&quot;Create an up-sell cross-sell Opportunity&quot; action cannot be called before
+&quot;Account Up-sell Or Cross-sell Suggestion&quot; action.</description>
+        <developerName>instruction_createanup2</developerName>
+        <language xsi:nil="true"/>
+        <masterLabel>instruction_createanup2</masterLabel>
+        <sortOrder>0</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+        <description>For the output of &quot;Account Up-sell Or Cross-sell Suggestion&quot; action, list any up sell or cross sell products, then provide a convincing explanation (use your imagination and be as creative as you can) as to why those products have been selected and if there are any, ask the user &quot;Do you want me to create a license opportunity and attach an implementation services estimate? If so choose your product&quot;. If the user doesn&apos;t specify a single up sell or cross sell to process, do not proceed to the &quot;Create an up-sell cross-sell Opportunity&quot; action and remind the user to choose a single product.</description>
+        <developerName>instruction_fortheoutp3</developerName>
+        <language xsi:nil="true"/>
+        <masterLabel>instruction_fortheoutp3</masterLabel>
+        <sortOrder>0</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+        <description>Identify accounts by name with &quot;Identify Record by Name&quot; action.</description>
+        <developerName>instruction_identifyac0</developerName>
+        <language xsi:nil="true"/>
+        <masterLabel>instruction_identifyac0</masterLabel>
+        <sortOrder>0</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+        <description>Output the records created from the &quot;Create an up-sell cross-sell Opportunity&quot; action.  Also inform the user that you have created an Opportunity with a Primary Estimate for them to review.</description>
+        <developerName>instruction_outputther1</developerName>
+        <language xsi:nil="true"/>
+        <masterLabel>instruction_outputther1</masterLabel>
+        <sortOrder>0</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+        <description>When an opportunity and estimate are created from the &quot;Create an up-sell cross-sell Opportunity&quot; action, show information about the opportunity to the user in a card format</description>
+        <developerName>instruction_whenanoppo5</developerName>
+        <language xsi:nil="true"/>
+        <masterLabel>instruction_whenanoppo5</masterLabel>
+        <sortOrder>0</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+        <description>When passing upSell or crossSell to the &quot;Create an up-sell cross-sell Opportunity&quot; action, do not pass Product__r</description>
+        <developerName>instruction_whenpassin4</developerName>
+        <language xsi:nil="true"/>
+        <masterLabel>instruction_whenpassin4</masterLabel>
+        <sortOrder>0</sortOrder>
+    </genAiPluginInstructions>
+    <language>en_US</language>
+    <masterLabel>Account up sell or cross sell</masterLabel>
+    <pluginType>Topic</pluginType>
+    <scope>Your job is to recommend whether an account could have an opportunity for an up-sell or cross-sell, and to create an opportunity record and primary estimate to reflect this upon the user requests.</scope>
+</GenAiPlugin>

@@ -1,0 +1,378 @@
+0ecec2528e545492cc97ef68f184dfc1
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var _a, _b;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.RevenuePortfolioIntelligenceRequestDto = exports.RevenuePortfolioAccountFactsDto = exports.RevenueAccountHealthRequestDto = exports.REVENUE_PORTFOLIO_FOCUS_VALUES = exports.REVENUE_PORTFOLIO_STATUSES = exports.REVENUE_ACCOUNT_ANALYSIS_INTENTS = exports.REVENUE_CONFIDENCES = exports.REVENUE_ENGAGEMENT_LEVELS = exports.REVENUE_OPPORTUNITY_LEVELS = exports.REVENUE_RISK_LEVELS = exports.REVENUE_HEALTH_BANDS = void 0;
+const class_transformer_1 = require("class-transformer");
+const class_validator_1 = require("class-validator");
+exports.REVENUE_HEALTH_BANDS = [
+    "excellent",
+    "healthy",
+    "watch",
+    "at_risk",
+    "critical",
+    "unknown"
+];
+exports.REVENUE_RISK_LEVELS = [
+    "low",
+    "medium",
+    "high",
+    "critical",
+    "unknown"
+];
+exports.REVENUE_OPPORTUNITY_LEVELS = [
+    "low",
+    "medium",
+    "high",
+    "unknown"
+];
+exports.REVENUE_ENGAGEMENT_LEVELS = [
+    "strong",
+    "steady",
+    "weak",
+    "unknown"
+];
+exports.REVENUE_CONFIDENCES = ["low", "medium", "high"];
+exports.REVENUE_ACCOUNT_ANALYSIS_INTENTS = [
+    "general",
+    "qbr_preparation",
+    "renewal_readiness",
+    "churn_risk",
+    "expansion_upside",
+    "future_revenue",
+    "risk_severity",
+    "next_action"
+];
+exports.REVENUE_PORTFOLIO_STATUSES = [
+    "STABLE",
+    "WATCH",
+    "ATTENTION_REQUIRED",
+    "CRITICAL",
+    "INSUFFICIENT_DATA"
+];
+exports.REVENUE_PORTFOLIO_FOCUS_VALUES = [
+    "general",
+    "risk",
+    "expansion",
+    "churn",
+    "weekly_plan"
+];
+const SAFE_REVENUE_REQUEST_ID_PATTERN = /^(?![A-Za-z0-9]{15}(?:[A-Za-z0-9]{3})?$)[A-Za-z0-9_.:-]{1,64}$/;
+const SAFE_REVENUE_ACCOUNT_REFERENCE_PATTERN = /^account-[1-9][0-9]{0,2}$/;
+class RevenueAccountHealthRequestDto {
+}
+exports.RevenueAccountHealthRequestDto = RevenueAccountHealthRequestDto;
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)([...exports.REVENUE_ACCOUNT_ANALYSIS_INTENTS]),
+    __metadata("design:type", typeof (_a = typeof RevenueAccountAnalysisIntentDto !== "undefined" && RevenueAccountAnalysisIntentDto) === "function" ? _a : Object)
+], RevenueAccountHealthRequestDto.prototype, "analysisIntent", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(80),
+    __metadata("design:type", String)
+], RevenueAccountHealthRequestDto.prototype, "accountType", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(80),
+    __metadata("design:type", String)
+], RevenueAccountHealthRequestDto.prototype, "accountIndustry", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "annualRevenue", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "employeeCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    (0, class_validator_1.Max)(36500),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "accountAgeDays", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "openOpportunityCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "openOpportunityAmount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "weightedPipelineAmount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(-3650),
+    (0, class_validator_1.Max)(3650),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "daysToNextCloseDate", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "wonOpportunityCountLast180Days", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "lostOpportunityCountLast180Days", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "renewalOpportunityCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "renewalOpportunityAmount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "expansionOpportunityCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "expansionOpportunityAmount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "openCaseCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "escalatedCaseCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "highPriorityCaseCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "oldestOpenCaseAgeDays", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "activityCountLast30Days", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    (0, class_validator_1.Max)(3650),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "daysSinceLastActivity", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "executiveActivityCountLast90Days", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "activeProjectCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "atRiskProjectCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "lateMilestoneCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "openResourceRequestCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "avgProjectMarginPercent", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "totalProjectRemainingAmount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "overdueInvoiceCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "overdueInvoiceAmount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "averagePaymentDelayDays", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "marginPressureAmount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "productActiveUserCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "productUsageTrendPercent", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    (0, class_validator_1.Max)(100),
+    __metadata("design:type", Number)
+], RevenueAccountHealthRequestDto.prototype, "featureAdoptionPercent", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(200),
+    __metadata("design:type", String)
+], RevenueAccountHealthRequestDto.prototype, "sourceSystems", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(64),
+    (0, class_validator_1.Matches)(SAFE_REVENUE_REQUEST_ID_PATTERN),
+    __metadata("design:type", String)
+], RevenueAccountHealthRequestDto.prototype, "requestId", void 0);
+class RevenuePortfolioAccountFactsDto extends RevenueAccountHealthRequestDto {
+}
+exports.RevenuePortfolioAccountFactsDto = RevenuePortfolioAccountFactsDto;
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(64),
+    (0, class_validator_1.Matches)(SAFE_REVENUE_ACCOUNT_REFERENCE_PATTERN),
+    __metadata("design:type", String)
+], RevenuePortfolioAccountFactsDto.prototype, "accountReference", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(80),
+    __metadata("design:type", String)
+], RevenuePortfolioAccountFactsDto.prototype, "accountSegment", void 0);
+class RevenuePortfolioIntelligenceRequestDto {
+}
+exports.RevenuePortfolioIntelligenceRequestDto = RevenuePortfolioIntelligenceRequestDto;
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)([...exports.REVENUE_PORTFOLIO_FOCUS_VALUES]),
+    __metadata("design:type", typeof (_b = typeof RevenuePortfolioFocusDto !== "undefined" && RevenuePortfolioFocusDto) === "function" ? _b : Object)
+], RevenuePortfolioIntelligenceRequestDto.prototype, "analysisFocus", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ArrayMaxSize)(25),
+    (0, class_validator_1.ValidateNested)({ each: true }),
+    (0, class_transformer_1.Type)(() => RevenuePortfolioAccountFactsDto),
+    __metadata("design:type", Array)
+], RevenuePortfolioIntelligenceRequestDto.prototype, "accounts", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(200),
+    __metadata("design:type", String)
+], RevenuePortfolioIntelligenceRequestDto.prototype, "sourceSystems", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(64),
+    (0, class_validator_1.Matches)(SAFE_REVENUE_REQUEST_ID_PATTERN),
+    __metadata("design:type", String)
+], RevenuePortfolioIntelligenceRequestDto.prototype, "requestId", void 0);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy9hZ2VudHMvZHRvL3JldmVudWUtYWNjb3VudC1oZWFsdGguZHRvLnRzIiwibWFwcGluZ3MiOiI7Ozs7Ozs7Ozs7Ozs7QUFBQSx5REFBeUM7QUFDekMscURBYXlCO0FBRVosUUFBQSxvQkFBb0IsR0FBRztJQUNsQyxXQUFXO0lBQ1gsU0FBUztJQUNULE9BQU87SUFDUCxTQUFTO0lBQ1QsVUFBVTtJQUNWLFNBQVM7Q0FDRCxDQUFDO0FBR0UsUUFBQSxtQkFBbUIsR0FBRztJQUNqQyxLQUFLO0lBQ0wsUUFBUTtJQUNSLE1BQU07SUFDTixVQUFVO0lBQ1YsU0FBUztDQUNELENBQUM7QUFHRSxRQUFBLDBCQUEwQixHQUFHO0lBQ3hDLEtBQUs7SUFDTCxRQUFRO0lBQ1IsTUFBTTtJQUNOLFNBQVM7Q0FDRCxDQUFDO0FBSUUsUUFBQSx5QkFBeUIsR0FBRztJQUN2QyxRQUFRO0lBQ1IsUUFBUTtJQUNSLE1BQU07SUFDTixTQUFTO0NBQ0QsQ0FBQztBQUlFLFFBQUEsbUJBQW1CLEdBQUcsQ0FBQyxLQUFLLEVBQUUsUUFBUSxFQUFFLE1BQU0sQ0FBVSxDQUFDO0FBR3pELFFBQUEsZ0NBQWdDLEdBQUc7SUFDOUMsU0FBUztJQUNULGlCQUFpQjtJQUNqQixtQkFBbUI7SUFDbkIsWUFBWTtJQUNaLGtCQUFrQjtJQUNsQixnQkFBZ0I7SUFDaEIsZUFBZTtJQUNmLGFBQWE7Q0FDTCxDQUFDO0FBSUUsUUFBQSwwQkFBMEIsR0FBRztJQUN4QyxRQUFRO0lBQ1IsT0FBTztJQUNQLG9CQUFvQjtJQUNwQixVQUFVO0lBQ1YsbUJBQW1CO0NBQ1gsQ0FBQztBQUlFLFFBQUEsOEJBQThCLEdBQUc7SUFDNUMsU0FBUztJQUNULE1BQU07SUFDTixXQUFXO0lBQ1gsT0FBTztJQUNQLGFBQWE7Q0FDTCxDQUFDO0FBSVgsTUFBTSwrQkFBK0IsR0FDbkMsZ0VBQWdFLENBQUM7QUFDbkUsTUFBTSxzQ0FBc0MsR0FBRywyQkFBMkIsQ0FB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LEVBQUUsSUFBSSxFQUFFLElBQUksRUFBRSxDQUFDO0lBQzlCLElBQUEsd0JBQUksRUFBQyxHQUFHLEVBQUUsQ0FBQywrQkFBK0IsQ0FBQzs7d0VBQ0M7QUFLN0M7SUFIQyxJQUFBLDRCQUFVLEdBQUU7SUFDWixJQUFBLDBCQUFRLEdBQUU7SUFDVixJQUFBLDJCQUFTLEVBQUMsR0FBRyxDQUFDOzs2RUFDUTtBQU12QjtJQUpDLElBQUEsNEJBQVUsR0FBRTtJQUNaLElBQUEsMEJBQVEsR0FBRTtJQUNWLElBQUEsMkJBQVMsRUFBQyxFQUFFLENBQUM7SUFDYixJQUFBLHlCQUFPLEVBQUMsK0JBQStCLENBQUM7O3lFQUN0QiIsIm5hbWVzIjpbXSwic291cmNlcyI6WyIvVXNlcnMva2VzaGF2Y2hhdWRoYXJ5L0FnZW50Rm9yY2UvYXBwcy9haS1hcGkvc3JjL2FnZW50cy9kdG8vcmV2ZW51ZS1hY2NvdW50LWhlYWx0aC5kdG8udHMiXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHsgVHlwZSB9IGZyb20gXCJjbGFzcy10cmFuc2Zvcm1lclwiO1xuaW1wb3J0IHtcbiAgQXJyYXlNYXhTaXplLFxuICBJc0ludCxcbiAgSXNBcnJheSxcbiAgSXNJbixcbiAgSXNOdW1iZXIsXG4gIElzT3B0aW9uYWwsXG4gIElzU3RyaW5nLFxuICBNYXRjaGVzLFxuICBNYXgsXG4gIE1heExlbmd0aCxcbiAgTWluLFxuICBWYWxpZGF0ZU5lc3RlZFxufSBmcm9tIFwiY2xhc3MtdmFsaWRhdG9yXCI7XG5cbmV4cG9ydCBjb25zdCBSRVZFTlVFX0hFQUxUSF9CQU5EUyA9IFtcbiAgXCJleGNlbGxlbnRcIixcbiAgXCJoZWFsdGh5XCIsXG4gIFwid2F0Y2hcIixcbiAgXCJhdF9yaXNrXCIsXG4gIFwiY3JpdGljYWxcIixcbiAgXCJ1bmtub3duXCJcbl0gYXMgY29uc3Q7XG5leHBvcnQgdHlwZSBSZXZlbnVlSGVhbHRoQmFuZER0byA9ICh0eXBlb2YgUkVWRU5VRV9IRUFMVEhfQkFORFMpW251bWJlcl07XG5cbmV4cG9ydCBjb25zdCBSRVZFTlVFX1JJU0tfTEVWRUxTID0gW1xuICBcImxvd1wiLFxuICBcIm1lZGl1bVwiLFxuICBcImhpZ2hcIixcbiAgXCJjcml0aWNhbFwiLFxuICBcInVua25vd25cIlxuXSBhcyBjb25zdDtcbmV4cG9ydCB0eXBlIFJldmVudWVSaXNrTGV2ZWxEdG8gPSAodHlwZW9mIFJFVkVOVUVfUklTS19MRVZFTFMpW251bWJlcl07XG5cbmV4cG9ydCBjb25zdCBSRVZFTlVFX09QUE9SVFVOSVRZX0xFVkVMUyA9IFtcbiAgXCJsb3dcIixcbiAgXCJtZWRpdW1cIixcbiAgXCJoaWdoXCIsXG4gIFwidW5rbm93blwiXG5dIGFzIGNvbnN0O1xuZXhwb3J0IHR5cGUgUmV2ZW51ZU9wcG9ydHVuaXR5TGV2ZWxEdG8gPVxuICAodHlwZW9mIFJFVkVOVUVfT1BQT1JUVU5JVFlfTEVWRUxTKVtudW1iZXJdO1xuXG5leHBvcnQgY29uc3QgUkVWRU5VRV9FTkdBR0VNRU5UX0xFVkVMUyA9IFtcbiAgXCJzdHJvbmdcIixcbiAgXCJzdGVhZHlcIixcbiAgXCJ3ZWFrXCIsXG4gIFwidW5rbm93blwiXG5dIGFzIGNvbnN0O1xuZXhwb3J0IHR5cGUgUmV2ZW51ZUVuZ2FnZW1lbnRMZXZlbER0byA9XG4gICh0eXBlb2YgUkVWRU5VRV9FTkdBR0VNRU5UX0xFVkVMUylbbnVtYmVyXTtcblxuZXhwb3J0IGNvbnN0IFJFVkVOVUVfQ09ORklERU5DRVMgPSBbXCJsb3dcIiwgXCJtZWRpdW1cIiwgXCJoaWdoXCJdIGFzIGNvbnN0O1xuZXhwb3J0IHR5cGUgUmV2ZW51ZUNvbmZpZGVuY2VEdG8gPSAodHlwZW9mIFJFVkVOVUVfQ09ORklERU5DRVMpW251bWJlcl07XG5cbmV4cG9ydCBjb25zdCBSRVZFTlVFX0FDQ09VTlRfQU5BTFlTSVNfSU5URU5UUyA9IFtcbiAgXCJnZW5lcmFsXCIsXG4gIFwicWJyX3ByZXBhcmF0aW9uXCIsXG4gIFwicmVuZXdhbF9yZWFkaW5lc3NcIixcbiAgXCJjaHVybl9yaXNrXCIsXG4gIFwiZXhwYW5zaW9uX3Vwc2lkZVwiLFxuICBcImZ1dHVyZV9yZXZlbnVlXCIsXG4gIFwicmlza19zZXZlcml0eVwiLFxuICBcIm5leHRfYWN0aW9uXCJcbl0gYXMgY29uc3Q7XG5leHBvcnQgdHlwZSBSZXZlbnVlQWNjb3VudEFuYWx5c2lzSW50ZW50RHRvID1cbiAgKHR5cGVvZiBSRVZFTlVFX0FDQ09VTlRfQU5BTFlTSVNfSU5URU5UUylbbnVtYmVyXTtcblxuZXhwb3J0IGNvbnN0IFJFVkVOVUVfUE9SVEZPTElPX1NUQVRVU0VTID0gW1xuICBcIlNUQUJMRVwiLFxuICBcIldBVENIXCIsXG4gIFwiQVRURU5USU9OX1JFUVVJUkVEXCIsXG4gIFwiQ1JJVElDQUxcIixcbiAgXCJJTlNVRkZJQ0lFTlRfREFUQVwiXG5dIGFzIGNvbnN0O1xuZXhwb3J0IHR5cGUgUmV2ZW51ZVBvcnRmb2xpb1N0YXR1c0R0byA9XG4gICh0eXBlb2YgUkVWRU5VRV9QT1JURk9MSU9fU1RBVFVTRVMpW251bWJlcl07XG5cbmV4cG9ydCBjb25zdCBSRVZFTlVFX1BPUlRGT0xJT19GT0NVU19WQUxVRVMgPSBbXG4gIFwiZ2VuZXJhbFwiLFxuICBcInJpc2tcIixcbiAgXCJleHBhbnNpb25cIixcbiAgXCJjaHVyblwiLFxuICBcIndlZWtseV9wbGFuXCJcbl0gYXMgY29uc3Q7XG5leHBvcnQgdHlwZSBSZXZlbnVlUG9ydGZvbGlvRm9jdXNEdG8gPVxuICAodHlwZW9mIFJFVkVOVUVfUE9SVEZPTElPX0ZPQ1VTX1ZBTFVFUylbbnVtYmVyXTtcblxuY29uc3QgU0FGRV9SRVZFTlVFX1JFUVVFU1RfSURfUEFUVEVSTiA9XG4gIC9eKD8hW0EtWmEtejAtOV17MTV9KD86W0EtWmEtejAtOV17M30pPyQpW0EtWmEtejAtOV8uOi1dezEsNjR9JC87XG5jb25zdCBTQUZFX1JFVkVOVUVfQUNDT1VOVF9SRUZFUkVOQ0VfUEFUVEVSTiA9IC9eYWNjb3VudC1bMS05XVswLTldezAsMn0kLztcblxuZXhwb3J0IGNsYXNzIFJldmVudWVBY2NvdW50SGVhbHRoUmVxdWVzdER0byB7XG4gIEBJc09wdGlvbmFsKClcbiAgQElzSW4oWy4uLlJFVkVOVUVfQUNDT1VOVF9BTkFMWVNJU19JTlRFTlRTXSlcbiAgYW5hbHlzaXNJbnRlbnQ/OiBSZXZlbnVlQWNjb3VudEFuYWx5c2lzSW50ZW50RHRvO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQElzU3RyaW5nKClcbiAgQE1heExlbmd0aCg4MClcbiAgYWNjb3VudFR5cGU/OiBzdHJpbmc7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBASXNTdHJpbmcoKVxuICBATWF4TGVuZ3RoKDgwKVxuICBhY2NvdW50SW5kdXN0cnk/OiBzdHJpbmc7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBAVHlwZSgoKSA9PiBOdW1iZXIpXG4gIEBJc051bWJlcigpXG4gIEBNaW4oMClcbiAgYW5udWFsUmV2ZW51ZT86IG51bWJlcjtcblxuICBASXNPcHRpb25hbCgpXG4gIEBUeXBlKCgpID0+IE51bWJlcilcbiAgQElzSW50KClcbiAgQE1pbigwKVxuICBlbXBsb3llZUNvdW50PzogbnVtYmVyO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQFR5cGUoKCkgPT4gTnVtYmVyKVxuICBASXNJbnQoKVxuICBATWluKDApXG4gIEBNYXgoMzY1MDApXG4gIGFjY291bnRBZ2VEYXlzPzogbnVtYmVyO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQFR5cGUoKCkgPT4gTnVtYmVyKVxuICBASXNJbnQoKVxuICBATWluKDApXG4gIG9wZW5PcHBvcnR1bml0eUNvdW50PzogbnVtYmVyO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQFR5cGUoKCkgPT4gTnVtYmVyKVxuICBASXNOdW1iZXIoKVxuICBATWluKDApXG4gIG9wZW5PcHBvcnR1bml0eUFtb3VudD86IG51bWJlcjtcblxuICBASXNPcHRpb25hbCgpXG4gIEBUeXBlKCgpID0+IE51bWJlcilcbiAgQElzTnVtYmVyKClcbiAgQE1pbigwKVxuICB3ZWlnaHRlZFBpcGVsaW5lQW1vdW50PzogbnVtYmVyO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQFR5cGUoKCkgPT4gTnVtYmVyKVxuICBASXNJbnQoKVxuICBATWluKC0zNjUwKVxuICBATWF4KDM2NTApXG4gIGRheXNUb05leHRDbG9zZURhdGU/OiBudW1iZXI7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBAVHlwZSgoKSA9PiBOdW1iZXIpXG4gIEBJc0ludCgpXG4gIEBNaW4oMClcbiAgd29uT3Bwb3J0dW5pdHlDb3VudExhc3QxODBEYXlzPzogbnVtYmVyO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQFR5cGUoKCkgPT4gTnVtYmVyKVxuICBASXNJbnQoKVxuICBATWluKDApXG4gIGxvc3RPcHBvcnR1bml0eUNvdW50TGFzdDE4MERheXM/OiBudW1iZXI7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBAVHlwZSgoKSA9PiBOdW1iZXIpXG4gIEBJc0ludCgpXG4gIEBNaW4oMClcbiAgcmVuZXdhbE9wcG9ydHVuaXR5Q291bnQ/OiBudW1iZXI7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBAVHlwZSgoKSA9PiBOdW1iZXIpXG4gIEBJc051bWJlcigpXG4gIEBNaW4oMClcbiAgcmVuZXdhbE9wcG9ydHVuaXR5QW1vdW50PzogbnVtYmVyO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQFR5cGUoKCkgPT4gTnVtYmVyKVxuICBASXNJbnQoKVxuICBATWluKDApXG4gIGV4cGFuc2lvbk9wcG9ydHVuaXR5Q291bnQ/OiBudW1iZXI7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBAVHlwZSgoKSA9PiBOdW1iZXIpXG4gIEBJc051bWJlcigpXG4gIEBNaW4oMClcbiAgZXhwYW5zaW9uT3Bwb3J0dW5pdHlBbW91bnQ/OiBudW1iZXI7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBAVHlwZSgoKSA9PiBOdW1iZXIpXG4gIEBJc0ludCgpXG4gIEBNaW4oMClcbiAgb3BlbkNhc2VDb3VudD86IG51bWJlcjtcblxuICBASXNPcHRpb25hbCgpXG4gIEBUeXBlKCgpID0+IE51bWJlcilcbiAgQElzSW50KClcbiAgQE1pbigwKVxuICBlc2NhbGF0ZWRDYXNlQ291bnQ/OiBudW1iZXI7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBAVHlwZSgoKSA9PiBOdW1iZXIpXG4gIEBJc0ludCgpXG4gIEBNaW4oMClcbiAgaGlnaFByaW9yaXR5Q2FzZUNvdW50PzogbnVtYmVyO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQFR5cGUoKCkgPT4gTnVtYmVyKVxuICBASXNJbnQoKVxuICBATWluKDApXG4gIG9sZGVzdE9wZW5DYXNlQWdlRGF5cz86IG51bWJlcjtcblxuICBASXNPcHRpb25hbCgpXG4gIEBUeXBlKCgpID0+IE51bWJlcilcbiAgQElzSW50KClcbiAgQE1pbigwKVxuICBhY3Rpdml0eUNvdW50TGFzdDMwRGF5cz86IG51bWJlcjtcblxuICBASXNPcHRpb25hbCgpXG4gIEBUeXBlKCgpID0+IE51bWJlcilcbiAgQElzSW50KClcbiAgQE1pbigwKVxuICBATWF4KDM2NTApXG4gIGRheXNTaW5jZUxhc3RBY3Rpdml0eT86IG51bWJlcjtcblxuICBASXNPcHRpb25hbCgpXG4gIEBUeXBlKCgpID0+IE51bWJlcilcbiAgQElzSW50KClcbiAgQE1pbigwKVxuICBleGVjdXRpdmVBY3Rpdml0eUNvdW50TGFzdDkwRGF5cz86IG51bWJlcjtcblxuICBASXNPcHRpb25hbCgpXG4gIEBUeXBlKCgpID0+IE51bWJlcilcbiAgQElzSW50KClcbiAgQE1pbigwKVxuICBhY3RpdmVQcm9qZWN0Q291bnQ/OiBudW1iZXI7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBAVHlwZSgoKSA9PiBOdW1iZXIpXG4gIEBJc0ludCgpXG4gIEBNaW4oMClcbiAgYXRSaXNrUHJvamVjdENvdW50PzogbnVtYmVyO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQFR5cGUoKCkgPT4gTnVtYmVyKVxuICBASXNJbnQoKVxuICBATWluKDApXG4gIGxhdGVNaWxlc3RvbmVDb3VudD86IG51bWJlcjtcblxuICBASXNPcHRpb25hbCgpXG4gIEBUeXBlKCgpID0+IE51bWJlcilcbiAgQElzSW50KClcbiAgQE1pbigwKVxuICBvcGVuUmVzb3VyY2VSZXF1ZXN0Q291bnQ/OiBudW1iZXI7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBAVHlwZSgoKSA9PiBOdW1iZXIpXG4gIEBJc051bWJlcigpXG4gIGF2Z1Byb2plY3RNYXJnaW5QZXJjZW50PzogbnVtYmVyO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQFR5cGUoKCkgPT4gTnVtYmVyKVxuICBASXNOdW1iZXIoKVxuICB0b3RhbFByb2plY3RSZW1haW5pbmdBbW91bnQ/OiBudW1iZXI7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBAVHlwZSgoKSA9PiBOdW1iZXIpXG4gIEBJc0ludCgpXG4gIEBNaW4oMClcbiAgb3ZlcmR1ZUludm9pY2VDb3VudD86IG51bWJlcjtcblxuICBASXNPcHRpb25hbCgpXG4gIEBUeXBlKCgpID0+IE51bWJlcilcbiAgQElzTnVtYmVyKClcbiAgQE1pbigwKVxuICBvdmVyZHVlSW52b2ljZUFtb3VudD86IG51bWJlcjtcblxuICBASXNPcHRpb25hbCgpXG4gIEBUeXBlKCgpID0+IE51bWJlcilcbiAgQElzTnVtYmVyKClcbiAgYXZlcmFnZVBheW1lbnREZWxheURheXM/OiBudW1iZXI7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBAVHlwZSgoKSA9PiBOdW1iZXIpXG4gIEBJc051bWJlcigpXG4gIG1hcmdpblByZXNzdXJlQW1vdW50PzogbnVtYmVyO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQFR5cGUoKCkgPT4gTnVtYmVyKVxuICBASXNJbnQoKVxuICBATWluKDApXG4gIHByb2R1Y3RBY3RpdmVVc2VyQ291bnQ/OiBudW1iZXI7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBAVHlwZSgoKSA9PiBOdW1iZXIpXG4gIEBJc051bWJlcigpXG4gIHByb2R1Y3RVc2FnZVRyZW5kUGVyY2VudD86IG51bWJlcjtcblxuICBASXNPcHRpb25hbCgpXG4gIEBUeXBlKCgpID0+IE51bWJlcilcbiAgQElzTnVtYmVyKClcbiAgQE1pbigwKVxuICBATWF4KDEwMClcbiAgZmVhdHVyZUFkb3B0aW9uUGVyY2VudD86IG51bWJlcjtcblxuICBASXNPcHRpb25hbCgpXG4gIEBJc1N0cmluZygpXG4gIEBNYXhMZW5ndGgoMjAwKVxuICBzb3VyY2VTeXN0ZW1zPzogc3RyaW5nO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQElzU3RyaW5nKClcbiAgQE1heExlbmd0aCg2NClcbiAgQE1hdGNoZXMoU0FGRV9SRVZFTlVFX1JFUVVFU1RfSURfUEFUVEVSTilcbiAgcmVxdWVzdElkPzogc3RyaW5nO1xufVxuXG5leHBvcnQgY2xhc3MgUmV2ZW51ZVBvcnRmb2xpb0FjY291bnRGYWN0c0R0byBleHRlbmRzIFJldmVudWVBY2NvdW50SGVhbHRoUmVxdWVzdER0byB7XG4gIEBJc1N0cmluZygpXG4gIEBNYXhMZW5ndGgoNjQpXG4gIEBNYXRjaGVzKFNBRkVfUkVWRU5VRV9BQ0NPVU5UX1JFRkVSRU5DRV9QQVRURVJOKVxuICBhY2NvdW50UmVmZXJlbmNlITogc3RyaW5nO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQElzU3RyaW5nKClcbiAgQE1heExlbmd0aCg4MClcbiAgYWNjb3VudFNlZ21lbnQ/OiBzdHJpbmc7XG59XG5cbmV4cG9ydCBjbGFzcyBSZXZlbnVlUG9ydGZvbGlvSW50ZWxsaWdlbmNlUmVxdWVzdER0byB7XG4gIEBJc09wdGlvbmFsKClcbiAgQElzSW4oWy4uLlJFVkVOVUVfUE9SVEZPTElPX0ZPQ1VTX1ZBTFVFU10pXG4gIGFuYWx5c2lzRm9jdXM/OiBSZXZlbnVlUG9ydGZvbGlvRm9jdXNEdG87XG5cbiAgQElzT3B0aW9uYWwoKVxuICBASXNBcnJheSgpXG4gIEBBcnJheU1heFNpemUoMjUpXG4gIEBWYWxpZGF0ZU5lc3RlZCh7IGVhY2g6IHRydWUgfSlcbiAgQFR5cGUoKCkgPT4gUmV2ZW51ZVBvcnRmb2xpb0FjY291bnRGYWN0c0R0bylcbiAgYWNjb3VudHM/OiBSZXZlbnVlUG9ydGZvbGlvQWNjb3VudEZhY3RzRHRvW107XG5cbiAgQElzT3B0aW9uYWwoKVxuICBASXNTdHJpbmcoKVxuICBATWF4TGVuZ3RoKDIwMClcbiAgc291cmNlU3lzdGVtcz86IHN0cmluZztcblxuICBASXNPcHRpb25hbCgpXG4gIEBJc1N0cmluZygpXG4gIEBNYXhMZW5ndGgoNjQpXG4gIEBNYXRjaGVzKFNBRkVfUkVWRU5VRV9SRVFVRVNUX0lEX1BBVFRFUk4pXG4gIHJlcXVlc3RJZD86IHN0cmluZztcbn1cblxuZXhwb3J0IGludGVyZmFjZSBSZXZlbnVlUG9ydGZvbGlvUmFua2VkQWNjb3VudER0byB7XG4gIGFjY291bnRSZWZlcmVuY2U6IHN0cmluZztcbiAgcmFuazogbnVtYmVyO1xuICBzY29yZTogbnVtYmVyIHwgbnVsbDtcbiAgbGV2ZWw6IHN0cmluZztcbiAgcmVhc29uOiBzdHJpbmc7XG4gIHN1cHBvcnRpbmdTaWduYWxzOiBzdHJpbmdbXTtcbiAgcmVjb21tZW5kZWRBY3Rpb246IHN0cmluZztcbn1cblxuZXhwb3J0IGludGVyZmFjZSBSZXZlbnVlUG9ydGZvbGlvV2F0Y2hsaXN0RHRvIHtcbiAgbmFtZTogc3RyaW5nO1xuICBhY2NvdW50UmVmZXJlbmNlczogc3RyaW5nW107XG4gIHJhdGlvbmFsZTogc3RyaW5nO1xufVxuXG5leHBvcnQgaW50ZXJmYWNlIFJldmVudWVQb3J0Zm9saW9UcmVuZER0byB7XG4gIHRyZW5kOiBzdHJpbmc7XG4gIGRpcmVjdGlvbjogc3RyaW5nO1xuICBzZXZlcml0eTogc3RyaW5nO1xuICByYXRpb25hbGU6IHN0cmluZztcbn1cblxuZXhwb3J0IGludGVyZmFjZSBSZXZlbnVlUG9ydGZvbGlvUmVjb21tZW5kZWRBY3Rpb25EdG8ge1xuICBwcmlvcml0eTogc3RyaW5nO1xuICBhY3Rpb246IHN0cmluZztcbiAgYWNjb3VudFJlZmVyZW5jZXM6IHN0cmluZ1tdO1xuICByYXRpb25hbGU6IHN0cmluZztcbn1cblxuZXhwb3J0IGludGVyZmFjZSBSZXZlbnVlUG9ydGZvbGlvV2Vla2x5UGxhbkRheUR0byB7XG4gIGRheTogc3RyaW5nO1xuICBhY3Rpb25zOiBzdHJpbmdbXTtcbn1cblxuZXhwb3J0IGludGVyZmFjZSBSZXZlbnVlUG9ydGZvbGlvSW50ZWxsaWdlbmNlUmVzcG9uc2VEdG8ge1xuICBwb3J0Zm9saW9TdGF0dXM6IFJldmVudWVQb3J0Zm9saW9TdGF0dXNEdG87XG4gIHN1bW1hcnk6IHN0cmluZztcbiAgdG9wUmlza0FjY291bnRzOiBSZXZlbnVlUG9ydGZvbGlvUmFua2VkQWNjb3VudER0b1tdO1xuICB0b3BFeHBhbnNpb25BY2NvdW50czogUmV2ZW51ZVBvcnRmb2xpb1JhbmtlZEFjY291bnREdG9bXTtcbiAgdXJnZW50UmVuZXdhbHM6IFJldmVudWVQb3J0Zm9saW9SYW5rZWRBY2NvdW50RHRvW107XG4gIGVzY2FsYXRpb25BY2NvdW50czogUmV2ZW51ZVBvcnRmb2xpb1JhbmtlZEFjY291bnREdG9bXTtcbiAgc2lsZW50QWNjb3VudHM6IFJldmVudWVQb3J0Zm9saW9SYW5rZWRBY2NvdW50RHRvW107XG4gIHBvcnRmb2xpb1dhdGNobGlzdHM6IFJldmVudWVQb3J0Zm9saW9XYXRjaGxpc3REdG9bXTtcbiAgcG9ydGZvbGlvVHJlbmRzOiBSZXZlbnVlUG9ydGZvbGlvVHJlbmREdG9bXTtcbiAgcmVjb21tZW5kZWRBY3Rpb25zOiBSZXZlbnVlUG9ydGZvbGlvUmVjb21tZW5kZWRBY3Rpb25EdG9bXTtcbiAgd2Vla2x5RXhlY3V0aW9uUGxhbjogUmV2ZW51ZVBvcnRmb2xpb1dlZWtseVBsYW5EYXlEdG9bXTtcbiAgcHJvdmlkZXI6IHN0cmluZztcbiAgbW9kZWw6IHN0cmluZztcbiAgZmFsbGJhY2tVc2VkOiBib29sZWFuO1xuICBkZWNpc2lvbkZhbGxiYWNrVXNlZDogYm9vbGVhbjtcbiAgbGF0ZW5jeU1zOiBudW1iZXI7XG59XG5cbmV4cG9ydCBpbnRlcmZhY2UgUmV2ZW51ZUFjY291bnRIZWFsdGhSZXNwb25zZUR0byB7XG4gIGFjY291bnRIZWFsdGhTY29yZTogbnVtYmVyIHwgbnVsbDtcbiAgYWNjb3VudEhlYWx0aEJhbmQ6IFJldmVudWVIZWFsdGhCYW5kRHRvO1xuICBjaHVyblJpc2tTY29yZTogbnVtYmVyIHwgbnVsbDtcbiAgY2h1cm5SaXNrTGV2ZWw6IFJldmVudWVSaXNrTGV2ZWxEdG87XG4gIGV4cGFuc2lvblNjb3JlOiBudW1iZXIgfCBudWxsO1xuICBleHBhbnNpb25MZXZlbDogUmV2ZW51ZU9wcG9ydHVuaXR5TGV2ZWxEdG87XG4gIGRlbGl2ZXJ5Umlza0xldmVsOiBSZXZlbnVlUmlza0xldmVsRHRvO1xuICBmaW5hbmNpYWxSaXNrTGV2ZWw6IFJldmVudWVSaXNrTGV2ZWxEdG87XG4gIHN1cHBvcnRSaXNrTGV2ZWw6IFJldmVudWVSaXNrTGV2ZWxEdG87XG4gIGV4ZWN1dGl2ZUVuZ2FnZW1lbnRMZXZlbDogUmV2ZW51ZUVuZ2FnZW1lbnRMZXZlbER0bztcbiAgcHJpbWFyeURlY2lzaW9uOiBzdHJpbmc7XG4gIHN1bW1hcnk6IHN0cmluZztcbiAgZGVjaXNpb25SYXRpb25hbGU6IHN0cmluZztcbiAgcmV2ZW51ZUltcGFjdDogc3RyaW5nO1xuICBvcGVyYXRpb25hbEJsb2NrZXJzOiBzdHJpbmc7XG4gIHJlY29tbWVuZGVkQWN0aW9uczogc3RyaW5nO1xuICBjb25maWRlbmNlOiBSZXZlbnVlQ29uZmlkZW5jZUR0bztcbiAgcHJvdmlkZXI6IHN0cmluZztcbiAgbW9kZWw6IHN0cmluZztcbiAgZmFsbGJhY2tVc2VkOiBib29sZWFuO1xuICBsYXRlbmN5TXM6IG51bWJlcjtcbn1cbiJdLCJ2ZXJzaW9uIjozfQ==

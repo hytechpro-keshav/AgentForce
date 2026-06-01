@@ -1,0 +1,177 @@
+0e3ae393a109c488c2e03c1a201fc997
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var _a, _b, _c, _d;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.OpenAiCompatChatRequestDto = exports.OpenAiCompatMessageDto = exports.OPENAI_COMPAT_ROLES = void 0;
+const class_transformer_1 = require("class-transformer");
+const class_validator_1 = require("class-validator");
+exports.OPENAI_COMPAT_ROLES = [
+    "system",
+    "user",
+    "assistant",
+    "tool"
+];
+class OpenAiCompatMessageDto {
+}
+exports.OpenAiCompatMessageDto = OpenAiCompatMessageDto;
+__decorate([
+    (0, class_validator_1.IsIn)(exports.OPENAI_COMPAT_ROLES),
+    __metadata("design:type", typeof (_a = typeof OpenAiCompatRole !== "undefined" && OpenAiCompatRole) === "function" ? _a : Object)
+], OpenAiCompatMessageDto.prototype, "role", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(1),
+    (0, class_validator_1.MaxLength)(8000),
+    __metadata("design:type", String)
+], OpenAiCompatMessageDto.prototype, "content", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(64),
+    __metadata("design:type", String)
+], OpenAiCompatMessageDto.prototype, "name", void 0);
+class OpenAiCompatChatRequestDto {
+}
+exports.OpenAiCompatChatRequestDto = OpenAiCompatChatRequestDto;
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(1),
+    (0, class_validator_1.MaxLength)(128),
+    __metadata("design:type", String)
+], OpenAiCompatChatRequestDto.prototype, "model", void 0);
+__decorate([
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ArrayMinSize)(1),
+    (0, class_validator_1.ArrayMaxSize)(40),
+    (0, class_validator_1.ValidateNested)({ each: true }),
+    (0, class_transformer_1.Type)(() => OpenAiCompatMessageDto),
+    __metadata("design:type", Array)
+], OpenAiCompatChatRequestDto.prototype, "messages", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(1),
+    (0, class_validator_1.Max)(4096)
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    ,
+    __metadata("design:type", Number)
+], OpenAiCompatChatRequestDto.prototype, "max_tokens", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(1),
+    (0, class_validator_1.Max)(4096)
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    ,
+    __metadata("design:type", Number)
+], OpenAiCompatChatRequestDto.prototype, "max_completion_tokens", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.Min)(0),
+    (0, class_validator_1.Max)(2),
+    __metadata("design:type", Number)
+], OpenAiCompatChatRequestDto.prototype, "temperature", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.Min)(0),
+    (0, class_validator_1.Max)(1)
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    ,
+    __metadata("design:type", Number)
+], OpenAiCompatChatRequestDto.prototype, "top_p", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.Min)(-2),
+    (0, class_validator_1.Max)(2)
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    ,
+    __metadata("design:type", Number)
+], OpenAiCompatChatRequestDto.prototype, "presence_penalty", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.Min)(-2),
+    (0, class_validator_1.Max)(2)
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    ,
+    __metadata("design:type", Number)
+], OpenAiCompatChatRequestDto.prototype, "frequency_penalty", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsInt)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.Min)(1),
+    (0, class_validator_1.Max)(1),
+    __metadata("design:type", Number)
+], OpenAiCompatChatRequestDto.prototype, "n", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsInt)(),
+    (0, class_transformer_1.Type)(() => Number),
+    __metadata("design:type", Number)
+], OpenAiCompatChatRequestDto.prototype, "seed", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", Object)
+], OpenAiCompatChatRequestDto.prototype, "stop", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsObject)()
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    ,
+    __metadata("design:type", typeof (_b = typeof Record !== "undefined" && Record) === "function" ? _b : Object)
+], OpenAiCompatChatRequestDto.prototype, "logit_bias", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.ArrayMaxSize)(16),
+    __metadata("design:type", Array)
+], OpenAiCompatChatRequestDto.prototype, "tools", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)()
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    ,
+    __metadata("design:type", Object)
+], OpenAiCompatChatRequestDto.prototype, "tool_choice", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsObject)()
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    ,
+    __metadata("design:type", typeof (_c = typeof Record !== "undefined" && Record) === "function" ? _c : Object)
+], OpenAiCompatChatRequestDto.prototype, "response_format", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsObject)()
+    // eslint-disable-next-line @typescript-eslint/naming-convention
+    ,
+    __metadata("design:type", typeof (_d = typeof Record !== "undefined" && Record) === "function" ? _d : Object)
+], OpenAiCompatChatRequestDto.prototype, "stream_options", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], OpenAiCompatChatRequestDto.prototype, "stream", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(64),
+    __metadata("design:type", String)
+], OpenAiCompatChatRequestDto.prototype, "user", void 0);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy9vcGVuYWktY29tcGF0aWJsZS9kdG8vb3BlbmFpLWNvbXBhdC5kdG8udHMiLCJtYXBwaW5ncyI6Ijs7Ozs7Ozs7Ozs7OztBQUFBLHlEQUF5QztBQUN6QyxxREFnQnlCO0FBRVosUUFBQSxtQkFBbUIsR0FBRztJQUNqQyxRQUFRO0lBQ1IsTUFBTTtJQUNOLFdBQVc7SUFDWCxNQUFNO0NBQ0UsQ0FBQztBQUdYLE1BQWEsc0JBQXNCO0NBYWxDO0FBYkQsd0RBYUM7QUFYQztJQURDLElBQUEsc0JBQUksRUFBQywyQkFBbUIsQ0FBQztrREFDbkIsZ0JBQWdCLG9CQUFoQixnQkFBZ0I7b0RBQUM7QUFLeEI7SUFIQyxJQUFBLDBCQUFRLEdBQUU7SUFDVixJQUFBLDJCQUFTLEVBQUMsQ0FBQyxDQUFDO0lBQ1osSUFBQSwyQkFBUyxFQUFDLElBQUksQ0FBQzs7dURBQ0M7QUFLakI7SUFIQyxJQUFBLDRCQUFVLEdBQUU7SUFDWixJQUFBLDBCQUFRLEdBQUU7SUFDVixJQUFBLDJCQUFTLEVBQUMsRUFBRSxDQUFDOztvREFDQTtBQUdoQixNQUFhLDBCQUEwQjtDQXlHdEM7QUF6R0QsZ0VBeUdDO0FBckdDO0lBSEMsSUFBQSwwQkFBUSxHQUFFO0lBQ1YsSUFBQSwyQkFBUyxFQUFDLENBQUMsQ0FBQztJQUNaLElBQUEsMkJBQVMsRUFBQyxHQUFHLENBQUM7O3lEQUNBO0FBT2Y7SUFMQyxJQUFBLHlCQUFPLEdBQUU7SUFDVCxJQUFBLDhCQUFZLEVBQUMsQ0FBQyxDQUFDO0lBQ2YsSUFBQSw4QkFBWSxFQUFDLEVBQUUsQ0FBQztJQUNoQixJQUFBLGdDQUFjLEVBQUMsRUFBRSxJQUFJLEVBQUUsSUFBSSxFQUFFLENBQUM7SUFDOUIsSUFBQSx3QkFBSSxFQUFDLEdBQUcsRUFBRSxDQUFDLHNCQUFzQixDQUFDOzs0REFDQztBQU9wQztJQUxDLElBQUEsNEJBQVUsR0FBRTtJQUNaLElBQUEsdUJBQUssR0FBRTtJQUNQLElB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ZGhhcnkvQWdlbnRGb3JjZS9hcHBzL2FpLWFwaS9zcmMvb3BlbmFpLWNvbXBhdGlibGUvZHRvL29wZW5haS1jb21wYXQuZHRvLnRzIl0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IFR5cGUgfSBmcm9tIFwiY2xhc3MtdHJhbnNmb3JtZXJcIjtcbmltcG9ydCB7XG4gIEFycmF5TWF4U2l6ZSxcbiAgQXJyYXlNaW5TaXplLFxuICBJc0FycmF5LFxuICBJc0Jvb2xlYW4sXG4gIElzSW4sXG4gIElzSW50LFxuICBJc051bWJlcixcbiAgSXNPYmplY3QsXG4gIElzT3B0aW9uYWwsXG4gIElzU3RyaW5nLFxuICBNYXgsXG4gIE1heExlbmd0aCxcbiAgTWluLFxuICBNaW5MZW5ndGgsXG4gIFZhbGlkYXRlTmVzdGVkXG59IGZyb20gXCJjbGFzcy12YWxpZGF0b3JcIjtcblxuZXhwb3J0IGNvbnN0IE9QRU5BSV9DT01QQVRfUk9MRVMgPSBbXG4gIFwic3lzdGVtXCIsXG4gIFwidXNlclwiLFxuICBcImFzc2lzdGFudFwiLFxuICBcInRvb2xcIlxuXSBhcyBjb25zdDtcbmV4cG9ydCB0eXBlIE9wZW5BaUNvbXBhdFJvbGUgPSAodHlwZW9mIE9QRU5BSV9DT01QQVRfUk9MRVMpW251bWJlcl07XG5cbmV4cG9ydCBjbGFzcyBPcGVuQWlDb21wYXRNZXNzYWdlRHRvIHtcbiAgQElzSW4oT1BFTkFJX0NPTVBBVF9ST0xFUylcbiAgcm9sZSE6IE9wZW5BaUNvbXBhdFJvbGU7XG5cbiAgQElzU3RyaW5nKClcbiAgQE1pbkxlbmd0aCgxKVxuICBATWF4TGVuZ3RoKDgwMDApXG4gIGNvbnRlbnQhOiBzdHJpbmc7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBASXNTdHJpbmcoKVxuICBATWF4TGVuZ3RoKDY0KVxuICBuYW1lPzogc3RyaW5nO1xufVxuXG5leHBvcnQgY2xhc3MgT3BlbkFpQ29tcGF0Q2hhdFJlcXVlc3REdG8ge1xuICBASXNTdHJpbmcoKVxuICBATWluTGVuZ3RoKDEpXG4gIEBNYXhMZW5ndGgoMTI4KVxuICBtb2RlbCE6IHN0cmluZztcblxuICBASXNBcnJheSgpXG4gIEBBcnJheU1pblNpemUoMSlcbiAgQEFycmF5TWF4U2l6ZSg0MClcbiAgQFZhbGlkYXRlTmVzdGVkKHsgZWFjaDogdHJ1ZSB9KVxuICBAVHlwZSgoKSA9PiBPcGVuQWlDb21wYXRNZXNzYWdlRHRvKVxuICBtZXNzYWdlcyE6IE9wZW5BaUNvbXBhdE1lc3NhZ2VEdG9bXTtcblxuICBASXNPcHRpb25hbCgpXG4gIEBJc0ludCgpXG4gIEBNaW4oMSlcbiAgQE1heCg0MDk2KVxuICAvLyBlc2xpbnQtZGlzYWJsZS1uZXh0LWxpbmUgQHR5cGVzY3JpcHQtZXNsaW50L25hbWluZy1jb252ZW50aW9uXG4gIG1heF90b2tlbnM/OiBudW1iZXI7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBASXNJbnQoKVxuICBATWluKDEpXG4gIEBNYXgoNDA5NilcbiAgLy8gZXNsaW50LWRpc2FibGUtbmV4dC1saW5lIEB0eXBlc2NyaXB0LWVzbGludC9uYW1pbmctY29udmVudGlvblxuICBtYXhfY29tcGxldGlvbl90b2tlbnM/OiBudW1iZXI7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBASXNOdW1iZXIoKVxuICBAVHlwZSgoKSA9PiBOdW1iZXIpXG4gIEBNaW4oMClcbiAgQE1heCgyKVxuICB0ZW1wZXJhdHVyZT86IG51bWJlcjtcblxuICBASXNPcHRpb25hbCgpXG4gIEBJc051bWJlcigpXG4gIEBUeXBlKCgpID0+IE51bWJlcilcbiAgQE1pbigwKVxuICBATWF4KDEpXG4gIC8vIGVzbGludC1kaXNhYmxlLW5leHQtbGluZSBAdHlwZXNjcmlwdC1lc2xpbnQvbmFtaW5nLWNvbnZlbnRpb25cbiAgdG9wX3A/OiBudW1iZXI7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBASXNOdW1iZXIoKVxuICBAVHlwZSgoKSA9PiBOdW1iZXIpXG4gIEBNaW4oLTIpXG4gIEBNYXgoMilcbiAgLy8gZXNsaW50LWRpc2FibGUtbmV4dC1saW5lIEB0eXBlc2NyaXB0LWVzbGludC9uYW1pbmctY29udmVudGlvblxuICBwcmVzZW5jZV9wZW5hbHR5PzogbnVtYmVyO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQElzTnVtYmVyKClcbiAgQFR5cGUoKCkgPT4gTnVtYmVyKVxuICBATWluKC0yKVxuICBATWF4KDIpXG4gIC8vIGVzbGludC1kaXNhYmxlLW5leHQtbGluZSBAdHlwZXNjcmlwdC1lc2xpbnQvbmFtaW5nLWNvbnZlbnRpb25cbiAgZnJlcXVlbmN5X3BlbmFsdHk/OiBudW1iZXI7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBASXNJbnQoKVxuICBAVHlwZSgoKSA9PiBOdW1iZXIpXG4gIEBNaW4oMSlcbiAgQE1heCgxKVxuICBuPzogbnVtYmVyO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQElzSW50KClcbiAgQFR5cGUoKCkgPT4gTnVtYmVyKVxuICBzZWVkPzogbnVtYmVyO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgc3RvcD86IHN0cmluZyB8IHN0cmluZ1tdO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQElzT2JqZWN0KClcbiAgLy8gZXNsaW50LWRpc2FibGUtbmV4dC1saW5lIEB0eXBlc2NyaXB0LWVzbGludC9uYW1pbmctY29udmVudGlvblxuICBsb2dpdF9iaWFzPzogUmVjb3JkPHN0cmluZywgbnVtYmVyPjtcblxuICBASXNPcHRpb25hbCgpXG4gIEBJc0FycmF5KClcbiAgQEFycmF5TWF4U2l6ZSgxNilcbiAgdG9vbHM/OiB1bmtub3duW107XG5cbiAgQElzT3B0aW9uYWwoKVxuICAvLyBlc2xpbnQtZGlzYWJsZS1uZXh0LWxpbmUgQHR5cGVzY3JpcHQtZXNsaW50L25hbWluZy1jb252ZW50aW9uXG4gIHRvb2xfY2hvaWNlPzogdW5rbm93bjtcblxuICBASXNPcHRpb25hbCgpXG4gIEBJc09iamVjdCgpXG4gIC8vIGVzbGludC1kaXNhYmxlLW5leHQtbGluZSBAdHlwZXNjcmlwdC1lc2xpbnQvbmFtaW5nLWNvbnZlbnRpb25cbiAgcmVzcG9uc2VfZm9ybWF0PzogUmVjb3JkPHN0cmluZywgdW5rbm93bj47XG5cbiAgQElzT3B0aW9uYWwoKVxuICBASXNPYmplY3QoKVxuICAvLyBlc2xpbnQtZGlzYWJsZS1uZXh0LWxpbmUgQHR5cGVzY3JpcHQtZXNsaW50L25hbWluZy1jb252ZW50aW9uXG4gIHN0cmVhbV9vcHRpb25zPzogUmVjb3JkPHN0cmluZywgdW5rbm93bj47XG5cbiAgQElzT3B0aW9uYWwoKVxuICBASXNCb29sZWFuKClcbiAgc3RyZWFtPzogYm9vbGVhbjtcblxuICBASXNPcHRpb25hbCgpXG4gIEBJc1N0cmluZygpXG4gIEBNYXhMZW5ndGgoNjQpXG4gIHVzZXI/OiBzdHJpbmc7XG59XG5cbmV4cG9ydCBpbnRlcmZhY2UgT3BlbkFpQ29tcGF0TW9kZWxzUmVzcG9uc2Uge1xuICBvYmplY3Q6IFwibGlzdFwiO1xuICBkYXRhOiBBcnJheTx7XG4gICAgaWQ6IHN0cmluZztcbiAgICBvYmplY3Q6IFwibW9kZWxcIjtcbiAgICBvd25lZF9ieTogc3RyaW5nO1xuICB9Pjtcbn1cblxuZXhwb3J0IGludGVyZmFjZSBPcGVuQWlDb21wYXRDaGF0UmVzcG9uc2Uge1xuICBpZDogc3RyaW5nO1xuICBvYmplY3Q6IFwiY2hhdC5jb21wbGV0aW9uXCI7XG4gIGNyZWF0ZWQ6IG51bWJlcjtcbiAgbW9kZWw6IHN0cmluZztcbiAgY2hvaWNlczogQXJyYXk8e1xuICAgIGluZGV4OiBudW1iZXI7XG4gICAgbWVzc2FnZTogeyByb2xlOiBcImFzc2lzdGFudFwiOyBjb250ZW50OiBzdHJpbmcgfTtcbiAgICBmaW5pc2hfcmVhc29uOiBzdHJpbmc7XG4gIH0+O1xuICB1c2FnZToge1xuICAgIHByb21wdF90b2tlbnM6IG51bWJlcjtcbiAgICBjb21wbGV0aW9uX3Rva2VuczogbnVtYmVyO1xuICAgIHRvdGFsX3Rva2VuczogbnVtYmVyO1xuICB9O1xufVxuIl0sInZlcnNpb24iOjN9

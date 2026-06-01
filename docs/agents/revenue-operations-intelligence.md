@@ -11,10 +11,12 @@ risk?` The agent should help an Account Manager choose an account from their
 book of business, then answer `What will impact future revenue, why, how severe
 is it, and what operational action should happen next?`
 
-The current runtime now supports an autonomous handoff on top of that v1 flow:
-the directory can expose a planner-visible top account, the agent can explain
-why that account should be reviewed first, and after confirmation it can run the
-existing single-account summary without forcing manual ID copy/paste.
+The current runtime supports two additive handoff paths on top of that v1 flow:
+the Salesforce-only directory can expose a planner-visible top account, and the
+Phase 9B portfolio analysis can expose a planner-visible top account from
+LLM-led portfolio ranking. In both cases, the agent can explain why that account
+should be reviewed first and, after confirmation, run the existing
+single-account summary without forcing manual ID copy/paste.
 
 This follows the Phase 8 pattern that already proved the right boundary:
 
@@ -22,8 +24,9 @@ This follows the Phase 8 pattern that already proved the right boundary:
 - Apex gathers controlled facts and calls Railway through a Named Credential.
 - The NestJS AI API validates and redacts aggregate facts, then calls
   `ModelRouter`.
-- The LLM owns the account-health, churn-risk, expansion, risk-level, and
-  next-best-action decisions from those approved facts.
+- The LLM owns the account-health, portfolio-status, churn-risk, expansion,
+  risk-level, watchlist, trend, execution-plan, and next-best-action decisions
+  from those approved facts.
 
 Phase 9 intentionally does not keep the Phase 8 deterministic scoring pattern.
 The LLM must not invent missing facts, but the score and recommendation
@@ -50,6 +53,16 @@ single-purpose revenue dashboard agent.
 ```text
 Account Manager
   -> Account Manager Revenue Intelligence topic
+    -> Analyze_Revenue_Portfolio_Intelligence
+      -> AgentforceAiApiRevPortfolioIntel
+        -> user-mode SOQL over owned or visible Account portfolio facts
+        -> sanitized accountReference facts only
+        -> callout:Agentforce_AI_API_Phase2/agent/revenue/portfolio-intelligence
+          -> Portfolio signal aggregation and deterministic fallbacks
+          -> ModelRouter LLM portfolio ranking, watchlist, trend, recommendation, and plan response
+          -> Response validation, redaction, and telemetry
+          -> Apex-built Revenue Portfolio Intelligence Brief
+          -> planner-only topAccountId, topAccountName, topAccountRecommendationReason
     -> List_Account_Manager_Accounts
       -> AgentforceAccountManagerAccountDirectory
         -> user-mode SOQL over owned or visible Account records
@@ -65,10 +78,10 @@ Account Manager
 ```
 
 The Account Manager v1 release stays backend-contract-first. The directory is a
-Salesforce-only selection aid; the existing single-account summary remains the
-LLM-led analysis engine. Multi-agent coordination and deeper portfolio scoring
-can be layered on after stable DTO contracts and decision output contracts
-exist.
+Salesforce-only selection aid; the portfolio action is the LLM-led multi-account
+analysis engine; and the existing single-account summary remains the LLM-led
+drilldown engine. Phase 9B is additive and does not replace the existing
+directory or account-health contracts.
 
 ## Current Account Manager v1 UX Contract
 
@@ -112,15 +125,40 @@ The brief supports Account Manager workflows such as:
 - executive account review
 - next-best-action planning
 
-  ## LLM-Led Intelligence Layers
+### Portfolio Intelligence Brief
 
-  ### Layer 1: LLM Decision Engine
+`Analyze_Revenue_Portfolio_Intelligence` requires confirmation because
+sanitized aggregate portfolio facts may be sent to the external AI API. Apex
+maps Salesforce Account IDs and names to safe `accountReference` values before
+calling the backend; the backend prompt never receives raw Account IDs or names.
+Apex maps the structured response back to Salesforce-visible names and IDs only
+inside the Agentforce response so the planner can support drilldown.
 
-  Backend services gather and validate approved aggregate facts. `ModelRouter`
-  then asks the configured LLM to decide normalized scores, severity bands,
-  rationale, revenue impact, blockers, and next best actions.
+The portfolio brief supports Account Manager workflows such as:
 
-Initial score families:
+- all-assigned-account portfolio review
+- ranked risk and expansion prioritization
+- churn, renewal, escalation, and quiet-account watchlists
+- portfolio-level trend detection
+- proactive next-best-action recommendations
+- weekly multi-account execution planning
+- confirmation-based drilldown into the existing account-health summary
+
+The user-facing answer should display only the formatted `portfolioBrief`.
+Planner-only fields such as `topRiskAccounts`, `topExpansionAccounts`,
+`portfolioWatchlists`, `portfolioTrends`, `recommendedActions`,
+`weeklyExecutionPlan`, `topAccountId`, `topAccountName`, and
+`topAccountRecommendationReason` are for orchestration and follow-up only.
+
+## LLM-Led Intelligence Layers
+
+### Layer 1: LLM Decision Engine
+
+Backend services gather and validate approved aggregate facts. `ModelRouter`
+then asks the configured LLM to decide normalized scores, severity bands,
+rationale, revenue impact, blockers, and next best actions.
+
+Initial score and decision families:
 
 - account health
 - renewal probability
@@ -133,6 +171,12 @@ Initial score families:
 - payment risk
 - stakeholder inactivity
 - usage decline
+- portfolio status
+- portfolio risk ranking
+- portfolio expansion ranking
+- portfolio trend severity
+- portfolio watchlist membership
+- weekly execution priority
 
 Each LLM decision should include:
 
@@ -241,20 +285,42 @@ Implementation status, 2026-05-27:
 - Fixed a live-org directory failure caused by null `Opportunity.Type` values in
   the Account Manager directory aggregation path.
 
-### Phase 9B: Cross-System Intelligence
+### Phase 9B: Portfolio Intelligence
 
 Deliver:
 
-- Certinia PSA signals
-- support metrics
-- usage telemetry inputs
-- finance indicators
-- unified customer reality model
+- `POST /agent/revenue/portfolio-intelligence`
+- required scope `agentforce:revenue-portfolio-intelligence`
+- ModelRouter use case `agentforce_revenue_portfolio_intelligence`
+- Apex bridge `AgentforceAiApiRevPortfolioIntel`
+- global Agentforce action `Analyze_Revenue_Portfolio_Intelligence`
+- portfolio-ranked risk, expansion, renewal, escalation, and quiet-account
+  outputs
+- dynamic watchlists, portfolio trends, proactive recommendations, and weekly
+  execution plans
+- planner-only top-account handoff into the existing single-account summary
 
 Goal:
 
-- create a single account-level operating picture across revenue, delivery, and
-  operations
+- move from a single-account recommendation and summary to autonomous
+  portfolio-level Account Manager intelligence without breaking the existing
+  single-account route or validated Account Manager flows
+
+Implementation status, 2026-05-27:
+
+- Added backend DTOs, service, route, scope, ModelRouter use case, telemetry,
+  unit tests, e2e tests, and README contract docs for portfolio intelligence.
+- Added Apex portfolio bridge and tests. The bridge gathers user-mode aggregate
+  Account, Opportunity, Case, and Task facts, sends only safe account references
+  and aggregate counts to the backend, and maps the structured response back to
+  Agentforce display and planner fields.
+- Added global Agentforce function metadata, input/output schemas, topic
+  orchestration instructions, permission-set class access, agent spec updates,
+  and eval coverage for immediate attention, expansion opportunities, churn
+  watchlists, weekly plans, and portfolio-to-account drilldown.
+- The implementation remains read-only. It suggests proactive actions and plans
+  but does not create or mutate Salesforce, Certinia, support, finance,
+  product, or services records.
 
 ### Phase 9C: Action Intelligence
 
@@ -286,10 +352,11 @@ Goal:
 
 - support predictive what-if analysis and prioritized intervention planning
 
-The current Account Manager directory is not a full portfolio scoring engine.
-Future work should add governed portfolio triage if the team wants ranked churn
-risk, expansion opportunity, revenue-at-risk simulation, or intervention queues
-across an entire book of business.
+Phase 9B now covers governed portfolio triage for ranked risk, expansion
+opportunity, churn watchlists, trend detection, proactive recommendations, and
+weekly intervention planning. Future predictive work can add simulation,
+forecast sensitivity, and revenue-at-risk modeling across the ranked book of
+business.
 
 ## Future Multi-Agent Direction
 
@@ -309,11 +376,11 @@ prioritized interventions, and action plans.
 ## Immediate Implementation Priorities
 
 - run a revenue signal workshop to lock source systems, inputs, and thresholds
-- implement and validate LLM-led DTO and decision contracts first
-- ship the initial account-health endpoint before branching into prompt
-  complexity
-- add Agentforce topics, actions, and prompts only after the backend contract is
-  stable
+- validate the portfolio and single-account contracts together before promotion
+- add governed source-system integrations for Certinia, product usage, and
+  finance signals as approved field mappings become available
+- add release smoke evidence for portfolio ranking, watchlists, and drilldown
+  after deployment to a target org
 
 ## Positioning
 

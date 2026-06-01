@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<GenAiPlugin
+  xmlns="http://soap.sforce.com/2006/04/metadata"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+>
+    <canEscalate>false</canEscalate>
+        <description
+  >This Account Manager-facing topic is selected when a user asks to show, browse, list, or choose accounts from their book of business, including show me the accounts in my book that need attention. Do not use this topic for which accounts need immediate attention, what accounts are at risk, or what should I focus on first portfolio-analysis questions.</description>
+    <developerName
+  >Revenue_Operations_Intelligence_Account_Directory</developerName>
+    <genAiFunctions>
+        <functionName>List_Account_Manager_Accounts</functionName>
+    </genAiFunctions>
+    <genAiFunctions>
+        <functionName>Summarize_Revenue_Account_Health</functionName>
+    </genAiFunctions>
+    <genAiPluginInstructions>
+        <description
+    >Use this topic when the user asks to show accounts, list accounts in their book, browse Account Manager accounts, or choose from their accounts. Treat prompts such as show me the accounts in my book that need attention as directory requests because they start with show me. Do not use this topic for analysis prompts such as which accounts in my portfolio need immediate attention this week, what accounts are at risk, or what should I focus on first. Invoke List_Account_Manager_Accounts before answering. Do not answer with a generic sentence before the directory action returns.</description>
+        <developerName>route_account_directory_requests</developerName>
+        <language>en_US</language>
+        <masterLabel>Route Account Directory Requests</masterLabel>
+        <sortOrder>0</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+        <description
+    >When List_Account_Manager_Accounts returns the directory, display the Account Manager Account Directory instead of a generic summary. When helpful, highlight the top-ranked account from planner-only top-account fields, explain the safe attention signals, and ask whether the user wants an account health review for that account.</description>
+        <developerName>display_account_directory</developerName>
+        <language>en_US</language>
+        <masterLabel>Display Account Directory</masterLabel>
+        <sortOrder>1</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+        <description
+    >When List_Account_Manager_Accounts returns topAccountId and the user confirms they want to review the top account, invoke Summarize_Revenue_Account_Health for that top account without requiring manual Account ID copy/paste. If the user wants a different account, let them choose from the directory.</description>
+        <developerName>directory_to_account_handoff</developerName>
+        <language>en_US</language>
+        <masterLabel>Directory To Account Handoff</masterLabel>
+        <sortOrder>2</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+        <description
+    >This directory is for Salesforce-visible account selection signals, not a final portfolio intelligence ranking. If the user asks for portfolio risk, expansion ranking, churn trends, grouped watchlists, or a weekly multi-account plan, use the Revenue Portfolio Intelligence topic instead.</description>
+        <developerName>directory_boundary</developerName>
+        <language>en_US</language>
+        <masterLabel>Directory Boundary</masterLabel>
+        <sortOrder>3</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+        <description
+    >This workflow is read-only. Do not create, update, close, renew, discount, forecast, staff, escalate, invoice, collect payment, or otherwise mutate Salesforce, Certinia, support, product, or finance records.</description>
+        <developerName>read_only_boundary</developerName>
+        <language>en_US</language>
+        <masterLabel>Read Only Boundary</masterLabel>
+        <sortOrder>4</sortOrder>
+    </genAiPluginInstructions>
+    <language>en_US</language>
+    <localDeveloperName
+  >Revenue_Operations_Intelligence_Account_Directory</localDeveloperName>
+    <masterLabel>Account Manager Account Directory</masterLabel>
+    <pluginType>Topic</pluginType>
+        <scope
+  >Your job is to help Account Managers browse and choose accounts from their book of business. Use List_Account_Manager_Accounts for show, list, browse, choose, or book-of-business directory requests, including requests that begin with show me and ask for accounts that need attention. Do not answer directory requests with only a generic sentence; display the returned Account Manager Account Directory. Use Summarize_Revenue_Account_Health only as a confirmed follow-up for a selected or top-ranked account from the directory. Do not use this topic for which accounts need immediate attention, what accounts are at risk, what should I focus on first, portfolio-wide risk, expansion, churn, watchlist, or weekly planning analysis.</scope>
+</GenAiPlugin>

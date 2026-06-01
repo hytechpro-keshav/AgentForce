@@ -1,0 +1,50 @@
+{
+  "required": [],
+  "unevaluatedProperties": false,
+  "properties": {
+    "analysisFocus": {
+      "title": "Analysis Focus",
+      "description": "Optional portfolio focus: General, Risk, Expansion, Churn, or Weekly Plan.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    },
+    "attentionFilter": {
+      "title": "Attention Filter",
+      "description": "Optional deterministic account filter: All, Risk, Renewal, Expansion, Churn, Quiet, or Escalation.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    },
+    "scopeFilter": {
+      "title": "Scope Filter",
+      "description": "Optional Account scope filter: Owned for the Account Manager book of business or Visible for all visible Accounts. Defaults to Owned.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    },
+    "searchText": {
+      "title": "Search Text",
+      "description": "Optional Account name search text. Used only in Salesforce to select visible Accounts for analysis.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isUserInput": true
+    },
+    "maxAccounts": {
+      "title": "Max Accounts",
+      "description": "Optional maximum number of Accounts to analyze. Defaults to 10 and caps at 25.",
+      "lightning:type": "lightning__integerType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    },
+    "requestId": {
+      "title": "Request Id",
+      "description": "Optional safe correlation id for backend telemetry. Do not use Salesforce record ids.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": false
+    }
+  },
+  "lightning:type": "lightning__objectType",
+  "lightning:textIndexed": true
+}

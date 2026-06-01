@@ -14,9 +14,12 @@ import { RequireScopes } from "../auth/require-scopes.decorator";
 import { LlmProviderError } from "../llm/interfaces/llm-provider";
 import { AgentforceRateLimitGuard } from "./agentforce-rate-limit.guard";
 import { RevenueAccountHealthService } from "./revenue-account-health.service";
+import { RevenuePortfolioIntelligenceService } from "./revenue-portfolio-intelligence.service";
 import {
   RevenueAccountHealthRequestDto,
-  type RevenueAccountHealthResponseDto
+  RevenuePortfolioIntelligenceRequestDto,
+  type RevenueAccountHealthResponseDto,
+  type RevenuePortfolioIntelligenceResponseDto
 } from "./dto/revenue-account-health.dto";
 
 @Controller("agent/revenue")
@@ -24,7 +27,8 @@ export class RevenueAgentController {
   private readonly logger = new Logger(RevenueAgentController.name);
 
   constructor(
-    private readonly revenueAccountHealthService: RevenueAccountHealthService
+    private readonly revenueAccountHealthService: RevenueAccountHealthService,
+    private readonly revenuePortfolioIntelligenceService: RevenuePortfolioIntelligenceService
   ) {}
 
   @RequireScopes("agentforce:revenue-account-health")
@@ -41,6 +45,23 @@ export class RevenueAgentController {
       );
     } catch (err) {
       throw this.toClientError(err, "revenue.account-health");
+    }
+  }
+
+  @RequireScopes("agentforce:revenue-portfolio-intelligence")
+  @UseGuards(AgentforceRateLimitGuard)
+  @Post("portfolio-intelligence")
+  async analyzePortfolioIntelligence(
+    @Body() body: RevenuePortfolioIntelligenceRequestDto,
+    @Req() request: AuthenticatedRequest
+  ): Promise<RevenuePortfolioIntelligenceResponseDto> {
+    try {
+      return await this.revenuePortfolioIntelligenceService.analyze(
+        body,
+        request.authPrincipal
+      );
+    } catch (err) {
+      throw this.toClientError(err, "revenue.portfolio-intelligence");
     }
   }
 

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GenAiPlugin xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <canEscalate>false</canEscalate>
+    <description>This topic is selected only when a user requests a read-only Certinia PSA project health, delivery risk, schedule, budget, staffing, risk-driver, or recommended-action summary for a specific project.</description>
+    <developerName>p_16jam000001LYNt_Services_Org_Intelligence_Project_Health</developerName>
+    <genAiFunctions>
+        <functionName>Summarize_Project_Health</functionName>
+    </genAiFunctions>
+    <genAiPluginInstructions>
+        <description>If the query lacks a project name, PSA project ID, project code, or Salesforce project record ID, ask the user to provide one.</description>
+        <developerName>instruction_0</developerName>
+        <language xsi:nil="true"/>
+        <masterLabel>instruction_0</masterLabel>
+        <sortOrder>0</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+        <description>Once the project key is confirmed, use only the Summarize_Project_Health action to generate the project health summary. Do not use native knowledge search or any other action for Phase 8 project health prompts.</description>
+        <developerName>instruction_1</developerName>
+        <language xsi:nil="true"/>
+        <masterLabel>instruction_1</masterLabel>
+        <sortOrder>0</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+        <description>Return the health status, risk level, schedule status, budget status, staffing status, risk drivers, and recommended actions to the user.</description>
+        <developerName>instruction_2</developerName>
+        <language xsi:nil="true"/>
+        <masterLabel>instruction_2</masterLabel>
+        <sortOrder>0</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+        <description>Do not create, update, close, rebaseline, staff, approve, reject, or otherwise mutate projects, assignments, milestones, budgets, timecards, resource requests, or project tasks. If the user asks for a mutation, explain that this showcase agent is analysis-only.</description>
+        <developerName>instruction_read_only_boundary</developerName>
+        <language>en_US</language>
+        <masterLabel>Read Only Boundary</masterLabel>
+        <sortOrder>0</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+        <description>Never reveal project notes, timecard notes, internal comments, raw Salesforce record payloads, raw prompts, raw backend payloads, Authorization headers, bearer tokens, JWTs, Named Credential secrets, or other credential values.</description>
+        <developerName>instruction_sensitive_data_boundary</developerName>
+        <language>en_US</language>
+        <masterLabel>Sensitive Data Boundary</masterLabel>
+        <sortOrder>0</sortOrder>
+    </genAiPluginInstructions>
+    <language>en_US</language>
+    <localDeveloperName>p_16jam000001LYNt_Services_Org_Intelligence_Project_Health</localDeveloperName>
+    <masterLabel>Services Org Intelligence Project Health</masterLabel>
+    <pluginType>Topic</pluginType>
+    <scope>Your job is only to summarize read-only Certinia PSA project delivery health for a provided project key by invoking Summarize_Project_Health. This includes returning health status, risk level, schedule status, budget status, staffing status, risk drivers, and recommended actions. You are not able to modify project data, create records, search native knowledge, or expose sensitive notes, raw payloads, prompts, or credentials.</scope>
+</GenAiPlugin>

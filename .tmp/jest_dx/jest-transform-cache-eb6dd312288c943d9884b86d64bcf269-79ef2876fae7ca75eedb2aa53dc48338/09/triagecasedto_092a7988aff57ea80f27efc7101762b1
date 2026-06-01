@@ -1,0 +1,51 @@
+5edfdca0a6115a388595812721dddbce
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var _a;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.TriageCaseRequestDto = exports.TRIAGE_PRIORITIES = void 0;
+const class_validator_1 = require("class-validator");
+const chat_message_dto_1 = require("../../chat/dto/chat-message.dto");
+exports.TRIAGE_PRIORITIES = ["low", "normal", "high", "critical"];
+class TriageCaseRequestDto {
+}
+exports.TriageCaseRequestDto = TriageCaseRequestDto;
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(1),
+    (0, class_validator_1.MaxLength)(200),
+    __metadata("design:type", String)
+], TriageCaseRequestDto.prototype, "subject", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(1),
+    (0, class_validator_1.MaxLength)(4000),
+    __metadata("design:type", String)
+], TriageCaseRequestDto.prototype, "description", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(exports.TRIAGE_PRIORITIES),
+    __metadata("design:type", typeof (_a = typeof TriagePriorityDto !== "undefined" && TriagePriorityDto) === "function" ? _a : Object)
+], TriageCaseRequestDto.prototype, "reportedPriority", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(64),
+    __metadata("design:type", String)
+], TriageCaseRequestDto.prototype, "caseId", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(64),
+    (0, class_validator_1.Matches)(chat_message_dto_1.SAFE_CHAT_REQUEST_ID_PATTERN),
+    __metadata("design:type", String)
+], TriageCaseRequestDto.prototype, "requestId", void 0);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy9hZ2VudHMvZHRvL3RyaWFnZS1jYXNlLmR0by50cyIsIm1hcHBpbmdzIjoiOzs7Ozs7Ozs7Ozs7O0FBQUEscURBT3lCO0FBRXpCLHNFQUErRTtBQUVsRSxRQUFBLGlCQUFpQixHQUFHLENBQUMsS0FBSyxFQUFFLFFBQVEsRUFBRSxNQUFNLEVBQUUsVUFBVSxDQUFVLENBQUM7QUFHaEYsTUFBYSxvQkFBb0I7Q0F5QmhDO0FBekJELG9EQXlCQztBQXJCQztJQUhDLElBQUEsMEJBQVEsR0FBRTtJQUNWLElBQUEsMkJBQVMsRUFBQyxDQUFDLENBQUM7SUFDWixJQUFBLDJCQUFTLEVBQUMsR0FBRyxDQUFDOztxREFDRTtBQUtqQjtJQUhDLElBQUEsMEJBQVEsR0FBRTtJQUNWLElBQUEsMkJBQVMsRUFBQyxDQUFDLENBQUM7SUFDWixJQUFBLDJCQUFTLEVBQUMsSUFBSSxDQUFDOzt5REFDSztBQUlyQjtJQUZDLElBQUEsNEJBQVUsR0FBRTtJQUNaLElBQUEsc0JBQUksRUFBQyx5QkFBaUIsQ0FBQztrREFDTCxpQkFBaUIsb0JBQWpCLGlCQUFpQjs4REFBQztBQUtyQztJQUhDLElBQUEsNEJBQVUsR0FBRTtJQUNaLElBQUEsMEJBQVEsR0FBRTtJQUNWLElBQUEsMkJBQVMsRUFBQyxFQUFFLENBQUM7O29EQUNFO0FBTWhCO0lBSkMsSUFBQSw0QkFBVSxHQUFFO0lBQ1osSUFBQSwwQkFBUSxHQUFFO0lBQ1YsSUFBQSwyQkFBUyxFQUFDLEVBQUUsQ0FBQztJQUNiLElBQUEseUJBQU8sRUFBQywrQ0FBNEIsQ0FBQzs7dURBQ25CIiwibmFtZXMiOltdLCJzb3VyY2VzIjpbIi9Vc2Vycy9rZXNoYXZjaGF1ZGhhcnkvQWdlbnRGb3JjZS9hcHBzL2FpLWFwaS9zcmMvYWdlbnRzL2R0by90cmlhZ2UtY2FzZS5kdG8udHMiXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHtcbiAgSXNJbixcbiAgSXNPcHRpb25hbCxcbiAgSXNTdHJpbmcsXG4gIE1heExlbmd0aCxcbiAgTWF0Y2hlcyxcbiAgTWluTGVuZ3RoXG59IGZyb20gXCJjbGFzcy12YWxpZGF0b3JcIjtcblxuaW1wb3J0IHsgU0FGRV9DSEFUX1JFUVVFU1RfSURfUEFUVEVSTiB9IGZyb20gXCIuLi8uLi9jaGF0L2R0by9jaGF0LW1lc3NhZ2UuZHRvXCI7XG5cbmV4cG9ydCBjb25zdCBUUklBR0VfUFJJT1JJVElFUyA9IFtcImxvd1wiLCBcIm5vcm1hbFwiLCBcImhpZ2hcIiwgXCJjcml0aWNhbFwiXSBhcyBjb25zdDtcbmV4cG9ydCB0eXBlIFRyaWFnZVByaW9yaXR5RHRvID0gKHR5cGVvZiBUUklBR0VfUFJJT1JJVElFUylbbnVtYmVyXTtcblxuZXhwb3J0IGNsYXNzIFRyaWFnZUNhc2VSZXF1ZXN0RHRvIHtcbiAgQElzU3RyaW5nKClcbiAgQE1pbkxlbmd0aCgxKVxuICBATWF4TGVuZ3RoKDIwMClcbiAgc3ViamVjdCE6IHN0cmluZztcblxuICBASXNTdHJpbmcoKVxuICBATWluTGVuZ3RoKDEpXG4gIEBNYXhMZW5ndGgoNDAwMClcbiAgZGVzY3JpcHRpb24hOiBzdHJpbmc7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBASXNJbihUUklBR0VfUFJJT1JJVElFUylcbiAgcmVwb3J0ZWRQcmlvcml0eT86IFRyaWFnZVByaW9yaXR5RHRvO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQElzU3RyaW5nKClcbiAgQE1heExlbmd0aCg2NClcbiAgY2FzZUlkPzogc3RyaW5nO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQElzU3RyaW5nKClcbiAgQE1heExlbmd0aCg2NClcbiAgQE1hdGNoZXMoU0FGRV9DSEFUX1JFUVVFU1RfSURfUEFUVEVSTilcbiAgcmVxdWVzdElkPzogc3RyaW5nO1xufVxuXG5leHBvcnQgaW50ZXJmYWNlIFRyaWFnZUNhc2VSZXNwb25zZUR0byB7XG4gIHJlY29tbWVuZGVkUHJpb3JpdHk6IFRyaWFnZVByaW9yaXR5RHRvO1xuICBzdW1tYXJ5OiBzdHJpbmc7XG4gIHN1Z2dlc3RlZE5leHRTdGVwOiBzdHJpbmc7XG4gIHByb3ZpZGVyOiBzdHJpbmc7XG4gIG1vZGVsOiBzdHJpbmc7XG4gIGZhbGxiYWNrVXNlZDogYm9vbGVhbjtcbiAgbGF0ZW5jeU1zOiBudW1iZXI7XG59XG4iXSwidmVyc2lvbiI6M30=

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <types>
+        <members>Analyze_Revenue_Portfolio_Intelligence</members>
+        <members>List_Account_Manager_Accounts</members>
+        <members>Summarize_Revenue_Account_Health</members>
+        <name>GenAiFunction</name>
+    </types>
+    <types>
+        <members>Revenue_Operations_Intelligence_Agent</members>
+        <name>GenAiPlannerBundle</name>
+    </types>
+    <types>
+        <members>Revenue_Operations_Intelligence_Account_Directory</members>
+        <members>Revenue_Operations_Intelligence_Account_Health</members>
+        <members>Revenue_Operations_Intelligence_Portfolio</members>
+        <name>GenAiPlugin</name>
+    </types>
+    <types>
+        <members>Revenue_Operations_Intelligence_Agent</members>
+        <name>PermissionSet</name>
+    </types>
+    <version>66.0</version>
+</Package>

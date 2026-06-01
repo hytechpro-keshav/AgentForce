@@ -1,0 +1,36 @@
+6bf83b0781303b232473ae0fcc8ceaf9
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.CustomerChatSessionRequestDto = void 0;
+const class_validator_1 = require("class-validator");
+class CustomerChatSessionRequestDto {
+}
+exports.CustomerChatSessionRequestDto = CustomerChatSessionRequestDto;
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(1),
+    (0, class_validator_1.MaxLength)(128),
+    __metadata("design:type", String)
+], CustomerChatSessionRequestDto.prototype, "accessCode", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(120),
+    __metadata("design:type", String)
+], CustomerChatSessionRequestDto.prototype, "displayName", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(16),
+    __metadata("design:type", String)
+], CustomerChatSessionRequestDto.prototype, "locale", void 0);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy9hdXRoL2R0by9jdXN0b21lci1jaGF0LXNlc3Npb24uZHRvLnRzIiwibWFwcGluZ3MiOiI7Ozs7Ozs7Ozs7OztBQUFBLHFEQUE2RTtBQUU3RSxNQUFhLDZCQUE2QjtDQWV6QztBQWZELHNFQWVDO0FBWEM7SUFIQyxJQUFBLDBCQUFRLEdBQUU7SUFDVixJQUFBLDJCQUFTLEVBQUMsQ0FBQyxDQUFDO0lBQ1osSUFBQSwyQkFBUyxFQUFDLEdBQUcsQ0FBQzs7aUVBQ0s7QUFLcEI7SUFIQyxJQUFBLDRCQUFVLEdBQUU7SUFDWixJQUFBLDBCQUFRLEdBQUU7SUFDVixJQUFBLDJCQUFTLEVBQUMsR0FBRyxDQUFDOztrRUFDTTtBQUtyQjtJQUhDLElBQUEsNEJBQVUsR0FBRTtJQUNaLElBQUEsMEJBQVEsR0FBRTtJQUNWLElBQUEsMkJBQVMsRUFBQyxFQUFFLENBQUM7OzZEQUNFIiwibmFtZXMiOltdLCJzb3VyY2VzIjpbIi9Vc2Vycy9rZXNoYXZjaGF1ZGhhcnkvQWdlbnRGb3JjZS9hcHBzL2FpLWFwaS9zcmMvYXV0aC9kdG8vY3VzdG9tZXItY2hhdC1zZXNzaW9uLmR0by50cyJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyBJc09wdGlvbmFsLCBJc1N0cmluZywgTWF4TGVuZ3RoLCBNaW5MZW5ndGggfSBmcm9tIFwiY2xhc3MtdmFsaWRhdG9yXCI7XG5cbmV4cG9ydCBjbGFzcyBDdXN0b21lckNoYXRTZXNzaW9uUmVxdWVzdER0byB7XG4gIEBJc1N0cmluZygpXG4gIEBNaW5MZW5ndGgoMSlcbiAgQE1heExlbmd0aCgxMjgpXG4gIGFjY2Vzc0NvZGUhOiBzdHJpbmc7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBASXNTdHJpbmcoKVxuICBATWF4TGVuZ3RoKDEyMClcbiAgZGlzcGxheU5hbWU/OiBzdHJpbmc7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBASXNTdHJpbmcoKVxuICBATWF4TGVuZ3RoKDE2KVxuICBsb2NhbGU/OiBzdHJpbmc7XG59XG5cbmV4cG9ydCBpbnRlcmZhY2UgQ3VzdG9tZXJDaGF0U2Vzc2lvblJlc3BvbnNlRHRvIHtcbiAgYWNjZXNzVG9rZW46IHN0cmluZztcbiAgdG9rZW5UeXBlOiBcIkJlYXJlclwiO1xuICBleHBpcmVzQXQ6IHN0cmluZztcbiAgZXhwaXJlc0luU2Vjb25kczogbnVtYmVyO1xuICBzdWJqZWN0OiBzdHJpbmc7XG59XG4iXSwidmVyc2lvbiI6M30=

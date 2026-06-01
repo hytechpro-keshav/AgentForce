@@ -259,6 +259,38 @@ describe("AppConfigService", () => {
     });
   });
 
+  it("loads the Phase 9B revenue portfolio route override", () => {
+    const config = AppConfigService.load({
+      MODEL_ROUTING_CONFIG_JSON: JSON.stringify({
+        routes: {
+          agentforce_revenue_portfolio_intelligence: {
+            provider: "openai",
+            model: "gpt-4o-mini",
+            budget: {
+              maxOutputTokensPerRequest: 1100,
+              maxTokensPerMinute: 9000
+            },
+            allowProviderOverride: false,
+            allowModelOverride: false
+          }
+        }
+      })
+    });
+
+    expect(
+      config.modelRouting.routes.agentforce_revenue_portfolio_intelligence
+    ).toMatchObject({
+      provider: "openai",
+      model: "gpt-4o-mini",
+      budget: {
+        maxOutputTokensPerRequest: 1100,
+        maxTokensPerMinute: 9000
+      },
+      allowProviderOverride: false,
+      allowModelOverride: false
+    });
+  });
+
   it("requires the OpenAI key when openai is default in production-like deployments", () => {
     expect(() =>
       AppConfigService.load({
@@ -384,7 +416,8 @@ describe("AppConfigService", () => {
         "agentforce:case-analysis",
         "agentforce:knowledge-rag",
         "agentforce:services-project-health",
-        "agentforce:revenue-account-health"
+        "agentforce:revenue-account-health",
+        "agentforce:revenue-portfolio-intelligence"
       ],
       roles: ["support-agent"]
     });
@@ -400,7 +433,8 @@ describe("AppConfigService", () => {
       "agentforce:case-analysis",
       "agentforce:knowledge-rag",
       "agentforce:services-project-health",
-      "agentforce:revenue-account-health"
+      "agentforce:revenue-account-health",
+      "agentforce:revenue-portfolio-intelligence"
     ]);
     expect(config.jwt.agentforceServiceBearers[0]?.scopes).toEqual(
       config.jwt.agentforceServiceBearer?.scopes

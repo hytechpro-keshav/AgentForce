@@ -1,0 +1,56 @@
+b2f8fc04a1c0f0f2ab4e3a8be49e74e6
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var ChatEscalationService_1;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ChatEscalationService = void 0;
+const common_1 = require("@nestjs/common");
+const crypto_1 = require("crypto");
+/**
+ * Phase 6 customer-chat escalation acknowledgement service.
+ *
+ * Receives a customer-safe escalation request from the React chat
+ * window and returns a structured acknowledgement. It does not
+ * write to Salesforce directly. Downstream Agentforce/Apex
+ * integration is intentionally deferred so this endpoint cannot
+ * leak Salesforce credentials or perform unsafe writes.
+ *
+ * Logging policy: only structural fields (urgency, locale length,
+ * whether a caseReference was provided) are emitted. No reason
+ * text, no conversation summary, no PII.
+ */
+let ChatEscalationService = ChatEscalationService_1 = class ChatEscalationService {
+    constructor() {
+        this.logger = new common_1.Logger(ChatEscalationService_1.name);
+    }
+    acknowledge(request, subject) {
+        const escalationId = `esc-${(0, crypto_1.randomUUID)()}`;
+        const urgency = request.urgency ?? "normal";
+        const receivedAt = new Date().toISOString();
+        this.logger.log(`chat.escalate received escalationId=${escalationId} urgency=${urgency} hasCaseRef=${request.caseReference ? "1" : "0"} hasSummary=${request.conversationSummary ? "1" : "0"} subjectHash=${ChatEscalationService_1.safeSubjectHash(subject)}`);
+        return {
+            escalationId,
+            status: "received",
+            urgency,
+            receivedAt,
+            nextSteps: "Your request has been received. A support specialist will follow up using the contact information on your account.",
+            requestId: request.requestId
+        };
+    }
+    static safeSubjectHash(subject) {
+        return (0, crypto_1.createHash)("sha256")
+            .update(subject ?? "anonymous")
+            .digest("hex")
+            .slice(0, 16);
+    }
+};
+exports.ChatEscalationService = ChatEscalationService;
+exports.ChatEscalationService = ChatEscalationService = ChatEscalationService_1 = __decorate([
+    (0, common_1.Injectable)()
+], ChatEscalationService);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy9jaGF0L2NoYXQtZXNjYWxhdGlvbi5zZXJ2aWNlLnRzIiwibWFwcGluZ3MiOiI7Ozs7Ozs7Ozs7QUFBQSwyQ0FBb0Q7QUFDcEQsbUNBQWdEO0FBT2hEOzs7Ozs7Ozs7Ozs7R0FZRztBQUVJLElBQU0scUJBQXFCLDZCQUEzQixNQUFNLHFCQUFxQjtJQUEzQjtRQUNZLFdBQU0sR0FBRyxJQUFJLGVBQU0sQ0FBQyx1QkFBcUIsQ0FBQyxJQUFJLENBQUMsQ0FBQztJQW1DbkUsQ0FBQztJQWpDQyxXQUFXLENBQ1QsT0FBaUMsRUFDakMsT0FBMkI7UUFFM0IsTUFBTSxZQUFZLEdBQUcsT0FBTyxJQUFBLG1CQUFVLEdBQUUsRUFBRSxDQUFDO1FBQzNDLE1BQU0sT0FBTyxHQUFHLE9BQU8sQ0FBQyxPQUFPLElBQUksUUFBUSxDQUFDO1FBQzVDLE1BQU0sVUFBVSxHQUFHLElBQUksSUFBSSxFQUFFLENBQUMsV0FBVyxFQUFFLENBQUM7UUFFNUMsSUFBSSxDQUFDLE1BQU0sQ0FBQyxHQUFHLENBQ2IsdUNBQXVDLFlBQVksWUFBWSxPQUFPLGVBQ3BFLE9BQU8sQ0FBQyxhQUFhLENBQUMsQ0FBQyxDQUFDLEdBQUcsQ0FBQyxDQUFDLENBQUMsR0FDaEMsZUFBZSxPQUFPLENBQUMsbUJBQW1CLENBQUMsQ0FBQyxDQUFDLEdBQUcsQ0FBQyxDQUFDLENBQUMsR0FBRyxnQkFBZ0IsdUJBQXFCLENBQUMsZUFBZSxDQUN6RyxPQUFPLENBQ1IsRUFBRSxDQUNKLENBQUM7UUFFRixPQUFPO1lBQ0wsWUFBWTtZQUNaLE1BQU0sRUFBRSxVQUFVO1lBQ2xCLE9BQU87WUFDUCxVQUFVO1lBQ1YsU0FBUyxFQUNQLG9IQUFvSDtZQUN0SCxTQUFTLEVBQUUsT0FBTyxDQUFDLFNBQVM7U0FDN0IsQ0FBQztJQUNKLENBQUM7SUFFTyxNQUFNLENBQUMsZUFBZSxDQUFDLE9BQTJCO1FBQ3hELE9BQU8sSUFBQSxtQkFBVSxFQUFDLFFBQVEsQ0FBQzthQUN4QixNQUFNLENBQUMsT0FBTyxJQUFJLFdBQVcsQ0FBQzthQUM5QixNQUFNLENBQUMsS0FBSyxDQUFDO2FBQ2IsS0FBSyxDQUFDLENBQUMsRUFBRSxFQUFFLENBQUMsQ0FBQztJQUNsQixDQUFDO0NBQ0YsQ0FBQTtBQXBDWSxzREFBcUI7Z0NBQXJCLHFCQUFxQjtJQURqQyxJQUFBLG1CQUFVLEdBQUU7R0FDQSxxQkFBcUIsQ0FvQ2pDIiwibmFtZXMiOltdLCJzb3VyY2VzIjpbIi9Vc2Vycy9rZXNoYXZjaGF1ZGhhcnkvQWdlbnRGb3JjZS9hcHBzL2FpLWFwaS9zcmMvY2hhdC9jaGF0LWVzY2FsYXRpb24uc2VydmljZS50cyJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyBJbmplY3RhYmxlLCBMb2dnZXIgfSBmcm9tIFwiQG5lc3Rqcy9jb21tb25cIjtcbmltcG9ydCB7IGNyZWF0ZUhhc2gsIHJhbmRvbVVVSUQgfSBmcm9tIFwiY3J5cHRvXCI7XG5cbmltcG9ydCB0eXBlIHtcbiAgQ2hhdEVzY2FsYXRpb25SZXF1ZXN0RHRvLFxuICBDaGF0RXNjYWxhdGlvblJlc3BvbnNlRHRvXG59IGZyb20gXCIuL2R0by9jaGF0LWVzY2FsYXRpb24uZHRvXCI7XG5cbi8qKlxuICogUGhhc2UgNiBjdXN0b21lci1jaGF0IGVzY2FsYXRpb24gYWNrbm93bGVkZ2VtZW50IHNlcnZpY2UuXG4gKlxuICogUmVjZWl2ZXMgYSBjdXN0b21lci1zYWZlIGVzY2FsYXRpb24gcmVxdWVzdCBmcm9tIHRoZSBSZWFjdCBjaGF0XG4gKiB3aW5kb3cgYW5kIHJldHVybnMgYSBzdHJ1Y3R1cmVkIGFja25vd2xlZGdlbWVudC4gSXQgZG9lcyBub3RcbiAqIHdyaXRlIHRvIFNhbGVzZm9yY2UgZGlyZWN0bHkuIERvd25zdHJlYW0gQWdlbnRmb3JjZS9BcGV4XG4gKiBpbnRlZ3JhdGlvbiBpcyBpbnRlbnRpb25hbGx5IGRlZmVycmVkIHNvIHRoaXMgZW5kcG9pbnQgY2Fubm90XG4gKiBsZWFrIFNhbGVzZm9yY2UgY3JlZGVudGlhbHMgb3IgcGVyZm9ybSB1bnNhZmUgd3JpdGVzLlxuICpcbiAqIExvZ2dpbmcgcG9saWN5OiBvbmx5IHN0cnVjdHVyYWwgZmllbGRzICh1cmdlbmN5LCBsb2NhbGUgbGVuZ3RoLFxuICogd2hldGhlciBhIGNhc2VSZWZlcmVuY2Ugd2FzIHByb3ZpZGVkKSBhcmUgZW1pdHRlZC4gTm8gcmVhc29uXG4gKiB0ZXh0LCBubyBjb252ZXJzYXRpb24gc3VtbWFyeSwgbm8gUElJLlxuICovXG5ASW5qZWN0YWJsZSgpXG5leHBvcnQgY2xhc3MgQ2hhdEVzY2FsYXRpb25TZXJ2aWNlIHtcbiAgcHJpdmF0ZSByZWFkb25seSBsb2dnZXIgPSBuZXcgTG9nZ2VyKENoYXRFc2NhbGF0aW9uU2VydmljZS5uYW1lKTtcblxuICBhY2tub3dsZWRnZShcbiAgICByZXF1ZXN0OiBDaGF0RXNjYWxhdGlvblJlcXVlc3REdG8sXG4gICAgc3ViamVjdDogc3RyaW5nIHwgdW5kZWZpbmVkXG4gICk6IENoYXRFc2NhbGF0aW9uUmVzcG9uc2VEdG8ge1xuICAgIGNvbnN0IGVzY2FsYXRpb25JZCA9IGBlc2MtJHtyYW5kb21VVUlEKCl9YDtcbiAgICBjb25zdCB1cmdlbmN5ID0gcmVxdWVzdC51cmdlbmN5ID8/IFwibm9ybWFsXCI7XG4gICAgY29uc3QgcmVjZWl2ZWRBdCA9IG5ldyBEYXRlKCkudG9JU09TdHJpbmcoKTtcblxuICAgIHRoaXMubG9nZ2VyLmxvZyhcbiAgICAgIGBjaGF0LmVzY2FsYXRlIHJlY2VpdmVkIGVzY2FsYXRpb25JZD0ke2VzY2FsYXRpb25JZH0gdXJnZW5jeT0ke3VyZ2VuY3l9IGhhc0Nhc2VSZWY9JHtcbiAgICAgICAgcmVxdWVzdC5jYXNlUmVmZXJlbmNlID8gXCIxXCIgOiBcIjBcIlxuICAgICAgfSBoYXNTdW1tYXJ5PSR7cmVxdWVzdC5jb252ZXJzYXRpb25TdW1tYXJ5ID8gXCIxXCIgOiBcIjBcIn0gc3ViamVjdEhhc2g9JHtDaGF0RXNjYWxhdGlvblNlcnZpY2Uuc2FmZVN1YmplY3RIYXNoKFxuICAgICAgICBzdWJqZWN0XG4gICAgICApfWBcbiAgICApO1xuXG4gICAgcmV0dXJuIHtcbiAgICAgIGVzY2FsYXRpb25JZCxcbiAgICAgIHN0YXR1czogXCJyZWNlaXZlZFwiLFxuICAgICAgdXJnZW5jeSxcbiAgICAgIHJlY2VpdmVkQXQsXG4gICAgICBuZXh0U3RlcHM6XG4gICAgICAgIFwiWW91ciByZXF1ZXN0IGhhcyBiZWVuIHJlY2VpdmVkLiBBIHN1cHBvcnQgc3BlY2lhbGlzdCB3aWxsIGZvbGxvdyB1cCB1c2luZyB0aGUgY29udGFjdCBpbmZvcm1hdGlvbiBvbiB5b3VyIGFjY291bnQuXCIsXG4gICAgICByZXF1ZXN0SWQ6IHJlcXVlc3QucmVxdWVzdElkXG4gICAgfTtcbiAgfVxuXG4gIHByaXZhdGUgc3RhdGljIHNhZmVTdWJqZWN0SGFzaChzdWJqZWN0OiBzdHJpbmcgfCB1bmRlZmluZWQpOiBzdHJpbmcge1xuICAgIHJldHVybiBjcmVhdGVIYXNoKFwic2hhMjU2XCIpXG4gICAgICAudXBkYXRlKHN1YmplY3QgPz8gXCJhbm9ueW1vdXNcIilcbiAgICAgIC5kaWdlc3QoXCJoZXhcIilcbiAgICAgIC5zbGljZSgwLCAxNik7XG4gIH1cbn1cbiJdLCJ2ZXJzaW9uIjozfQ==

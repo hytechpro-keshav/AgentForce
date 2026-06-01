@@ -1,0 +1,26 @@
+749665c1f15eb098186a28b096288c1f
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.OpenAiCompatibleModule = void 0;
+const common_1 = require("@nestjs/common");
+const llm_module_1 = require("../llm/llm.module");
+const rag_module_1 = require("../rag/rag.module");
+const openai_compatible_controller_1 = require("./openai-compatible.controller");
+const openai_compatible_rate_limit_guard_1 = require("./openai-compatible-rate-limit.guard");
+let OpenAiCompatibleModule = class OpenAiCompatibleModule {
+};
+exports.OpenAiCompatibleModule = OpenAiCompatibleModule;
+exports.OpenAiCompatibleModule = OpenAiCompatibleModule = __decorate([
+    (0, common_1.Module)({
+        imports: [llm_module_1.LlmModule, rag_module_1.RagModule],
+        controllers: [openai_compatible_controller_1.OpenAiCompatibleController],
+        providers: [openai_compatible_rate_limit_guard_1.OpenAiCompatibleRateLimitGuard]
+    })
+], OpenAiCompatibleModule);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy9vcGVuYWktY29tcGF0aWJsZS9vcGVuYWktY29tcGF0aWJsZS5tb2R1bGUudHMiLCJtYXBwaW5ncyI6Ijs7Ozs7Ozs7O0FBQUEsMkNBQXdDO0FBRXhDLGtEQUE4QztBQUM5QyxrREFBOEM7QUFDOUMsaUZBQTRFO0FBQzVFLDZGQUFzRjtBQU8vRSxJQUFNLHNCQUFzQixHQUE1QixNQUFNLHNCQUFzQjtDQUFHLENBQUE7QUFBekIsd0RBQXNCO2lDQUF0QixzQkFBc0I7SUFMbEMsSUFBQSxlQUFNLEVBQUM7UUFDTixPQUFPLEVBQUUsQ0FBQyxzQkFBUyxFQUFFLHNCQUFTLENBQUM7UUFDL0IsV0FBVyxFQUFFLENBQUMseURBQTBCLENBQUM7UUFDekMsU0FBUyxFQUFFLENBQUMsbUVBQThCLENBQUM7S0FDNUMsQ0FBQztHQUNXLHNCQUFzQixDQUFHIiwibmFtZXMiOltdLCJzb3VyY2VzIjpbIi9Vc2Vycy9rZXNoYXZjaGF1ZGhhcnkvQWdlbnRGb3JjZS9hcHBzL2FpLWFwaS9zcmMvb3BlbmFpLWNvbXBhdGlibGUvb3BlbmFpLWNvbXBhdGlibGUubW9kdWxlLnRzIl0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IE1vZHVsZSB9IGZyb20gXCJAbmVzdGpzL2NvbW1vblwiO1xuXG5pbXBvcnQgeyBMbG1Nb2R1bGUgfSBmcm9tIFwiLi4vbGxtL2xsbS5tb2R1bGVcIjtcbmltcG9ydCB7IFJhZ01vZHVsZSB9IGZyb20gXCIuLi9yYWcvcmFnLm1vZHVsZVwiO1xuaW1wb3J0IHsgT3BlbkFpQ29tcGF0aWJsZUNvbnRyb2xsZXIgfSBmcm9tIFwiLi9vcGVuYWktY29tcGF0aWJsZS5jb250cm9sbGVyXCI7XG5pbXBvcnQgeyBPcGVuQWlDb21wYXRpYmxlUmF0ZUxpbWl0R3VhcmQgfSBmcm9tIFwiLi9vcGVuYWktY29tcGF0aWJsZS1yYXRlLWxpbWl0Lmd1YXJkXCI7XG5cbkBNb2R1bGUoe1xuICBpbXBvcnRzOiBbTGxtTW9kdWxlLCBSYWdNb2R1bGVdLFxuICBjb250cm9sbGVyczogW09wZW5BaUNvbXBhdGlibGVDb250cm9sbGVyXSxcbiAgcHJvdmlkZXJzOiBbT3BlbkFpQ29tcGF0aWJsZVJhdGVMaW1pdEd1YXJkXVxufSlcbmV4cG9ydCBjbGFzcyBPcGVuQWlDb21wYXRpYmxlTW9kdWxlIHt9XG4iXSwidmVyc2lvbiI6M30=

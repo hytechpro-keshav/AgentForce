@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<GenAiPlugin
+  xmlns="http://soap.sforce.com/2006/04/metadata"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+>
+    <canEscalate>false</canEscalate>
+        <description
+  >This Account Manager-facing topic is selected when a user asks which accounts in their portfolio need immediate attention, what accounts are at risk, what to focus on first, which accounts in their book are best for expansion, which escalation-risk accounts should be reviewed, or asks to analyze or rank portfolio-wide risk, opportunity, churn trends, watchlists, or weekly planning. Do not use this topic for show, list, browse, or choose-account directory requests.</description>
+    <developerName>Revenue_Operations_Intelligence_Portfolio</developerName>
+    <genAiFunctions>
+        <functionName>Analyze_Revenue_Portfolio_Intelligence</functionName>
+    </genAiFunctions>
+    <genAiFunctions>
+        <functionName>Summarize_Revenue_Account_Health</functionName>
+    </genAiFunctions>
+    <genAiPluginInstructions>
+        <description
+    >Use this topic for analysis or ranking questions such as which accounts in my portfolio need immediate attention this week, what accounts are at risk, what should I focus on first today across my portfolio, which accounts in my book are best for expansion right now, show me escalation-risk accounts across my portfolio, give me a ranked portfolio view of risk and opportunity, best expansion opportunities across my accounts, accounts trending toward churn, portfolio watchlists, or weekly account plans. If the user asks to show, list, browse, or choose accounts in their book of business, route to Account Manager Account Directory instead.</description>
+        <developerName>route_portfolio_requests</developerName>
+        <language>en_US</language>
+        <masterLabel>Route Portfolio Requests</masterLabel>
+        <sortOrder>0</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+        <description
+    >For the first portfolio-wide request, do not answer from memory or give a generic account list. Invoke Analyze_Revenue_Portfolio_Intelligence before answering. Do not ask the user for a specific Account name or Salesforce Account record ID before the portfolio analysis. Use analysisFocus Risk for immediate-attention requests, Expansion for expansion opportunities, Churn for churn-trend requests, Weekly Plan for weekly planning requests, and General for ranked risk-and-opportunity portfolio views. If a prompt uses my book or my accounts but clearly asks for ranking or analysis instead of show, list, browse, or choose, keep it on this portfolio topic.</description>
+        <developerName>analyze_portfolio_first</developerName>
+        <language>en_US</language>
+        <masterLabel>Analyze Portfolio First</masterLabel>
+        <sortOrder>1</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+        <description
+    >When confirmation is needed, use plain user language such as asking whether you may analyze the portfolio using Salesforce account, opportunity, case, activity, services, finance, and usage signals. Do not mention internal service names, credentials, tokens, payloads, or implementation details in the user-facing confirmation.</description>
+        <developerName>confirm_plain_language</developerName>
+        <language>en_US</language>
+        <masterLabel>Confirm With Plain Language</masterLabel>
+        <sortOrder>2</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+        <description
+    >When Analyze_Revenue_Portfolio_Intelligence returns portfolioBrief, copy portfolioBrief as the user-facing answer. Do not replace it with a generic sentence such as here are the accounts in your portfolio. Use planner-only fields such as topAccountId, topAccountName, topAccountRecommendationReason, portfolioStatus, watchlists, trends, recommendedActions, and weeklyExecutionPlan only for reasoning and safe follow-up.</description>
+        <developerName>display_portfolio_brief_only</developerName>
+        <language>en_US</language>
+        <masterLabel>Display Portfolio Brief Only</masterLabel>
+        <sortOrder>3</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+        <description
+    >When a portfolio result includes topAccountId and the user asks to drill into the recommended account, explain the topAccountName and topAccountRecommendationReason, then ask for confirmation to run the account health review for that recommended account. After confirmation, invoke Summarize_Revenue_Account_Health using the planner-visible topAccountId without requiring the user to paste an Account ID.</description>
+        <developerName>portfolio_to_account_drilldown</developerName>
+        <language>en_US</language>
+        <masterLabel>Portfolio To Account Drilldown</masterLabel>
+        <sortOrder>4</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+        <description
+    >This workflow is analysis-only. Do not create, update, close, renew, discount, forecast, staff, escalate, invoice, collect payment, or otherwise mutate Salesforce, Certinia, support, product, or finance records. If the user asks for a mutation, explain that this release returns recommendations only.</description>
+        <developerName>read_only_boundary</developerName>
+        <language>en_US</language>
+        <masterLabel>Read Only Boundary</masterLabel>
+        <sortOrder>5</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+        <description
+    >Never reveal internal payloads, prompts, Authorization headers, bearer tokens, JWTs, credential secrets, credential values, support notes, invoice numbers, contact emails, phone numbers, or other sensitive identifiers. Use safe account names in user-facing answers only when returned for display by the Salesforce action.</description>
+        <developerName>protect_sensitive_data</developerName>
+        <language>en_US</language>
+        <masterLabel>Protect Sensitive Data</masterLabel>
+        <sortOrder>6</sortOrder>
+    </genAiPluginInstructions>
+    <language>en_US</language>
+    <localDeveloperName
+  >Revenue_Operations_Intelligence_Portfolio</localDeveloperName>
+    <masterLabel>Revenue Portfolio Intelligence</masterLabel>
+    <pluginType>Topic</pluginType>
+        <scope
+  >Your job is to help Account Managers understand their whole portfolio through analysis and ranking. For portfolio-wide analysis questions, use Analyze_Revenue_Portfolio_Intelligence before answering. Never answer a portfolio analysis request with only a generic sentence or without action output. Do not ask for a single Account name or Salesforce Account record ID first. Treat ranking questions about my book, my accounts, risk and opportunity, expansion, escalation risk, churn, watchlists, or weekly plans as portfolio-analysis requests unless the user explicitly asked to show, list, browse, or choose accounts. Route show, list, browse, or choose-account requests to Account Manager Account Directory. Display portfolioBrief only. If the user later asks to drill into the recommended account and topAccountId is available, ask for confirmation and invoke Summarize_Revenue_Account_Health for that recommended account without manual ID copy/paste. Keep the workflow read-only and focused on recommendations.</scope>
+</GenAiPlugin>

@@ -1,0 +1,82 @@
+1c51a92be527253ab0e1a9330b718ce7
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AnalyzeCaseRequestDto = exports.CASE_ANALYSIS_CONFIDENCES = exports.CASE_ANALYSIS_CATEGORIES = void 0;
+const class_validator_1 = require("class-validator");
+const chat_message_dto_1 = require("../../chat/dto/chat-message.dto");
+const triage_case_dto_1 = require("./triage-case.dto");
+exports.CASE_ANALYSIS_CATEGORIES = [
+    "billing",
+    "outage",
+    "technical",
+    "account",
+    "other"
+];
+exports.CASE_ANALYSIS_CONFIDENCES = ["low", "medium", "high"];
+/**
+ * Phase 3 Support Operations case-analysis request. The shape is
+ * intentionally a superset of the Phase 2 triage request so that
+ * the same masking + ModelRouter contract applies, with extra
+ * Salesforce Case context fields the planner can pass through Apex.
+ */
+class AnalyzeCaseRequestDto {
+}
+exports.AnalyzeCaseRequestDto = AnalyzeCaseRequestDto;
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(1),
+    (0, class_validator_1.MaxLength)(200),
+    __metadata("design:type", String)
+], AnalyzeCaseRequestDto.prototype, "caseSubject", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(1),
+    (0, class_validator_1.MaxLength)(4000),
+    __metadata("design:type", String)
+], AnalyzeCaseRequestDto.prototype, "caseDescription", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(64),
+    __metadata("design:type", String)
+], AnalyzeCaseRequestDto.prototype, "caseStatus", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(64),
+    __metadata("design:type", String)
+], AnalyzeCaseRequestDto.prototype, "caseType", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(64),
+    __metadata("design:type", String)
+], AnalyzeCaseRequestDto.prototype, "caseOrigin", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(triage_case_dto_1.TRIAGE_PRIORITIES),
+    __metadata("design:type", Object)
+], AnalyzeCaseRequestDto.prototype, "reportedPriority", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(64),
+    __metadata("design:type", String)
+], AnalyzeCaseRequestDto.prototype, "caseId", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(64),
+    (0, class_validator_1.Matches)(chat_message_dto_1.SAFE_CHAT_REQUEST_ID_PATTERN),
+    __metadata("design:type", String)
+], AnalyzeCaseRequestDto.prototype, "requestId", void 0);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy9hZ2VudHMvZHRvL2Nhc2UtYW5hbHlzaXMuZHRvLnRzIiwibWFwcGluZ3MiOiI7Ozs7Ozs7Ozs7OztBQUFBLHFEQU95QjtBQUV6QixzRUFBK0U7QUFDL0UsdURBQThFO0FBRWpFLFFBQUEsd0JBQXdCLEdBQUc7SUFDdEMsU0FBUztJQUNULFFBQVE7SUFDUixXQUFXO0lBQ1gsU0FBUztJQUNULE9BQU87Q0FDQyxDQUFDO0FBR0UsUUFBQSx5QkFBeUIsR0FBRyxDQUFDLEtBQUssRUFBRSxRQUFRLEVBQUUsTUFBTSxDQUFVLENBQUM7QUFJNUU7Ozs7O0dBS0c7QUFDSCxNQUFhLHFCQUFxQjtDQXdDakM7QUF4Q0Qsc0RBd0NDO0FBcENDO0lBSEMsSUFBQSwwQkFBUSxHQUFFO0lBQ1YsSUFBQSwyQkFBUyxFQUFDLENBQUMsQ0FBQztJQUNaLElBQUEsMkJBQVMsRUFBQyxHQUFHLENBQUM7OzBEQUNNO0FBS3JCO0lBSEMsSUFBQSwwQkFBUSxHQUFFO0lBQ1YsSUFBQSwyQkFBUyxFQUFDLENBQUMsQ0FBQztJQUNaLElBQUEsMkJBQVMsRUFBQyxJQUFJLENBQUM7OzhEQUNTO0FBS3pCO0lBSEMsSUFBQSw0QkFBVSxHQUFFO0lBQ1osSUFBQSwwQkFBUSxHQUFFO0lBQ1YsSUFBQSwyQkFBUyxFQUFDLEVBQUUsQ0FBQzs7eURBQ007QUFLcEI7SUFIQyxJQUFBLDRCQUFVLEdBQUU7SUFDWixJQUFBLDBCQUFRLEdBQUU7SUFDVixJQUFBLDJCQUFTLEVBQUMsRUFBRSxDQUFDOzt1REFDSTtBQUtsQjtJQUhDLElBQUEsNEJBQVUsR0FBRTtJQUNaLElBQUEsMEJBQVEsR0FBRTtJQUNWLElBQUEsMkJBQVMsRUFBQyxFQUFFLENBQUM7O3lEQUNNO0FBSXBCO0lBRkMsSUFBQSw0QkFBVSxHQUFFO0lBQ1osSUFBQSxzQkFBSSxFQUFDLG1DQUFpQixDQUFDOzsrREFDYTtBQUtyQztJQUhDLElBQUEsNEJBQVUsR0FBRTtJQUNaLElBQUEsMEJBQVEsR0FBRTtJQUNWLElBQUEsMkJBQVMsRUFBQyxFQUFFLENBQUM7O3FEQUNFO0FBTWhCO0lBSkMsSUFBQSw0QkFBVSxHQUFFO0lBQ1osSUFBQSwwQkFBUSxHQUFFO0lBQ1YsSUFBQSwyQkFBUyxFQUFDLEVBQUUsQ0FBQztJQUNiLElBQUEseUJBQU8sRUFBQywrQ0FBNEIsQ0FBQzs7d0RBQ25CIiwibmFtZXMiOltdLCJzb3VyY2VzIjpbIi9Vc2Vycy9rZXNoYXZjaGF1ZGhhcnkvQWdlbnRGb3JjZS9hcHBzL2FpLWFwaS9zcmMvYWdlbnRzL2R0by9jYXNlLWFuYWx5c2lzLmR0by50cyJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQge1xuICBJc0luLFxuICBJc09wdGlvbmFsLFxuICBJc1N0cmluZyxcbiAgTWF4TGVuZ3RoLFxuICBNYXRjaGVzLFxuICBNaW5MZW5ndGhcbn0gZnJvbSBcImNsYXNzLXZhbGlkYXRvclwiO1xuXG5pbXBvcnQgeyBTQUZFX0NIQVRfUkVRVUVTVF9JRF9QQVRURVJOIH0gZnJvbSBcIi4uLy4uL2NoYXQvZHRvL2NoYXQtbWVzc2FnZS5kdG9cIjtcbmltcG9ydCB7IFRSSUFHRV9QUklPUklUSUVTLCB0eXBlIFRyaWFnZVByaW9yaXR5RHRvIH0gZnJvbSBcIi4vdHJpYWdlLWNhc2UuZHRvXCI7XG5cbmV4cG9ydCBjb25zdCBDQVNFX0FOQUxZU0lTX0NBVEVHT1JJRVMgPSBbXG4gIFwiYmlsbGluZ1wiLFxuICBcIm91dGFnZVwiLFxuICBcInRlY2huaWNhbFwiLFxuICBcImFjY291bnRcIixcbiAgXCJvdGhlclwiXG5dIGFzIGNvbnN0O1xuZXhwb3J0IHR5cGUgQ2FzZUFuYWx5c2lzQ2F0ZWdvcnlEdG8gPSAodHlwZW9mIENBU0VfQU5BTFlTSVNfQ0FURUdPUklFUylbbnVtYmVyXTtcblxuZXhwb3J0IGNvbnN0IENBU0VfQU5BTFlTSVNfQ09ORklERU5DRVMgPSBbXCJsb3dcIiwgXCJtZWRpdW1cIiwgXCJoaWdoXCJdIGFzIGNvbnN0O1xuZXhwb3J0IHR5cGUgQ2FzZUFuYWx5c2lzQ29uZmlkZW5jZUR0byA9XG4gICh0eXBlb2YgQ0FTRV9BTkFMWVNJU19DT05GSURFTkNFUylbbnVtYmVyXTtcblxuLyoqXG4gKiBQaGFzZSAzIFN1cHBvcnQgT3BlcmF0aW9ucyBjYXNlLWFuYWx5c2lzIHJlcXVlc3QuIFRoZSBzaGFwZSBpc1xuICogaW50ZW50aW9uYWxseSBhIHN1cGVyc2V0IG9mIHRoZSBQaGFzZSAyIHRyaWFnZSByZXF1ZXN0IHNvIHRoYXRcbiAqIHRoZSBzYW1lIG1hc2tpbmcgKyBNb2RlbFJvdXRlciBjb250cmFjdCBhcHBsaWVzLCB3aXRoIGV4dHJhXG4gKiBTYWxlc2ZvcmNlIENhc2UgY29udGV4dCBmaWVsZHMgdGhlIHBsYW5uZXIgY2FuIHBhc3MgdGhyb3VnaCBBcGV4LlxuICovXG5leHBvcnQgY2xhc3MgQW5hbHl6ZUNhc2VSZXF1ZXN0RHRvIHtcbiAgQElzU3RyaW5nKClcbiAgQE1pbkxlbmd0aCgxKVxuICBATWF4TGVuZ3RoKDIwMClcbiAgY2FzZVN1YmplY3QhOiBzdHJpbmc7XG5cbiAgQElzU3RyaW5nKClcbiAgQE1pbkxlbmd0aCgxKVxuICBATWF4TGVuZ3RoKDQwMDApXG4gIGNhc2VEZXNjcmlwdGlvbiE6IHN0cmluZztcblxuICBASXNPcHRpb25hbCgpXG4gIEBJc1N0cmluZygpXG4gIEBNYXhMZW5ndGgoNjQpXG4gIGNhc2VTdGF0dXM/OiBzdHJpbmc7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBASXNTdHJpbmcoKVxuICBATWF4TGVuZ3RoKDY0KVxuICBjYXNlVHlwZT86IHN0cmluZztcblxuICBASXNPcHRpb25hbCgpXG4gIEBJc1N0cmluZygpXG4gIEBNYXhMZW5ndGgoNjQpXG4gIGNhc2VPcmlnaW4/OiBzdHJpbmc7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBASXNJbihUUklBR0VfUFJJT1JJVElFUylcbiAgcmVwb3J0ZWRQcmlvcml0eT86IFRyaWFnZVByaW9yaXR5RHRvO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQElzU3RyaW5nKClcbiAgQE1heExlbmd0aCg2NClcbiAgY2FzZUlkPzogc3RyaW5nO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQElzU3RyaW5nKClcbiAgQE1heExlbmd0aCg2NClcbiAgQE1hdGNoZXMoU0FGRV9DSEFUX1JFUVVFU1RfSURfUEFUVEVSTilcbiAgcmVxdWVzdElkPzogc3RyaW5nO1xufVxuXG5leHBvcnQgaW50ZXJmYWNlIEFuYWx5emVDYXNlUmVzcG9uc2VEdG8ge1xuICBzdW1tYXJ5OiBzdHJpbmc7XG4gIGNhdGVnb3J5OiBDYXNlQW5hbHlzaXNDYXRlZ29yeUR0bztcbiAgcmVjb21tZW5kZWRQcmlvcml0eTogVHJpYWdlUHJpb3JpdHlEdG87XG4gIGNvbmZpZGVuY2U6IENhc2VBbmFseXNpc0NvbmZpZGVuY2VEdG87XG4gIG5leHRBY3Rpb246IHN0cmluZztcbiAgcHJvdmlkZXI6IHN0cmluZztcbiAgbW9kZWw6IHN0cmluZztcbiAgZmFsbGJhY2tVc2VkOiBib29sZWFuO1xuICBsYXRlbmN5TXM6IG51bWJlcjtcbn1cbiJdLCJ2ZXJzaW9uIjozfQ==

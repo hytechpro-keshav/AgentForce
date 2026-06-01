@@ -1,0 +1,23 @@
+2c278579323a70768baabf4c5dc7d5f2
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ObservabilityModule = void 0;
+const common_1 = require("@nestjs/common");
+const telemetry_service_1 = require("./telemetry.service");
+let ObservabilityModule = class ObservabilityModule {
+};
+exports.ObservabilityModule = ObservabilityModule;
+exports.ObservabilityModule = ObservabilityModule = __decorate([
+    (0, common_1.Global)(),
+    (0, common_1.Module)({
+        providers: [telemetry_service_1.TelemetryService],
+        exports: [telemetry_service_1.TelemetryService]
+    })
+], ObservabilityModule);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy9vYnNlcnZhYmlsaXR5L29ic2VydmFiaWxpdHkubW9kdWxlLnRzIiwibWFwcGluZ3MiOiI7Ozs7Ozs7OztBQUFBLDJDQUFnRDtBQUVoRCwyREFBdUQ7QUFPaEQsSUFBTSxtQkFBbUIsR0FBekIsTUFBTSxtQkFBbUI7Q0FBRyxDQUFBO0FBQXRCLGtEQUFtQjs4QkFBbkIsbUJBQW1CO0lBTC9CLElBQUEsZUFBTSxHQUFFO0lBQ1IsSUFBQSxlQUFNLEVBQUM7UUFDTixTQUFTLEVBQUUsQ0FBQyxvQ0FBZ0IsQ0FBQztRQUM3QixPQUFPLEVBQUUsQ0FBQyxvQ0FBZ0IsQ0FBQztLQUM1QixDQUFDO0dBQ1csbUJBQW1CLENBQUciLCJuYW1lcyI6W10sInNvdXJjZXMiOlsiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy9vYnNlcnZhYmlsaXR5L29ic2VydmFiaWxpdHkubW9kdWxlLnRzIl0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IEdsb2JhbCwgTW9kdWxlIH0gZnJvbSBcIkBuZXN0anMvY29tbW9uXCI7XG5cbmltcG9ydCB7IFRlbGVtZXRyeVNlcnZpY2UgfSBmcm9tIFwiLi90ZWxlbWV0cnkuc2VydmljZVwiO1xuXG5AR2xvYmFsKClcbkBNb2R1bGUoe1xuICBwcm92aWRlcnM6IFtUZWxlbWV0cnlTZXJ2aWNlXSxcbiAgZXhwb3J0czogW1RlbGVtZXRyeVNlcnZpY2VdXG59KVxuZXhwb3J0IGNsYXNzIE9ic2VydmFiaWxpdHlNb2R1bGUge31cbiJdLCJ2ZXJzaW9uIjozfQ==

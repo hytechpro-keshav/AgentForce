@@ -1,0 +1,72 @@
+659742e7125bf010936294e98f64d6fc
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
+var ServicesAgentController_1;
+var _a, _b, _c;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ServicesAgentController = void 0;
+const common_1 = require("@nestjs/common");
+const require_scopes_decorator_1 = require("../auth/require-scopes.decorator");
+const llm_provider_1 = require("../llm/interfaces/llm-provider");
+const agentforce_rate_limit_guard_1 = require("./agentforce-rate-limit.guard");
+const project_health_service_1 = require("./project-health.service");
+const project_health_dto_1 = require("./dto/project-health.dto");
+let ServicesAgentController = ServicesAgentController_1 = class ServicesAgentController {
+    constructor(projectHealthService) {
+        this.projectHealthService = projectHealthService;
+        this.logger = new common_1.Logger(ServicesAgentController_1.name);
+    }
+    async summarizeProjectHealth(body, request) {
+        try {
+            return await this.projectHealthService.summarize(body, request.authPrincipal);
+        }
+        catch (err) {
+            throw this.toClientError(err, "services.project-health");
+        }
+    }
+    toClientError(err, scope) {
+        if (err instanceof llm_provider_1.LlmProviderError) {
+            this.logger.warn(`${scope} provider error: provider=${err.provider} kind=${err.kind}`);
+            if (err.kind === "validation") {
+                return new common_1.ServiceUnavailableException({
+                    error: "provider_unavailable",
+                    provider: err.provider,
+                    kind: err.kind
+                });
+            }
+            return new common_1.BadRequestException({
+                error: "provider_unavailable",
+                provider: err.provider,
+                kind: err.kind
+            });
+        }
+        return err instanceof Error ? err : new Error("Unknown error");
+    }
+};
+exports.ServicesAgentController = ServicesAgentController;
+__decorate([
+    (0, require_scopes_decorator_1.RequireScopes)("agentforce:services-project-health"),
+    (0, common_1.UseGuards)(agentforce_rate_limit_guard_1.AgentforceRateLimitGuard),
+    (0, common_1.Post)("project-health"),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [typeof (_b = typeof project_health_dto_1.ProjectHealthRequestDto !== "undefined" && project_health_dto_1.ProjectHealthRequestDto) === "function" ? _b : Object, Object]),
+    __metadata("design:returntype", typeof (_c = typeof Promise !== "undefined" && Promise) === "function" ? _c : Object)
+], ServicesAgentController.prototype, "summarizeProjectHealth", null);
+exports.ServicesAgentController = ServicesAgentController = ServicesAgentController_1 = __decorate([
+    (0, common_1.Controller)("agent/services"),
+    __metadata("design:paramtypes", [typeof (_a = typeof project_health_service_1.ProjectHealthService !== "undefined" && project_health_service_1.ProjectHealthService) === "function" ? _a : Object])
+], ServicesAgentController);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy9hZ2VudHMvc2VydmljZXMtYWdlbnQuY29udHJvbGxlci50cyIsIm1hcHBpbmdzIjoiOzs7Ozs7Ozs7Ozs7Ozs7OztBQUFBLDJDQVN3QjtBQUd4QiwrRUFBaUU7QUFDakUsaUVBQWtFO0FBQ2xFLCtFQUF5RTtBQUN6RSxxRUFBZ0U7QUFDaEUsaUVBR2tDO0FBRzNCLElBQU0sdUJBQXVCLCtCQUE3QixNQUFNLHVCQUF1QjtJQUdsQyxZQUE2QixvQkFBMEM7UUFBMUMseUJBQW9CLEdBQXBCLG9CQUFvQixDQUFzQjtRQUZ0RCxXQUFNLEdBQUcsSUFBSSxlQUFNLENBQUMseUJBQXVCLENBQUMsSUFBSSxDQUFDLENBQUM7SUFFTyxDQUFDO0lBS3JFLEFBQU4sS0FBSyxDQUFDLHNCQUFzQixDQUNsQixJQUE2QixFQUM5QixPQUE2QjtRQUVwQyxJQUFJLENBQUM7WUFDSCxPQUFPLE1BQU0sSUFBSSxDQUFDLG9CQUFvQixDQUFDLFNBQVMsQ0FDOUMsSUFBSSxFQUNKLE9BQU8sQ0FBQyxhQUFhLENBQ3RCLENBQUM7UUFDSixDQUFDO1FBQUMsT0FBTyxHQUFHLEVBQUUsQ0FBQztZQUNiLE1BQU0sSUFBSSxDQUFDLGFBQWEsQ0FBQyxHQUFHLEVBQUUseUJBQXlCLENBQUMsQ0FBQztRQUMzRCxDQUFDO0lBQ0gsQ0FBQztJQUVPLGFBQWEsQ0FBQyxHQUFZLEVBQUUsS0FBYTtRQUMvQyxJQUFJLEdBQUcsWUFBWSwrQkFBZ0IsRUFBRSxDQUFDO1lBQ3BDLElBQUksQ0FBQyxNQUFNLENBQUMsSUFBSSxDQUNkLEdBQUcsS0FBSyw2QkFBNkIsR0FBRyxDQUFDLFFBQVEsU0FBUyxHQUFHLENBQUMsSUFBSSxFQUFFLENBQ3JFLENBQUM7WUFDRixJQUFJLEdBQUcsQ0FBQyxJQUFJLEtBQUssWUFBWSxFQUFFLENBQUM7Z0JBQzlCLE9BQU8sSUFBSSxvQ0FBMkIsQ0FBQztvQkFDckMsS0FBSyxFQUFFLHNCQUFzQjtvQkFDN0IsUUFBUSxFQUFFLEdBQUcsQ0FBQyxRQUFRO29CQUN0QixJQUFJLEVBQUUsR0FBRyxDQUFDLElBQUk7aUJBQ2YsQ0FBQyxDQUFDO1lBQ0wsQ0FBQztZQUNELE9BQU8sSUFBSSw0QkFBbUIsQ0FBQztnQkFDN0IsS0FBSyxFQUFFLHNCQUFzQjtnQkFDN0IsUUFBUSxFQUFFLEdBQUcsQ0FBQyxRQUFRO2dCQUN0QixJQUFJLEVBQUUsR0FBRyxDQUFDLElBQUk7YUFDZixDQUFDLENBQUM7UUFDTCxDQUFDO1FBQ0QsT0FBTyxHQUFHLFlBQVksS0FBSyxDQUFDLENBQUMsQ0FBQyxHQUFHLENBQUMsQ0FBQyxDQUFDLElBQUksS0FBSyxDQUFDLGVBQWUsQ0FBQyxDQUFDO0lBQ2pFLENBQUM7Q0FDRixDQUFBO0FBMUNZLDBEQUF1QjtBQVE1QjtJQUhMLElBQUEsd0NBQWEsRUFBQyxvQ0FBb0MsQ0FBQztJQUNuRCxJQUFBLGtCQUFTLEVBQUMsc0RBQXdCLENBQUM7SUFDbkMsSUFBQSxhQUFJLEVBQUMsZ0JBQWdCLENBQUM7SUFFcEIsV0FBQSxJQUFBLGFBQUksR0FBRSxDQUFBO0lBQ04sV0FBQSxJQUFBLFlBQUcsR0FBRSxDQUFBOzt5REFEUSw0Q0FBdUIsb0JBQXZCLDRDQUF1Qjt3REFFcEMsT0FBTyxvQkFBUCxPQUFPO3FFQVNUO2tDQXBCVSx1QkFBdUI7SUFEbkMsSUFBQSxtQkFBVSxFQUFDLGdCQUFnQixDQUFDO3lEQUl3Qiw2Q0FBb0Isb0JBQXBCLDZDQUFvQjtHQUg1RCx1QkFBdUIsQ0EwQ25DIiwibmFtZXMiOltdLCJzb3VyY2VzIjpbIi9Vc2Vycy9rZXNoYXZjaGF1ZGhhcnkvQWdlbnRGb3JjZS9hcHBzL2FpLWFwaS9zcmMvYWdlbnRzL3NlcnZpY2VzLWFnZW50LmNvbnRyb2xsZXIudHMiXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHtcbiAgQmFkUmVxdWVzdEV4Y2VwdGlvbixcbiAgQm9keSxcbiAgQ29udHJvbGxlcixcbiAgTG9nZ2VyLFxuICBQb3N0LFxuICBSZXEsXG4gIFNlcnZpY2VVbmF2YWlsYWJsZUV4Y2VwdGlvbixcbiAgVXNlR3VhcmRzXG59IGZyb20gXCJAbmVzdGpzL2NvbW1vblwiO1xuXG5pbXBvcnQgdHlwZSB7IEF1dGhlbnRpY2F0ZWRSZXF1ZXN0IH0gZnJvbSBcIi4uL2F1dGgvand0LWF1dGguZ3VhcmRcIjtcbmltcG9ydCB7IFJlcXVpcmVTY29wZXMgfSBmcm9tIFwiLi4vYXV0aC9yZXF1aXJlLXNjb3Blcy5kZWNvcmF0b3JcIjtcbmltcG9ydCB7IExsbVByb3ZpZGVyRXJyb3IgfSBmcm9tIFwiLi4vbGxtL2ludGVyZmFjZXMvbGxtLXByb3ZpZGVyXCI7XG5pbXBvcnQgeyBBZ2VudGZvcmNlUmF0ZUxpbWl0R3VhcmQgfSBmcm9tIFwiLi9hZ2VudGZvcmNlLXJhdGUtbGltaXQuZ3VhcmRcIjtcbmltcG9ydCB7IFByb2plY3RIZWFsdGhTZXJ2aWNlIH0gZnJvbSBcIi4vcHJvamVjdC1oZWFsdGguc2VydmljZVwiO1xuaW1wb3J0IHtcbiAgUHJvamVjdEhlYWx0aFJlcXVlc3REdG8sXG4gIHR5cGUgUHJvamVjdEhlYWx0aFJlc3BvbnNlRHRvXG59IGZyb20gXCIuL2R0by9wcm9qZWN0LWhlYWx0aC5kdG9cIjtcblxuQENvbnRyb2xsZXIoXCJhZ2VudC9zZXJ2aWNlc1wiKVxuZXhwb3J0IGNsYXNzIFNlcnZpY2VzQWdlbnRDb250cm9sbGVyIHtcbiAgcHJpdmF0ZSByZWFkb25seSBsb2dnZXIgPSBuZXcgTG9nZ2VyKFNlcnZpY2VzQWdlbnRDb250cm9sbGVyLm5hbWUpO1xuXG4gIGNvbnN0cnVjdG9yKHByaXZhdGUgcmVhZG9ubHkgcHJvamVjdEhlYWx0aFNlcnZpY2U6IFByb2plY3RIZWFsdGhTZXJ2aWNlKSB7fVxuXG4gIEBSZXF1aXJlU2NvcGVzKFwiYWdlbnRmb3JjZTpzZXJ2aWNlcy1wcm9qZWN0LWhlYWx0aFwiKVxuICBAVXNlR3VhcmRzKEFnZW50Zm9yY2VSYXRlTGltaXRHdWFyZClcbiAgQFBvc3QoXCJwcm9qZWN0LWhlYWx0aFwiKVxuICBhc3luYyBzdW1tYXJpemVQcm9qZWN0SGVhbHRoKFxuICAgIEBCb2R5KCkgYm9keTogUHJvamVjdEhlYWx0aFJlcXVlc3REdG8sXG4gICAgQFJlcSgpIHJlcXVlc3Q6IEF1dGhlbnRpY2F0ZWRSZXF1ZXN0XG4gICk6IFByb21pc2U8UHJvamVjdEhlYWx0aFJlc3BvbnNlRHRvPiB7XG4gICAgdHJ5IHtcbiAgICAgIHJldHVybiBhd2FpdCB0aGlzLnByb2plY3RIZWFsdGhTZXJ2aWNlLnN1bW1hcml6ZShcbiAgICAgICAgYm9keSxcbiAgICAgICAgcmVxdWVzdC5hdXRoUHJpbmNpcGFsXG4gICAgICApO1xuICAgIH0gY2F0Y2ggKGVycikge1xuICAgICAgdGhyb3cgdGhpcy50b0NsaWVudEVycm9yKGVyciwgXCJzZXJ2aWNlcy5wcm9qZWN0LWhlYWx0aFwiKTtcbiAgICB9XG4gIH1cblxuICBwcml2YXRlIHRvQ2xpZW50RXJyb3IoZXJyOiB1bmtub3duLCBzY29wZTogc3RyaW5nKTogRXJyb3Ige1xuICAgIGlmIChlcnIgaW5zdGFuY2VvZiBMbG1Qcm92aWRlckVycm9yKSB7XG4gICAgICB0aGlzLmxvZ2dlci53YXJuKFxuICAgICAgICBgJHtzY29wZX0gcHJvdmlkZXIgZXJyb3I6IHByb3ZpZGVyPSR7ZXJyLnByb3ZpZGVyfSBraW5kPSR7ZXJyLmtpbmR9YFxuICAgICAgKTtcbiAgICAgIGlmIChlcnIua2luZCA9PT0gXCJ2YWxpZGF0aW9uXCIpIHtcbiAgICAgICAgcmV0dXJuIG5ldyBTZXJ2aWNlVW5hdmFpbGFibGVFeGNlcHRpb24oe1xuICAgICAgICAgIGVycm9yOiBcInByb3ZpZGVyX3VuYXZhaWxhYmxlXCIsXG4gICAgICAgICAgcHJvdmlkZXI6IGVyci5wcm92aWRlcixcbiAgICAgICAgICBraW5kOiBlcnIua2luZFxuICAgICAgICB9KTtcbiAgICAgIH1cbiAgICAgIHJldHVybiBuZXcgQmFkUmVxdWVzdEV4Y2VwdGlvbih7XG4gICAgICAgIGVycm9yOiBcInByb3ZpZGVyX3VuYXZhaWxhYmxlXCIsXG4gICAgICAgIHByb3ZpZGVyOiBlcnIucHJvdmlkZXIsXG4gICAgICAgIGtpbmQ6IGVyci5raW5kXG4gICAgICB9KTtcbiAgICB9XG4gICAgcmV0dXJuIGVyciBpbnN0YW5jZW9mIEVycm9yID8gZXJyIDogbmV3IEVycm9yKFwiVW5rbm93biBlcnJvclwiKTtcbiAgfVxufVxuIl0sInZlcnNpb24iOjN9

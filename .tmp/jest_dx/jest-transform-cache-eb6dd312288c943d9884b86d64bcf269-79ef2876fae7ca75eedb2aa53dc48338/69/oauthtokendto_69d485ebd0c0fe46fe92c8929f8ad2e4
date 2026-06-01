@@ -1,0 +1,61 @@
+b735ed61b1d36b069d6bc807e6e92f7f
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.OAuthTokenRequestDto = exports.OAuthTokenBodyDto = void 0;
+const class_transformer_1 = require("class-transformer");
+const class_validator_1 = require("class-validator");
+const OAUTH_SAFE_IDENTIFIER_PATTERN = /^[A-Za-z0-9_.:-]{1,128}$/;
+const OAUTH_SCOPE_PATTERN = /^[A-Za-z0-9_.:-]+(?: [A-Za-z0-9_.:-]+)*$/;
+class OAuthTokenGrantDto {
+}
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsIn)(["client_credentials"]),
+    __metadata("design:type", String)
+], OAuthTokenGrantDto.prototype, "grant_type", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(1024),
+    (0, class_transformer_1.Transform)(({ value }) => typeof value === "string" ? value.trim().replace(/\s+/g, " ") : value),
+    (0, class_validator_1.Matches)(OAUTH_SCOPE_PATTERN),
+    __metadata("design:type", String)
+], OAuthTokenGrantDto.prototype, "scope", void 0);
+class OAuthTokenBodyDto extends OAuthTokenGrantDto {
+}
+exports.OAuthTokenBodyDto = OAuthTokenBodyDto;
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Matches)(OAUTH_SAFE_IDENTIFIER_PATTERN),
+    __metadata("design:type", String)
+], OAuthTokenBodyDto.prototype, "client_id", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(2048),
+    __metadata("design:type", String)
+], OAuthTokenBodyDto.prototype, "client_secret", void 0);
+class OAuthTokenRequestDto extends OAuthTokenGrantDto {
+}
+exports.OAuthTokenRequestDto = OAuthTokenRequestDto;
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Matches)(OAUTH_SAFE_IDENTIFIER_PATTERN),
+    __metadata("design:type", String)
+], OAuthTokenRequestDto.prototype, "client_id", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(2048),
+    __metadata("design:type", String)
+], OAuthTokenRequestDto.prototype, "client_secret", void 0);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy9hdXRoL2R0by9vYXV0aC10b2tlbi5kdG8udHMiLCJtYXBwaW5ncyI6Ijs7Ozs7Ozs7Ozs7O0FBQUEseURBQThDO0FBQzlDLHFEQU15QjtBQUV6QixNQUFNLDZCQUE2QixHQUFHLDBCQUEwQixDQUFDO0FBQ2pFLE1BQU0sbUJBQW1CLEdBQUcsMENBQTBDLENBQUM7QUFFdkUsTUFBTSxrQkFBa0I7Q0FhdkI7QUFWQztJQUZDLElBQUEsMEJBQVEsR0FBRTtJQUNWLElBQUEsc0JBQUksRUFBQyxDQUFDLG9CQUFvQixDQUFDLENBQUM7O3NEQUNUO0FBU3BCO0lBUEMsSUFBQSw0QkFBVSxHQUFFO0lBQ1osSUFBQSwwQkFBUSxHQUFFO0lBQ1YsSUFBQSwyQkFBUyxFQUFDLElBQUksQ0FBQztJQUNmLElBQUEsNkJBQVMsRUFBQyxDQUFDLEVBQUUsS0FBSyxFQUFFLEVBQUUsRUFBRSxDQUN2QixPQUFPLEtBQUssS0FBSyxRQUFRLENBQUMsQ0FBQyxDQUFDLEtBQUssQ0FBQyxJQUFJLEVBQUUsQ0FBQyxPQUFPLENBQUMsTUFBTSxFQUFFLEdBQUcsQ0FBQyxDQUFDLENBQUMsQ0FBQyxLQUFLLENBQ3RFO0lBQ0EsSUFBQSx5QkFBTyxFQUFDLG1CQUFtQixDQUFDOztpREFDZDtBQUdqQixNQUFhLGlCQUFrQixTQUFRLGtCQUFrQjtDQVV4RDtBQVZELDhDQVVDO0FBTkM7SUFIQyxJQUFBLDRCQUFVLEdBQUU7SUFDWixJQUFBLDBCQUFRLEdBQUU7SUFDVixJQUFBLHlCQUFPLEVBQUMsNkJBQTZCLENBQUM7O29EQUNwQjtBQUtuQjtJQUhDLElBQUEsNEJBQVUsR0FBRTtJQUNaLElBQUEsMEJBQVEsR0FBRTtJQUNWLElBQUEsMkJBQVMsRUFBQyxJQUFJLENBQUM7O3dEQUNPO0FBR3pCLE1BQWEsb0JBQXFCLFNBQVEsa0JBQWtCO0NBUTNEO0FBUkQsb0RBUUM7QUFMQztJQUZDLElBQUEsMEJBQVEsR0FBRTtJQUNWLElBQUEseUJBQU8sRUFBQyw2QkFBNkIsQ0FBQzs7dURBQ3BCO0FBSW5CO0lBRkMsSUFBQSwwQkFBUSxHQUFFO0lBQ1YsSUFBQSwyQkFBUyxFQUFDLElBQUksQ0FBQzs7MkRBQ08iLCJuYW1lcyI6W10sInNvdXJjZXMiOlsiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy9hdXRoL2R0by9vYXV0aC10b2tlbi5kdG8udHMiXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHsgVHJhbnNmb3JtIH0gZnJvbSBcImNsYXNzLXRyYW5zZm9ybWVyXCI7XG5pbXBvcnQge1xuICBJc0luLFxuICBJc09wdGlvbmFsLFxuICBJc1N0cmluZyxcbiAgTWF0Y2hlcyxcbiAgTWF4TGVuZ3RoXG59IGZyb20gXCJjbGFzcy12YWxpZGF0b3JcIjtcblxuY29uc3QgT0FVVEhfU0FGRV9JREVOVElGSUVSX1BBVFRFUk4gPSAvXltBLVphLXowLTlfLjotXXsxLDEyOH0kLztcbmNvbnN0IE9BVVRIX1NDT1BFX1BBVFRFUk4gPSAvXltBLVphLXowLTlfLjotXSsoPzogW0EtWmEtejAtOV8uOi1dKykqJC87XG5cbmNsYXNzIE9BdXRoVG9rZW5HcmFudER0byB7XG4gIEBJc1N0cmluZygpXG4gIEBJc0luKFtcImNsaWVudF9jcmVkZW50aWFsc1wiXSlcbiAgZ3JhbnRfdHlwZSE6IHN0cmluZztcblxuICBASXNPcHRpb25hbCgpXG4gIEBJc1N0cmluZygpXG4gIEBNYXhMZW5ndGgoMTAyNClcbiAgQFRyYW5zZm9ybSgoeyB2YWx1ZSB9KSA9PlxuICAgIHR5cGVvZiB2YWx1ZSA9PT0gXCJzdHJpbmdcIiA/IHZhbHVlLnRyaW0oKS5yZXBsYWNlKC9cXHMrL2csIFwiIFwiKSA6IHZhbHVlXG4gIClcbiAgQE1hdGNoZXMoT0FVVEhfU0NPUEVfUEFUVEVSTilcbiAgc2NvcGU/OiBzdHJpbmc7XG59XG5cbmV4cG9ydCBjbGFzcyBPQXV0aFRva2VuQm9keUR0byBleHRlbmRzIE9BdXRoVG9rZW5HcmFudER0byB7XG4gIEBJc09wdGlvbmFsKClcbiAgQElzU3RyaW5nKClcbiAgQE1hdGNoZXMoT0FVVEhfU0FGRV9JREVOVElGSUVSX1BBVFRFUk4pXG4gIGNsaWVudF9pZD86IHN0cmluZztcblxuICBASXNPcHRpb25hbCgpXG4gIEBJc1N0cmluZygpXG4gIEBNYXhMZW5ndGgoMjA0OClcbiAgY2xpZW50X3NlY3JldD86IHN0cmluZztcbn1cblxuZXhwb3J0IGNsYXNzIE9BdXRoVG9rZW5SZXF1ZXN0RHRvIGV4dGVuZHMgT0F1dGhUb2tlbkdyYW50RHRvIHtcbiAgQElzU3RyaW5nKClcbiAgQE1hdGNoZXMoT0FVVEhfU0FGRV9JREVOVElGSUVSX1BBVFRFUk4pXG4gIGNsaWVudF9pZCE6IHN0cmluZztcblxuICBASXNTdHJpbmcoKVxuICBATWF4TGVuZ3RoKDIwNDgpXG4gIGNsaWVudF9zZWNyZXQhOiBzdHJpbmc7XG59XG5cbmV4cG9ydCBpbnRlcmZhY2UgT0F1dGhUb2tlblJlc3BvbnNlRHRvIHtcbiAgYWNjZXNzX3Rva2VuOiBzdHJpbmc7XG4gIHRva2VuX3R5cGU6IFwiQmVhcmVyXCI7XG4gIGV4cGlyZXNfaW46IG51bWJlcjtcbiAgc2NvcGU6IHN0cmluZztcbn1cbiJdLCJ2ZXJzaW9uIjozfQ==

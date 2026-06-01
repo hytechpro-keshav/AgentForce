@@ -146,15 +146,23 @@ Revenue Operations Intelligence account-health slice.
 
 - `POST /agent/revenue/account-health` requires scope
   `agentforce:revenue-account-health`.
+- `POST /agent/revenue/portfolio-intelligence` requires scope
+  `agentforce:revenue-portfolio-intelligence`.
 - `RevenueAccountHealthService` receives sanitized aggregate facts and calls
   `ModelRouter`; it does not compute deterministic revenue scores.
+- `RevenuePortfolioIntelligenceService` receives sanitized multi-account facts
+  keyed only by account references. It aggregates deterministic portfolio
+  signals, calls `ModelRouter` for ranked risk, expansion, trends, watchlists,
+  recommendations, and weekly plans, and falls back to deterministic signal
+  grouping if model output is incomplete.
 - The LLM owns account health score/band, churn risk, expansion potential,
   delivery risk, financial risk, support risk, executive engagement, rationale,
   revenue impact, operational blockers, and recommended actions.
 - The service validates the structured JSON response, redacts sensitive text,
   emits safe telemetry, and falls back to `unknown` decisions for malformed
   model output instead of inventing backend scores.
-- The ModelRouter use case is `agentforce_revenue_account_health`.
+- The ModelRouter use cases are `agentforce_revenue_account_health` and
+  `agentforce_revenue_portfolio_intelligence`.
 
 ## Local Commands
 
@@ -181,12 +189,14 @@ Detailed Railway setup is in [../../docs/deployment/railway-ai-api-phase1.md](..
 ## Provider-Backed Contracts
 
 All provider-backed routes require `Authorization: Bearer <jwt>` unless
-`AI_API_AUTH_DISABLED=true`. Health routes remain public. The support triage route requires JWT scope `agentforce:support-triage`; the case-analysis route requires JWT scope `agentforce:case-analysis`; the project-health route requires JWT scope `agentforce:services-project-health`; the revenue account-health route requires JWT scope `agentforce:revenue-account-health`.
+`AI_API_AUTH_DISABLED=true`. Health routes remain public. The support triage route requires JWT scope `agentforce:support-triage`; the case-analysis route requires JWT scope `agentforce:case-analysis`; the project-health route requires JWT scope `agentforce:services-project-health`; the revenue account-health route requires JWT scope `agentforce:revenue-account-health`; the revenue portfolio-intelligence route requires JWT scope `agentforce:revenue-portfolio-intelligence`.
 
 - `POST /chat/message` — DTO-validated chat call. Body: `{ messages, provider?, model?, maxTokens?, requestId? }`. Returns normalized `{ content, usage, provider, model, fallbackUsed, attemptedProviders, latencyMs, responseId? }`. Customer `chat:write` tokens use Knowledge RAG even if provider/model fields are present; direct diagnostic routing requires `chat:diagnostic`.
 - `POST /agent/support/triage-case` — Bulk-safe support triage helper. Body: `{ subject, description, reportedPriority?, caseId?, requestId? }`. Returns `{ recommendedPriority, summary, suggestedNextStep, provider, model, fallbackUsed, latencyMs }`.
 - `POST /agent/support/analyze-case` — Phase 3 Support Operations case-analysis helper. Body: `{ caseSubject, caseDescription, caseStatus?, caseType?, caseOrigin?, reportedPriority?, caseId?, requestId? }`. Returns `{ summary, category, recommendedPriority, confidence, nextAction, provider, model, fallbackUsed, latencyMs }`.
 - `POST /agent/services/project-health` — Phase 8 Services Org Intelligence helper. Body is a flat sanitized aggregate Certinia PSA project-facts payload from Apex, including project status, schedule, budget, staffing, milestone, timecard, task, resource request, and budget counts. Returns `{ healthStatus, riskLevel, scheduleStatus, budgetStatus, staffingStatus, summary, riskDrivers, recommendedActions, confidence, provider, model, fallbackUsed, latencyMs }`.
+- `POST /agent/revenue/account-health` — Phase 9 Account Manager Revenue Operations Intelligence helper. Body is a flat sanitized aggregate account-facts payload from Apex. Returns `{ accountHealthScore, accountHealthBand, churnRiskScore, churnRiskLevel, expansionScore, expansionLevel, deliveryRiskLevel, financialRiskLevel, supportRiskLevel, executiveEngagementLevel, primaryDecision, summary, decisionRationale, revenueImpact, operationalBlockers, recommendedActions, confidence, provider, model, fallbackUsed, latencyMs }`.
+- `POST /agent/revenue/portfolio-intelligence` — Phase 9B Account Manager portfolio intelligence helper. Body is `{ analysisFocus?, sourceSystems?, requestId?, accounts? }`, where each account is a sanitized aggregate fact object keyed only by `accountReference`. Returns `{ portfolioStatus, summary, topRiskAccounts, topExpansionAccounts, urgentRenewals, escalationAccounts, silentAccounts, portfolioWatchlists, portfolioTrends, recommendedActions, weeklyExecutionPlan, provider, model, fallbackUsed, decisionFallbackUsed, latencyMs }`.
 - `GET /v1/models` — OpenAI-compatible model listing for Open WebUI-style clients. Requires scope `openwebui:chat`. Phase 5 intentionally returns only `knowledge-rag` so Open WebUI does not show direct GPT/provider model options.
 - `POST /v1/chat/completions` — OpenAI-compatible chat completion. Requires scope `openwebui:chat`. The `model` field selects the provider when it matches a registered provider name; otherwise the configured default provider is used. When `RAG_ENABLED=true`, virtual model `knowledge-rag` routes through the Phase 4 source-cited RAG answer path. `stream=true` returns a standards-shaped SSE envelope after the shared backend path completes; token-by-token provider streaming remains a later enhancement.
 
@@ -312,8 +322,9 @@ Agentforce route security:
   service bearer stored in Salesforce External Credential when using durable
   Named Credential auth.
 - `AI_API_AGENTFORCE_BEARER_SCOPES` — defaults to support triage, case analysis,
-  Knowledge RAG, and Services project health. Set explicitly in Railway when
-  rotating or narrowing scopes.
+  Knowledge RAG, Services project health, revenue account health, and revenue
+  portfolio intelligence. Set explicitly in Railway when rotating or narrowing
+  scopes.
 - `AI_API_AGENTFORCE_BEARERS_JSON` — optional JSON array for multiple isolated
   Agentforce service bearers when more than one Salesforce org uses the same
   Railway ai-api app. Each entry contains `tokenSha256`, optional `subject`,
@@ -336,7 +347,7 @@ AI_API_JWT_SECRET=<Railway secret>
 AI_API_JWT_ISSUER=salesforce-agentforce
 AI_API_JWT_AUDIENCE=agentforce-ai-api
 AI_API_AGENTFORCE_BEARER_TOKEN_SHA256=<sha256 of Salesforce External Credential bearer>
-AI_API_AGENTFORCE_BEARER_SCOPES="agentforce:support-triage agentforce:case-analysis agentforce:knowledge-rag agentforce:services-project-health agentforce:revenue-account-health"
+AI_API_AGENTFORCE_BEARER_SCOPES="agentforce:support-triage agentforce:case-analysis agentforce:knowledge-rag agentforce:services-project-health agentforce:revenue-account-health agentforce:revenue-portfolio-intelligence"
 ```
 
 For OAuth client-credentials onboarding, keep `AI_API_JWT_SECRET` and replace

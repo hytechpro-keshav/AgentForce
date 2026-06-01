@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GenAiPlugin xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <canEscalate>false</canEscalate>
+    <description>Streamline Project Delivery, call this topic when the user asks to record time spent on a task or project.</description>
+    <developerName>Streamline_Project_Delivery</developerName>
+    <genAiFunctions>
+        <functionName>EmployeeCopilot__IdentifyRecordByName</functionName>
+    </genAiFunctions>
+    <genAiFunctions>
+        <functionName>Create_Timecard_Auto</functionName>
+    </genAiFunctions>
+    <genAiPluginInstructions>
+        <description>Projects should be identified using the &quot;identify object by name&quot; action</description>
+        <developerName>instruction_projectssh3</developerName>
+        <language xsi:nil="true"/>
+        <masterLabel>instruction_projectssh3</masterLabel>
+        <sortOrder>0</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+        <description>Take the timecardID and perform a &quot;record query&quot; action using timecardID as the record id of the pse__Timecard_Header__c record.  Only share the results of the record query with the user.  Do not add any additional text.  Do not tell the user something like &quot;I looked for the timecard with the specified ID&quot;.  Do not add system-generated text or summaries like &quot;I looked for the timecard with the specified ID.&quot;</description>
+        <developerName>instruction_takethetim4</developerName>
+        <language xsi:nil="true"/>
+        <masterLabel>instruction_takethetim4</masterLabel>
+        <sortOrder>0</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+        <description>The string outputs of actions should be included in the response messages, not shown as individual strings. Do not make any changes to the strings, show them exactly as they are.</description>
+        <developerName>instruction_thestringo2</developerName>
+        <language xsi:nil="true"/>
+        <masterLabel>instruction_thestringo2</masterLabel>
+        <sortOrder>0</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+        <description>When passing timecardDate as an input, if provides a relative date such as &apos;today&apos; or &apos;yesterday&apos;, convert that into a date based on the user&apos;s local timezone, not UTC time. For example, if it is 8 PM local time for the user and 1 AM UTC, choose the correct date based on the user&apos;s local time.</description>
+        <developerName>instruction_whenpassin0</developerName>
+        <language xsi:nil="true"/>
+        <masterLabel>instruction_whenpassin0</masterLabel>
+        <sortOrder>0</sortOrder>
+    </genAiPluginInstructions>
+    <genAiPluginInstructions>
+        <description>When you create a timecard, Inform the user a timecard has been created for them.  Do not share the timecardID with the user.</description>
+        <developerName>instruction_whenyoucre1</developerName>
+        <language xsi:nil="true"/>
+        <masterLabel>instruction_whenyoucre1</masterLabel>
+        <sortOrder>0</sortOrder>
+    </genAiPluginInstructions>
+    <language>en_US</language>
+    <masterLabel>Streamline Project Delivery</masterLabel>
+    <pluginType>Topic</pluginType>
+    <scope>Your job is to assist the user in time management.</scope>
+</GenAiPlugin>

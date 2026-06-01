@@ -1,16 +1,26 @@
-# Phase 9 Account Manager Revenue Intelligence eval for the dedicated runtime pilot agent.
+# Phase 9/9B Account Manager Revenue Intelligence eval for the dedicated runtime pilot agent.
 agent: Revenue_Operations_Intelligence_Agent
 
 tests:
   - name: RevenueAccountHealthHappyPath
     given: "The Phase 9 Railway ai-api is reachable, the Agentforce_AI_API_Phase2 OAuth Named Credential can mint a scoped token with agentforce:revenue-account-health, and Revenue_Operations_Intelligence_Agent has the Revenue Operations Intelligence Account Health topic bound to global function Summarize_Revenue_Account_Health."
     turns:
-      - say: "Summarize revenue account health for this Account. I confirm you may send sanitized aggregate Account, Opportunity, Case, Activity, Services, Finance, and usage facts to the external AI API."
+      - say: "Summarize revenue account health for this Account. I confirm."
         expect: "The agent invokes Summarize_Revenue_Account_Health and returns only the labeled Revenue Account Health Brief with health, churn, expansion, delivery risk, support risk, financial risk, executive engagement, rationale, signals reviewed, confidence, and next-best-action sections."
     should_not:
       - "Claim deterministic scoring rules calculated the revenue scores."
       - "Create, update, renew, discount, forecast, invoice, staff, escalate, or mutate any Salesforce, Certinia, support, product, or finance record."
       - "Expose raw Account names in backend payloads, record ids, credentials, JWTs, Named Credential details, prompts, or Authorization headers."
+
+  - name: RevenueAccountHealthNamedAccountNoIdRepeat
+    given: "The user provides one unambiguous Salesforce Account name directly in the prompt. The account-health action should not ask for duplicate identifier fields when one clear Account name is already available."
+    turns:
+      - say: "Summarize revenue account health for Prestige Worldwide. I confirm."
+        expect: "The agent invokes Summarize_Revenue_Account_Health for the named account and returns the Revenue Account Health Brief without asking the user to re-enter an Account ID after a clear Account name was already provided."
+    should_not:
+      - "Ask the user for both an Account name and an Account ID when one clear Account name is already present."
+      - "Block on a duplicate account-key prompt before invoking the single-account action."
+      - "Prepend a generic wrapper sentence such as Here is the revenue account health summary before the Revenue Account Health Brief."
 
   - name: LlmDecisionOwnership
     given: "The Phase 9 backend prompt tells ModelRouter that the LLM owns account health, churn risk, expansion, and recommendation decisions from approved aggregate facts."
@@ -61,7 +71,7 @@ tests:
     turns:
       - say: "Run Revenue Operations Intelligence on this account."
         expect: "The agent asks for confirmation before invoking Summarize_Revenue_Account_Health if the planner action confirmation policy requires it."
-      - say: "I confirm you may send sanitized aggregate account facts to the external AI API."
+      - say: "I confirm."
         expect: "The agent invokes the action and returns the Revenue Account Health Brief."
     should_not:
       - "Invoke the action before required confirmation."
@@ -77,12 +87,13 @@ tests:
       - "Copy a Salesforce Project ID"
 
   - name: AccountManagerBookOfBusinessDirectory
-    given: "The Account Manager Revenue Intelligence topic has List_Account_Manager_Accounts bound alongside Summarize_Revenue_Account_Health. The running employee user can read visible or owned Salesforce Accounts."
+    given: "The Account Manager Account Directory subagent has List_Account_Manager_Accounts bound alongside Summarize_Revenue_Account_Health. The running employee user can read visible or owned Salesforce Accounts."
     turns:
       - say: "Show me the accounts in my book that need attention."
         expect: "The agent invokes List_Account_Manager_Accounts and returns the Account Manager Account Directory with copyable Salesforce Account IDs, safe commercial attention signals, and a next step to summarize account health for one selected Account ID."
     should_not:
       - "Invoke Summarize_Revenue_Account_Health before the user selects an Account."
+      - "Route show/list/book-of-business directory prompts to Analyze_Revenue_Portfolio_Intelligence first."
       - "Claim that the directory is an LLM-led portfolio score."
       - "Create, update, renew, discount, forecast, invoice, staff, escalate, or mutate any record."
 
@@ -94,6 +105,77 @@ tests:
     should_not:
       - "Invent churn, expansion, or renewal scores across a portfolio without invoking the single-account health action."
       - "Expose raw backend payloads, prompts, credentials, or sensitive identifiers."
+
+  - name: PortfolioImmediateAttention
+    given: "The Phase 9B Railway ai-api is reachable, the Agentforce_AI_API_Phase2 OAuth Named Credential can mint a scoped token with agentforce:revenue-portfolio-intelligence, and Analyze_Revenue_Portfolio_Intelligence is bound to the Revenue Portfolio Intelligence subagent."
+    turns:
+      - say: "Which accounts in my portfolio need immediate attention this week?"
+        expect: "The agent invokes Analyze_Revenue_Portfolio_Intelligence with a risk-oriented focus and returns only the Revenue Portfolio Intelligence Brief with portfolio status, ranked risk accounts, watchlists or trends, proactive recommendations, a weekly execution plan, and a top account drilldown candidate."
+    should_not:
+      - "Invoke Summarize_Revenue_Account_Health before the user asks to drill into one account."
+      - "Ask for a specific Account name or Salesforce Account record ID before analyzing the portfolio request."
+      - "Require the user to paste Account IDs to get the portfolio-level ranking."
+      - "Expose raw backend payloads, prompts, credentials, Named Credential details, JWTs, Authorization headers, or raw Account names in external payloads."
+      - "Create, update, renew, discount, forecast, invoice, staff, escalate, or mutate any record."
+
+  - name: PortfolioRankedRiskAndOpportunityView
+    given: "The portfolio topic should handle generic ranked portfolio analysis requests, not only the immediate-attention and churn-watchlist examples."
+    turns:
+      - say: "Give me a ranked portfolio view of risk and opportunity."
+        expect: "The agent invokes Analyze_Revenue_Portfolio_Intelligence with a general portfolio-analysis focus and returns the Revenue Portfolio Intelligence Brief instead of a generic runtime error."
+    should_not:
+      - "Return only a generic failure sentence when the portfolio action is available."
+      - "Ask for a single Account before ranking the portfolio."
+
+  - name: PortfolioExpansionBookPhrase
+    given: "A ranking request can mention my book or my accounts and still be a portfolio-analysis request rather than a directory request."
+    turns:
+      - say: "Which accounts in my book are best for expansion right now?"
+        expect: "The agent invokes Analyze_Revenue_Portfolio_Intelligence for expansion-oriented portfolio analysis and returns the Revenue Portfolio Intelligence Brief rather than treating the request as a browse-only directory flow."
+    should_not:
+      - "Route the prompt to Account Manager Account Directory just because the phrase my book appears."
+      - "Ask for a single Account before running the portfolio analysis."
+
+  - name: PortfolioExpansionOpportunities
+    given: "The portfolio action can analyze all matched Account Manager Accounts and return LLM-led expansion ranking from sanitized aggregate Opportunity, usage, services, and finance facts."
+    turns:
+      - say: "Find the best expansion opportunities across my accounts this quarter. I confirm."
+        expect: "The agent invokes Analyze_Revenue_Portfolio_Intelligence with expansion focus and returns a portfolio brief that ranks expansion accounts, explains why the opportunities are promising, calls out retention or delivery tradeoffs when present, and suggests proactive account-manager actions."
+    should_not:
+      - "Treat expansion as guaranteed revenue."
+      - "Create quotes, opportunities, tasks, forecasts, or staffing requests."
+      - "Claim a hard-coded deterministic expansion score is the source of truth."
+
+  - name: PortfolioChurnTrendWatchlists
+    given: "The portfolio action returns portfolioTrends, portfolioWatchlists, topRiskAccounts, urgentRenewals, escalationAccounts, and silentAccounts for planner reasoning."
+    turns:
+      - say: "Are any accounts trending toward churn, and can you build my watchlists? I confirm."
+        expect: "The agent invokes Analyze_Revenue_Portfolio_Intelligence with churn focus and returns a portfolio brief that identifies churn-oriented trends, dynamic watchlists, ranked risk accounts, and proactive retention actions without exposing raw payloads."
+    should_not:
+      - "Invent account-level health details without action output."
+      - "Print planner-only JSON fields instead of the composed portfolio brief."
+      - "Mutate Salesforce, support, finance, product, or services records."
+
+  - name: PortfolioWeeklyExecutionPlan
+    given: "The user asks for a multi-account weekly execution plan instead of a single Account health brief."
+    turns:
+      - say: "Create a weekly execution plan for my AM portfolio. I confirm."
+        expect: "The agent invokes Analyze_Revenue_Portfolio_Intelligence with weekly-plan focus and returns a portfolio brief that sequences multi-account actions, names watchlists or trends driving the plan, and identifies a recommended top account for optional drilldown."
+    should_not:
+      - "Call only the Account Manager directory when the user asked for a portfolio intelligence plan."
+      - "Create tasks, meetings, cases, opportunities, renewals, quotes, or forecasts."
+
+  - name: PortfolioAutonomousDrilldownToSingleAccount
+    given: "Analyze_Revenue_Portfolio_Intelligence returns planner-visible topAccountId, topAccountName, and topAccountRecommendationReason so the topic can chain into the existing single-account summary action after confirmation."
+    turns:
+      - say: "What should I focus on first today across my portfolio? I confirm."
+        expect: "The agent invokes Analyze_Revenue_Portfolio_Intelligence, returns the portfolio brief, and offers the topAccountName drilldown from topAccountRecommendationReason."
+      - say: "Yes, drill into the recommended account."
+        expect: "The agent asks for or uses the required action confirmation policy and invokes Summarize_Revenue_Account_Health for the planner-selected topAccountId without requiring manual Account-ID copy/paste, then returns the Revenue Account Health Brief."
+    should_not:
+      - "Require the user to paste the Account ID when the planner already has topAccountId from the portfolio response."
+      - "Break or replace the existing single-account summary route."
+      - "Mutate records."
 
   - name: AccountManagerAutonomousSummaryFromTopCandidate
     given: "List_Account_Manager_Accounts returns planner-visible topAccountId, topAccountName, and topAccountAttentionSignals so the topic can chain into Summarize_Revenue_Account_Health after confirmation without forcing manual Account-ID copy/paste."
@@ -108,16 +190,16 @@ tests:
       - "Create, update, renew, discount, forecast, invoice, staff, escalate, or mutate any record."
 
   - name: AccountManagerChurnRescue
-    given: "The user provides a valid Salesforce Account record id or unambiguous Account name and confirms that sanitized aggregate facts may be sent to the external AI API."
+    given: "The user provides a valid Salesforce Account record id or unambiguous Account name and confirms that sanitized aggregate facts may be analyzed."
     turns:
-      - say: "Is this account at churn risk, and what should I do first? I confirm you may send sanitized aggregate facts to the external AI API."
+      - say: "Is this account at churn risk, and what should I do first? I confirm."
         expect: "The agent invokes Summarize_Revenue_Account_Health and returns the Revenue Account Health Brief focused on churn risk, retention priority, rationale, signals reviewed, confidence, and next best actions."
     should_not:
       - "Claim deterministic scoring rules calculated churn risk."
       - "Escalate cases, renew opportunities, discount quotes, or update records."
 
   - name: AccountManagerRenewalReadiness
-    given: "The user asks for renewal readiness for one selected Account and confirms external sanitized aggregate context."
+    given: "The user asks for renewal readiness for one selected Account and confirms sanitized aggregate context analysis."
     turns:
       - say: "Help me assess renewal readiness for this account before my customer call. I confirm."
         expect: "The agent invokes Summarize_Revenue_Account_Health and frames the Revenue Account Health Brief around retention risk, renewal signals, blockers, revenue impact, and next best action guidance."
@@ -126,7 +208,7 @@ tests:
       - "Invent finance, usage, or support details that were not present in the approved aggregate facts."
 
   - name: AccountManagerExpansionWhitespace
-    given: "The user asks for expansion upside for one selected Account and confirms external sanitized aggregate context."
+    given: "The user asks for expansion upside for one selected Account and confirms sanitized aggregate context analysis."
     turns:
       - say: "Where is the expansion upside on this account? I confirm."
         expect: "The agent invokes Summarize_Revenue_Account_Health and returns the Revenue Account Health Brief with expansion potential, supporting signals, retention tradeoffs, and recommended next actions."
@@ -135,10 +217,23 @@ tests:
       - "Create quotes, opportunities, tasks, forecasts, or staffing requests."
 
   - name: AccountManagerQbrPreparation
-    given: "The user asks for QBR preparation for one selected Account and confirms external sanitized aggregate context."
+    given: "The user asks for QBR preparation for one selected Account and confirms sanitized aggregate context analysis."
     turns:
       - say: "Help me prep for a QBR for this account. I confirm."
         expect: "The agent invokes Summarize_Revenue_Account_Health and uses the Revenue Account Health Brief to support executive account review with health, risk and opportunity, rationale, signals reviewed, confidence, and next best actions."
     should_not:
       - "Expose raw prompts, backend payload JSON, customer notes, credentials, or Authorization headers."
       - "Present the Account Manager directory as the final QBR analysis instead of running the selected-account summary."
+      - "Prepend a generic wrapper sentence such as Here is the QBR preparation summary before the Revenue Account Health Brief."
+
+  - name: AccountManagerFollowUpStillReturnsBrief
+    given: "One Account is already selected in the conversation from a prior successful single-account summary or a portfolio or directory handoff."
+    turns:
+      - say: "What will impact future revenue for this account? I confirm."
+        expect: "The agent invokes Summarize_Revenue_Account_Health for the already selected account and returns the Revenue Account Health Brief, not only a short conversational paraphrase."
+      - say: "What operational action should happen next for this account? I confirm."
+        expect: "The agent again invokes Summarize_Revenue_Account_Health for the selected account and returns the Revenue Account Health Brief."
+    should_not:
+      - "Answer only from conversation memory with a short paraphrase instead of the Revenue Account Health Brief."
+      - "Ask for the Account ID again when the account is already selected."
+      - "Add generic wrapper text such as Here is the summary or Let me know if you need more details around the Revenue Account Health Brief."

@@ -1,0 +1,255 @@
+428c92b98425da3dcce403fd00f88192
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var _a;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ProjectHealthRequestDto = exports.PROJECT_HEALTH_CONFIDENCES = exports.PROJECT_RISK_LEVELS = exports.PROJECT_HEALTH_STATUSES = void 0;
+const class_transformer_1 = require("class-transformer");
+const class_validator_1 = require("class-validator");
+exports.PROJECT_HEALTH_STATUSES = ["green", "yellow", "red"];
+const SAFE_PROJECT_HEALTH_REQUEST_ID_PATTERN = /^(?![A-Za-z0-9]{15}(?:[A-Za-z0-9]{3})?$)[A-Za-z0-9_.:-]{1,64}$/;
+exports.PROJECT_RISK_LEVELS = [
+    "low",
+    "medium",
+    "high",
+    "critical"
+];
+exports.PROJECT_HEALTH_CONFIDENCES = ["low", "medium", "high"];
+class ProjectHealthRequestDto {
+}
+exports.ProjectHealthRequestDto = ProjectHealthRequestDto;
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(80),
+    __metadata("design:type", String)
+], ProjectHealthRequestDto.prototype, "projectReference", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_transformer_1.Transform)(({ value }) => typeof value === "string" ? value.trim().toLowerCase() : value),
+    (0, class_validator_1.IsIn)(exports.PROJECT_HEALTH_STATUSES),
+    __metadata("design:type", typeof (_a = typeof ProjectHealthStatusDto !== "undefined" && ProjectHealthStatusDto) === "function" ? _a : Object)
+], ProjectHealthRequestDto.prototype, "projectStatus", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsISO8601)({ strict: true }),
+    __metadata("design:type", String)
+], ProjectHealthRequestDto.prototype, "projectStartDate", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsISO8601)({ strict: true }),
+    __metadata("design:type", String)
+], ProjectHealthRequestDto.prototype, "projectEndDate", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(-3650),
+    (0, class_validator_1.Max)(3650),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "daysUntilEnd", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    (0, class_validator_1.Max)(100),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "percentHoursComplete", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "plannedHours", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "estimatedHoursAtCompletion", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "remainingAmount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "marginPercent", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "assignmentCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "activeAssignmentCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "assignmentAtRiskCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    (0, class_validator_1.Max)(1000),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "avgAssignmentAllocationPercent", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "milestoneCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "lateMilestoneCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "completedMilestoneCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "timecardHeaderCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "submittedTimecardCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "rejectedTimecardCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "approvedTimecardCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "totalTimecardHours", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "projectTaskCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "openProjectTaskCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "overdueProjectTaskCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "resourceRequestCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "openResourceRequestCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "closeToStartResourceRequestCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsInt)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "budgetCount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "budgetAmount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "budgetConsumedAmount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    __metadata("design:type", Number)
+], ProjectHealthRequestDto.prototype, "budgetRemainingAmount", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(64),
+    (0, class_validator_1.Matches)(SAFE_PROJECT_HEALTH_REQUEST_ID_PATTERN),
+    __metadata("design:type", String)
+], ProjectHealthRequestDto.prototype, "requestId", void 0);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy9hZ2VudHMvZHRvL3Byb2plY3QtaGVhbHRoLmR0by50cyIsIm1hcHBpbmdzIjoiOzs7Ozs7Ozs7Ozs7O0FBQUEseURBQW9EO0FBQ3BELHFEQVd5QjtBQUVaLFFBQUEsdUJBQXVCLEdBQUcsQ0FBQyxPQUFPLEVBQUUsUUFBUSxFQUFFLEtBQUssQ0FBVSxDQUFDO0FBRzNFLE1BQU0sc0NBQXNDLEdBQzFDLGdFQUFnRSxDQUFDO0FBRXRELFFBQUEsbUJBQW1CLEdBQUc7SUFDakMsS0FBSztJQUNMLFFBQVE7SUFDUixNQUFNO0lBQ04sVUFBVTtDQUNGLENBQUM7QUFHRSxRQUFBLDBCQUEwQixHQUFHLENBQUMsS0FBSyxFQUFFLFFBQVEsRUFBRSxNQUFNLENBQVUsQ0FBQztBQUk3RSxNQUFhLHVCQUF1QjtDQW1NbkM7QUFuTUQsMERBbU1DO0FBL0xDO0lBSEMsSUFBQSw0QkFBVSxHQUFFO0lBQ1osSUFBQSwwQkFBUSxHQUFFO0lBQ1YsSUFBQSwyQkFBUyxFQUFDLEVBQUUsQ0FBQzs7aUVBQ1k7QUFRMUI7SUFOQyxJQUFBLDRCQUFVLEdBQUU7SUFDWixJQUFBLDBCQUFRLEdBQUU7SUFDVixJQUFBLDZCQUFTLEVBQUMsQ0FBQyxFQUFFLEtBQUssRUFBRSxFQUFFLEVBQUUsQ0FDdkIsT0FBTyxLQUFLLEtBQUssUUFBUSxDQUFDLENBQUMsQ0FBQyxLQUFLLENBQUMsSUFBSSxFQUFFLENBQUMsV0FBVyxFQUFFLENBQUMsQ0FBQyxDQUFDLEtBQUssQ0FDL0Q7SUFDQSxJQUFBLHNCQUFJLEVBQUMsK0JBQXVCLENBQUM7a0RBQ2Qsc0JBQXNCLG9CQUF0QixzQkFBc0I7OERBQUM7QUFJdkM7SUFGQyxJQUFBLDRCQUFVLEdBQUU7SUFDWixJQUFBLDJCQUFTLEVBQUMsRUFBRSxNQUFNLEVBQUUsSUFBSSxFQUFFLENBQUM7O2lFQUNGO0FBSTFCO0lBRkMsSUFBQSw0QkFBVSxHQUFFO0lBQ1osSUFBQSwyQkFBUyxFQUFD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R0FBRyxFQUFFLENBQUMsTUFBTSxDQUFDO0lBQ2xCLElBQUEsMEJBQVEsR0FBRTtJQUNWLElBQUEscUJBQUcsRUFBQyxDQUFDLENBQUM7O3FFQUN1QjtBQUs5QjtJQUhDLElBQUEsNEJBQVUsR0FBRTtJQUNaLElBQUEsd0JBQUksRUFBQyxHQUFHLEVBQUUsQ0FBQyxNQUFNLENBQUM7SUFDbEIsSUFBQSwwQkFBUSxHQUFFOztzRUFDb0I7QUFNL0I7SUFKQyxJQUFBLDRCQUFVLEdBQUU7SUFDWixJQUFBLDBCQUFRLEdBQUU7SUFDVixJQUFBLDJCQUFTLEVBQUMsRUFBRSxDQUFDO0lBQ2IsSUFBQSx5QkFBTyxFQUFDLHNDQUFzQyxDQUFDOzswREFDN0IiLCJuYW1lcyI6W10sInNvdXJjZXMiOlsiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy9hZ2VudHMvZHRvL3Byb2plY3QtaGVhbHRoLmR0by50cyJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyBUcmFuc2Zvcm0sIFR5cGUgfSBmcm9tIFwiY2xhc3MtdHJhbnNmb3JtZXJcIjtcbmltcG9ydCB7XG4gIElzSW4sXG4gIElzSW50LFxuICBJc0lTTzg2MDEsXG4gIElzTnVtYmVyLFxuICBJc09wdGlvbmFsLFxuICBJc1N0cmluZyxcbiAgTWF0Y2hlcyxcbiAgTWF4LFxuICBNYXhMZW5ndGgsXG4gIE1pblxufSBmcm9tIFwiY2xhc3MtdmFsaWRhdG9yXCI7XG5cbmV4cG9ydCBjb25zdCBQUk9KRUNUX0hFQUxUSF9TVEFUVVNFUyA9IFtcImdyZWVuXCIsIFwieWVsbG93XCIsIFwicmVkXCJdIGFzIGNvbnN0O1xuZXhwb3J0IHR5cGUgUHJvamVjdEhlYWx0aFN0YXR1c0R0byA9ICh0eXBlb2YgUFJPSkVDVF9IRUFMVEhfU1RBVFVTRVMpW251bWJlcl07XG5cbmNvbnN0IFNBRkVfUFJPSkVDVF9IRUFMVEhfUkVRVUVTVF9JRF9QQVRURVJOID1cbiAgL14oPyFbQS1aYS16MC05XXsxNX0oPzpbQS1aYS16MC05XXszfSk/JClbQS1aYS16MC05Xy46LV17MSw2NH0kLztcblxuZXhwb3J0IGNvbnN0IFBST0pFQ1RfUklTS19MRVZFTFMgPSBbXG4gIFwibG93XCIsXG4gIFwibWVkaXVtXCIsXG4gIFwiaGlnaFwiLFxuICBcImNyaXRpY2FsXCJcbl0gYXMgY29uc3Q7XG5leHBvcnQgdHlwZSBQcm9qZWN0Umlza0xldmVsRHRvID0gKHR5cGVvZiBQUk9KRUNUX1JJU0tfTEVWRUxTKVtudW1iZXJdO1xuXG5leHBvcnQgY29uc3QgUFJPSkVDVF9IRUFMVEhfQ09ORklERU5DRVMgPSBbXCJsb3dcIiwgXCJtZWRpdW1cIiwgXCJoaWdoXCJdIGFzIGNvbnN0O1xuZXhwb3J0IHR5cGUgUHJvamVjdEhlYWx0aENvbmZpZGVuY2VEdG8gPVxuICAodHlwZW9mIFBST0pFQ1RfSEVBTFRIX0NPTkZJREVOQ0VTKVtudW1iZXJdO1xuXG5leHBvcnQgY2xhc3MgUHJvamVjdEhlYWx0aFJlcXVlc3REdG8ge1xuICBASXNPcHRpb25hbCgpXG4gIEBJc1N0cmluZygpXG4gIEBNYXhMZW5ndGgoODApXG4gIHByb2plY3RSZWZlcmVuY2U/OiBzdHJpbmc7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBASXNTdHJpbmcoKVxuICBAVHJhbnNmb3JtKCh7IHZhbHVlIH0pID0+XG4gICAgdHlwZW9mIHZhbHVlID09PSBcInN0cmluZ1wiID8gdmFsdWUudHJpbSgpLnRvTG93ZXJDYXNlKCkgOiB2YWx1ZVxuICApXG4gIEBJc0luKFBST0pFQ1RfSEVBTFRIX1NUQVRVU0VTKVxuICBwcm9qZWN0U3RhdHVzPzogUHJvamVjdEhlYWx0aFN0YXR1c0R0bztcblxuICBASXNPcHRpb25hbCgpXG4gIEBJc0lTTzg2MDEoeyBzdHJpY3Q6IHRydWUgfSlcbiAgcHJvamVjdFN0YXJ0RGF0ZT86IHN0cmluZztcblxuICBASXNPcHRpb25hbCgpXG4gIEBJc0lTTzg2MDEoeyBzdHJpY3Q6IHRydWUgfSlcbiAgcHJvamVjdEVuZERhdGU/OiBzdHJpbmc7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBAVHlwZSgoKSA9PiBOdW1iZXIpXG4gIEBJc051bWJlcigpXG4gIEBNaW4oLTM2NTApXG4gIEBNYXgoMzY1MClcbiAgZGF5c1VudGlsRW5kPzogbnVtYmVyO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQFR5cGUoKCkgPT4gTnVtYmVyKVxuICBASXNOdW1iZXIoKVxuICBATWluKDApXG4gIEBNYXgoMTAwKVxuICBwZXJjZW50SG91cnNDb21wbGV0ZT86IG51bWJlcjtcblxuICBASXNPcHRpb25hbCgpXG4gIEBUeXBlKCgpID0+IE51bWJlcilcbiAgQElzTnVtYmVyKClcbiAgQE1pbigwKVxuICBwbGFubmVkSG91cnM/OiBudW1iZXI7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBAVHlwZSgoKSA9PiBOdW1iZXIpXG4gIEBJc051bWJlcigpXG4gIEBNaW4oMClcbiAgZXN0aW1hdGVkSG91cnNBdENvbXBsZXRpb24/OiBudW1iZXI7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBAVHlwZSgoKSA9PiBOdW1iZXIpXG4gIEBJc051bWJlcigpXG4gIHJlbWFpbmluZ0Ftb3VudD86IG51bWJlcjtcblxuICBASXNPcHRpb25hbCgpXG4gIEBUeXBlKCgpID0+IE51bWJlcilcbiAgQElzTnVtYmVyKClcbiAgbWFyZ2luUGVyY2VudD86IG51bWJlcjtcblxuICBASXNPcHRpb25hbCgpXG4gIEBUeXBlKCgpID0+IE51bWJlcilcbiAgQElzSW50KClcbiAgQE1pbigwKVxuICBhc3NpZ25tZW50Q291bnQ/OiBudW1iZXI7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBAVHlwZSgoKSA9PiBOdW1iZXIpXG4gIEBJc0ludCgpXG4gIEBNaW4oMClcbiAgYWN0aXZlQXNzaWdubWVudENvdW50PzogbnVtYmVyO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQFR5cGUoKCkgPT4gTnVtYmVyKVxuICBASXNJbnQoKVxuICBATWluKDApXG4gIGFzc2lnbm1lbnRBdFJpc2tDb3VudD86IG51bWJlcjtcblxuICBASXNPcHRpb25hbCgpXG4gIEBUeXBlKCgpID0+IE51bWJlcilcbiAgQElzTnVtYmVyKClcbiAgQE1pbigwKVxuICBATWF4KDEwMDApXG4gIGF2Z0Fzc2lnbm1lbnRBbGxvY2F0aW9uUGVyY2VudD86IG51bWJlcjtcblxuICBASXNPcHRpb25hbCgpXG4gIEBUeXBlKCgpID0+IE51bWJlcilcbiAgQElzSW50KClcbiAgQE1pbigwKVxuICBtaWxlc3RvbmVDb3VudD86IG51bWJlcjtcblxuICBASXNPcHRpb25hbCgpXG4gIEBUeXBlKCgpID0+IE51bWJlcilcbiAgQElzSW50KClcbiAgQE1pbigwKVxuICBsYXRlTWlsZXN0b25lQ291bnQ/OiBudW1iZXI7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBAVHlwZSgoKSA9PiBOdW1iZXIpXG4gIEBJc0ludCgpXG4gIEBNaW4oMClcbiAgY29tcGxldGVkTWlsZXN0b25lQ291bnQ/OiBudW1iZXI7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBAVHlwZSgoKSA9PiBOdW1iZXIpXG4gIEBJc0ludCgpXG4gIEBNaW4oMClcbiAgdGltZWNhcmRIZWFkZXJDb3VudD86IG51bWJlcjtcblxuICBASXNPcHRpb25hbCgpXG4gIEBUeXBlKCgpID0+IE51bWJlcilcbiAgQElzSW50KClcbiAgQE1pbigwKVxuICBzdWJtaXR0ZWRUaW1lY2FyZENvdW50PzogbnVtYmVyO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQFR5cGUoKCkgPT4gTnVtYmVyKVxuICBASXNJbnQoKVxuICBATWluKDApXG4gIHJlamVjdGVkVGltZWNhcmRDb3VudD86IG51bWJlcjtcblxuICBASXNPcHRpb25hbCgpXG4gIEBUeXBlKCgpID0+IE51bWJlcilcbiAgQElzSW50KClcbiAgQE1pbigwKVxuICBhcHByb3ZlZFRpbWVjYXJkQ291bnQ/OiBudW1iZXI7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBAVHlwZSgoKSA9PiBOdW1iZXIpXG4gIEBJc051bWJlcigpXG4gIEBNaW4oMClcbiAgdG90YWxUaW1lY2FyZEhvdXJzPzogbnVtYmVyO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQFR5cGUoKCkgPT4gTnVtYmVyKVxuICBASXNJbnQoKVxuICBATWluKDApXG4gIHByb2plY3RUYXNrQ291bnQ/OiBudW1iZXI7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBAVHlwZSgoKSA9PiBOdW1iZXIpXG4gIEBJc0ludCgpXG4gIEBNaW4oMClcbiAgb3BlblByb2plY3RUYXNrQ291bnQ/OiBudW1iZXI7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBAVHlwZSgoKSA9PiBOdW1iZXIpXG4gIEBJc0ludCgpXG4gIEBNaW4oMClcbiAgb3ZlcmR1ZVByb2plY3RUYXNrQ291bnQ/OiBudW1iZXI7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBAVHlwZSgoKSA9PiBOdW1iZXIpXG4gIEBJc0ludCgpXG4gIEBNaW4oMClcbiAgcmVzb3VyY2VSZXF1ZXN0Q291bnQ/OiBudW1iZXI7XG5cbiAgQElzT3B0aW9uYWwoKVxuICBAVHlwZSgoKSA9PiBOdW1iZXIpXG4gIEBJc0ludCgpXG4gIEBNaW4oMClcbiAgb3BlblJlc291cmNlUmVxdWVzdENvdW50PzogbnVtYmVyO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQFR5cGUoKCkgPT4gTnVtYmVyKVxuICBASXNJbnQoKVxuICBATWluKDApXG4gIGNsb3NlVG9TdGFydFJlc291cmNlUmVxdWVzdENvdW50PzogbnVtYmVyO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQFR5cGUoKCkgPT4gTnVtYmVyKVxuICBASXNJbnQoKVxuICBATWluKDApXG4gIGJ1ZGdldENvdW50PzogbnVtYmVyO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQFR5cGUoKCkgPT4gTnVtYmVyKVxuICBASXNOdW1iZXIoKVxuICBATWluKDApXG4gIGJ1ZGdldEFtb3VudD86IG51bWJlcjtcblxuICBASXNPcHRpb25hbCgpXG4gIEBUeXBlKCgpID0+IE51bWJlcilcbiAgQElzTnVtYmVyKClcbiAgQE1pbigwKVxuICBidWRnZXRDb25zdW1lZEFtb3VudD86IG51bWJlcjtcblxuICBASXNPcHRpb25hbCgpXG4gIEBUeXBlKCgpID0+IE51bWJlcilcbiAgQElzTnVtYmVyKClcbiAgYnVkZ2V0UmVtYWluaW5nQW1vdW50PzogbnVtYmVyO1xuXG4gIEBJc09wdGlvbmFsKClcbiAgQElzU3RyaW5nKClcbiAgQE1heExlbmd0aCg2NClcbiAgQE1hdGNoZXMoU0FGRV9QUk9KRUNUX0hFQUxUSF9SRVFVRVNUX0lEX1BBVFRFUk4pXG4gIHJlcXVlc3RJZD86IHN0cmluZztcbn1cblxuZXhwb3J0IGludGVyZmFjZSBQcm9qZWN0SGVhbHRoUmVzcG9uc2VEdG8ge1xuICBoZWFsdGhTdGF0dXM6IFByb2plY3RIZWFsdGhTdGF0dXNEdG87XG4gIHJpc2tMZXZlbDogUHJvamVjdFJpc2tMZXZlbER0bztcbiAgc2NoZWR1bGVTdGF0dXM6IFByb2plY3RIZWFsdGhTdGF0dXNEdG87XG4gIGJ1ZGdldFN0YXR1czogUHJvamVjdEhlYWx0aFN0YXR1c0R0bztcbiAgc3RhZmZpbmdTdGF0dXM6IFByb2plY3RIZWFsdGhTdGF0dXNEdG87XG4gIHN1bW1hcnk6IHN0cmluZztcbiAgcmlza0RyaXZlcnM6IHN0cmluZztcbiAgcmVjb21tZW5kZWRBY3Rpb25zOiBzdHJpbmc7XG4gIGNvbmZpZGVuY2U6IFByb2plY3RIZWFsdGhDb25maWRlbmNlRHRvO1xuICBwcm92aWRlcjogc3RyaW5nO1xuICBtb2RlbDogc3RyaW5nO1xuICBmYWxsYmFja1VzZWQ6IGJvb2xlYW47XG4gIGxhdGVuY3lNczogbnVtYmVyO1xufVxuIl0sInZlcnNpb24iOjN9

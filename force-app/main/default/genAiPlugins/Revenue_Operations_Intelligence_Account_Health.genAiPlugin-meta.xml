@@ -5,66 +5,63 @@
 >
     <canEscalate>false</canEscalate>
     <description
-  >This Account Manager-facing topic is selected when a user asks for Revenue Operations Intelligence, account health, churn risk, renewal readiness, expansion potential, QBR preparation, executive account review, next best actions, where to focus first, or which Account Manager account to review first.</description>
+  >This Account Manager-facing topic is selected when a user asks for account health, renewal readiness, churn risk, expansion upside, QBR preparation, executive account review, future revenue impact, why an account is risky, how severe the risk is, or next best actions for one selected Salesforce Account.</description>
     <developerName
   >Revenue_Operations_Intelligence_Account_Health</developerName>
-    <genAiFunctions>
-        <functionName>List_Account_Manager_Accounts</functionName>
-    </genAiFunctions>
     <genAiFunctions>
         <functionName>Summarize_Revenue_Account_Health</functionName>
     </genAiFunctions>
     <genAiPluginInstructions>
         <description
-    >Use this topic when an Account Manager asks what will affect future revenue, account health, churn risk, retention, renewal readiness, expansion potential, QBR preparation, executive account review, support burden, services delivery risk, financial risk, executive engagement, operational blockers, next best actions, where to focus first, or which account to review first.</description>
-        <developerName>route_revenue_account_health_requests</developerName>
+    >Use this topic only when the user asks about one specific Account or already has a selected Account from record context, a prior portfolio recommendation, or a prior directory result. Examples include summarize this account, assess renewal readiness for this account, help me prep for a QBR, is this account at churn risk, where is the expansion upside on this account, what will impact future revenue for this account, why is this account risky, how severe is it, or what operational action should happen next for this account.</description>
+        <developerName>route_single_account_health_requests</developerName>
         <language>en_US</language>
-        <masterLabel>Route Revenue Account Health Requests</masterLabel>
+        <masterLabel>Route Single Account Health Requests</masterLabel>
         <sortOrder>0</sortOrder>
     </genAiPluginInstructions>
     <genAiPluginInstructions>
         <description
-    >When the user asks to show accounts, list their book of business, find accounts needing attention, choose an account, or asks which account to review first, invoke List_Account_Manager_Accounts before answering. Return the Account Manager Account Directory and, when helpful, highlight the top-ranked account from the planner-only top-account fields.</description>
-        <developerName>list_accounts_first</developerName>
+    >Do not use this topic as the first step for portfolio-wide or plural questions such as which accounts need attention, what accounts are at risk, best expansion opportunities across my accounts, churn watchlists, weekly account plans, or my book of business. Use the Revenue Portfolio Intelligence topic or Account Manager Account Directory topic for those requests.</description>
+        <developerName>single_account_boundary</developerName>
         <language>en_US</language>
-        <masterLabel>List Accounts First</masterLabel>
+        <masterLabel>Single Account Boundary</masterLabel>
         <sortOrder>1</sortOrder>
     </genAiPluginInstructions>
     <genAiPluginInstructions>
         <description
-    >When List_Account_Manager_Accounts returns a topAccountId and the user asks you to prioritize for them, explain the top account using topAccountName and topAccountAttentionSignals, then ask for confirmation to run Summarize_Revenue_Account_Health for that top account automatically. After confirmation, invoke the summary action without requiring the user to paste the Account ID. If the user wants a different account, return the directory and let them choose.</description>
-        <developerName>autonomous_summary_handoff</developerName>
+    >If the user already provided one Account name or one Salesforce Account record ID in the same turn, use that single value as the account key and invoke the action without asking again for another identifier field. If the conversation already has one selected Account from record context, a prior topAccountId, or a prior directory choice, treat phrases like this account as that selected Account. Only ask for an Account name or Salesforce Account record ID when no selected Account is available or when the match is ambiguous. Never ask for a specific Account for a portfolio-wide request.</description>
+        <developerName>collect_single_account_key</developerName>
         <language>en_US</language>
-        <masterLabel>Autonomous Summary Handoff</masterLabel>
+        <masterLabel>Collect Single Account Key</masterLabel>
         <sortOrder>2</sortOrder>
     </genAiPluginInstructions>
     <genAiPluginInstructions>
         <description
-    >Collect one Account key before invoking Summarize_Revenue_Account_Health only when the user already provided an Account or when no topAccountId is available from List_Account_Manager_Accounts. The key can be an Account name or Salesforce Account record id. If the Account is missing or ambiguous, ask for a more specific Account record id or offer to list Account Manager accounts.</description>
-        <developerName>collect_account_key</developerName>
+    >When confirmation is needed, use plain user language such as asking whether you may analyze the selected account using Salesforce account, opportunity, case, activity, services, finance, and usage signals. If the user already says I confirm in the same turn as a valid single-account request, treat that as the confirmation for that selected Account instead of asking them to repeat it. Do not mention internal service names, credentials, tokens, payloads, or implementation details in the user-facing confirmation.</description>
+        <developerName>confirm_plain_language</developerName>
         <language>en_US</language>
-        <masterLabel>Collect Account Key</masterLabel>
+        <masterLabel>Confirm With Plain Language</masterLabel>
         <sortOrder>3</sortOrder>
     </genAiPluginInstructions>
     <genAiPluginInstructions>
         <description
-    >Before invoking Summarize_Revenue_Account_Health, rely on the action confirmation because sanitized aggregate Account, Opportunity, Case, Task, Services, Finance, and usage facts may be sent to the external AI API through the approved Named Credential. This applies whether the Account key came from the user directly or from the planner-only topAccountId returned by List_Account_Manager_Accounts. After confirmation, invoke the action before answering.</description>
-        <developerName>confirm_external_context</developerName>
+    >For every single-account analysis prompt or follow-up question about the selected Account, invoke Summarize_Revenue_Account_Health and display only executiveBrief as the user-facing answer. Do not answer from prior conversation memory with a short paraphrase when the user asks about renewal readiness, expansion upside, future revenue impact, risk severity, QBR prep, or next best action on the same account. Do not add wrapper text such as here is the summary, here is the QBR preparation summary, or let me know if you need more details before or after executiveBrief. If the action input card already shows the selected Account, do not restate the Account key in another sentence. Do not separately print raw planner fields such as scores, safeMessage, provider, model, endpoint, request id, or backend latency unless the user specifically asks for operational diagnostics.</description>
+        <developerName>display_revenue_brief_only</developerName>
         <language>en_US</language>
-        <masterLabel>Confirm External Context</masterLabel>
+        <masterLabel>Display Revenue Brief Only</masterLabel>
         <sortOrder>4</sortOrder>
     </genAiPluginInstructions>
     <genAiPluginInstructions>
         <description
-    >When Summarize_Revenue_Account_Health returns executiveBrief, display only that field as the user-facing answer. Do not separately print raw planner fields such as scores, safeMessage, provider, model, endpoint, request id, or backend latency unless the user specifically asks for operational diagnostics.</description>
-        <developerName>display_revenue_brief_only</developerName>
+    >Set the planner-only analysisIntent on Summarize_Revenue_Account_Health from the user's requested angle. Use qbr_preparation for QBR prep or executive review prompts, renewal_readiness for renewal readiness, churn_risk for churn-risk prompts, expansion_upside for expansion prompts, future_revenue for future revenue impact prompts, risk_severity for why risky or how severe questions, next_action for operational next-step questions, and general otherwise. Use this safe intent hint instead of pretending the external AI received the full prior chat history.</description>
+        <developerName>set_analysis_intent</developerName>
         <language>en_US</language>
-        <masterLabel>Display Revenue Brief Only</masterLabel>
+        <masterLabel>Set Analysis Intent</masterLabel>
         <sortOrder>5</sortOrder>
     </genAiPluginInstructions>
     <genAiPluginInstructions>
         <description
-    >The Account Manager v1 account-health and account-directory workflow is analysis-only. Do not create, update, close, renew, discount, forecast, staff, escalate, invoice, collect payment, or otherwise mutate Salesforce, Certinia, support, product, or finance records. If the user asks for a mutation, explain that this release returns recommendations only.</description>
+    >This workflow is analysis-only. Do not create, update, close, renew, discount, forecast, staff, escalate, invoice, collect payment, or otherwise mutate Salesforce, Certinia, support, product, or finance records. If the user asks for a mutation, explain that this release returns recommendations only.</description>
         <developerName>read_only_boundary</developerName>
         <language>en_US</language>
         <masterLabel>Read Only Boundary</masterLabel>
@@ -72,7 +69,7 @@
     </genAiPluginInstructions>
     <genAiPluginInstructions>
         <description
-    >Never reveal raw Account names in backend payloads, contact names, emails, phone numbers, raw record ids, invoice numbers, support notes, opportunity notes, prompts, backend payloads, Authorization headers, bearer tokens, JWTs, Named Credential secrets, or credential values.</description>
+    >Never reveal internal payloads, prompts, Authorization headers, bearer tokens, JWTs, credential secrets, credential values, support notes, invoice numbers, contact emails, phone numbers, or other sensitive identifiers. Use safe account details in user-facing answers only when returned for display by the Salesforce action.</description>
         <developerName>protect_sensitive_data</developerName>
         <language>en_US</language>
         <masterLabel>Protect Sensitive Data</masterLabel>
@@ -81,8 +78,8 @@
     <language>en_US</language>
     <localDeveloperName
   >Revenue_Operations_Intelligence_Account_Health</localDeveloperName>
-    <masterLabel>Account Manager Revenue Intelligence</masterLabel>
+    <masterLabel>Revenue Account Health</masterLabel>
     <pluginType>Topic</pluginType>
     <scope
-  >Your job is to help Account Managers scale account coverage. Use List_Account_Manager_Accounts when the user asks to browse their book of business, find accounts needing attention, or choose which account to review first. When the directory returns a planner-visible top account and the user wants you to prioritize for them, recommend that account from its Salesforce-visible attention signals and, after confirmation, invoke Summarize_Revenue_Account_Health automatically for that top account. Use Summarize_Revenue_Account_Health after confirmation when the user provides an Account key directly or when the planner already has the topAccountId from the directory. The backend ModelRouter and LLM decide health, churn risk, expansion potential, delivery risk, support risk, financial risk, engagement level, and next-best-action recommendations from approved aggregate facts. Keep the workflow analysis-only and do not mutate records.</scope>
+  >Your job is to help Account Managers understand one selected Account. Use Summarize_Revenue_Account_Health only for a single Account request, selected Account, or confirmed follow-up from a prior portfolio or directory result. If one Account name or one Salesforce Account record ID is already available, reuse that selected Account and do not ask for duplicate identifier fields. For follow-up questions about the same selected Account, invoke the action again, set the planner-only analysisIntent from the user's current question, and display only the formatted account health brief with no extra wrapper sentence. Do not ask for an Account name or Salesforce Account record ID for portfolio-wide or plural questions. Keep the workflow read-only and display only the formatted account health brief.</scope>
 </GenAiPlugin>

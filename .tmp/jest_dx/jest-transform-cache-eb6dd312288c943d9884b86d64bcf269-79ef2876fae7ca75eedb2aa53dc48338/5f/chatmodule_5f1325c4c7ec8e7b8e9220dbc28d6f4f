@@ -1,0 +1,28 @@
+98df857613fdeaf95bfe48204ed158d3
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ChatModule = void 0;
+const common_1 = require("@nestjs/common");
+const llm_module_1 = require("../llm/llm.module");
+const rag_module_1 = require("../rag/rag.module");
+const chat_controller_1 = require("./chat.controller");
+const chat_service_1 = require("./chat.service");
+const chat_escalation_service_1 = require("./chat-escalation.service");
+let ChatModule = class ChatModule {
+};
+exports.ChatModule = ChatModule;
+exports.ChatModule = ChatModule = __decorate([
+    (0, common_1.Module)({
+        imports: [llm_module_1.LlmModule, rag_module_1.RagModule],
+        controllers: [chat_controller_1.ChatController],
+        providers: [chat_service_1.ChatService, chat_escalation_service_1.ChatEscalationService],
+        exports: [chat_service_1.ChatService]
+    })
+], ChatModule);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy9jaGF0L2NoYXQubW9kdWxlLnRzIiwibWFwcGluZ3MiOiI7Ozs7Ozs7OztBQUFBLDJDQUF3QztBQUV4QyxrREFBOEM7QUFDOUMsa0RBQThDO0FBQzlDLHVEQUFtRDtBQUNuRCxpREFBNkM7QUFDN0MsdUVBQWtFO0FBUTNELElBQU0sVUFBVSxHQUFoQixNQUFNLFVBQVU7Q0FBRyxDQUFBO0FBQWIsZ0NBQVU7cUJBQVYsVUFBVTtJQU50QixJQUFBLGVBQU0sRUFBQztRQUNOLE9BQU8sRUFBRSxDQUFDLHNCQUFTLEVBQUUsc0JBQVMsQ0FBQztRQUMvQixXQUFXLEVBQUUsQ0FBQyxnQ0FBYyxDQUFDO1FBQzdCLFNBQVMsRUFBRSxDQUFDLDBCQUFXLEVBQUUsK0NBQXFCLENBQUM7UUFDL0MsT0FBTyxFQUFFLENBQUMsMEJBQVcsQ0FBQztLQUN2QixDQUFDO0dBQ1csVUFBVSxDQUFHIiwibmFtZXMiOltdLCJzb3VyY2VzIjpbIi9Vc2Vycy9rZXNoYXZjaGF1ZGhhcnkvQWdlbnRGb3JjZS9hcHBzL2FpLWFwaS9zcmMvY2hhdC9jaGF0Lm1vZHVsZS50cyJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyBNb2R1bGUgfSBmcm9tIFwiQG5lc3Rqcy9jb21tb25cIjtcblxuaW1wb3J0IHsgTGxtTW9kdWxlIH0gZnJvbSBcIi4uL2xsbS9sbG0ubW9kdWxlXCI7XG5pbXBvcnQgeyBSYWdNb2R1bGUgfSBmcm9tIFwiLi4vcmFnL3JhZy5tb2R1bGVcIjtcbmltcG9ydCB7IENoYXRDb250cm9sbGVyIH0gZnJvbSBcIi4vY2hhdC5jb250cm9sbGVyXCI7XG5pbXBvcnQgeyBDaGF0U2VydmljZSB9IGZyb20gXCIuL2NoYXQuc2VydmljZVwiO1xuaW1wb3J0IHsgQ2hhdEVzY2FsYXRpb25TZXJ2aWNlIH0gZnJvbSBcIi4vY2hhdC1lc2NhbGF0aW9uLnNlcnZpY2VcIjtcblxuQE1vZHVsZSh7XG4gIGltcG9ydHM6IFtMbG1Nb2R1bGUsIFJhZ01vZHVsZV0sXG4gIGNvbnRyb2xsZXJzOiBbQ2hhdENvbnRyb2xsZXJdLFxuICBwcm92aWRlcnM6IFtDaGF0U2VydmljZSwgQ2hhdEVzY2FsYXRpb25TZXJ2aWNlXSxcbiAgZXhwb3J0czogW0NoYXRTZXJ2aWNlXVxufSlcbmV4cG9ydCBjbGFzcyBDaGF0TW9kdWxlIHt9XG4iXSwidmVyc2lvbiI6M30=

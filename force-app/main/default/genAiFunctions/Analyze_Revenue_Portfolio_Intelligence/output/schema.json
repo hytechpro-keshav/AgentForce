@@ -1,0 +1,247 @@
+{
+  "unevaluatedProperties": false,
+  "properties": {
+    "analysisStatus": {
+      "title": "Analysis Status",
+      "description": "ANALYZED, NO_ACCOUNTS, VALIDATION_ERROR, AUTH_ERROR, BACKEND_ERROR, CALLOUT_FAILED, MALFORMED_RESPONSE, UNEXPECTED_ERROR, or NOT_ANALYZED.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "safeMessage": {
+      "title": "Safe Message",
+      "description": "Safe status message for planner reasoning. Do not display when portfolioBrief is present.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "portfolioBrief": {
+      "title": "Revenue Portfolio Intelligence Brief",
+      "description": "Copy this field as the user-facing answer after portfolio analysis. It contains portfolio status, ranked accounts, watchlists, trends, proactive recommendations, weekly execution plan, and the drilldown candidate. Do not replace it with a generic sentence.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "portfolioStatus": {
+      "title": "Portfolio Status",
+      "description": "Portfolio status: STABLE, WATCH, ATTENTION_REQUIRED, CRITICAL, or INSUFFICIENT_DATA. Planner reasoning only when portfolioBrief is present.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "summary": {
+      "title": "Summary",
+      "description": "Short safe portfolio summary. Planner reasoning only when portfolioBrief is present.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "topRiskAccounts": {
+      "title": "Top Risk Accounts",
+      "description": "Planner-visible ranked risk accounts with safe reasons and Salesforce Account IDs for confirmation-based drilldown.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "topExpansionAccounts": {
+      "title": "Top Expansion Accounts",
+      "description": "Planner-visible ranked expansion accounts with safe reasons.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "urgentRenewals": {
+      "title": "Urgent Renewals",
+      "description": "Planner-visible urgent renewal watchlist accounts.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "escalationAccounts": {
+      "title": "Escalation Accounts",
+      "description": "Planner-visible escalation watchlist accounts.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "silentAccounts": {
+      "title": "Silent Accounts",
+      "description": "Planner-visible low-engagement watchlist accounts.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "portfolioWatchlists": {
+      "title": "Portfolio Watchlists",
+      "description": "Planner-visible portfolio watchlist groups.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "portfolioTrends": {
+      "title": "Portfolio Trends",
+      "description": "Planner-visible portfolio trend detection output.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "recommendedActions": {
+      "title": "Recommended Actions",
+      "description": "Planner-visible proactive portfolio recommendations.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "weeklyExecutionPlan": {
+      "title": "Weekly Execution Plan",
+      "description": "Planner-visible multi-account weekly execution plan.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "topAccountId": {
+      "title": "Top Account Id",
+      "description": "Planner-only Salesforce Account ID for the highest-priority drilldown candidate so the agent can hand off into the existing account-health summary after confirmation.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "topAccountName": {
+      "title": "Top Account Name",
+      "description": "Planner-only Account name for the highest-priority drilldown candidate.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "topAccountRecommendationReason": {
+      "title": "Top Account Recommendation Reason",
+      "description": "Planner-only safe reason for the highest-priority drilldown candidate.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "accountCount": {
+      "title": "Account Count",
+      "description": "Number of Accounts analyzed in this response.",
+      "lightning:type": "lightning__integerType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "resultLimit": {
+      "title": "Result Limit",
+      "description": "Maximum number of Accounts requested after safety caps.",
+      "lightning:type": "lightning__integerType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "hasMore": {
+      "title": "Has More Accounts",
+      "description": "True when more Accounts may be available than this response analyzed.",
+      "lightning:type": "lightning__booleanType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "accountIds": {
+      "title": "Account Ids",
+      "description": "Semicolon-separated Salesforce Account IDs analyzed in this response.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": false
+    },
+    "provider": {
+      "title": "Provider",
+      "description": "Internal model provider used for operational diagnostics.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "model": {
+      "title": "Model",
+      "description": "Internal model used for operational diagnostics.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "fallbackUsed": {
+      "title": "Fallback Used",
+      "description": "True when a fallback provider was used.",
+      "lightning:type": "lightning__booleanType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "decisionFallbackUsed": {
+      "title": "Decision Fallback Used",
+      "description": "True when deterministic signal grouping was used because model output was incomplete.",
+      "lightning:type": "lightning__booleanType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "latencyMs": {
+      "title": "Latency Ms",
+      "description": "Internal service latency in milliseconds.",
+      "lightning:type": "lightning__numberType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": false
+    },
+    "httpStatusCode": {
+      "title": "HTTP Status Code",
+      "description": "HTTP status code returned by the internal portfolio-intelligence service.",
+      "lightning:type": "lightning__numberType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": false
+    },
+    "endpoint": {
+      "title": "Endpoint",
+      "description": "Internal endpoint called by Apex.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": false
+    },
+    "requestId": {
+      "title": "Request Id",
+      "description": "Safe correlation id sent to backend telemetry.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": false
+    },
+    "analyzedAt": {
+      "title": "Analyzed At",
+      "description": "Timestamp when Apex analyzed revenue portfolio intelligence.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": false
+    }
+  },
+  "lightning:type": "lightning__objectType",
+  "lightning:textIndexed": true
+}

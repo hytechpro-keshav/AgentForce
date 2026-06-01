@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GenAiPlugin xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <aiPluginUtterances>
+        <developerName>summarizet0</developerName>
+        <language xsi:nil="true"/>
+        <masterLabel>summarizet</masterLabel>
+        <utterance>Summarize the United Partners - Multi-Element project for me</utterance>
+    </aiPluginUtterances>
+    <aiPluginUtterances>
+        <developerName>canyoucrea1</developerName>
+        <language xsi:nil="true"/>
+        <masterLabel>canyoucrea</masterLabel>
+        <utterance>Can you create a project summary for United Partners - Multi-Element</utterance>
+    </aiPluginUtterances>
+    <canEscalate>false</canEscalate>
+    <description>This topic should be called when a user asks for a summary of a project</description>
+    <developerName>Project_Summary_MDO</developerName>
+    <genAiFunctions>
+        <functionName>EmployeeCopilot__IdentifyRecordByName</functionName>
+    </genAiFunctions>
+    <genAiFunctions>
+        <functionName>Generate_PSA_Project_Summary1</functionName>
+    </genAiFunctions>
+    <genAiPluginInstructions>
+        <description>Identify projects with Identify Record By Name action</description>
+        <developerName>instruction_identifypr0</developerName>
+        <language xsi:nil="true"/>
+        <masterLabel>instruction_identifypr0</masterLabel>
+        <sortOrder>0</sortOrder>
+    </genAiPluginInstructions>
+    <language>en_US</language>
+    <masterLabel>Project Summary MDO</masterLabel>
+    <pluginType>Topic</pluginType>
+    <scope>Your job is to provide project summaries</scope>
+</GenAiPlugin>

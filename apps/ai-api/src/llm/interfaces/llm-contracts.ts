@@ -16,6 +16,7 @@ export const LLM_USE_CASES = [
   "agentforce_case_analysis",
   "agentforce_services_project_health",
   "agentforce_revenue_account_health",
+  "agentforce_revenue_portfolio_intelligence",
   "knowledge_rag"
 ] as const;
 

@@ -1,12 +1,21 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" ?>
 <GenAiPlannerBundle xmlns="http://soap.sforce.com/2006/04/metadata">
-  <description>Account Manager-facing Phase 9 pilot agent for choosing accounts from a book of business and generating LLM-led Revenue Operations Intelligence account-health briefs. It lists Account Manager accounts, invokes Summarize Revenue Account Health for one selected account, and returns executive-safe revenue, retention, expansion, churn, and next-best-action guidance without mutating records.</description>
+  <description
+  >Account Manager-facing Phase 9 pilot agent with separate subagents for portfolio intelligence, account directory, and single-account health briefs. Use portfolio intelligence for analysis and ranking, account directory for show/list/browse/book-of-business account selection, and account health for one selected account. The agent stays read-only and allows confirmed drilldown without mutating records.</description>
   <genAiPlugins>
-    <genAiPluginName>Revenue_Operations_Intelligence_Account_Health</genAiPluginName>
+    <genAiPluginName>Revenue_Operations_Intelligence_Portfolio</genAiPluginName>
+  </genAiPlugins>
+  <genAiPlugins>
+    <genAiPluginName
+    >Revenue_Operations_Intelligence_Account_Directory</genAiPluginName>
+  </genAiPlugins>
+  <genAiPlugins>
+    <genAiPluginName
+    >Revenue_Operations_Intelligence_Account_Health</genAiPluginName>
   </genAiPlugins>
   <masterLabel>Account Manager Revenue Intelligence Agent</masterLabel>
   <plannerSurfaces>
-    <adaptiveResponseAllowed>true</adaptiveResponseAllowed>
+    <adaptiveResponseAllowed>false</adaptiveResponseAllowed>
     <callRecordingAllowed>false</callRecordingAllowed>
     <surface>SurfaceAction__Messaging</surface>
     <surfaceType>Messaging</surfaceType>

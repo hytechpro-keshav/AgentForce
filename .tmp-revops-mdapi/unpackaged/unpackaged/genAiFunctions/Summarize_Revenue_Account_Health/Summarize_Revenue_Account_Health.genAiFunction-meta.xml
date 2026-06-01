@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<GenAiFunction xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description
+  >Summarizes Revenue Operations Intelligence account health for one selected Salesforce Account using approved Account, Opportunity, Case, Activity, Services, Finance, and usage signals. Use this only when the user asked about a single Account directly or when the planner already has a topAccountId from a prior directory or portfolio result. Do not use this action first for portfolio-wide or plural requests about multiple accounts. The analysis decides the scores and next-best-action guidance.</description>
+    <developerName>Summarize_Revenue_Account_Health</developerName>
+    <invocationTarget>AgentforceAiApiRevenueAccountHealth</invocationTarget>
+    <invocationTargetType>apex</invocationTargetType>
+    <isConfirmationRequired>true</isConfirmationRequired>
+    <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+    <localDeveloperName>Summarize_Revenue_Account_Health</localDeveloperName>
+    <masterLabel>Summarize Revenue Account Health</masterLabel>
+    <progressIndicatorMessage
+  >Summarizing revenue account health</progressIndicatorMessage>
+</GenAiFunction>

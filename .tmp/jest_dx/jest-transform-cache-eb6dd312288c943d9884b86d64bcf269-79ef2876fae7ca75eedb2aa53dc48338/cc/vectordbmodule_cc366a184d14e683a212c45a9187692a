@@ -1,0 +1,69 @@
+d61302e8be791a84e25abad6519aadf7
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.VectorStoreError = exports.QdrantVectorStore = exports.PineconeVectorStore = exports.InMemoryVectorStore = exports.VectorDbModule = exports.VECTOR_STORE = void 0;
+const common_1 = require("@nestjs/common");
+const app_config_service_1 = require("../config/app-config.service");
+const in_memory_vector_store_1 = require("./in-memory-vector-store");
+Object.defineProperty(exports, "InMemoryVectorStore", { enumerable: true, get: function () { return in_memory_vector_store_1.InMemoryVectorStore; } });
+const pinecone_vector_store_1 = require("./pinecone-vector-store");
+Object.defineProperty(exports, "PineconeVectorStore", { enumerable: true, get: function () { return pinecone_vector_store_1.PineconeVectorStore; } });
+const qdrant_vector_store_1 = require("./qdrant-vector-store");
+Object.defineProperty(exports, "QdrantVectorStore", { enumerable: true, get: function () { return qdrant_vector_store_1.QdrantVectorStore; } });
+const vector_db_types_1 = require("./vector-db.types");
+Object.defineProperty(exports, "VectorStoreError", { enumerable: true, get: function () { return vector_db_types_1.VectorStoreError; } });
+exports.VECTOR_STORE = Symbol("VECTOR_STORE");
+class DisabledVectorStore {
+    constructor(name, reason) {
+        this.reason = reason;
+        this.name = name;
+    }
+    async upsert() {
+        throw new vector_db_types_1.VectorStoreError(this.name, "configuration", this.reason);
+    }
+    async search() {
+        throw new vector_db_types_1.VectorStoreError(this.name, "configuration", this.reason);
+    }
+    async deleteBySource() {
+        throw new vector_db_types_1.VectorStoreError(this.name, "configuration", this.reason);
+    }
+}
+let VectorDbModule = class VectorDbModule {
+};
+exports.VectorDbModule = VectorDbModule;
+exports.VectorDbModule = VectorDbModule = __decorate([
+    (0, common_1.Module)({
+        providers: [
+            {
+                provide: exports.VECTOR_STORE,
+                inject: [app_config_service_1.AppConfigService],
+                useFactory: (config) => {
+                    if (config.rag.vectorDbProvider === "memory") {
+                        return new in_memory_vector_store_1.InMemoryVectorStore();
+                    }
+                    if (config.rag.vectorDbProvider === "qdrant") {
+                        if (config.rag.qdrant) {
+                            return new qdrant_vector_store_1.QdrantVectorStore(config.rag.qdrant);
+                        }
+                        return new DisabledVectorStore("qdrant", "Qdrant is not configured. Set RAG_ENABLED=true, VECTOR_DB_PROVIDER=qdrant, QDRANT_URL, and QDRANT_COLLECTION or VECTOR_DB_INDEX for RAG routes.");
+                    }
+                    if (config.rag.pinecone) {
+                        return new pinecone_vector_store_1.PineconeVectorStore({
+                            apiKey: config.rag.pinecone.apiKey,
+                            indexName: config.rag.pinecone.index
+                        });
+                    }
+                    return new DisabledVectorStore("pinecone", "Pinecone is not configured. Set RAG_ENABLED=true, VECTOR_DB_PROVIDER=pinecone, VECTOR_DB_API_KEY, and VECTOR_DB_INDEX for RAG routes.");
+                }
+            }
+        ],
+        exports: [exports.VECTOR_STORE]
+    })
+], VectorDbModule);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy92ZWN0b3ItZGIvdmVjdG9yLWRiLm1vZHVsZS50cyIsIm1hcHBpbmdzIjoiOzs7Ozs7Ozs7QUFBQSwyQ0FBd0M7QUFFeEMscUVBQWdFO0FBQ2hFLHFFQUErRDtBQWtFN0Qsb0dBbEVPLDRDQUFtQixPQWtFUDtBQWpFckIsbUVBQThEO0FBa0U1RCxvR0FsRU8sMkNBQW1CLE9Ba0VQO0FBakVyQiwrREFBMEQ7QUFrRXhELGtHQWxFTyx1Q0FBaUIsT0FrRVA7QUFqRW5CLHVEQUF1RTtBQWtFckUsaUdBbEVPLGtDQUFnQixPQWtFUDtBQWhFTCxRQUFBLFlBQVksR0FBRyxNQUFNLENBQUMsY0FBYyxDQUFDLENBQUM7QUFFbkQsTUFBTSxtQkFBbUI7SUFHdkIsWUFDRSxJQUFZLEVBQ0ssTUFBYztRQUFkLFdBQU0sR0FBTixNQUFNLENBQVE7UUFFL0IsSUFBSSxDQUFDLElBQUksR0FBRyxJQUFJLENBQUM7SUFDbkIsQ0FBQztJQUVELEtBQUssQ0FBQyxNQUFNO1FBQ1YsTUFBTSxJQUFJLGtDQUFnQixDQUFDLElBQUksQ0FBQyxJQUFJLEVBQUUsZUFBZSxFQUFFLElBQUksQ0FBQyxNQUFNLENBQUMsQ0FBQztJQUN0RSxDQUFDO0lBRUQsS0FBSyxDQUFDLE1BQU07UUFDVixNQUFNLElBQUksa0NBQWdCLENBQUMsSUFBSSxDQUFDLElBQUksRUFBRSxlQUFlLEVBQUUsSUFBSSxDQUFDLE1BQU0sQ0FBQyxDQUFDO0lBQ3RFLENBQUM7SUFFRCxLQUFLLENBQUMsY0FBYztRQUNsQixNQUFNLElBQUksa0NBQWdCLENBQUMsSUFBSSxDQUFDLElBQUksRUFBRSxlQUFlLEVBQUUsSUFBSSxDQUFDLE1BQU0sQ0FBQyxDQUFDO0lBQ3RFLENBQUM7Q0FDRjtBQW1DTSxJQUFNLGNBQWMsR0FBcEIsTUFBTSxjQUFjO0NBQUcsQ0FBQTtBQUFqQix3Q0FBYzt5QkFBZCxjQUFjO0lBakMxQixJQUFBLGVBQU0sRUFBQztRQUNOLFNBQVMsRUFBRTtZQUNUO2dCQUNFLE9BQU8sRUFBRSxvQkFBWTtnQkFDckIsTUFBTSxFQUFFLENBQUMscUNBQWdCLENBQUM7Z0JBQzFCLFVBQVUsRUFBRSxDQUFDLE1BQXdCLEVBQWUsRUFBRTtvQkFDcEQsSUFBSSxNQUFNLENBQUMsR0FBRyxDQUFDLGdCQUFnQixLQUFLLFFBQVEsRUFBRSxDQUFDO3dCQUM3QyxPQUFPLElBQUksNENBQW1CLEVBQUUsQ0FBQztvQkFDbkMsQ0FBQztvQkFDRCxJQUFJLE1BQU0sQ0FBQyxHQUFHLENBQUMsZ0JBQWdCLEtBQUssUUFBUSxFQUFFLENBQUM7d0JBQzdDLElBQUksTUFBTSxDQUFDLEdBQUcsQ0FBQyxNQUFNLEVBQUUsQ0FBQzs0QkFDdEIsT0FBTyxJQUFJLHVDQUFpQixDQUFDLE1BQU0sQ0FBQyxHQUFHLENBQUMsTUFBTSxDQUFDLENBQUM7d0JBQ2xELENBQUM7d0JBQ0QsT0FBTyxJQUFJLG1CQUFtQixDQUM1QixRQUFRLEVBQ1IsaUpBQWlKLENBQ2xKLENBQUM7b0JBQ0osQ0FBQztvQkFDRCxJQUFJLE1BQU0sQ0FBQyxHQUFHLENBQUMsUUFBUSxFQUFFLENBQUM7d0JBQ3hCLE9BQU8sSUFBSSwyQ0FBbUIsQ0FBQzs0QkFDN0IsTUFBTSxFQUFFLE1BQU0sQ0FBQyxHQUFHLENBQUMsUUFBUSxDQUFDLE1BQU07NEJBQ2xDLFNBQVMsRUFBRSxNQUFNLENBQUMsR0FBRyxDQUFDLFFBQVEsQ0FBQyxLQUFLO3lCQUNyQyxDQUFDLENBQUM7b0JBQ0wsQ0FBQztvQkFDRCxPQUFPLElBQUksbUJBQW1CLENBQzVCLFVBQVUsRUFDVix1SUFBdUksQ0FDeEksQ0FBQztnQkFDSixDQUFDO2FBQ0Y7U0FDRjtRQUNELE9BQU8sRUFBRSxDQUFDLG9CQUFZLENBQUM7S0FDeEIsQ0FBQztHQUNXLGNBQWMsQ0FBRyIsIm5hbWVzIjpbXSwic291cmNlcyI6WyIvVXNlcnMva2VzaGF2Y2hhdWRoYXJ5L0FnZW50Rm9yY2UvYXBwcy9haS1hcGkvc3JjL3ZlY3Rvci1kYi92ZWN0b3ItZGIubW9kdWxlLnRzIl0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IE1vZHVsZSB9IGZyb20gXCJAbmVzdGpzL2NvbW1vblwiO1xuXG5pbXBvcnQgeyBBcHBDb25maWdTZXJ2aWNlIH0gZnJvbSBcIi4uL2NvbmZpZy9hcHAtY29uZmlnLnNlcnZpY2VcIjtcbmltcG9ydCB7IEluTWVtb3J5VmVjdG9yU3RvcmUgfSBmcm9tIFwiLi9pbi1tZW1vcnktdmVjdG9yLXN0b3JlXCI7XG5pbXBvcnQgeyBQaW5lY29uZVZlY3RvclN0b3JlIH0gZnJvbSBcIi4vcGluZWNvbmUtdmVjdG9yLXN0b3JlXCI7XG5pbXBvcnQgeyBRZHJhbnRWZWN0b3JTdG9yZSB9IGZyb20gXCIuL3FkcmFudC12ZWN0b3Itc3RvcmVcIjtcbmltcG9ydCB7IFZlY3RvclN0b3JlRXJyb3IsIHR5cGUgVmVjdG9yU3RvcmUgfSBmcm9tIFwiLi92ZWN0b3ItZGIudHlwZXNcIjtcblxuZXhwb3J0IGNvbnN0IFZFQ1RPUl9TVE9SRSA9IFN5bWJvbChcIlZFQ1RPUl9TVE9SRVwiKTtcblxuY2xhc3MgRGlzYWJsZWRWZWN0b3JTdG9yZSBpbXBsZW1lbnRzIFZlY3RvclN0b3JlIHtcbiAgcmVhZG9ubHkgbmFtZTogc3RyaW5nO1xuXG4gIGNvbnN0cnVjdG9yKFxuICAgIG5hbWU6IHN0cmluZyxcbiAgICBwcml2YXRlIHJlYWRvbmx5IHJlYXNvbjogc3RyaW5nXG4gICkge1xuICAgIHRoaXMubmFtZSA9IG5hbWU7XG4gIH1cblxuICBhc3luYyB1cHNlcnQoKTogUHJvbWlzZTx2b2lkPiB7XG4gICAgdGhyb3cgbmV3IFZlY3RvclN0b3JlRXJyb3IodGhpcy5uYW1lLCBcImNvbmZpZ3VyYXRpb25cIiwgdGhpcy5yZWFzb24pO1xuICB9XG5cbiAgYXN5bmMgc2VhcmNoKCk6IFByb21pc2U8bmV2ZXI+IHtcbiAgICB0aHJvdyBuZXcgVmVjdG9yU3RvcmVFcnJvcih0aGlzLm5hbWUsIFwiY29uZmlndXJhdGlvblwiLCB0aGlzLnJlYXNvbik7XG4gIH1cblxuICBhc3luYyBkZWxldGVCeVNvdXJjZSgpOiBQcm9taXNlPHZvaWQ+IHtcbiAgICB0aHJvdyBuZXcgVmVjdG9yU3RvcmVFcnJvcih0aGlzLm5hbWUsIFwiY29uZmlndXJhdGlvblwiLCB0aGlzLnJlYXNvbik7XG4gIH1cbn1cblxuQE1vZHVsZSh7XG4gIHByb3ZpZGVyczogW1xuICAgIHtcbiAgICAgIHByb3ZpZGU6IFZFQ1RPUl9TVE9SRSxcbiAgICAgIGluamVjdDogW0FwcENvbmZpZ1NlcnZpY2VdLFxuICAgICAgdXNlRmFjdG9yeTogKGNvbmZpZzogQXBwQ29uZmlnU2VydmljZSk6IFZlY3RvclN0b3JlID0+IHtcbiAgICAgICAgaWYgKGNvbmZpZy5yYWcudmVjdG9yRGJQcm92aWRlciA9PT0gXCJtZW1vcnlcIikge1xuICAgICAgICAgIHJldHVybiBuZXcgSW5NZW1vcnlWZWN0b3JTdG9yZSgpO1xuICAgICAgICB9XG4gICAgICAgIGlmIChjb25maWcucmFnLnZlY3RvckRiUHJvdmlkZXIgPT09IFwicWRyYW50XCIpIHtcbiAgICAgICAgICBpZiAoY29uZmlnLnJhZy5xZHJhbnQpIHtcbiAgICAgICAgICAgIHJldHVybiBuZXcgUWRyYW50VmVjdG9yU3RvcmUoY29uZmlnLnJhZy5xZHJhbnQpO1xuICAgICAgICAgIH1cbiAgICAgICAgICByZXR1cm4gbmV3IERpc2FibGVkVmVjdG9yU3RvcmUoXG4gICAgICAgICAgICBcInFkcmFudFwiLFxuICAgICAgICAgICAgXCJRZHJhbnQgaXMgbm90IGNvbmZpZ3VyZWQuIFNldCBSQUdfRU5BQkxFRD10cnVlLCBWRUNUT1JfREJfUFJPVklERVI9cWRyYW50LCBRRFJBTlRfVVJMLCBhbmQgUURSQU5UX0NPTExFQ1RJT04gb3IgVkVDVE9SX0RCX0lOREVYIGZvciBSQUcgcm91dGVzLlwiXG4gICAgICAgICAgKTtcbiAgICAgICAgfVxuICAgICAgICBpZiAoY29uZmlnLnJhZy5waW5lY29uZSkge1xuICAgICAgICAgIHJldHVybiBuZXcgUGluZWNvbmVWZWN0b3JTdG9yZSh7XG4gICAgICAgICAgICBhcGlLZXk6IGNvbmZpZy5yYWcucGluZWNvbmUuYXBpS2V5LFxuICAgICAgICAgICAgaW5kZXhOYW1lOiBjb25maWcucmFnLnBpbmVjb25lLmluZGV4XG4gICAgICAgICAgfSk7XG4gICAgICAgIH1cbiAgICAgICAgcmV0dXJuIG5ldyBEaXNhYmxlZFZlY3RvclN0b3JlKFxuICAgICAgICAgIFwicGluZWNvbmVcIixcbiAgICAgICAgICBcIlBpbmVjb25lIGlzIG5vdCBjb25maWd1cmVkLiBTZXQgUkFHX0VOQUJMRUQ9dHJ1ZSwgVkVDVE9SX0RCX1BST1ZJREVSPXBpbmVjb25lLCBWRUNUT1JfREJfQVBJX0tFWSwgYW5kIFZFQ1RPUl9EQl9JTkRFWCBmb3IgUkFHIHJvdXRlcy5cIlxuICAgICAgICApO1xuICAgICAgfVxuICAgIH1cbiAgXSxcbiAgZXhwb3J0czogW1ZFQ1RPUl9TVE9SRV1cbn0pXG5leHBvcnQgY2xhc3MgVmVjdG9yRGJNb2R1bGUge31cblxuZXhwb3J0IHtcbiAgSW5NZW1vcnlWZWN0b3JTdG9yZSxcbiAgUGluZWNvbmVWZWN0b3JTdG9yZSxcbiAgUWRyYW50VmVjdG9yU3RvcmUsXG4gIFZlY3RvclN0b3JlRXJyb3Jcbn07XG5leHBvcnQgdHlwZSB7IFZlY3RvclN0b3JlIH07XG4iXSwidmVyc2lvbiI6M30=

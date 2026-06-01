@@ -1,0 +1,36 @@
+{
+  "required": [],
+  "unevaluatedProperties": false,
+  "properties": {
+    "attentionFilter": {
+      "title": "Attention Filter",
+      "description": "Optional Account Manager attention filter: All, Needs Attention, Renewal, Expansion, or Quiet.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    },
+    "scopeFilter": {
+      "title": "Scope Filter",
+      "description": "Optional Account scope filter: Owned for the Account Manager book of business or Visible for all visible Accounts. Defaults to Owned.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    },
+    "searchText": {
+      "title": "Search Text",
+      "description": "Optional Account name search text.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isUserInput": true
+    },
+    "maxResults": {
+      "title": "Max Results",
+      "description": "Optional maximum number of Accounts to list. Defaults to 10 and caps at 25.",
+      "lightning:type": "lightning__integerType",
+      "lightning:isPII": false,
+      "copilotAction:isUserInput": true
+    }
+  },
+  "lightning:type": "lightning__objectType",
+  "lightning:textIndexed": true
+}

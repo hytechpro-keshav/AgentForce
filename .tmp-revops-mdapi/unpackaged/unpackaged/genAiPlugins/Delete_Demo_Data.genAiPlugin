@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<GenAiPlugin xmlns="http://soap.sforce.com/2006/04/metadata" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <canEscalate>false</canEscalate>
+    <description>This Topic should be called if the user asks to delete generated data.</description>
+    <developerName>Delete_Demo_Data</developerName>
+    <genAiFunctions>
+        <functionName>Delete_Generated_Data</functionName>
+    </genAiFunctions>
+    <genAiPluginInstructions>
+        <description>unused</description>
+        <developerName>instruction_unused0</developerName>
+        <language xsi:nil="true"/>
+        <masterLabel>instruction_unused0</masterLabel>
+        <sortOrder>0</sortOrder>
+    </genAiPluginInstructions>
+    <language>en_US</language>
+    <masterLabel>Delete Demo Data</masterLabel>
+    <pluginType>Topic</pluginType>
+    <scope>Your job is to delete all generated data from a demo.</scope>
+</GenAiPlugin>

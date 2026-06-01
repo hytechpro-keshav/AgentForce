@@ -1,0 +1,75 @@
+bce25433126f2f570c88f45368d8e760
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
+var _a, _b;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.HealthController = void 0;
+const common_1 = require("@nestjs/common");
+const crypto_1 = require("crypto");
+const app_config_service_1 = require("../config/app-config.service");
+const public_decorator_1 = require("../auth/public.decorator");
+const health_service_1 = require("./health.service");
+let HealthController = class HealthController {
+    constructor(healthService, config) {
+        this.healthService = healthService;
+        this.config = config;
+    }
+    getLiveness() {
+        return this.healthService.getLiveness();
+    }
+    getHealth(providedHealthKey) {
+        this.assertHealthKey(providedHealthKey);
+        return this.healthService.getHealth();
+    }
+    assertHealthKey(providedHealthKey) {
+        const expectedHealthKey = this.config.agentforceHealthApiKey;
+        if (!expectedHealthKey) {
+            throw new common_1.ServiceUnavailableException("AI API health bridge credentials are not configured.");
+        }
+        if (!providedHealthKey ||
+            !this.matchesHealthKey(providedHealthKey, expectedHealthKey)) {
+            throw new common_1.UnauthorizedException("Invalid AI API health bridge credentials.");
+        }
+    }
+    matchesHealthKey(providedHealthKey, expectedHealthKey) {
+        const providedDigest = (0, crypto_1.createHash)("sha256")
+            .update(providedHealthKey)
+            .digest();
+        const expectedDigest = (0, crypto_1.createHash)("sha256")
+            .update(expectedHealthKey)
+            .digest();
+        return (0, crypto_1.timingSafeEqual)(providedDigest, expectedDigest);
+    }
+};
+exports.HealthController = HealthController;
+__decorate([
+    (0, public_decorator_1.Public)(),
+    (0, common_1.Get)("live"),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Object)
+], HealthController.prototype, "getLiveness", null);
+__decorate([
+    (0, public_decorator_1.Public)(),
+    (0, common_1.Get)(),
+    __param(0, (0, common_1.Headers)("x-agentforce-health-key")),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Object)
+], HealthController.prototype, "getHealth", null);
+exports.HealthController = HealthController = __decorate([
+    (0, common_1.Controller)("health"),
+    __metadata("design:paramtypes", [typeof (_a = typeof health_service_1.HealthService !== "undefined" && health_service_1.HealthService) === "function" ? _a : Object, typeof (_b = typeof app_config_service_1.AppConfigService !== "undefined" && app_config_service_1.AppConfigService) === "function" ? _b : Object])
+], HealthController);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy9oZWFsdGgvaGVhbHRoLmNvbnRyb2xsZXIudHMiLCJtYXBwaW5ncyI6Ijs7Ozs7Ozs7Ozs7Ozs7OztBQUFBLDJDQU13QjtBQUN4QixtQ0FBcUQ7QUFFckQscUVBQWdFO0FBQ2hFLCtEQUFrRDtBQUNsRCxxREFBaUQ7QUFPMUMsSUFBTSxnQkFBZ0IsR0FBdEIsTUFBTSxnQkFBZ0I7SUFDM0IsWUFDbUIsYUFBNEIsRUFDNUIsTUFBd0I7UUFEeEIsa0JBQWEsR0FBYixhQUFhLENBQWU7UUFDNUIsV0FBTSxHQUFOLE1BQU0sQ0FBa0I7SUFDeEMsQ0FBQztJQUlKLFdBQVc7UUFDVCxPQUFPLElBQUksQ0FBQyxhQUFhLENBQUMsV0FBVyxFQUFFLENBQUM7SUFDMUMsQ0FBQztJQUlELFNBQVMsQ0FDNkIsaUJBQTBCO1FBRTlELElBQUksQ0FBQyxlQUFlLENBQUMsaUJBQWlCLENBQUMsQ0FBQztRQUN4QyxPQUFPLElBQUksQ0FBQyxhQUFhLENBQUMsU0FBUyxFQUFFLENBQUM7SUFDeEMsQ0FBQztJQUVPLGVBQWUsQ0FBQyxpQkFBMEI7UUFDaEQsTUFBTSxpQkFBaUIsR0FBRyxJQUFJLENBQUMsTUFBTSxDQUFDLHNCQUFzQixDQUFDO1FBQzdELElBQUksQ0FBQyxpQkFBaUIsRUFBRSxDQUFDO1lBQ3ZCLE1BQU0sSUFBSSxvQ0FBMkIsQ0FDbkMsc0RBQXNELENBQ3ZELENBQUM7UUFDSixDQUFDO1FBRUQsSUFDRSxDQUFDLGlCQUFpQjtZQUNsQixDQUFDLElBQUksQ0FBQyxnQkFBZ0IsQ0FBQyxpQkFBaUIsRUFBRSxpQkFBaUIsQ0FBQyxFQUM1RCxDQUFDO1lBQ0QsTUFBTSxJQUFJLDhCQUFxQixDQUM3QiwyQ0FBMkMsQ0FDNUMsQ0FBQztRQUNKLENBQUM7SUFDSCxDQUFDO0lBRU8sZ0JBQWdCLENBQ3RCLGlCQUF5QixFQUN6QixpQkFBeUI7UUFFekIsTUFBTSxjQUFjLEdBQUcsSUFBQSxtQkFBVSxFQUFDLFFBQVEsQ0FBQzthQUN4QyxNQUFNLENBQUMsaUJBQWlCLENBQUM7YUFDekIsTUFBTSxFQUFFLENBQUM7UUFDWixNQUFNLGNBQWMsR0FBRyxJQUFBLG1CQUFVLEVBQUMsUUFBUSxDQUFDO2FBQ3hDLE1BQU0sQ0FBQyxpQkFBaUIsQ0FBQzthQUN6QixNQUFNLEVBQUUsQ0FBQztRQUNaLE9BQU8sSUFBQSx3QkFBZSxFQUFDLGNBQWMsRUFBRSxjQUFjLENBQUMsQ0FBQztJQUN6RCxDQUFDO0NBQ0YsQ0FBQTtBQW5EWSw0Q0FBZ0I7QUFRM0I7SUFGQyxJQUFBLHlCQUFNLEdBQUU7SUFDUixJQUFBLFlBQUcsRUFBQyxNQUFNLENBQUM7Ozs7bURBR1g7QUFJRDtJQUZDLElBQUEseUJBQU0sR0FBRTtJQUNSLElBQUEsWUFBRyxHQUFFO0lBRUgsV0FBQSxJQUFBLGdCQUFPLEVBQUMseUJBQXlCLENBQUMsQ0FBQTs7OztpREFJcEM7MkJBbkJVLGdCQUFnQjtJQUQ1QixJQUFBLG1CQUFVLEVBQUMsUUFBUSxDQUFDO3lEQUdlLDhCQUFhLG9CQUFiLDhCQUFhLG9EQUNwQixxQ0FBZ0Isb0JBQWhCLHFDQUFnQjtHQUhoQyxnQkFBZ0IsQ0FtRDVCIiwibmFtZXMiOltdLCJzb3VyY2VzIjpbIi9Vc2Vycy9rZXNoYXZjaGF1ZGhhcnkvQWdlbnRGb3JjZS9hcHBzL2FpLWFwaS9zcmMvaGVhbHRoL2hlYWx0aC5jb250cm9sbGVyLnRzIl0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7XG4gIENvbnRyb2xsZXIsXG4gIEdldCxcbiAgSGVhZGVycyxcbiAgU2VydmljZVVuYXZhaWxhYmxlRXhjZXB0aW9uLFxuICBVbmF1dGhvcml6ZWRFeGNlcHRpb25cbn0gZnJvbSBcIkBuZXN0anMvY29tbW9uXCI7XG5pbXBvcnQgeyBjcmVhdGVIYXNoLCB0aW1pbmdTYWZlRXF1YWwgfSBmcm9tIFwiY3J5cHRvXCI7XG5cbmltcG9ydCB7IEFwcENvbmZpZ1NlcnZpY2UgfSBmcm9tIFwiLi4vY29uZmlnL2FwcC1jb25maWcuc2VydmljZVwiO1xuaW1wb3J0IHsgUHVibGljIH0gZnJvbSBcIi4uL2F1dGgvcHVibGljLmRlY29yYXRvclwiO1xuaW1wb3J0IHsgSGVhbHRoU2VydmljZSB9IGZyb20gXCIuL2hlYWx0aC5zZXJ2aWNlXCI7XG5pbXBvcnQgdHlwZSB7XG4gIEhlYWx0aENvbnRleHRSZXNwb25zZSxcbiAgSGVhbHRoTGl2ZW5lc3NSZXNwb25zZVxufSBmcm9tIFwiLi9oZWFsdGgudHlwZXNcIjtcblxuQENvbnRyb2xsZXIoXCJoZWFsdGhcIilcbmV4cG9ydCBjbGFzcyBIZWFsdGhDb250cm9sbGVyIHtcbiAgY29uc3RydWN0b3IoXG4gICAgcHJpdmF0ZSByZWFkb25seSBoZWFsdGhTZXJ2aWNlOiBIZWFsdGhTZXJ2aWNlLFxuICAgIHByaXZhdGUgcmVhZG9ubHkgY29uZmlnOiBBcHBDb25maWdTZXJ2aWNlXG4gICkge31cblxuICBAUHVibGljKClcbiAgQEdldChcImxpdmVcIilcbiAgZ2V0TGl2ZW5lc3MoKTogSGVhbHRoTGl2ZW5lc3NSZXNwb25zZSB7XG4gICAgcmV0dXJuIHRoaXMuaGVhbHRoU2VydmljZS5nZXRMaXZlbmVzcygpO1xuICB9XG5cbiAgQFB1YmxpYygpXG4gIEBHZXQoKVxuICBnZXRIZWFsdGgoXG4gICAgQEhlYWRlcnMoXCJ4LWFnZW50Zm9yY2UtaGVhbHRoLWtleVwiKSBwcm92aWRlZEhlYWx0aEtleT86IHN0cmluZ1xuICApOiBIZWFsdGhDb250ZXh0UmVzcG9uc2Uge1xuICAgIHRoaXMuYXNzZXJ0SGVhbHRoS2V5KHByb3ZpZGVkSGVhbHRoS2V5KTtcbiAgICByZXR1cm4gdGhpcy5oZWFsdGhTZXJ2aWNlLmdldEhlYWx0aCgpO1xuICB9XG5cbiAgcHJpdmF0ZSBhc3NlcnRIZWFsdGhLZXkocHJvdmlkZWRIZWFsdGhLZXk/OiBzdHJpbmcpOiB2b2lkIHtcbiAgICBjb25zdCBleHBlY3RlZEhlYWx0aEtleSA9IHRoaXMuY29uZmlnLmFnZW50Zm9yY2VIZWFsdGhBcGlLZXk7XG4gICAgaWYgKCFleHBlY3RlZEhlYWx0aEtleSkge1xuICAgICAgdGhyb3cgbmV3IFNlcnZpY2VVbmF2YWlsYWJsZUV4Y2VwdGlvbihcbiAgICAgICAgXCJBSSBBUEkgaGVhbHRoIGJyaWRnZSBjcmVkZW50aWFscyBhcmUgbm90IGNvbmZpZ3VyZWQuXCJcbiAgICAgICk7XG4gICAgfVxuXG4gICAgaWYgKFxuICAgICAgIXByb3ZpZGVkSGVhbHRoS2V5IHx8XG4gICAgICAhdGhpcy5tYXRjaGVzSGVhbHRoS2V5KHByb3ZpZGVkSGVhbHRoS2V5LCBleHBlY3RlZEhlYWx0aEtleSlcbiAgICApIHtcbiAgICAgIHRocm93IG5ldyBVbmF1dGhvcml6ZWRFeGNlcHRpb24oXG4gICAgICAgIFwiSW52YWxpZCBBSSBBUEkgaGVhbHRoIGJyaWRnZSBjcmVkZW50aWFscy5cIlxuICAgICAgKTtcbiAgICB9XG4gIH1cblxuICBwcml2YXRlIG1hdGNoZXNIZWFsdGhLZXkoXG4gICAgcHJvdmlkZWRIZWFsdGhLZXk6IHN0cmluZyxcbiAgICBleHBlY3RlZEhlYWx0aEtleTogc3RyaW5nXG4gICk6IGJvb2xlYW4ge1xuICAgIGNvbnN0IHByb3ZpZGVkRGlnZXN0ID0gY3JlYXRlSGFzaChcInNoYTI1NlwiKVxuICAgICAgLnVwZGF0ZShwcm92aWRlZEhlYWx0aEtleSlcbiAgICAgIC5kaWdlc3QoKTtcbiAgICBjb25zdCBleHBlY3RlZERpZ2VzdCA9IGNyZWF0ZUhhc2goXCJzaGEyNTZcIilcbiAgICAgIC51cGRhdGUoZXhwZWN0ZWRIZWFsdGhLZXkpXG4gICAgICAuZGlnZXN0KCk7XG4gICAgcmV0dXJuIHRpbWluZ1NhZmVFcXVhbChwcm92aWRlZERpZ2VzdCwgZXhwZWN0ZWREaWdlc3QpO1xuICB9XG59XG4iXSwidmVyc2lvbiI6M30=

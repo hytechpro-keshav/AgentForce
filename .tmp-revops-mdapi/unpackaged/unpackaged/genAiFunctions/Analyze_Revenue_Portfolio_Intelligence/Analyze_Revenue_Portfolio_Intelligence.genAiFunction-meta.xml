@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<GenAiFunction xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description
+  >Analyzes an Account Manager portfolio using approved Account, Opportunity, Case, Activity, Services, Finance, and usage signals for all matched Accounts. Use this before answering portfolio-wide or plural analysis requests such as which accounts in my portfolio need immediate attention, best expansion opportunities, churn watchlists, or weekly multi-account planning. Do not require a specific Account name or Salesforce Account ID before invoking this action. When the action returns portfolioBrief, copy that brief as the user-facing answer. The analysis ranks portfolio risk, expansion opportunity, trends, watchlists, proactive recommendations, and weekly execution plans.</description>
+    <developerName>Analyze_Revenue_Portfolio_Intelligence</developerName>
+    <invocationTarget>AgentforceAiApiRevPortfolioIntel</invocationTarget>
+    <invocationTargetType>apex</invocationTargetType>
+    <isConfirmationRequired>false</isConfirmationRequired>
+    <isIncludeInProgressIndicator>true</isIncludeInProgressIndicator>
+    <localDeveloperName
+  >Analyze_Revenue_Portfolio_Intelligence</localDeveloperName>
+    <masterLabel>Analyze Revenue Portfolio Intelligence</masterLabel>
+    <progressIndicatorMessage
+  >Analyzing revenue portfolio intelligence</progressIndicatorMessage>
+</GenAiFunction>

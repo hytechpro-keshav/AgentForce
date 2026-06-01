@@ -140,6 +140,24 @@ describe("RevenueAccountHealthService", () => {
     );
   });
 
+  it("passes analysis intent as a safe prompt hint instead of relying on chat history", async () => {
+    const { service, chat } = buildService(
+      '{"accountHealthScore":45,"accountHealthBand":"watch","churnRiskScore":61,"churnRiskLevel":"medium","expansionScore":34,"expansionLevel":"low","deliveryRiskLevel":"medium","financialRiskLevel":"low","supportRiskLevel":"medium","executiveEngagementLevel":"steady","primaryDecision":"Prepare the account narrative before the executive review.","summary":"The account needs a focused executive narrative around current risk and recovery steps.","decisionRationale":"Support burden; limited recent engagement; renewal timing pressure","revenueImpact":"Revenue is exposed unless engagement and execution improve.","operationalBlockers":"Recent inactivity; support burden","recommendedActions":"Build QBR storyline; align executive outreach; review renewal posture","confidence":"medium"}'
+    );
+
+    await service.summarize(
+      buildRequest({ analysisIntent: "qbr_preparation" })
+    );
+
+    const llmRequest = chat.mock.calls[0][0];
+    expect(llmRequest.messages[0].content).toContain(
+      "does not include prior chat history"
+    );
+    expect(llmRequest.messages[1].content).toContain(
+      "Analysis intent: qbr_preparation"
+    );
+  });
+
   it("falls back to unknown decisions for malformed model output", async () => {
     const { service, telemetry } = buildService("not json at all");
 

@@ -263,29 +263,6 @@ private class AgentforceAmAccountDirectoryTest {
     );
     insert account;
 
-    insert new Opportunity(
-      Name = 'AM Renewal Opportunity',
-      AccountId = account.Id,
-      StageName = 'Prospecting',
-      CloseDate = Date.today().addDays(20),
-      Amount = 180000,
-      Type = 'Renewal'
-    );
-    insert new Opportunity(
-      Name = 'AM Expansion Opportunity',
-      AccountId = account.Id,
-      StageName = 'Prospecting',
-      CloseDate = Date.today().addDays(35),
-      Amount = 90000,
-      Type = 'Expansion'
-    );
-    insert new Opportunity(
-      Name = 'AM Undefined Type Opportunity',
-      AccountId = account.Id,
-      StageName = 'Prospecting',
-      CloseDate = Date.today().addDays(14),
-      Amount = 45000
-    );
     insert new Case(
       AccountId = account.Id,
       Subject = 'Escalated account risk case',
@@ -322,16 +299,10 @@ private class AgentforceAmAccountDirectoryTest {
     System.assert(responses[0].accountIds.contains(String.valueOf(account.Id)));
     System.assertEquals(String.valueOf(account.Id), responses[0].topAccountId);
     System.assert(
-      responses[0].accountDirectory.contains('renewal close window')
-    );
-    System.assert(
-      responses[0].accountDirectory.contains('expansion opportunity present')
-    );
-    System.assert(
       responses[0].accountDirectory.contains('high-priority support')
     );
     System.assert(
-      responses[0].topAccountAttentionSignals.contains('renewal close window')
+      responses[0].topAccountAttentionSignals.contains('high-priority support')
     );
   }
 

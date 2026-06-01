@@ -72,8 +72,12 @@ private class AgentforceAiApiRevenueAccountHealthTest {
     System.assert(
       responses[0].executiveBrief.contains('Revenue Account Health Brief')
     );
+    System.assert(responses[0].executiveBrief.contains('- Health: 46/100.'));
     System.assert(
       responses[0].executiveBrief.contains('Next best action plan')
+    );
+    System.assert(
+      responses[0].executiveBrief.contains('- Open opportunities: 4.')
     );
   }
 
@@ -108,6 +112,7 @@ private class AgentforceAiApiRevenueAccountHealthTest {
 
       AgentforceAiApiRevenueAccountHealth.AccountHealthRequest request = new AgentforceAiApiRevenueAccountHealth.AccountHealthRequest();
       request.accountId = String.valueOf(account.Id);
+      request.analysisIntent = 'qbr_preparation';
       request.requestId = 'standard-aggregate-test';
 
       Test.setMock(
@@ -139,6 +144,10 @@ private class AgentforceAiApiRevenueAccountHealthTest {
         'standard-aggregate-test',
         aggregatePayload.get('requestId')
       );
+      System.assertEquals(
+        'qbr_preparation',
+        aggregatePayload.get('analysisIntent')
+      );
       System.assert(aggregatePayload.containsKey('sourceSystems'));
       System.assert(
         !String.isBlank(String.valueOf(aggregatePayload.get('sourceSystems')))
@@ -166,6 +175,46 @@ private class AgentforceAiApiRevenueAccountHealthTest {
 
     System.assertEquals('VALIDATION_ERROR', responses[0].actionStatus);
     System.assert(responses[0].safeMessage.contains('More than one Account'));
+  }
+
+  @IsTest
+  static void summarizePrefersExactNameMatchOverPartialMatches() {
+    Account exactAccount = new Account(
+      Name = 'Prestige Worldwide',
+      AnnualRevenue = 111111,
+      NumberOfEmployees = 25
+    );
+    Account partialAccount = new Account(
+      Name = 'Prestige Worldwide Holdings',
+      AnnualRevenue = 999999,
+      NumberOfEmployees = 250
+    );
+    insert new List<Account>{ exactAccount, partialAccount };
+
+    AgentforceAiApiRevenueAccountHealth.AccountHealthRequest request = new AgentforceAiApiRevenueAccountHealth.AccountHealthRequest();
+    request.accountKey = 'Prestige Worldwide';
+    request.requestId = 'test-revenue-health-request';
+
+    Test.setMock(
+      HttpCalloutMock.class,
+      new AggregateRevenueHealthMock(exactAccount.Id)
+    );
+
+    Test.startTest();
+    List<AgentforceAiApiRevenueAccountHealth.AccountHealthResponse> responses = AgentforceAiApiRevenueAccountHealth.summarizeAccountHealth(
+      new List<AgentforceAiApiRevenueAccountHealth.AccountHealthRequest>{
+        request
+      }
+    );
+    Test.stopTest();
+
+    System.assertEquals('SUMMARIZED', responses[0].actionStatus);
+    System.assertNotEquals(null, aggregatePayload);
+    System.assertEquals(111111, aggregatePayload.get('annualRevenue'));
+    System.assertEquals(25, aggregatePayload.get('employeeCount'));
+    System.assert(
+      responses[0].executiveBrief.contains('Revenue Account Health Brief')
+    );
   }
 
   @IsTest
@@ -329,6 +378,7 @@ private class AgentforceAiApiRevenueAccountHealthTest {
     AgentforceAiApiRevenueAccountHealth.AccountHealthRequest request = new AgentforceAiApiRevenueAccountHealth.AccountHealthRequest();
     request.accountKey = 'Acme Strategic Account';
     request.accountName = 'Jane Doe jane@example.com 415-555-1212';
+    request.analysisIntent = 'general';
     request.requestId = 'test-revenue-health-request';
     return request;
   }
@@ -491,6 +541,7 @@ private class AgentforceAiApiRevenueAccountHealthTest {
       'test-revenue-health-request',
       payload.get('requestId')
     );
+    System.assertEquals('general', payload.get('analysisIntent'));
     System.assertEquals(4, payload.get('openOpportunityCount'));
     System.assertEquals(7, payload.get('openCaseCount'));
     System.assertEquals(1, payload.get('activityCountLast30Days'));

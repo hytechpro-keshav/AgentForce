@@ -6,6 +6,7 @@ import { CaseAnalysisService } from "./case-analysis.service";
 import { ProjectHealthService } from "./project-health.service";
 import { RevenueAccountHealthService } from "./revenue-account-health.service";
 import { RevenueAgentController } from "./revenue-agent.controller";
+import { RevenuePortfolioIntelligenceService } from "./revenue-portfolio-intelligence.service";
 import { ServicesAgentController } from "./services-agent.controller";
 import { SupportAgentController } from "./support-agent.controller";
 import { SupportTriageService } from "./support-triage.service";
@@ -22,6 +23,7 @@ import { SupportTriageService } from "./support-triage.service";
     CaseAnalysisService,
     ProjectHealthService,
     RevenueAccountHealthService,
+    RevenuePortfolioIntelligenceService,
     AgentforceRateLimitGuard
   ]
 })

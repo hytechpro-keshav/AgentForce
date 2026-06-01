@@ -7,11 +7,13 @@ import { ModelRouter } from "../llm/model-router";
 import { TelemetryService } from "../observability/telemetry.service";
 import { redactSensitiveText } from "../security/sensitive-data-redactor";
 import {
+  REVENUE_ACCOUNT_ANALYSIS_INTENTS,
   REVENUE_CONFIDENCES,
   REVENUE_ENGAGEMENT_LEVELS,
   REVENUE_HEALTH_BANDS,
   REVENUE_OPPORTUNITY_LEVELS,
   REVENUE_RISK_LEVELS,
+  type RevenueAccountAnalysisIntentDto,
   type RevenueAccountHealthRequestDto,
   type RevenueAccountHealthResponseDto,
   type RevenueConfidenceDto,
@@ -24,6 +26,8 @@ import {
 const REVENUE_ACCOUNT_HEALTH_SYSTEM_PROMPT = [
   "You are a Revenue Operations Intelligence decision analyst for Salesforce Agentforce.",
   "You receive only sanitized aggregate account, opportunity, case, activity, services, finance, and usage facts.",
+  "The request can include a safe analysisIntent such as qbr_preparation or renewal_readiness, but it does not include prior chat history.",
+  "Use analysisIntent only to emphasize the requested decision angle and response ordering while staying fully grounded in the supplied aggregate facts.",
   "The model is responsible for the account health score, churn risk score, expansion score, risk levels, and primary decision.",
   "Do not use or mention deterministic scoring rules. Do not invent missing facts.",
   "Return ONLY one JSON object with keys: accountHealthScore, accountHealthBand, churnRiskScore, churnRiskLevel,",
@@ -158,8 +162,12 @@ export class RevenueAccountHealthService {
   private static buildPromptFacts(
     request: RevenueAccountHealthRequestDto
   ): string {
+    const analysisIntent = RevenueAccountHealthService.analysisIntentValue(
+      request.analysisIntent
+    );
     const facts = [
       "Decision mode: LLM-led revenue scoring and recommendations from approved aggregate facts only.",
+      `Analysis intent: ${analysisIntent}`,
       `Source systems: ${RevenueAccountHealthService.safeMetric(request.sourceSystems)}`,
       `Account profile: type=${RevenueAccountHealthService.safeMetric(request.accountType)}, industry=${RevenueAccountHealthService.safeMetric(request.accountIndustry)}, annualRevenue=${RevenueAccountHealthService.safeMetric(request.annualRevenue)}, employees=${RevenueAccountHealthService.safeMetric(request.employeeCount)}, accountAgeDays=${RevenueAccountHealthService.safeMetric(request.accountAgeDays)}`,
       `Sales pipeline: openCount=${RevenueAccountHealthService.safeMetric(request.openOpportunityCount)}, openAmount=${RevenueAccountHealthService.safeMetric(request.openOpportunityAmount)}, weightedAmount=${RevenueAccountHealthService.safeMetric(request.weightedPipelineAmount)}, daysToNextClose=${RevenueAccountHealthService.safeMetric(request.daysToNextCloseDate)}, wonLast180=${RevenueAccountHealthService.safeMetric(request.wonOpportunityCountLast180Days)}, lostLast180=${RevenueAccountHealthService.safeMetric(request.lostOpportunityCountLast180Days)}`,
@@ -171,6 +179,16 @@ export class RevenueAccountHealthService {
       `Product usage: activeUsers=${RevenueAccountHealthService.safeMetric(request.productActiveUserCount)}, usageTrendPercent=${RevenueAccountHealthService.safeMetric(request.productUsageTrendPercent)}, featureAdoptionPercent=${RevenueAccountHealthService.safeMetric(request.featureAdoptionPercent)}`
     ];
     return facts.join("\n");
+  }
+
+  private static analysisIntentValue(
+    value: RevenueAccountAnalysisIntentDto | undefined
+  ): RevenueAccountAnalysisIntentDto {
+    return REVENUE_ACCOUNT_ANALYSIS_INTENTS.includes(
+      value as RevenueAccountAnalysisIntentDto
+    )
+      ? (value as RevenueAccountAnalysisIntentDto)
+      : "general";
   }
 
   private static parseDecision(content: string): RevenueAccountHealthDecision {

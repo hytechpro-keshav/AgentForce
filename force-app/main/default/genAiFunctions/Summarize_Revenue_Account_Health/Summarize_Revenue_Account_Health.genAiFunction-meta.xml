@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <GenAiFunction xmlns="http://soap.sforce.com/2006/04/metadata">
   <description
-  >Summarizes Revenue Operations Intelligence account health through the AI API using sanitized aggregate Account, Opportunity, Case, Activity, Services, Finance, and usage facts. The LLM decides the scores and next-best-action guidance.</description>
+  >Summarizes Revenue Operations Intelligence account health for one selected Salesforce Account using approved Account, Opportunity, Case, Activity, Services, Finance, and usage signals. Use this only when the user asked about a single Account directly or when the planner already has a selected accountId, current recordId, or topAccountId from a prior directory or portfolio result. If the user already gave one Account name or one Salesforce Account record id in the same turn, pass that single value as the account key and invoke the action without asking for duplicate identifier fields. Set the planner-only analysisIntent to reflect the user's requested angle such as qbr_preparation, renewal_readiness, churn_risk, expansion_upside, future_revenue, risk_severity, next_action, or general. Do not use this action first for portfolio-wide or plural requests about multiple accounts. When the action returns executiveBrief, copy executiveBrief as the user-facing answer with no extra wrapper sentence.</description>
   <developerName>Summarize_Revenue_Account_Health</developerName>
   <invocationTarget>AgentforceAiApiRevenueAccountHealth</invocationTarget>
   <invocationTargetType>apex</invocationTargetType>

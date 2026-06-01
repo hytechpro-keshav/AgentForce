@@ -47,7 +47,8 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
         scopes: [
           "agentforce:support-triage",
           "agentforce:services-project-health",
-          "agentforce:revenue-account-health"
+          "agentforce:revenue-account-health",
+          "agentforce:revenue-portfolio-intelligence"
         ],
         roles: ["services-org-intelligence"]
       }
@@ -1110,6 +1111,45 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
       .expect(201);
   });
 
+  it("OAuth-issued tokens can call revenue portfolio intelligence when scoped", async () => {
+    router.chat.mockResolvedValueOnce({
+      content:
+        '{"portfolioStatus":"WATCH","summary":"Portfolio has one monitored account.","topRiskAccounts":[],"topExpansionAccounts":[],"urgentRenewals":[],"escalationAccounts":[],"silentAccounts":[],"portfolioWatchlists":[],"portfolioTrends":[],"recommendedActions":[],"weeklyExecutionPlan":[]}',
+      finishReason: "stop",
+      usage: { inputTokens: 25, outputTokens: 18, totalTokens: 43 },
+      metadata: {
+        provider: "openai",
+        model: "gpt-4o-mini",
+        latencyMs: 31,
+        fallbackUsed: false,
+        attemptedProviders: ["openai"]
+      }
+    });
+    const tokenResponse = await request(app.getHttpServer())
+      .post("/oauth/token")
+      .send({
+        grant_type: "client_credentials",
+        client_id: "certinia-phase8-oauth",
+        client_secret: TEST_OAUTH_CLIENT_SECRET,
+        scope: "agentforce:revenue-portfolio-intelligence"
+      })
+      .expect(201);
+
+    const response = await request(app.getHttpServer())
+      .post("/agent/revenue/portfolio-intelligence")
+      .set("authorization", `Bearer ${tokenResponse.body.access_token}`)
+      .send({
+        accounts: [{ accountReference: "account-1", openOpportunityCount: 1 }]
+      })
+      .expect(201);
+
+    expect(response.body).toMatchObject({
+      portfolioStatus: "WATCH",
+      provider: "openai",
+      model: "gpt-4o-mini"
+    });
+  });
+
   it("OAuth-issued tokens without project-health scope receive 403", async () => {
     const tokenResponse = await request(app.getHttpServer())
       .post("/oauth/token")
@@ -1403,6 +1443,157 @@ describe("Chat and OpenAI-compatible (e2e)", () => {
         `Bearer ${signToken({ scope: "agentforce:revenue-account-health" })}`
       )
       .send({ openOpportunityCount: 1, requestId: "revenue-health-e2e-2" })
+      .expect(503);
+
+    expect(response.body).toMatchObject({
+      error: "provider_unavailable",
+      provider: "model-router",
+      kind: "validation"
+    });
+  });
+
+  it("POST /agent/revenue/portfolio-intelligence requires the portfolio scope", async () => {
+    await request(app.getHttpServer())
+      .post("/agent/revenue/portfolio-intelligence")
+      .set(
+        "authorization",
+        `Bearer ${signToken({ scope: "agentforce:revenue-account-health" })}`
+      )
+      .send({ accounts: [{ accountReference: "account-1" }] })
+      .expect(403);
+  });
+
+  it("POST /agent/revenue/portfolio-intelligence returns ranked portfolio intelligence", async () => {
+    router.chat.mockResolvedValueOnce({
+      content:
+        '{"portfolioStatus":"ATTENTION_REQUIRED","summary":"Portfolio needs attention on retention and expansion sequencing.","topRiskAccounts":[{"accountReference":"account-1","rank":1,"score":88,"level":"high","reason":"Escalations and renewal proximity.","supportingSignals":["open escalations","renewal proximity"],"recommendedAction":"Run executive outreach."}],"topExpansionAccounts":[{"accountReference":"account-2","rank":1,"score":72,"level":"high","reason":"Expansion pipeline and usage momentum.","supportingSignals":["expansion pipeline","usage growth"],"recommendedAction":"Sequence expansion outreach."}],"urgentRenewals":[{"accountReference":"account-1","rank":1,"score":80,"level":"high","reason":"Renewal is near close.","supportingSignals":["renewal proximity"],"recommendedAction":"Review renewal blockers."}],"escalationAccounts":[],"silentAccounts":[],"portfolioWatchlists":[{"name":"Churn risk watchlist","accountReferences":["account-1"],"rationale":"Retention pressure is concentrated."}],"portfolioTrends":[{"trend":"Renewal risk concentration","direction":"near_term","severity":"high","rationale":"One high-risk renewal is close."}],"recommendedActions":[{"priority":"high","action":"Run executive outreach.","accountReferences":["account-1"],"rationale":"Risk is urgent."}],"weeklyExecutionPlan":[{"day":"Monday","actions":["Call account-1 renewal team"]}]}',
+      finishReason: "stop",
+      usage: { inputTokens: 172, outputTokens: 88, totalTokens: 260 },
+      metadata: {
+        provider: "openai",
+        model: "gpt-4o-mini",
+        latencyMs: 77,
+        fallbackUsed: false,
+        attemptedProviders: ["openai"]
+      }
+    });
+
+    const response = await request(app.getHttpServer())
+      .post("/agent/revenue/portfolio-intelligence")
+      .set(
+        "authorization",
+        `Bearer ${signToken({ scope: "agentforce:revenue-portfolio-intelligence" })}`
+      )
+      .send({
+        analysisFocus: "risk",
+        sourceSystems: "Salesforce Account, Opportunity, Case, Task aggregates",
+        requestId: "revenue-portfolio-e2e-1",
+        accounts: [
+          {
+            accountReference: "account-1",
+            accountType: "Customer",
+            accountIndustry: "Software",
+            openOpportunityCount: 4,
+            weightedPipelineAmount: 220000,
+            daysToNextCloseDate: 21,
+            renewalOpportunityCount: 1,
+            expansionOpportunityCount: 1,
+            openCaseCount: 7,
+            escalatedCaseCount: 2,
+            highPriorityCaseCount: 3,
+            activityCountLast30Days: 1,
+            daysSinceLastActivity: 37,
+            productUsageTrendPercent: -22
+          },
+          {
+            accountReference: "account-2",
+            accountType: "Customer",
+            accountIndustry: "Manufacturing",
+            openOpportunityCount: 3,
+            weightedPipelineAmount: 175000,
+            daysToNextCloseDate: 90,
+            expansionOpportunityCount: 2,
+            expansionOpportunityAmount: 300000,
+            openCaseCount: 0,
+            activityCountLast30Days: 5,
+            daysSinceLastActivity: 8,
+            wonOpportunityCountLast180Days: 2,
+            productUsageTrendPercent: 18
+          }
+        ]
+      })
+      .expect(201);
+
+    expect(response.body).toMatchObject({
+      portfolioStatus: "ATTENTION_REQUIRED",
+      provider: "openai",
+      model: "gpt-4o-mini",
+      fallbackUsed: false,
+      decisionFallbackUsed: false,
+      latencyMs: 77
+    });
+    expect(response.body.topRiskAccounts[0]).toMatchObject({
+      accountReference: "account-1",
+      score: 88,
+      recommendedAction: "Run executive outreach."
+    });
+    expect(response.body.portfolioWatchlists[0].name).toBe(
+      "Churn risk watchlist"
+    );
+    expect(response.body.weeklyExecutionPlan[0].actions).toContain(
+      "Call account-1 renewal team"
+    );
+
+    const llmRequest = router.chat.mock.calls.at(-1)?.[0] as {
+      useCase?: string;
+      requestId?: string;
+      messages: Array<{ role: string; content: string }>;
+    };
+    expect(llmRequest.useCase).toBe(
+      "agentforce_revenue_portfolio_intelligence"
+    );
+    expect(llmRequest.requestId).toBe("revenue-portfolio-e2e-1");
+    expect(llmRequest.messages[1].content).toContain(
+      "accountReference=account-1"
+    );
+    expect(llmRequest.messages[1].content).toContain("deterministicSignals");
+  });
+
+  it("POST /agent/revenue/portfolio-intelligence validates account references", async () => {
+    await request(app.getHttpServer())
+      .post("/agent/revenue/portfolio-intelligence")
+      .set(
+        "authorization",
+        `Bearer ${signToken({ scope: "agentforce:revenue-portfolio-intelligence" })}`
+      )
+      .send({ accounts: [{ accountReference: "001000000000001AAA" }] })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post("/agent/revenue/portfolio-intelligence")
+      .set(
+        "authorization",
+        `Bearer ${signToken({ scope: "agentforce:revenue-portfolio-intelligence" })}`
+      )
+      .send({ accounts: [{ accountReference: "Acme Strategic" }] })
+      .expect(400);
+  });
+
+  it("POST /agent/revenue/portfolio-intelligence surfaces provider validation as 503", async () => {
+    router.chat.mockRejectedValueOnce(
+      new LlmProviderError("model-router", "validation", "No providers")
+    );
+
+    const response = await request(app.getHttpServer())
+      .post("/agent/revenue/portfolio-intelligence")
+      .set(
+        "authorization",
+        `Bearer ${signToken({ scope: "agentforce:revenue-portfolio-intelligence" })}`
+      )
+      .send({
+        requestId: "revenue-portfolio-e2e-2",
+        accounts: [{ accountReference: "account-1", openOpportunityCount: 1 }]
+      })
       .expect(503);
 
     expect(response.body).toMatchObject({

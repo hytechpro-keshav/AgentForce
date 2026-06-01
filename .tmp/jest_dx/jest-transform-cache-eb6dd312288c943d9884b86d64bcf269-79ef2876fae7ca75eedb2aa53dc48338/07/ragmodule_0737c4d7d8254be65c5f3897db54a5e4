@@ -1,0 +1,43 @@
+cdf71e033b5c82b74a79e9b418ecb17d
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.RagModule = void 0;
+const common_1 = require("@nestjs/common");
+const llm_module_1 = require("../llm/llm.module");
+const vector_db_module_1 = require("../vector-db/vector-db.module");
+const knowledge_agent_controller_1 = require("./knowledge-agent.controller");
+const rag_answer_cache_service_1 = require("./rag-answer-cache.service");
+const rag_answer_service_1 = require("./rag-answer.service");
+const rag_rate_limit_guard_1 = require("./rag-rate-limit.guard");
+const rag_controller_1 = require("./rag.controller");
+const rag_ingestion_service_1 = require("./rag-ingestion.service");
+const rag_retrieval_service_1 = require("./rag-retrieval.service");
+let RagModule = class RagModule {
+};
+exports.RagModule = RagModule;
+exports.RagModule = RagModule = __decorate([
+    (0, common_1.Module)({
+        imports: [llm_module_1.LlmModule, vector_db_module_1.VectorDbModule],
+        controllers: [rag_controller_1.RagController, knowledge_agent_controller_1.KnowledgeAgentController],
+        providers: [
+            rag_ingestion_service_1.RagIngestionService,
+            rag_retrieval_service_1.RagRetrievalService,
+            rag_answer_cache_service_1.RagAnswerCacheService,
+            rag_answer_service_1.RagAnswerService,
+            rag_rate_limit_guard_1.RagRateLimitGuard
+        ],
+        exports: [
+            rag_ingestion_service_1.RagIngestionService,
+            rag_retrieval_service_1.RagRetrievalService,
+            rag_answer_cache_service_1.RagAnswerCacheService,
+            rag_answer_service_1.RagAnswerService
+        ]
+    })
+], RagModule);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy9yYWcvcmFnLm1vZHVsZS50cyIsIm1hcHBpbmdzIjoiOzs7Ozs7Ozs7QUFBQSwyQ0FBd0M7QUFFeEMsa0RBQThDO0FBQzlDLG9FQUErRDtBQUMvRCw2RUFBd0U7QUFDeEUseUVBQW1FO0FBQ25FLDZEQUF3RDtBQUN4RCxpRUFBMkQ7QUFDM0QscURBQWlEO0FBQ2pELG1FQUE4RDtBQUM5RCxtRUFBOEQ7QUFtQnZELElBQU0sU0FBUyxHQUFmLE1BQU0sU0FBUztDQUFHLENBQUE7QUFBWiw4QkFBUztvQkFBVCxTQUFTO0lBakJyQixJQUFBLGVBQU0sRUFBQztRQUNOLE9BQU8sRUFBRSxDQUFDLHNCQUFTLEVBQUUsaUNBQWMsQ0FBQztRQUNwQyxXQUFXLEVBQUUsQ0FBQyw4QkFBYSxFQUFFLHFEQUF3QixDQUFDO1FBQ3RELFNBQVMsRUFBRTtZQUNULDJDQUFtQjtZQUNuQiwyQ0FBbUI7WUFDbkIsZ0RBQXFCO1lBQ3JCLHFDQUFnQjtZQUNoQix3Q0FBaUI7U0FDbEI7UUFDRCxPQUFPLEVBQUU7WUFDUCwyQ0FBbUI7WUFDbkIsMkNBQW1CO1lBQ25CLGdEQUFxQjtZQUNyQixxQ0FBZ0I7U0FDakI7S0FDRixDQUFDO0dBQ1csU0FBUyxDQUFHIiwibmFtZXMiOltdLCJzb3VyY2VzIjpbIi9Vc2Vycy9rZXNoYXZjaGF1ZGhhcnkvQWdlbnRGb3JjZS9hcHBzL2FpLWFwaS9zcmMvcmFnL3JhZy5tb2R1bGUudHMiXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHsgTW9kdWxlIH0gZnJvbSBcIkBuZXN0anMvY29tbW9uXCI7XG5cbmltcG9ydCB7IExsbU1vZHVsZSB9IGZyb20gXCIuLi9sbG0vbGxtLm1vZHVsZVwiO1xuaW1wb3J0IHsgVmVjdG9yRGJNb2R1bGUgfSBmcm9tIFwiLi4vdmVjdG9yLWRiL3ZlY3Rvci1kYi5tb2R1bGVcIjtcbmltcG9ydCB7IEtub3dsZWRnZUFnZW50Q29udHJvbGxlciB9IGZyb20gXCIuL2tub3dsZWRnZS1hZ2VudC5jb250cm9sbGVyXCI7XG5pbXBvcnQgeyBSYWdBbnN3ZXJDYWNoZVNlcnZpY2UgfSBmcm9tIFwiLi9yYWctYW5zd2VyLWNhY2hlLnNlcnZpY2VcIjtcbmltcG9ydCB7IFJhZ0Fuc3dlclNlcnZpY2UgfSBmcm9tIFwiLi9yYWctYW5zd2VyLnNlcnZpY2VcIjtcbmltcG9ydCB7IFJhZ1JhdGVMaW1pdEd1YXJkIH0gZnJvbSBcIi4vcmFnLXJhdGUtbGltaXQuZ3VhcmRcIjtcbmltcG9ydCB7IFJhZ0NvbnRyb2xsZXIgfSBmcm9tIFwiLi9yYWcuY29udHJvbGxlclwiO1xuaW1wb3J0IHsgUmFnSW5nZXN0aW9uU2VydmljZSB9IGZyb20gXCIuL3JhZy1pbmdlc3Rpb24uc2VydmljZVwiO1xuaW1wb3J0IHsgUmFnUmV0cmlldmFsU2VydmljZSB9IGZyb20gXCIuL3JhZy1yZXRyaWV2YWwuc2VydmljZVwiO1xuXG5ATW9kdWxlKHtcbiAgaW1wb3J0czogW0xsbU1vZHVsZSwgVmVjdG9yRGJNb2R1bGVdLFxuICBjb250cm9sbGVyczogW1JhZ0NvbnRyb2xsZXIsIEtub3dsZWRnZUFnZW50Q29udHJvbGxlcl0sXG4gIHByb3ZpZGVyczogW1xuICAgIFJhZ0luZ2VzdGlvblNlcnZpY2UsXG4gICAgUmFnUmV0cmlldmFsU2VydmljZSxcbiAgICBSYWdBbnN3ZXJDYWNoZVNlcnZpY2UsXG4gICAgUmFnQW5zd2VyU2VydmljZSxcbiAgICBSYWdSYXRlTGltaXRHdWFyZFxuICBdLFxuICBleHBvcnRzOiBbXG4gICAgUmFnSW5nZXN0aW9uU2VydmljZSxcbiAgICBSYWdSZXRyaWV2YWxTZXJ2aWNlLFxuICAgIFJhZ0Fuc3dlckNhY2hlU2VydmljZSxcbiAgICBSYWdBbnN3ZXJTZXJ2aWNlXG4gIF1cbn0pXG5leHBvcnQgY2xhc3MgUmFnTW9kdWxlIHt9XG4iXSwidmVyc2lvbiI6M30=

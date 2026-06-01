@@ -1,0 +1,54 @@
+f1423673444957649626db1f5b3af1d9
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.REQUIRED_SCOPES_KEY = exports.RequireScopes = exports.PUBLIC_ROUTE_KEY = exports.Public = exports.JwtAuthGuard = exports.AuthModule = void 0;
+const common_1 = require("@nestjs/common");
+const core_1 = require("@nestjs/core");
+const customer_chat_session_controller_1 = require("./customer-chat-session.controller");
+const customer_chat_session_rate_limit_guard_1 = require("./customer-chat-session-rate-limit.guard");
+const customer_chat_session_service_1 = require("./customer-chat-session.service");
+const jwt_auth_guard_1 = require("./jwt-auth.guard");
+Object.defineProperty(exports, "JwtAuthGuard", { enumerable: true, get: function () { return jwt_auth_guard_1.JwtAuthGuard; } });
+const oauth_token_controller_1 = require("./oauth-token.controller");
+const oauth_token_service_1 = require("./oauth-token.service");
+const tenant_operations_controller_1 = require("./tenant-operations.controller");
+const tenant_operations_service_1 = require("./tenant-operations.service");
+const tenant_registry_service_1 = require("./tenant-registry.service");
+let AuthModule = class AuthModule {
+};
+exports.AuthModule = AuthModule;
+exports.AuthModule = AuthModule = __decorate([
+    (0, common_1.Module)({
+        controllers: [
+            customer_chat_session_controller_1.CustomerChatSessionController,
+            oauth_token_controller_1.OAuthTokenController,
+            tenant_operations_controller_1.TenantOperationsController
+        ],
+        providers: [
+            jwt_auth_guard_1.JwtAuthGuard,
+            customer_chat_session_service_1.CustomerChatSessionService,
+            customer_chat_session_rate_limit_guard_1.CustomerChatSessionRateLimitGuard,
+            oauth_token_service_1.OAuthTokenService,
+            tenant_operations_service_1.TenantOperationsService,
+            tenant_registry_service_1.TenantRegistryService,
+            {
+                provide: core_1.APP_GUARD,
+                useExisting: jwt_auth_guard_1.JwtAuthGuard
+            }
+        ],
+        exports: [jwt_auth_guard_1.JwtAuthGuard]
+    })
+], AuthModule);
+var public_decorator_1 = require("./public.decorator");
+Object.defineProperty(exports, "Public", { enumerable: true, get: function () { return public_decorator_1.Public; } });
+Object.defineProperty(exports, "PUBLIC_ROUTE_KEY", { enumerable: true, get: function () { return public_decorator_1.PUBLIC_ROUTE_KEY; } });
+var require_scopes_decorator_1 = require("./require-scopes.decorator");
+Object.defineProperty(exports, "RequireScopes", { enumerable: true, get: function () { return require_scopes_decorator_1.RequireScopes; } });
+Object.defineProperty(exports, "REQUIRED_SCOPES_KEY", { enumerable: true, get: function () { return require_scopes_decorator_1.REQUIRED_SCOPES_KEY; } });
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy9hdXRoL2F1dGgubW9kdWxlLnRzIiwibWFwcGluZ3MiOiI7Ozs7Ozs7OztBQUFBLDJDQUF3QztBQUN4Qyx1Q0FBeUM7QUFFekMseUZBQW1GO0FBQ25GLHFHQUE2RjtBQUM3RixtRkFBNkU7QUFDN0UscURBQWdEO0FBNkJ2Qyw2RkE3QkEsNkJBQVksT0E2QkE7QUE1QnJCLHFFQUFnRTtBQUNoRSwrREFBMEQ7QUFDMUQsaUZBQTRFO0FBQzVFLDJFQUFzRTtBQUN0RSx1RUFBa0U7QUFzQjNELElBQU0sVUFBVSxHQUFoQixNQUFNLFVBQVU7Q0FBRyxDQUFBO0FBQWIsZ0NBQVU7cUJBQVYsVUFBVTtJQXBCdEIsSUFBQSxlQUFNLEVBQUM7UUFDTixXQUFXLEVBQUU7WUFDWCxnRUFBNkI7WUFDN0IsNkNBQW9CO1lBQ3BCLHlEQUEwQjtTQUMzQjtRQUNELFNBQVMsRUFBRTtZQUNULDZCQUFZO1lBQ1osMERBQTBCO1lBQzFCLDBFQUFpQztZQUNqQyx1Q0FBaUI7WUFDakIsbURBQXVCO1lBQ3ZCLCtDQUFxQjtZQUNyQjtnQkFDRSxPQUFPLEVBQUUsZ0JBQVM7Z0JBQ2xCLFdBQVcsRUFBRSw2QkFBWTthQUMxQjtTQUNGO1FBQ0QsT0FBTyxFQUFFLENBQUMsNkJBQVksQ0FBQztLQUN4QixDQUFDO0dBQ1csVUFBVSxDQUFHO0FBRzFCLHVEQUE4RDtBQUFyRCwwR0FBQSxNQUFNLE9BQUE7QUFBRSxvSEFBQSxnQkFBZ0IsT0FBQTtBQUNqQyx1RUFBZ0Y7QUFBdkUseUhBQUEsYUFBYSxPQUFBO0FBQUUsK0hBQUEsbUJBQW1CLE9BQUEiLCJuYW1lcyI6W10sInNvdXJjZXMiOlsiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy9hdXRoL2F1dGgubW9kdWxlLnRzIl0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IE1vZHVsZSB9IGZyb20gXCJAbmVzdGpzL2NvbW1vblwiO1xuaW1wb3J0IHsgQVBQX0dVQVJEIH0gZnJvbSBcIkBuZXN0anMvY29yZVwiO1xuXG5pbXBvcnQgeyBDdXN0b21lckNoYXRTZXNzaW9uQ29udHJvbGxlciB9IGZyb20gXCIuL2N1c3RvbWVyLWNoYXQtc2Vzc2lvbi5jb250cm9sbGVyXCI7XG5pbXBvcnQgeyBDdXN0b21lckNoYXRTZXNzaW9uUmF0ZUxpbWl0R3VhcmQgfSBmcm9tIFwiLi9jdXN0b21lci1jaGF0LXNlc3Npb24tcmF0ZS1saW1pdC5ndWFyZFwiO1xuaW1wb3J0IHsgQ3VzdG9tZXJDaGF0U2Vzc2lvblNlcnZpY2UgfSBmcm9tIFwiLi9jdXN0b21lci1jaGF0LXNlc3Npb24uc2VydmljZVwiO1xuaW1wb3J0IHsgSnd0QXV0aEd1YXJkIH0gZnJvbSBcIi4vand0LWF1dGguZ3VhcmRcIjtcbmltcG9ydCB7IE9BdXRoVG9rZW5Db250cm9sbGVyIH0gZnJvbSBcIi4vb2F1dGgtdG9rZW4uY29udHJvbGxlclwiO1xuaW1wb3J0IHsgT0F1dGhUb2tlblNlcnZpY2UgfSBmcm9tIFwiLi9vYXV0aC10b2tlbi5zZXJ2aWNlXCI7XG5pbXBvcnQgeyBUZW5hbnRPcGVyYXRpb25zQ29udHJvbGxlciB9IGZyb20gXCIuL3RlbmFudC1vcGVyYXRpb25zLmNvbnRyb2xsZXJcIjtcbmltcG9ydCB7IFRlbmFudE9wZXJhdGlvbnNTZXJ2aWNlIH0gZnJvbSBcIi4vdGVuYW50LW9wZXJhdGlvbnMuc2VydmljZVwiO1xuaW1wb3J0IHsgVGVuYW50UmVnaXN0cnlTZXJ2aWNlIH0gZnJvbSBcIi4vdGVuYW50LXJlZ2lzdHJ5LnNlcnZpY2VcIjtcblxuQE1vZHVsZSh7XG4gIGNvbnRyb2xsZXJzOiBbXG4gICAgQ3VzdG9tZXJDaGF0U2Vzc2lvbkNvbnRyb2xsZXIsXG4gICAgT0F1dGhUb2tlbkNvbnRyb2xsZXIsXG4gICAgVGVuYW50T3BlcmF0aW9uc0NvbnRyb2xsZXJcbiAgXSxcbiAgcHJvdmlkZXJzOiBbXG4gICAgSnd0QXV0aEd1YXJkLFxuICAgIEN1c3RvbWVyQ2hhdFNlc3Npb25TZXJ2aWNlLFxuICAgIEN1c3RvbWVyQ2hhdFNlc3Npb25SYXRlTGltaXRHdWFyZCxcbiAgICBPQXV0aFRva2VuU2VydmljZSxcbiAgICBUZW5hbnRPcGVyYXRpb25zU2VydmljZSxcbiAgICBUZW5hbnRSZWdpc3RyeVNlcnZpY2UsXG4gICAge1xuICAgICAgcHJvdmlkZTogQVBQX0dVQVJELFxuICAgICAgdXNlRXhpc3Rpbmc6IEp3dEF1dGhHdWFyZFxuICAgIH1cbiAgXSxcbiAgZXhwb3J0czogW0p3dEF1dGhHdWFyZF1cbn0pXG5leHBvcnQgY2xhc3MgQXV0aE1vZHVsZSB7fVxuXG5leHBvcnQgeyBKd3RBdXRoR3VhcmQgfTtcbmV4cG9ydCB7IFB1YmxpYywgUFVCTElDX1JPVVRFX0tFWSB9IGZyb20gXCIuL3B1YmxpYy5kZWNvcmF0b3JcIjtcbmV4cG9ydCB7IFJlcXVpcmVTY29wZXMsIFJFUVVJUkVEX1NDT1BFU19LRVkgfSBmcm9tIFwiLi9yZXF1aXJlLXNjb3Blcy5kZWNvcmF0b3JcIjtcbiJdLCJ2ZXJzaW9uIjozfQ==

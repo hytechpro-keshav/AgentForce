@@ -1,0 +1,236 @@
+{
+  "unevaluatedProperties": false,
+  "properties": {
+    "actionStatus": {
+      "title": "Action Status",
+      "description": "SUMMARIZED, VALIDATION_ERROR, NOT_FOUND, AUTH_ERROR, BACKEND_ERROR, CALLOUT_FAILED, MALFORMED_RESPONSE, UNEXPECTED_ERROR, or NOT_SUMMARIZED.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "safeMessage": {
+      "title": "Safe Message",
+      "description": "Safe status message for planner reasoning. Do not display when executiveBrief is present.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "executiveBrief": {
+      "title": "Revenue Account Health Brief",
+      "description": "Display this field as the user-facing answer. It contains the LLM-led Revenue Operations Intelligence decision, risk and opportunity levels, rationale, signals reviewed, and next-best-action plan.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": true,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "accountHealthScore": {
+      "title": "Account Health Score",
+      "description": "LLM-derived account health score from 0 to 100, where 100 is healthiest. Planner reasoning only.",
+      "multipleOf": 1.0e-34,
+      "lightning:type": "lightning__numberType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "accountHealthBand": {
+      "title": "Account Health Band",
+      "description": "LLM-derived account health band: excellent, healthy, watch, at_risk, critical, or unknown. Planner reasoning only.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "churnRiskScore": {
+      "title": "Churn Risk Score",
+      "description": "LLM-derived churn risk score from 0 to 100, where 100 is highest churn risk. Planner reasoning only.",
+      "multipleOf": 1.0e-34,
+      "lightning:type": "lightning__numberType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "churnRiskLevel": {
+      "title": "Churn Risk Level",
+      "description": "LLM-derived churn risk level: low, medium, high, critical, or unknown. Planner reasoning only.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "expansionScore": {
+      "title": "Expansion Score",
+      "description": "LLM-derived expansion potential score from 0 to 100, where 100 is strongest expansion potential. Planner reasoning only.",
+      "multipleOf": 1.0e-34,
+      "lightning:type": "lightning__numberType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "expansionLevel": {
+      "title": "Expansion Level",
+      "description": "LLM-derived expansion level: low, medium, high, or unknown. Planner reasoning only.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "deliveryRiskLevel": {
+      "title": "Delivery Risk Level",
+      "description": "LLM-derived services delivery risk level. Planner reasoning only.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "financialRiskLevel": {
+      "title": "Financial Risk Level",
+      "description": "LLM-derived financial risk level. Planner reasoning only.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "supportRiskLevel": {
+      "title": "Support Risk Level",
+      "description": "LLM-derived support burden risk level. Planner reasoning only.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "executiveEngagementLevel": {
+      "title": "Executive Engagement Level",
+      "description": "LLM-derived executive engagement level: strong, steady, weak, or unknown. Planner reasoning only.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "primaryDecision": {
+      "title": "Primary Decision",
+      "description": "Primary LLM decision for revenue operators. Planner reasoning only when executiveBrief is present.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "summary": {
+      "title": "Summary",
+      "description": "Short safe Revenue Operations Intelligence summary. Planner reasoning only when executiveBrief is present.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "decisionRationale": {
+      "title": "Decision Rationale",
+      "description": "Concise rationale for the LLM-led decision. Planner reasoning only when executiveBrief is present.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "revenueImpact": {
+      "title": "Revenue Impact",
+      "description": "LLM-described revenue impact. Planner reasoning only when executiveBrief is present.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "operationalBlockers": {
+      "title": "Operational Blockers",
+      "description": "Semicolon-separated operational blockers. Planner reasoning only when executiveBrief is present.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "recommendedActions": {
+      "title": "Recommended Actions",
+      "description": "Semicolon-separated next-best actions. Planner reasoning only when executiveBrief is present.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": true,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "confidence": {
+      "title": "Confidence",
+      "description": "LLM confidence: low, medium, or high. Planner reasoning only.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "provider": {
+      "title": "Provider",
+      "description": "Internal model provider used for operational diagnostics.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "model": {
+      "title": "Model",
+      "description": "Internal model used for operational diagnostics.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "fallbackUsed": {
+      "title": "Fallback Used",
+      "description": "True when a fallback provider was used.",
+      "lightning:type": "lightning__booleanType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": true
+    },
+    "latencyMs": {
+      "title": "Latency Ms",
+      "description": "Internal service latency in milliseconds.",
+      "multipleOf": 1.0e-34,
+      "lightning:type": "lightning__numberType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": false
+    },
+    "httpStatusCode": {
+      "title": "HTTP Status Code",
+      "description": "HTTP status code returned by the internal account-health service.",
+      "multipleOf": 1.0e-34,
+      "lightning:type": "lightning__numberType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": false
+    },
+    "endpoint": {
+      "title": "Endpoint",
+      "description": "Internal endpoint called by Apex.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": false
+    },
+    "requestId": {
+      "title": "Request Id",
+      "description": "Safe correlation id sent to backend telemetry.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": false
+    },
+    "summarizedAt": {
+      "title": "Summarized At",
+      "description": "Timestamp when Apex summarized revenue account health.",
+      "lightning:type": "lightning__textType",
+      "lightning:isPII": false,
+      "copilotAction:isDisplayable": false,
+      "copilotAction:isUsedByPlanner": false
+    }
+  },
+  "lightning:type": "lightning__objectType",
+  "lightning:textIndexed": true
+}

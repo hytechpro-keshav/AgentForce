@@ -1,0 +1,12 @@
+5c53de655e98b2e931110f5e175c75b5
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.RagConfigurationError = void 0;
+class RagConfigurationError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = "RagConfigurationError";
+    }
+}
+exports.RagConfigurationError = RagConfigurationError;
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJmaWxlIjoiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy9yYWcvcmFnLmVycm9ycy50cyIsIm1hcHBpbmdzIjoiOzs7QUFBQSxNQUFhLHFCQUFzQixTQUFRLEtBQUs7SUFDOUMsWUFBWSxPQUFlO1FBQ3pCLEtBQUssQ0FBQyxPQUFPLENBQUMsQ0FBQztRQUNmLElBQUksQ0FBQyxJQUFJLEdBQUcsdUJBQXVCLENBQUM7SUFDdEMsQ0FBQztDQUNGO0FBTEQsc0RBS0MiLCJuYW1lcyI6W10sInNvdXJjZXMiOlsiL1VzZXJzL2tlc2hhdmNoYXVkaGFyeS9BZ2VudEZvcmNlL2FwcHMvYWktYXBpL3NyYy9yYWcvcmFnLmVycm9ycy50cyJdLCJzb3VyY2VzQ29udGVudCI6WyJleHBvcnQgY2xhc3MgUmFnQ29uZmlndXJhdGlvbkVycm9yIGV4dGVuZHMgRXJyb3Ige1xuICBjb25zdHJ1Y3RvcihtZXNzYWdlOiBzdHJpbmcpIHtcbiAgICBzdXBlcihtZXNzYWdlKTtcbiAgICB0aGlzLm5hbWUgPSBcIlJhZ0NvbmZpZ3VyYXRpb25FcnJvclwiO1xuICB9XG59XG4iXSwidmVyc2lvbiI6M30=
