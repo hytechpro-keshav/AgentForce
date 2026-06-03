@@ -18,6 +18,42 @@ governed pattern:
 
 SOOS should extend that pattern. It should not replace it with one giant agent.
 
+## Companion Implementation Plans
+
+Use this document as the repo-aligned SOOS overview. The implementation-grade
+plan for building the multi-client manufacturer service-operations platform is in
+[Veda Pattern For AC Service Operations: Technical Implementation Plan](ac-service-operations-technical-plan.md).
+
+The release and validation strategy is in
+[AC Service Operations Test Plan](../testing/ac-service-operations-test-plan.md).
+
+The enterprise research dossier starts at
+[SOOS Executive Summary](../research/soos/00-executive-summary.md).
+
+The event-driven operating model, sequence flows, and lifecycle state diagrams
+are in
+[SOOS Event-Driven Operational Flow Design](../research/soos/10-event-driven-operational-flow-design.md).
+
+## Target Business Flow
+
+SOOS should support an outsourced multi-client service-provider model. Aptivance
+Technology Services operates Salesforce CRM for manufacturer clients such as
+Company X. Client A, Client B, Client C, and Client N may differ by purchase
+volume, contract value, SLA, strategic importance, approval rules, escalation
+paths, and parts policies.
+
+Cases can enter the shared Salesforce CRM through multiple paths:
+
+- a client-owned ServiceNow API or other ticketing-system integration
+- email intake or email-to-case style routing
+- the approved AI chat window or Agentforce customer runtime
+- other approved assisted, partner, portal, or service-desk channels
+
+Every case must be normalized with client identifier, source system, external
+ticket ID, contract, SLA policy, entitlement, priority tier, product, and
+client-policy profile before SOOS recommendations drive routing, warranty,
+inventory, or field-service decisions.
+
 ## Current Repository Baseline
 
 ### Runtime Agents Already Built
@@ -83,6 +119,8 @@ SOOS baseline without audit or migration work:
 | Approval Agent                     | Not built                               | Mostly deterministic Salesforce Flow or Apex approvals, optionally fronted by a support or field-service agent topic           |
 | Field Service Agent                | Not built in the canonical architecture | New field-service planner bundle for work-order and visit orchestration                                                        |
 | Product Quality Intelligence Agent | Not built                               | New internal operations-intelligence or quality-intelligence planner bundle plus pattern-detection backend service             |
+| Multi-channel case ingress         | Not built                               | Salesforce integration layer, Flow/Apex normalization, and source-specific adapters for ServiceNow, email, chat, and partners  |
+| Client policy and SLA resolver     | Not built                               | Salesforce client contract, entitlement, SLA, priority, approval, and parts-rule resolver before support workflow              |
 
 ## Recommended SOOS Runtime Topology
 
@@ -99,7 +137,7 @@ agents, each owning a group of narrow topics and actions.
 | --------------------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
 | `Customer_Self_Service_Agent`           | Customer intake, verification, case creation, escalation, customer-safe knowledge            | Customers through Agentforce and later `apps/react-chat-window` |
 | `Support_Operations_Agent`              | Internal triage, diagnosis, routing, warranty review, approval initiation                    | Support supervisors, case managers, service desk teams          |
-| `Field_Service_Operations_Agent`        | Work order execution, technician selection, reallocation, part readiness, dispatch workflows | Dispatchers, field-service coordinators, operations teams       |
+| `Field_Service_Operations_Agent`        | Parts-aware work order execution, technician selection, reallocation, and dispatch workflows | Dispatchers, field-service coordinators, operations teams       |
 | `Service_Operations_Intelligence_Agent` | Cross-case, cross-work-order, inventory, quality, and SLA intelligence                       | Managers, service leaders, quality teams, executives            |
 
 ### Why Fewer Top-Level Agents First
@@ -115,19 +153,21 @@ agents, each owning a group of narrow topics and actions.
 
 ## SOOS Capability Mapping To The Current Repo
 
-| SOOS capability                    | Recommended runtime placement                                                                                          | Recommended Salesforce implementation                                       | Recommended AI API implementation                                                                         |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Customer Support Agent             | Keep in `Customer_Self_Service_Agent`                                                                                  | Verification, case creation, escalation, account-safe reads                 | Reuse customer chat APIs and customer-safe knowledge answers                                              |
-| Service Intelligence Agent         | Move to `Support_Operations_Agent` and optionally expose customer-safe summaries through `Customer_Self_Service_Agent` | Read-only support-case actions and safe handoff fields                      | Extend `/agent/support/*` and `/agent/knowledge/answer` for diagnosis and repair guidance                 |
-| Case Routing Agent                 | `Support_Operations_Agent`                                                                                             | Queue, owner, priority, and SLA actions through Flow or Apex                | Add `/agent/support/route-case` for prioritization and skill-based recommendations                        |
-| Technician Assignment Agent        | `Field_Service_Operations_Agent`                                                                                       | Work Order, Service Appointment, and technician record lookups and updates  | Add `/agent/field/assign-technician` for ranking by skill, distance, capacity, and success rate           |
-| Work Reallocation Agent            | `Field_Service_Operations_Agent`                                                                                       | Deterministic reassignment and reschedule actions                           | Add `/agent/field/reallocate-work` for replacement and SLA-risk planning                                  |
-| Inventory Intelligence Agent       | `Field_Service_Operations_Agent`                                                                                       | Part lookup, reservation, transfer, and replenishment flows                 | Add `/agent/inventory/plan-parts` or similar service for warehouse and stock reasoning                    |
-| Warranty Intelligence Agent        | `Support_Operations_Agent` and selective customer handoff path                                                         | Warranty objects, entitlement checks, policy enforcement, approval creation | Add `/agent/warranty/evaluate` only for explainable reasoning, not authoritative policy mutation          |
-| Approval Agent                     | `Support_Operations_Agent` and `Field_Service_Operations_Agent`                                                        | Flow or Apex approval thresholds and approver routing                       | Optional `/agent/approval/recommend` when policy has ambiguity or cost tradeoffs                          |
-| Field Service Agent                | `Field_Service_Operations_Agent`                                                                                       | Work order creation, visit scheduling, notification actions                 | Optional ranking and orchestration services behind `/agent/field/*`                                       |
-| Product Quality Intelligence Agent | `Service_Operations_Intelligence_Agent`                                                                                | Read-only quality investigation records and manufacturing feedback actions  | Add `/agent/quality/failure-patterns` for cross-incident trend detection                                  |
-| Operations Intelligence Agent      | `Service_Operations_Intelligence_Agent`                                                                                | Read-only aggregated KPI and operational drilldown actions                  | Reuse the services and revenue intelligence patterns to add service KPIs, SLA risk, and regional analysis |
+| SOOS capability                    | Recommended runtime placement                                                                                          | Recommended Salesforce implementation                                          | Recommended AI API implementation                                                                         |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| Multi-channel case ingress         | Salesforce integration layer before Agentforce handoff                                                                 | ServiceNow/email/chat intake, external-ticket idempotency, source provenance   | Optional parsing or summarization helpers; no direct system-of-record mutation from AI                    |
+| Client policy and SLA resolver     | Salesforce Flow or Apex before support workflow                                                                        | Client tier, contract, SLA, entitlement, approval, escalation, and parts rules | Optional policy explanation service after deterministic resolver                                          |
+| Customer Support Agent             | Keep in `Customer_Self_Service_Agent`                                                                                  | Verification, case creation, escalation, account-safe reads                    | Reuse customer chat APIs and customer-safe knowledge answers                                              |
+| Service Intelligence Agent         | Move to `Support_Operations_Agent` and optionally expose customer-safe summaries through `Customer_Self_Service_Agent` | Read-only support-case actions and safe handoff fields                         | Extend `/agent/support/*` and `/agent/knowledge/answer` for diagnosis and repair guidance                 |
+| Case Routing Agent                 | `Support_Operations_Agent`                                                                                             | Queue, owner, priority, and SLA actions through Flow or Apex                   | Add `/agent/support/route-case` for prioritization and skill-based recommendations                        |
+| Technician Assignment Agent        | `Field_Service_Operations_Agent`                                                                                       | Work Order, Service Appointment, and technician record lookups and updates     | Add `/agent/field/assign-technician` for ranking by skill, distance, capacity, and success rate           |
+| Work Reallocation Agent            | `Field_Service_Operations_Agent`                                                                                       | Deterministic reassignment and reschedule actions                              | Add `/agent/field/reallocate-work` for replacement and SLA-risk planning                                  |
+| Inventory Intelligence Agent       | Pre-field-service orchestration shared by support and field operations                                                 | Part lookup, reservation, transfer, order, and replenishment flows             | Add `/agent/inventory/plan-parts` or similar service for warehouse and stock reasoning                    |
+| Warranty Intelligence Agent        | `Support_Operations_Agent` and selective customer handoff path                                                         | Warranty objects, entitlement checks, policy enforcement, approval creation    | Add `/agent/warranty/evaluate` only for explainable reasoning, not authoritative policy mutation          |
+| Approval Agent                     | `Support_Operations_Agent` and `Field_Service_Operations_Agent`                                                        | Flow or Apex approval thresholds and approver routing                          | Optional `/agent/approval/recommend` when policy has ambiguity or cost tradeoffs                          |
+| Field Service Agent                | `Field_Service_Operations_Agent`                                                                                       | Work order creation, visit scheduling, notification actions                    | Optional ranking and orchestration services behind `/agent/field/*`                                       |
+| Product Quality Intelligence Agent | `Service_Operations_Intelligence_Agent`                                                                                | Read-only quality investigation records and manufacturing feedback actions     | Add `/agent/quality/failure-patterns` for cross-incident trend detection                                  |
+| Operations Intelligence Agent      | `Service_Operations_Intelligence_Agent`                                                                                | Read-only aggregated KPI and operational drilldown actions                     | Reuse the services and revenue intelligence patterns to add service KPIs, SLA risk, and regional analysis |
 
 ## Phased Implementation Plan
 
@@ -147,6 +187,9 @@ Recommended outputs:
 - Auth scope model for new capabilities such as `agentforce:case-routing`,
   `agentforce:technician-assignment`, `agentforce:inventory-intelligence`,
   `agentforce:warranty-evaluation`, and `agentforce:quality-intelligence`.
+- Client and channel model for ServiceNow tickets, email intake, AI chat,
+  external ticket IDs, source systems, contracts, SLA policies, entitlements,
+  client tiers, and client-specific parts rules.
 - Decision on which source systems are authoritative for inventory, warranty,
   approvals, and field-service scheduling.
 
@@ -199,9 +242,30 @@ Exit criteria:
 - Salesforce still owns the actual mutation and approval paths.
 - AI does not bypass policy.
 
-### Phase 3: Build The Field Service Operations Agent
+### Phase 3: Add Inventory Intelligence Before Field Service
 
-Goal: introduce execution beyond support-case reasoning.
+Goal: make parts planning a pre-field-service readiness gate.
+
+Recommended repo work:
+
+- Add inventory lookup, reservation, transfer, and part-order recommendation
+  actions in Salesforce.
+- Add AI API services for warehouse selection, stock reasoning, substitution,
+  order suggestion, and first-time-fix optimization.
+- Introduce deterministic reservation, transfer, or order actions only after
+  the source-of-record integration is confirmed.
+
+Exit criteria:
+
+- Cases and work orders can reason about part availability before field-service
+  assignment.
+- Inventory recommendations are tied to actual source-system availability and
+  client-specific parts policy.
+
+### Phase 4: Build The Field Service Operations Agent
+
+Goal: introduce execution beyond support-case reasoning using parts-ready
+context.
 
 Recommended repo work:
 
@@ -209,32 +273,16 @@ Recommended repo work:
   runtime.
 - Do not reuse `Scheduling_Agent` as-is; treat it as a reference or retire it
   after migration.
-- Add functions for work-order creation, technician ranking, visit scheduling,
-  and reassignment.
+- Add functions for parts-aware work-order creation, technician ranking, visit
+  scheduling, and reassignment.
 - Add AI API endpoints for technician assignment and work reallocation.
 
 Exit criteria:
 
 - Work-order and visit execution paths exist.
-- Technician selection is explainable and policy-aware.
+- Technician selection is explainable, policy-aware, and aware of parts
+  readiness.
 - Rescheduling and replacement flows are governed.
-
-### Phase 4: Add Inventory Intelligence
-
-Goal: connect service execution with parts readiness.
-
-Recommended repo work:
-
-- Add inventory lookup and reservation actions in Salesforce.
-- Add AI API services for warehouse selection, stock reasoning, and first-time
-  fix optimization.
-- Introduce deterministic reservation or transfer actions only after the
-  system-of-record integration is confirmed.
-
-Exit criteria:
-
-- Cases and work orders can reason about part availability before dispatch.
-- Inventory recommendations are tied to actual source-system availability.
 
 ### Phase 5: Add Quality And Service Operations Intelligence
 
@@ -276,13 +324,15 @@ Rule:
 ## Recommended Immediate Backlog
 
 1. Create the canonical service-ops entity and DTO contract.
-2. Create `Support_Operations_Agent` and move support triage and case analysis
+2. Add the multi-client ingress and client-policy model for ServiceNow, email,
+   AI chat, contracts, SLA, entitlements, and external ticket IDs.
+3. Create `Support_Operations_Agent` and move support triage and case analysis
    out of the customer planner bundle.
-3. Design the first three new governed actions: case routing, warranty
+4. Design the first three new governed actions: case routing, warranty
    evaluation, and approval initiation.
-4. Decide the authoritative system and object model for work orders,
-   appointments, technician skills, and inventory.
-5. Define the `Field_Service_Operations_Agent` scope before writing any new
+5. Decide the authoritative system and object model for inventory, parts orders,
+   work orders, appointments, and technician skills.
+6. Define the `Field_Service_Operations_Agent` scope before writing any new
    scheduling logic.
 
 ## Practical Build Order Recommendation
@@ -292,8 +342,8 @@ rework, the next build order should be:
 
 1. Support operations split and stabilization.
 2. Case routing, warranty, and approval foundations.
-3. Field-service execution.
-4. Inventory intelligence.
+3. Inventory intelligence and parts readiness.
+4. Field-service execution.
 5. Quality and service-ops intelligence.
 6. Expanded customer and internal channels.
 
