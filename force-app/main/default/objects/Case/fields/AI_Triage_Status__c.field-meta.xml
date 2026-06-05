@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>AI_Triage_Status__c</fullName>
+    <description
+  >Latest lifecycle status of the external AI triage orchestration for this Case (assigned, running, waiting_approval, done, rejected, failed). Written back by the NestJS AI API.</description>
+    <externalId>false</externalId>
+    <inlineHelpText
+  >Latest AI triage orchestration status. Managed by the AI API; do not edit manually.</inlineHelpText>
+    <label>AI Triage Status</label>
+    <length>40</length>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>AI_Triage_UI_URL__c</fullName>
+    <description
+  >Deep link to the read-only first-node orchestration progress view for this Case. Written back by the NestJS AI API when a UI base URL is configured.</description>
+    <externalId>false</externalId>
+    <inlineHelpText
+  >Read-only AI triage progress view for this Case. Managed by the AI API.</inlineHelpText>
+    <label>AI Triage UI URL</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Url</type>
+</CustomField>

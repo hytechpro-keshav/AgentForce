@@ -33,6 +33,9 @@ dist/
 # Eslint cache
 .eslintcache
 
+# Jest local cache (used to avoid shared temp-dir permission issues)
+**/.jest-cache/
+
 # MacOS system files
 .DS_Store
 

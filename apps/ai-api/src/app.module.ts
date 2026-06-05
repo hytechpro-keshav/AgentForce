@@ -8,6 +8,7 @@ import { HealthModule } from "./health/health.module";
 import { LlmModule } from "./llm/llm.module";
 import { ObservabilityModule } from "./observability/observability.module";
 import { OpenAiCompatibleModule } from "./openai-compatible/openai-compatible.module";
+import { OrchestratorModule } from "./orchestrator/orchestrator.module";
 import { RagModule } from "./rag/rag.module";
 
 @Module({
@@ -20,7 +21,8 @@ import { RagModule } from "./rag/rag.module";
     ChatModule,
     AgentsModule,
     RagModule,
-    OpenAiCompatibleModule
+    OpenAiCompatibleModule,
+    OrchestratorModule
   ]
 })
 export class AppModule {}

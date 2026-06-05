@@ -210,6 +210,69 @@ export interface OpenAiCompatibleGatewayConfig {
   ragModelId: string;
 }
 
+/**
+ * Outbound Salesforce REST connection used by the orchestrator to
+ * read Case context and apply gated write-backs. This is distinct
+ * from the inbound Named Credential path (Salesforce -> AI API).
+ *
+ * The connection is OPTIONAL at boot so existing deployments keep
+ * working. It is only `enabled` when all four credentials are
+ * present. The orchestrator trigger fails fast with a precise error
+ * when a Case-triage run is requested while this is not configured.
+ */
+export interface SalesforceConnectionConfig {
+  enabled: boolean;
+  instanceUrl?: string;
+  tokenUrl?: string;
+  clientId?: string;
+  clientSecret?: string;
+  apiVersion: string;
+  timeoutMs: number;
+}
+
+export const TRIAGE_APPROVAL_MODES = ["auto", "always", "high_risk"] as const;
+export type TriageApprovalMode = (typeof TRIAGE_APPROVAL_MODES)[number];
+
+/**
+ * Durable persistence for the Node 1 orchestrator read model.
+ *
+ * `memory` (default) keeps workflows only in process, which is fine for
+ * tests and local dev. `postgres` writes through to a table so historical
+ * Cases resolve by Case Id after an ai-api restart or redeploy.
+ */
+export interface OrchestratorPersistenceConfig {
+  provider: "memory" | "postgres";
+  databaseUrl?: string;
+  autoMigrate: boolean;
+  ssl: boolean;
+  maxPoolSize: number;
+}
+
+/**
+ * Optional Salesforce write-back of the AI triage workflow id and
+ * status onto the Case (custom fields). Default OFF so stock orgs
+ * without the fields keep working; the write is always best-effort and
+ * never blocks the Flow or the orchestration run.
+ */
+export interface OrchestratorSalesforceWriteBackConfig {
+  enabled: boolean;
+  /** Base URL of the read-only orchestration UI, for the Case deep link. */
+  uiBaseUrl?: string;
+}
+
+export interface OrchestratorConfig {
+  /**
+   * Gate policy for the Node 1 triage write-back.
+   * - `auto`: apply the write-back without human approval (matches the
+   *   flow doc where Node 6 is the real approval node).
+   * - `always`: always pause for out-of-band approval before write-back.
+   * - `high_risk`: pause only when triage recommends high/critical.
+   */
+  triageApprovalMode: TriageApprovalMode;
+  persistence: OrchestratorPersistenceConfig;
+  salesforceWriteBack: OrchestratorSalesforceWriteBackConfig;
+}
+
 export interface AppRuntimeConfig {
   port: number;
   nodeEnv: string;
@@ -233,6 +296,8 @@ export interface AppRuntimeConfig {
   telemetryEnabled: boolean;
   rag: RagRuntimeConfig;
   openAiGateway: OpenAiCompatibleGatewayConfig;
+  salesforceConnection: SalesforceConnectionConfig;
+  orchestrator: OrchestratorConfig;
 }
 
 @Injectable()
@@ -259,6 +324,8 @@ export class AppConfigService {
   readonly telemetryEnabled: boolean;
   readonly rag: RagRuntimeConfig;
   readonly openAiGateway: OpenAiCompatibleGatewayConfig;
+  readonly salesforceConnection: SalesforceConnectionConfig;
+  readonly orchestrator: OrchestratorConfig;
 
   constructor() {
     const config = AppConfigService.load(process.env);
@@ -284,6 +351,8 @@ export class AppConfigService {
     this.telemetryEnabled = config.telemetryEnabled;
     this.rag = config.rag;
     this.openAiGateway = config.openAiGateway;
+    this.salesforceConnection = config.salesforceConnection;
+    this.orchestrator = config.orchestrator;
   }
 
   get isHealthBridgeKeyConfigured(): boolean {
@@ -372,6 +441,8 @@ export class AppConfigService {
       defaultProvider,
       fallbackProvider
     );
+    const salesforceConnection = AppConfigService.loadSalesforceConnection(env);
+    const orchestrator = AppConfigService.loadOrchestrator(env);
 
     return {
       port: AppConfigService.parsePort(env.PORT),
@@ -395,7 +466,9 @@ export class AppConfigService {
       customerChatSession,
       telemetryEnabled,
       rag,
-      openAiGateway
+      openAiGateway,
+      salesforceConnection,
+      orchestrator
     };
   }
 
@@ -1649,6 +1722,136 @@ export class AppConfigService {
         env.CUSTOMER_CHAT_SESSION_RATE_LIMIT_MAX_REQUESTS,
         10,
         "CUSTOMER_CHAT_SESSION_RATE_LIMIT_MAX_REQUESTS"
+      )
+    };
+  }
+
+  private static loadSalesforceConnection(
+    env: NodeJS.ProcessEnv
+  ): SalesforceConnectionConfig {
+    const instanceUrl = AppConfigService.normalize(env.SF_INSTANCE_URL)
+      ? AppConfigService.readUrl(
+          { SF_INSTANCE_URL: AppConfigService.normalize(env.SF_INSTANCE_URL) },
+          "SF_INSTANCE_URL",
+          "SF_INSTANCE_URL"
+        )
+      : undefined;
+    const tokenUrl = AppConfigService.normalize(env.SF_OAUTH_TOKEN_URL)
+      ? AppConfigService.readUrl(
+          {
+            SF_OAUTH_TOKEN_URL: AppConfigService.normalize(
+              env.SF_OAUTH_TOKEN_URL
+            )
+          },
+          "SF_OAUTH_TOKEN_URL",
+          "SF_OAUTH_TOKEN_URL"
+        )
+      : undefined;
+    const clientId = AppConfigService.normalize(env.SF_OAUTH_CLIENT_ID);
+    const clientSecret = AppConfigService.normalize(env.SF_OAUTH_CLIENT_SECRET);
+    const rawApiVersion =
+      AppConfigService.normalize(env.SF_API_VERSION) ?? "60.0";
+    if (!/^\d{2,3}\.\d$/.test(rawApiVersion)) {
+      throw new Error("SF_API_VERSION must look like 60.0.");
+    }
+    const enabled = Boolean(
+      instanceUrl && tokenUrl && clientId && clientSecret
+    );
+
+    return {
+      enabled,
+      instanceUrl,
+      tokenUrl,
+      clientId,
+      clientSecret,
+      apiVersion: rawApiVersion,
+      timeoutMs: AppConfigService.parsePositiveInteger(
+        env.SF_OUTBOUND_TIMEOUT_MS,
+        15000,
+        "SF_OUTBOUND_TIMEOUT_MS"
+      )
+    };
+  }
+
+  private static loadOrchestrator(env: NodeJS.ProcessEnv): OrchestratorConfig {
+    const rawMode =
+      AppConfigService.normalize(env.ORCHESTRATOR_TRIAGE_APPROVAL_MODE) ??
+      "auto";
+    if (!TRIAGE_APPROVAL_MODES.includes(rawMode as TriageApprovalMode)) {
+      throw new Error(
+        `ORCHESTRATOR_TRIAGE_APPROVAL_MODE must be one of ${TRIAGE_APPROVAL_MODES.join(
+          ", "
+        )}.`
+      );
+    }
+    return {
+      triageApprovalMode: rawMode as TriageApprovalMode,
+      persistence: AppConfigService.loadOrchestratorPersistence(env),
+      salesforceWriteBack:
+        AppConfigService.loadOrchestratorSalesforceWriteBack(env)
+    };
+  }
+
+  private static loadOrchestratorSalesforceWriteBack(
+    env: NodeJS.ProcessEnv
+  ): OrchestratorSalesforceWriteBackConfig {
+    const enabled = AppConfigService.parseBooleanFlag(
+      env.AI_API_ORCHESTRATOR_SF_WRITEBACK_ENABLED,
+      false,
+      "AI_API_ORCHESTRATOR_SF_WRITEBACK_ENABLED"
+    );
+    const rawUiBaseUrl = AppConfigService.normalize(
+      env.AI_API_ORCHESTRATOR_UI_BASE_URL
+    );
+    const uiBaseUrl = rawUiBaseUrl
+      ? AppConfigService.readUrl(
+          { AI_API_ORCHESTRATOR_UI_BASE_URL: rawUiBaseUrl },
+          "AI_API_ORCHESTRATOR_UI_BASE_URL",
+          "AI_API_ORCHESTRATOR_UI_BASE_URL"
+        )
+      : undefined;
+    return { enabled, uiBaseUrl };
+  }
+
+  private static loadOrchestratorPersistence(
+    env: NodeJS.ProcessEnv
+  ): OrchestratorPersistenceConfig {
+    const provider =
+      AppConfigService.normalize(
+        env.AI_API_ORCHESTRATOR_PERSISTENCE_PROVIDER
+      ) ?? "memory";
+    if (!["memory", "postgres"].includes(provider)) {
+      throw new Error(
+        "AI_API_ORCHESTRATOR_PERSISTENCE_PROVIDER must be memory or postgres."
+      );
+    }
+
+    const databaseUrl =
+      AppConfigService.normalize(env.AI_API_ORCHESTRATOR_DATABASE_URL) ??
+      AppConfigService.normalize(env.DATABASE_URL);
+    if (provider === "postgres" && !databaseUrl) {
+      throw new Error(
+        "AI_API_ORCHESTRATOR_DATABASE_URL or DATABASE_URL is required when AI_API_ORCHESTRATOR_PERSISTENCE_PROVIDER=postgres."
+      );
+    }
+
+    return {
+      provider: provider as "memory" | "postgres",
+      databaseUrl,
+      autoMigrate: AppConfigService.parseBooleanFlag(
+        env.AI_API_ORCHESTRATOR_AUTO_MIGRATE,
+        true,
+        "AI_API_ORCHESTRATOR_AUTO_MIGRATE"
+      ),
+      ssl: AppConfigService.parseBooleanFlag(
+        env.AI_API_ORCHESTRATOR_DATABASE_SSL,
+        false,
+        "AI_API_ORCHESTRATOR_DATABASE_SSL"
+      ),
+      maxPoolSize: AppConfigService.parsePositiveInteger(
+        env.AI_API_ORCHESTRATOR_MAX_POOL_SIZE,
+        5,
+        "AI_API_ORCHESTRATOR_MAX_POOL_SIZE"
       )
     };
   }

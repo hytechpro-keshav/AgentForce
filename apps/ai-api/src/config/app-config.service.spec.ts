@@ -541,6 +541,88 @@ describe("AppConfigService", () => {
     ).toThrow("AI_API_TENANT_REGISTRY_AUTO_MIGRATE must be true or false.");
   });
 
+  it("defaults the orchestrator to auto approval with in-memory persistence", () => {
+    const config = AppConfigService.load({});
+    expect(config.orchestrator.triageApprovalMode).toBe("auto");
+    expect(config.orchestrator.persistence).toEqual({
+      provider: "memory",
+      databaseUrl: undefined,
+      autoMigrate: true,
+      ssl: false,
+      maxPoolSize: 5
+    });
+    expect(config.orchestrator.salesforceWriteBack).toEqual({
+      enabled: false,
+      uiBaseUrl: undefined
+    });
+  });
+
+  it("loads enabled Salesforce triage write-back with a UI base URL", () => {
+    const config = AppConfigService.load({
+      AI_API_ORCHESTRATOR_SF_WRITEBACK_ENABLED: "true",
+      AI_API_ORCHESTRATOR_UI_BASE_URL: "https://chat.example.com"
+    });
+    expect(config.orchestrator.salesforceWriteBack).toEqual({
+      enabled: true,
+      uiBaseUrl: "https://chat.example.com"
+    });
+  });
+
+  it("rejects an unsafe orchestrator UI base URL", () => {
+    expect(() =>
+      AppConfigService.load({
+        AI_API_ORCHESTRATOR_UI_BASE_URL: "not-a-url"
+      })
+    ).toThrow();
+  });
+
+  it("loads Postgres-backed orchestrator persistence settings", () => {
+    const config = AppConfigService.load({
+      AI_API_ORCHESTRATOR_PERSISTENCE_PROVIDER: "postgres",
+      AI_API_ORCHESTRATOR_DATABASE_URL:
+        "postgres://agentforce:secret@localhost:5432/orchestrator",
+      AI_API_ORCHESTRATOR_AUTO_MIGRATE: "false",
+      AI_API_ORCHESTRATOR_DATABASE_SSL: "true",
+      AI_API_ORCHESTRATOR_MAX_POOL_SIZE: "3"
+    });
+
+    expect(config.orchestrator.persistence).toEqual({
+      provider: "postgres",
+      databaseUrl: "postgres://agentforce:secret@localhost:5432/orchestrator",
+      autoMigrate: false,
+      ssl: true,
+      maxPoolSize: 3
+    });
+  });
+
+  it("falls back to DATABASE_URL for orchestrator Postgres persistence", () => {
+    const config = AppConfigService.load({
+      AI_API_ORCHESTRATOR_PERSISTENCE_PROVIDER: "postgres",
+      DATABASE_URL: "postgres://shared:secret@localhost:5432/shared"
+    });
+    expect(config.orchestrator.persistence.databaseUrl).toBe(
+      "postgres://shared:secret@localhost:5432/shared"
+    );
+  });
+
+  it("rejects unsafe orchestrator persistence configuration", () => {
+    expect(() =>
+      AppConfigService.load({
+        AI_API_ORCHESTRATOR_PERSISTENCE_PROVIDER: "sqlite"
+      })
+    ).toThrow(
+      "AI_API_ORCHESTRATOR_PERSISTENCE_PROVIDER must be memory or postgres."
+    );
+
+    expect(() =>
+      AppConfigService.load({
+        AI_API_ORCHESTRATOR_PERSISTENCE_PROVIDER: "postgres"
+      })
+    ).toThrow(
+      "AI_API_ORCHESTRATOR_DATABASE_URL or DATABASE_URL is required when AI_API_ORCHESTRATOR_PERSISTENCE_PROVIDER=postgres."
+    );
+  });
+
   it("rejects unsafe OAuth client configuration", () => {
     expect(() =>
       AppConfigService.load({

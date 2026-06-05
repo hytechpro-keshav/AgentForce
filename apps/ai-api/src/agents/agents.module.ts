@@ -25,6 +25,7 @@ import { SupportTriageService } from "./support-triage.service";
     RevenueAccountHealthService,
     RevenuePortfolioIntelligenceService,
     AgentforceRateLimitGuard
-  ]
+  ],
+  exports: [SupportTriageService]
 })
 export class AgentsModule {}

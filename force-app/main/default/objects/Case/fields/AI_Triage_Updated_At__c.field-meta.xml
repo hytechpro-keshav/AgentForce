@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>AI_Triage_Updated_At__c</fullName>
+    <description
+  >Timestamp of the most recent external AI triage orchestration status update for this Case. Written back by the NestJS AI API.</description>
+    <externalId>false</externalId>
+    <inlineHelpText
+  >When the AI triage status was last updated. Managed by the AI API; do not edit manually.</inlineHelpText>
+    <label>AI Triage Updated At</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>DateTime</type>
+</CustomField>

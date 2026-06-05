@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <actionCalls>
+        <name>Hand_Off_Case_To_AI_Triage_Orchestrator</name>
+        <label>Hand off Case to AI Triage Orchestrator</label>
+        <locationX>176</locationX>
+        <locationY>134</locationY>
+        <actionName>AgentforceCaseTriageOrchestratorTrigger</actionName>
+        <actionType>apex</actionType>
+        <flowTransactionModel>Automatic</flowTransactionModel>
+        <inputParameters>
+            <name>caseId</name>
+            <value>
+                <elementReference>$Record.Id</elementReference>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>caseNumber</name>
+            <value>
+                <elementReference>$Record.CaseNumber</elementReference>
+            </value>
+        </inputParameters>
+        <inputParameters>
+            <name>correlationId</name>
+            <value>
+                <elementReference>CorrelationId</elementReference>
+            </value>
+        </inputParameters>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </actionCalls>
+    <apiVersion>66.0</apiVersion>
+    <description
+  >Fire-and-forget handoff for newly created Cases to the external AI triage orchestrator.</description>
+    <environments>Default</environments>
+    <formulas>
+        <name>CorrelationId</name>
+        <dataType>String</dataType>
+        <expression>&quot;sf-triage-&quot; &amp; {!$Record.Id}</expression>
+    </formulas>
+    <interviewLabel
+  >Case Triage Orchestrator Handoff {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>Case Triage Orchestrator Handoff</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <start>
+        <locationX>50</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference
+      >Hand_Off_Case_To_AI_Triage_Orchestrator</targetReference>
+        </connector>
+        <object>Case</object>
+        <recordTriggerType>Create</recordTriggerType>
+        <triggerType>RecordAfterSave</triggerType>
+    </start>
+    <status>Active</status>
+</Flow>
