@@ -304,3 +304,136 @@ describe("PostgresOrchestrationStatusRepository", () => {
     );
   });
 });
+
+const customerChannel = {
+  eligible: true,
+  degraded: true,
+  degradedSources: ["warranty"],
+  provider: "openai",
+  model: "gpt-4o-mini",
+  fallbackUsed: false,
+  latencyMs: 12,
+  package: {
+    customerTier: {
+      value: "premium" as const,
+      confidence: "high" as const,
+      provenance: "Salesforce Account",
+      evidenceBasis: "Account tier: premium",
+      assertedVsInferred: "asserted" as const
+    },
+    slaClass: {
+      value: "premium" as const,
+      confidence: "high" as const,
+      provenance: "Salesforce Entitlement",
+      evidenceBasis: "SLA class: premium",
+      assertedVsInferred: "asserted" as const
+    },
+    warrantyStatus: {
+      value: "unknown" as const,
+      confidence: "low" as const,
+      provenance: "Salesforce Asset warranty",
+      evidenceBasis: "No warranty record",
+      assertedVsInferred: "inferred" as const,
+      notEvidenced: true
+    },
+    repeatIncident: {
+      value: { repeat: true, count: 2, windowDays: 30 },
+      confidence: "high" as const,
+      provenance: "Salesforce Case history",
+      evidenceBasis: "2 cases in 30d",
+      assertedVsInferred: "asserted" as const
+    },
+    strategicAccount: {
+      value: true,
+      confidence: "high" as const,
+      provenance: "Salesforce Account flag",
+      evidenceBasis: "Strategic flag: yes",
+      assertedVsInferred: "asserted" as const
+    },
+    installedAssets: {
+      value: { totalAssets: 420, modelCount: 1, primaryModel: "VX-900" },
+      confidence: "high" as const,
+      provenance: "Salesforce Asset",
+      evidenceBasis: "420 assets across 1 models",
+      assertedVsInferred: "asserted" as const
+    },
+    openIncidentCount: {
+      value: 1,
+      confidence: "high" as const,
+      provenance: "Salesforce Case history",
+      evidenceBasis: "1 open incidents",
+      assertedVsInferred: "asserted" as const
+    },
+    escalationHistory: {
+      value: 1,
+      confidence: "high" as const,
+      provenance: "Salesforce Case history",
+      evidenceBasis: "1 prior escalations",
+      assertedVsInferred: "asserted" as const
+    },
+    businessRisk: {
+      value: "high" as const,
+      confidence: "high" as const,
+      provenance: "AI synthesis",
+      evidenceBasis: "Risk signals: strategic, repeat-failure, premium",
+      assertedVsInferred: "inferred" as const
+    }
+  }
+};
+
+describe("orchestration repository — customer-context channel", () => {
+  it("round-trips the Node 2 channel in the in-memory repository", async () => {
+    const repo = new InMemoryOrchestrationStatusRepository();
+    await repo.save(snapshot({ customerContext: customerChannel }));
+    const loaded = await repo.get("wf-1");
+    expect(loaded?.customerContext?.package?.businessRisk.value).toBe("high");
+    expect(loaded?.customerContext?.degradedSources).toEqual(["warranty"]);
+    expect(loaded?.customerContext?.package?.warrantyStatus.notEvidenced).toBe(
+      true
+    );
+  });
+
+  it("persists customer_context as a jsonb parameter in Postgres", async () => {
+    const query = jest.fn().mockResolvedValue({ rows: [] });
+    const { repo } = postgresRepo(query);
+    await repo.save(snapshot({ customerContext: customerChannel }));
+
+    const sql = String(query.mock.calls[0][0]);
+    expect(sql).toContain("customer_context");
+    const params = query.mock.calls[0][1] as unknown[];
+    // Param index 10 is customer_context, serialized to JSON.
+    expect(typeof params[10]).toBe("string");
+    expect(String(params[10])).toContain("businessRisk");
+  });
+
+  it("maps a stored customer_context row back into the channel", async () => {
+    const now = new Date();
+    const query = jest.fn().mockResolvedValue({
+      rows: [
+        {
+          workflow_id: "wf-1",
+          case_id: "500000000000001",
+          case_number: null,
+          node: "triage",
+          status: "done",
+          approval_required: false,
+          approval_decision: null,
+          write_back_applied: true,
+          failure_kind: null,
+          triage: null,
+          customer_context: customerChannel,
+          events: "[]",
+          created_at: now,
+          updated_at: now
+        }
+      ]
+    });
+    const { repo } = postgresRepo(query);
+
+    const loaded = await repo.get("wf-1");
+    expect(loaded?.customerContext?.package?.customerTier.value).toBe(
+      "premium"
+    );
+    expect(loaded?.customerContext?.eligible).toBe(true);
+  });
+});

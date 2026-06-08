@@ -205,15 +205,18 @@ describe("SalesforceCaseGateway", () => {
       .mockResolvedValueOnce(new Response("{}", { status: 401 }))
       .mockResolvedValueOnce(new Response("{}", { status: 403 }));
 
-    const error = await h.gateway
-      .readCaseContext("500000000000001")
-      .catch((e) => e as SalesforceGatewayError);
+    let error: SalesforceGatewayError | undefined;
+    try {
+      await h.gateway.readCaseContext("500000000000001");
+    } catch (e) {
+      error = e as SalesforceGatewayError;
+    }
 
     expect(error).toBeInstanceOf(SalesforceGatewayError);
-    expect(error.kind).toBe("auth");
+    expect(error?.kind).toBe("auth");
     expect(h.invalidate).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(error)).not.toContain(ACCESS_TOKEN);
-    expect(error.message).not.toContain(ACCESS_TOKEN);
+    expect(error?.message).not.toContain(ACCESS_TOKEN);
   });
 
   it("classifies a 500 as backend", async () => {

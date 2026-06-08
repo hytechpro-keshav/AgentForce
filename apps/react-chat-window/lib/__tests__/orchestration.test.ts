@@ -72,6 +72,7 @@ describe("sanitizeSnapshot", () => {
   it("parses a valid snapshot and keeps only safe fields", () => {
     const snapshot = sanitizeSnapshot({
       workflowId: VALID_WORKFLOW_ID,
+      node: "triage",
       caseNumber: "00004242",
       status: "done",
       approvalRequired: false,
@@ -87,18 +88,26 @@ describe("sanitizeSnapshot", () => {
       },
       events: [
         {
+          node: "triage",
           status: "assigned",
           sequence: 1,
           occurredAt: "t1",
           safeSummary: "Assigned"
         },
         {
+          node: "triage",
           status: "running",
           sequence: 2,
           occurredAt: "t2",
           safeSummary: "Running"
         },
-        { status: "done", sequence: 3, occurredAt: "t3", safeSummary: "Done" }
+        {
+          node: "triage",
+          status: "done",
+          sequence: 3,
+          occurredAt: "t3",
+          safeSummary: "Done"
+        }
       ],
       // Hidden/unsafe fields that must never survive sanitization:
       rawPrompt: "chain of thought",
@@ -107,6 +116,7 @@ describe("sanitizeSnapshot", () => {
 
     expect(snapshot).not.toBeNull();
     expect(snapshot!.status).toBe("done");
+    expect(snapshot!.node).toBe("triage");
     expect(snapshot!.triage?.recommendedPriority).toBe("critical");
     expect(snapshot!.events).toHaveLength(3);
     expect(JSON.stringify(snapshot)).not.toContain("chain of thought");
@@ -126,11 +136,12 @@ describe("sanitizeSnapshot", () => {
   it("drops triage with an invalid priority and filters bad events", () => {
     const snapshot = sanitizeSnapshot({
       workflowId: VALID_WORKFLOW_ID,
+      node: "triage",
       status: "running",
       triage: { recommendedPriority: "spicy", summary: "x" },
       events: [
-        { status: "running", sequence: 2, occurredAt: "t2" },
-        { status: "bogus", sequence: 1, occurredAt: "t1" },
+        { node: "triage", status: "running", sequence: 2, occurredAt: "t2" },
+        { node: "triage", status: "bogus", sequence: 1, occurredAt: "t1" },
         { sequence: 3 }
       ]
     });
@@ -143,11 +154,12 @@ describe("sanitizeSnapshot", () => {
   it("sorts events by sequence", () => {
     const snapshot = sanitizeSnapshot({
       workflowId: VALID_WORKFLOW_ID,
+      node: "triage",
       status: "done",
       events: [
-        { status: "done", sequence: 3, occurredAt: "t3" },
-        { status: "assigned", sequence: 1, occurredAt: "t1" },
-        { status: "running", sequence: 2, occurredAt: "t2" }
+        { node: "triage", status: "done", sequence: 3, occurredAt: "t3" },
+        { node: "triage", status: "assigned", sequence: 1, occurredAt: "t1" },
+        { node: "triage", status: "running", sequence: 2, occurredAt: "t2" }
       ]
     });
     expect(snapshot!.events.map((e) => e.sequence)).toEqual([1, 2, 3]);
@@ -156,9 +168,11 @@ describe("sanitizeSnapshot", () => {
   it("keeps safe event details and drops malformed ones", () => {
     const snapshot = sanitizeSnapshot({
       workflowId: VALID_WORKFLOW_ID,
+      node: "triage",
       status: "done",
       events: [
         {
+          node: "triage",
           status: "running",
           sequence: 1,
           occurredAt: "t1",
@@ -187,9 +201,11 @@ describe("sanitizeSnapshot", () => {
     const longValue = "x".repeat(500);
     const snapshot = sanitizeSnapshot({
       workflowId: VALID_WORKFLOW_ID,
+      node: "triage",
       status: "done",
       events: [
         {
+          node: "triage",
           status: "done",
           sequence: 1,
           occurredAt: "t1",
@@ -209,9 +225,11 @@ describe("sanitizeSnapshot", () => {
   it("omits details when none are valid", () => {
     const snapshot = sanitizeSnapshot({
       workflowId: VALID_WORKFLOW_ID,
+      node: "triage",
       status: "done",
       events: [
         {
+          node: "triage",
           status: "done",
           sequence: 1,
           occurredAt: "t1",
@@ -220,5 +238,97 @@ describe("sanitizeSnapshot", () => {
       ]
     });
     expect(snapshot!.events[0].details).toBeUndefined();
+  });
+
+  it("keeps structured execution traces and customer context packages", () => {
+    const snapshot = sanitizeSnapshot({
+      workflowId: VALID_WORKFLOW_ID,
+      node: "customer_history",
+      status: "done",
+      customerContext: {
+        eligible: true,
+        degraded: false,
+        package: {
+          customerTier: {
+            value: "premium",
+            confidence: "high",
+            provenance: "Salesforce Account",
+            evidenceBasis: "Account tier: premium"
+          },
+          slaClass: {
+            value: "premium",
+            confidence: "high",
+            provenance: "Salesforce Entitlement",
+            evidenceBasis: "SLA class: premium"
+          },
+          warrantyStatus: {
+            value: "covered",
+            confidence: "high",
+            provenance: "Salesforce Asset warranty",
+            evidenceBasis: "Warranty status: covered"
+          },
+          repeatIncident: {
+            value: { repeat: true, count: 3, windowDays: 30 },
+            confidence: "high",
+            provenance: "Salesforce Case history",
+            evidenceBasis: "3 cases in 30d"
+          },
+          strategicAccount: {
+            value: true,
+            confidence: "high",
+            provenance: "Salesforce Account flag",
+            evidenceBasis: "Strategic flag: yes"
+          },
+          installedAssets: {
+            value: { totalAssets: 2, modelCount: 1, primaryModel: "VX-900" },
+            confidence: "high",
+            provenance: "Salesforce Asset",
+            evidenceBasis: "2 assets across 1 models"
+          },
+          openIncidentCount: {
+            value: 1,
+            confidence: "high",
+            provenance: "Salesforce Case history",
+            evidenceBasis: "1 open incidents"
+          },
+          escalationHistory: {
+            value: 2,
+            confidence: "high",
+            provenance: "Salesforce Case history",
+            evidenceBasis: "2 prior escalations"
+          },
+          businessRisk: {
+            value: "high",
+            confidence: "high",
+            provenance: "AI synthesis",
+            evidenceBasis: "Risk signals: strategic, repeat-failure, premium"
+          }
+        }
+      },
+      events: [
+        {
+          node: "customer_history",
+          status: "running",
+          sequence: 1,
+          occurredAt: "t1",
+          trace: {
+            stepKey: "write_customer_context_state",
+            sections: [
+              {
+                key: "outputs",
+                title: "Outputs",
+                data: { customerContextWritten: true, businessRisk: "high" }
+              }
+            ]
+          }
+        }
+      ]
+    });
+
+    expect(snapshot?.customerContext?.package?.businessRisk.value).toBe("high");
+    expect(snapshot?.events[0].trace?.stepKey).toBe(
+      "write_customer_context_state"
+    );
+    expect(snapshot?.events[0].trace?.sections[0].key).toBe("outputs");
   });
 });

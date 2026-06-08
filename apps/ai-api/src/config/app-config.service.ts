@@ -4,6 +4,8 @@ import {
   LLM_USE_CASES,
   type LlmUseCase
 } from "../llm/interfaces/llm-contracts";
+import type { TriagePriorityDto } from "../agents/dto/triage-case.dto";
+import type { CustomerHistoryEligibilityPolicy } from "../orchestrator/dto/customer-context";
 
 export interface OpenAiProviderConfig {
   apiKey: string;
@@ -260,6 +262,22 @@ export interface OrchestratorSalesforceWriteBackConfig {
   uiBaseUrl?: string;
 }
 
+/**
+ * Node 2 (customer history) configuration. The eligibility policy gates
+ * the expensive reads + model call; Data 360 and the external adapters
+ * are OFF by default so the node degrades gracefully when they are
+ * absent.
+ */
+export interface OrchestratorCustomerHistoryConfig {
+  eligibility: CustomerHistoryEligibilityPolicy;
+  dataCloud: { enabled: boolean };
+  externalAdapters: {
+    erpEnabled: boolean;
+    serviceNowEnabled: boolean;
+    telemetryEnabled: boolean;
+  };
+}
+
 export interface OrchestratorConfig {
   /**
    * Gate policy for the Node 1 triage write-back.
@@ -271,6 +289,7 @@ export interface OrchestratorConfig {
   triageApprovalMode: TriageApprovalMode;
   persistence: OrchestratorPersistenceConfig;
   salesforceWriteBack: OrchestratorSalesforceWriteBackConfig;
+  customerHistory: OrchestratorCustomerHistoryConfig;
 }
 
 export interface AppRuntimeConfig {
@@ -1788,8 +1807,77 @@ export class AppConfigService {
       triageApprovalMode: rawMode as TriageApprovalMode,
       persistence: AppConfigService.loadOrchestratorPersistence(env),
       salesforceWriteBack:
-        AppConfigService.loadOrchestratorSalesforceWriteBack(env)
+        AppConfigService.loadOrchestratorSalesforceWriteBack(env),
+      customerHistory: AppConfigService.loadOrchestratorCustomerHistory(env)
     };
+  }
+
+  private static loadOrchestratorCustomerHistory(
+    env: NodeJS.ProcessEnv
+  ): OrchestratorCustomerHistoryConfig {
+    const validPriorities: TriagePriorityDto[] = [
+      "low",
+      "normal",
+      "high",
+      "critical"
+    ];
+    const eligiblePriorities = AppConfigService.parseDelimitedList(
+      env.AI_API_ORCHESTRATOR_CUSTOMER_HISTORY_ELIGIBLE_PRIORITIES
+    )
+      .map((value) => value.toLowerCase())
+      .filter((value): value is TriagePriorityDto =>
+        validPriorities.includes(value as TriagePriorityDto)
+      );
+    const eligibleOrigins = AppConfigService.parseDelimitedList(
+      env.AI_API_ORCHESTRATOR_CUSTOMER_HISTORY_ELIGIBLE_ORIGINS
+    );
+    return {
+      eligibility: {
+        eligibleOrigins:
+          eligibleOrigins.length > 0 ? eligibleOrigins : undefined,
+        eligiblePriorities:
+          eligiblePriorities.length > 0 ? eligiblePriorities : undefined
+      },
+      dataCloud: {
+        enabled: AppConfigService.parseBooleanFlag(
+          env.AI_API_ORCHESTRATOR_DATA_CLOUD_ENABLED,
+          false,
+          "AI_API_ORCHESTRATOR_DATA_CLOUD_ENABLED"
+        )
+      },
+      externalAdapters: {
+        erpEnabled: AppConfigService.parseBooleanFlag(
+          env.AI_API_ORCHESTRATOR_ERP_ADAPTER_ENABLED,
+          false,
+          "AI_API_ORCHESTRATOR_ERP_ADAPTER_ENABLED"
+        ),
+        serviceNowEnabled: AppConfigService.parseBooleanFlag(
+          env.AI_API_ORCHESTRATOR_SERVICENOW_ADAPTER_ENABLED,
+          false,
+          "AI_API_ORCHESTRATOR_SERVICENOW_ADAPTER_ENABLED"
+        ),
+        telemetryEnabled: AppConfigService.parseBooleanFlag(
+          env.AI_API_ORCHESTRATOR_TELEMETRY_ADAPTER_ENABLED,
+          false,
+          "AI_API_ORCHESTRATOR_TELEMETRY_ADAPTER_ENABLED"
+        )
+      }
+    };
+  }
+
+  private static parseDelimitedList(rawValue: string | undefined): string[] {
+    const normalized = AppConfigService.normalize(rawValue);
+    if (!normalized) {
+      return [];
+    }
+    return Array.from(
+      new Set(
+        normalized
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean)
+      )
+    );
   }
 
   private static loadOrchestratorSalesforceWriteBack(

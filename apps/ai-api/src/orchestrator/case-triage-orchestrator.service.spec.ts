@@ -1,19 +1,50 @@
 import type { AppConfigService } from "../config/app-config.service";
 import type { TelemetryService } from "../observability/telemetry.service";
 import type { SupportTriageService } from "../agents/support-triage.service";
+import type { CustomerHistorySynthesisService } from "../agents/customer-history.service";
 import type { SalesforceCaseGateway } from "../salesforce/salesforce-case.gateway";
+import type { SalesforceCustomerGateway } from "../salesforce/salesforce-customer.gateway";
 import { SalesforceGatewayError } from "../salesforce/salesforce-gateway.error";
 import { CaseTriageOrchestratorService } from "./case-triage-orchestrator.service";
+import { ExternalContextAdapterRegistry } from "./adapters/external-context.adapter";
 import {
   InMemoryOrchestrationStatusRepository,
   OrchestrationStatusRepository
 } from "./orchestration-status.repository";
 import { OrchestrationStatusStore } from "./orchestration-status.store";
 import type { TriageApprovalMode } from "../config/app-config.service";
+import type { CustomerContextSynthesis } from "./dto/customer-context";
 import type { SalesforceCaseContext } from "./dto/salesforce-case-context";
 
 const SECRET_DESCRIPTION =
   "Customer Jane Doe jane@example.com lost power; account ACCT-99 secret-detail.";
+
+/** A complete, fully-abstained Customer Context Package for Node 2 fakes. */
+function buildAbstainedSynthesis(): CustomerContextSynthesis {
+  const abstain = <T>(value: T) => ({
+    value,
+    confidence: "low" as const,
+    provenance: "none",
+    evidenceBasis: "not evidenced",
+    assertedVsInferred: "inferred" as const,
+    notEvidenced: true
+  });
+  return {
+    package: {
+      customerTier: abstain("unknown" as const),
+      slaClass: abstain("unknown" as const),
+      warrantyStatus: abstain("unknown" as const),
+      repeatIncident: abstain({ repeat: false, count: 0, windowDays: 0 }),
+      strategicAccount: abstain(false),
+      installedAssets: abstain({ totalAssets: 0, modelCount: 0 }),
+      openIncidentCount: abstain(0),
+      escalationHistory: abstain(0),
+      businessRisk: abstain("unknown" as const)
+    },
+    fallbackUsed: false,
+    latencyMs: 1
+  };
+}
 
 function buildContext(
   overrides: Partial<SalesforceCaseContext> = {}
@@ -38,6 +69,8 @@ interface Harness {
   applyWriteBack: jest.Mock;
   writeTriageTracking: jest.Mock;
   triage: jest.Mock;
+  synthesize: jest.Mock;
+  readCustomerBundle: jest.Mock;
   recordAgentWorkflow: jest.Mock;
 }
 
@@ -86,14 +119,50 @@ function buildHarness(
       salesforceWriteBack: {
         enabled: writeBackOverrides.enabled ?? false,
         uiBaseUrl: writeBackOverrides.uiBaseUrl
+      },
+      customerHistory: {
+        eligibility: {},
+        dataCloud: { enabled: false },
+        externalAdapters: {
+          erpEnabled: false,
+          serviceNowEnabled: false,
+          telemetryEnabled: false
+        }
       }
     },
     salesforceConnection: { enabled: true }
   } as unknown as AppConfigService;
 
+  const readCustomerBundle = jest.fn().mockResolvedValue({
+    source: "none",
+    missingSources: [
+      "account",
+      "entitlement",
+      "warranty",
+      "installed_assets",
+      "service_history"
+    ]
+  });
+  const customerGateway = {
+    isConfigured: () => true,
+    isDataCloudConfigured: () => false,
+    readCustomer360Bundle: jest.fn().mockResolvedValue(undefined),
+    readCustomerBundle
+  } as unknown as SalesforceCustomerGateway;
+  const synthesize = jest.fn().mockResolvedValue(buildAbstainedSynthesis());
+  const customerHistory = {
+    synthesize
+  } as unknown as CustomerHistorySynthesisService;
+  const externalAdapters = {
+    readAll: jest.fn().mockResolvedValue({ signals: [], degradedSources: [] })
+  } as unknown as ExternalContextAdapterRegistry;
+
   const service = new CaseTriageOrchestratorService(
     gateway,
+    customerGateway,
     supportTriage,
+    customerHistory,
+    externalAdapters,
     store,
     telemetry,
     config
@@ -107,6 +176,8 @@ function buildHarness(
     applyWriteBack,
     writeTriageTracking,
     triage,
+    synthesize,
+    readCustomerBundle,
     recordAgentWorkflow
   };
 }
@@ -299,6 +370,46 @@ describe("CaseTriageOrchestratorService", () => {
     expect(h.recordAgentWorkflow).toHaveBeenCalled();
   });
 
+  it("enriches the workflow with a sanitized customer context package (Node 2)", async () => {
+    const h = buildHarness("auto", { accountId: "001000000000001" });
+    const accepted = await h.service.trigger({ caseId: "500000000000001" });
+    await waitFor(
+      async () => (await statusOf(h.service, accepted.workflowId)) === "done"
+    );
+
+    const snapshot = await h.service.getSnapshot(accepted.workflowId);
+    // Node 2 wrote its own channel and a customer-history event exists.
+    expect(snapshot.customerContext?.eligible).toBe(true);
+    expect(snapshot.customerContext?.package).toBeDefined();
+    expect(snapshot.events.some((e) => e.node === "customer_history")).toBe(
+      true
+    );
+    expect(h.readCustomerBundle).toHaveBeenCalledTimes(1);
+    // Node 1 is unchanged.
+    expect(snapshot.writeBackApplied).toBe(true);
+
+    // The Node 2 channel and its events carry no PII.
+    const serialized = JSON.stringify(snapshot.customerContext);
+    expect(serialized).not.toContain("secret-detail");
+    expect(serialized).not.toContain("jane@example.com");
+    expect(serialized).not.toContain("ACCT-99");
+  });
+
+  it("durably persists the customer context package for restart resolution", async () => {
+    const h = buildHarness("auto", { accountId: "001000000000001" });
+    const accepted = await h.service.trigger({ caseId: "500000000000001" });
+    await waitFor(
+      async () => (await statusOf(h.service, accepted.workflowId)) === "done"
+    );
+
+    // The durable repository (what a restarted instance reads from)
+    // resolves the Case with its Node 2 channel intact.
+    const durable = await h.repository.getLatestForCase("500000000000001");
+    expect(durable?.workflowId).toBe(accepted.workflowId);
+    expect(durable?.customerContext?.eligible).toBe(true);
+    expect(durable?.customerContext?.package).toBeDefined();
+  });
+
   it("throws NotFound for an unknown workflow snapshot", async () => {
     const h = buildHarness("auto");
     await expect(h.service.getSnapshot("wf-does-not-exist")).rejects.toThrow();
@@ -337,13 +448,33 @@ describe("CaseTriageOrchestratorService", () => {
     const restartedStore = new OrchestrationStatusStore(h.repository);
     const restartedService = new CaseTriageOrchestratorService(
       { isConfigured: () => true } as unknown as SalesforceCaseGateway,
+      {
+        readCustomerBundle: jest.fn(),
+        readCustomer360Bundle: jest.fn()
+      } as unknown as SalesforceCustomerGateway,
       { triage: jest.fn() } as unknown as SupportTriageService,
+      { synthesize: jest.fn() } as unknown as CustomerHistorySynthesisService,
+      {
+        readAll: jest.fn().mockResolvedValue({
+          signals: [],
+          degradedSources: []
+        })
+      } as unknown as ExternalContextAdapterRegistry,
       restartedStore,
       { recordAgentWorkflow: jest.fn() } as unknown as TelemetryService,
       {
         orchestrator: {
           triageApprovalMode: "auto",
-          salesforceWriteBack: { enabled: false }
+          salesforceWriteBack: { enabled: false },
+          customerHistory: {
+            eligibility: {},
+            dataCloud: { enabled: false },
+            externalAdapters: {
+              erpEnabled: false,
+              serviceNowEnabled: false,
+              telemetryEnabled: false
+            }
+          }
         },
         salesforceConnection: { enabled: true }
       } as unknown as AppConfigService

@@ -12,6 +12,7 @@ import type {
   NodeLifecycleStatus,
   OrchestratorNodeId
 } from "./dto/case-triage-lifecycle";
+import type { CustomerContextChannel } from "./dto/customer-context";
 import type {
   CaseTriageWorkflowSnapshot,
   OrchestrationStatusEvent,
@@ -100,6 +101,7 @@ interface OrchestrationWorkflowRow extends QueryResultRow {
   write_back_applied: boolean;
   failure_kind: string | null;
   triage: unknown;
+  customer_context: unknown;
   events: unknown;
   created_at: Date | string;
   updated_at: Date | string;
@@ -168,11 +170,12 @@ export class PostgresOrchestrationStatusRepository
             write_back_applied,
             failure_kind,
             triage,
+            customer_context,
             events,
             created_at,
             updated_at
           ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12, $13
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12::jsonb, $13, $14
           )
           ON CONFLICT (workflow_id) DO UPDATE SET
             case_id = EXCLUDED.case_id,
@@ -184,6 +187,7 @@ export class PostgresOrchestrationStatusRepository
             write_back_applied = EXCLUDED.write_back_applied,
             failure_kind = EXCLUDED.failure_kind,
             triage = EXCLUDED.triage,
+            customer_context = EXCLUDED.customer_context,
             events = EXCLUDED.events,
             created_at = EXCLUDED.created_at,
             updated_at = EXCLUDED.updated_at
@@ -199,6 +203,9 @@ export class PostgresOrchestrationStatusRepository
           snapshot.writeBackApplied,
           snapshot.failureKind ?? null,
           snapshot.triage ? JSON.stringify(snapshot.triage) : null,
+          snapshot.customerContext
+            ? JSON.stringify(snapshot.customerContext)
+            : null,
           JSON.stringify(snapshot.events ?? []),
           snapshot.createdAt,
           snapshot.updatedAt
@@ -270,6 +277,7 @@ export class PostgresOrchestrationStatusRepository
           write_back_applied boolean NOT NULL DEFAULT false,
           failure_kind text,
           triage jsonb,
+          customer_context jsonb,
           events jsonb NOT NULL DEFAULT '[]'::jsonb,
           created_at timestamptz NOT NULL,
           updated_at timestamptz NOT NULL
@@ -305,6 +313,10 @@ export class PostgresOrchestrationStatusRepository
       writeBackApplied: row.write_back_applied,
       failureKind: row.failure_kind ?? undefined,
       triage: PostgresOrchestrationStatusRepository.parseTriage(row.triage),
+      customerContext:
+        PostgresOrchestrationStatusRepository.parseCustomerContext(
+          row.customer_context
+        ),
       createdAt: PostgresOrchestrationStatusRepository.toIso(row.created_at),
       updatedAt: PostgresOrchestrationStatusRepository.toIso(row.updated_at),
       events: PostgresOrchestrationStatusRepository.parseEvents(row.events)
@@ -342,6 +354,22 @@ export class PostgresOrchestrationStatusRepository
       }
     }
     return value as SanitizedTriageResult;
+  }
+
+  private static parseCustomerContext(
+    value: unknown
+  ): CustomerContextChannel | undefined {
+    if (value === null || value === undefined) {
+      return undefined;
+    }
+    if (typeof value === "string") {
+      try {
+        return JSON.parse(value) as CustomerContextChannel;
+      } catch {
+        return undefined;
+      }
+    }
+    return value as CustomerContextChannel;
   }
 
   private static toIso(value: Date | string): string {

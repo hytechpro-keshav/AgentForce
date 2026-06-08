@@ -12,9 +12,13 @@ import { AppConfigService } from "../config/app-config.service";
 import { LlmProviderError } from "../llm/interfaces/llm-provider";
 import { TelemetryService } from "../observability/telemetry.service";
 import { SalesforceCaseGateway } from "../salesforce/salesforce-case.gateway";
+import { SalesforceCustomerGateway } from "../salesforce/salesforce-customer.gateway";
 import { SalesforceGatewayError } from "../salesforce/salesforce-gateway.error";
 import { SupportTriageService } from "../agents/support-triage.service";
+import { CustomerHistorySynthesisService } from "../agents/customer-history.service";
 import type { TriageCaseRequestDto } from "../agents/dto/triage-case.dto";
+import { ExternalContextAdapterRegistry } from "./adapters/external-context.adapter";
+import { evaluateCustomerHistoryEligibility } from "./customer-history.eligibility";
 import {
   buildCaseTriageGraph,
   Command,
@@ -27,8 +31,19 @@ import {
   type NodeLifecycleStatus
 } from "./dto/case-triage-lifecycle";
 import type {
+  CustomerContextChannel,
+  CustomerHistoryEligibilityResult,
+  CustomerHistoryReadResult,
+  CustomerReadBundle,
+  CustomerReadScope
+} from "./dto/customer-context";
+import type { SalesforceCaseContext } from "./dto/salesforce-case-context";
+import type { TriagePriorityDto } from "../agents/dto/triage-case.dto";
+import type {
   CaseTriageWorkflowSnapshot,
+  OrchestrationExecutionTrace,
   OrchestrationEventDetail,
+  OrchestrationTraceValue,
   SanitizedTriageResult
 } from "./dto/orchestration-status-event";
 import type { ResumeCaseTriageDto } from "./dto/resume-case-triage.dto";
@@ -39,13 +54,15 @@ import type {
 import { OrchestrationStatusStore } from "./orchestration-status.store";
 
 /**
- * Owns the Node 1 case-triage LangGraph: trigger handoff, read,
- * triage (via the existing support triage seam), gated write-back,
- * status events, and idempotent approval resume.
+ * Owns the case-triage LangGraph: trigger handoff, read, triage (via
+ * the existing support triage seam), the non-interrupting Node 2
+ * customer-history enrichment, the gated write-back, status events, and
+ * idempotent approval resume.
  *
  * Salesforce stays the system of record and action executor; this
- * service only orchestrates and calls `ModelRouter` indirectly
- * through {@link SupportTriageService}. It never imports a vendor SDK.
+ * service only orchestrates and calls `ModelRouter` indirectly through
+ * {@link SupportTriageService} and {@link CustomerHistorySynthesisService}.
+ * It never imports a vendor SDK.
  */
 @Injectable()
 export class CaseTriageOrchestratorService {
@@ -56,7 +73,10 @@ export class CaseTriageOrchestratorService {
 
   constructor(
     private readonly gateway: SalesforceCaseGateway,
+    private readonly customerGateway: SalesforceCustomerGateway,
     private readonly supportTriage: SupportTriageService,
+    private readonly customerHistory: CustomerHistorySynthesisService,
+    private readonly externalAdapters: ExternalContextAdapterRegistry,
     private readonly store: OrchestrationStatusStore,
     private readonly telemetry: TelemetryService,
     private readonly config: AppConfigService
@@ -66,8 +86,20 @@ export class CaseTriageOrchestratorService {
       runTriage: (input) => this.runTriage(input),
       applyWriteBack: (triage, caseId) => this.applyWriteBack(triage, caseId),
       requiresApproval: (triage) => this.requiresApproval(triage),
-      emitRunning: (workflowId, summary, details) =>
-        this.store.appendEvent(workflowId, "running", summary, details),
+      isCustomerHistoryEligible: (context, triagePriority) =>
+        this.isCustomerHistoryEligible(context, triagePriority),
+      readCustomerContext: (scope) => this.readCustomerContext(scope),
+      synthesizeCustomerHistory: (input) =>
+        this.customerHistory.synthesize(input),
+      emitRunning: (workflowId, summary, details, node, trace) =>
+        this.store.appendEvent(
+          workflowId,
+          "running",
+          summary,
+          details,
+          node,
+          trace
+        ),
       checkpointer: this.checkpointer
     });
   }
@@ -207,12 +239,16 @@ export class CaseTriageOrchestratorService {
     if (CaseTriageOrchestratorService.isInterrupted(result)) {
       await this.store.update(workflowId, {
         approvalRequired: true,
-        triage: result.triage
+        triage: result.triage,
+        customerContext: result.customerContext
       });
       await this.store.appendEvent(
         workflowId,
         "waiting_approval",
-        "Awaiting approval — request sent to email / Salesforce."
+        "Awaiting approval — request sent to email / Salesforce.",
+        undefined,
+        undefined,
+        CaseTriageOrchestratorService.buildWaitingApprovalTrace(result)
       );
       await this.trackOnSalesforce(
         result.caseId,
@@ -225,27 +261,34 @@ export class CaseTriageOrchestratorService {
         result.triage,
         startedAt
       );
+      this.logCustomerHistoryTelemetry(workflowId, result.customerContext);
       return;
     }
 
     if (result.status === "rejected") {
       await this.store.update(workflowId, {
         triage: result.triage,
+        customerContext: result.customerContext,
         approvalRequired: result.approvalRequired,
         approvalDecision: result.approvalDecision
       });
       await this.store.appendEvent(
         workflowId,
         "rejected",
-        "Triage write-back rejected; Case left unchanged."
+        "Triage write-back rejected; Case left unchanged.",
+        undefined,
+        undefined,
+        CaseTriageOrchestratorService.buildRejectedTrace(result)
       );
       await this.trackOnSalesforce(result.caseId, workflowId, "rejected");
       this.logTelemetry("rejected", workflowId, result.triage, startedAt);
+      this.logCustomerHistoryTelemetry(workflowId, result.customerContext);
       return;
     }
 
     await this.store.update(workflowId, {
       triage: result.triage,
+      customerContext: result.customerContext,
       writeBackApplied: Boolean(result.writeBackApplied),
       approvalRequired: result.approvalRequired,
       approvalDecision: result.approvalDecision
@@ -256,16 +299,26 @@ export class CaseTriageOrchestratorService {
       result.triage
         ? `Triage applied: priority ${result.triage.recommendedPriority}.`
         : "Triage complete.",
-      CaseTriageOrchestratorService.buildDoneDetails(result)
+      CaseTriageOrchestratorService.buildDoneDetails(result),
+      undefined,
+      CaseTriageOrchestratorService.buildDoneTrace(result)
     );
     await this.trackOnSalesforce(result.caseId, workflowId, "done");
     this.logTelemetry("done", workflowId, result.triage, startedAt);
+    this.logCustomerHistoryTelemetry(workflowId, result.customerContext);
   }
 
   private async fail(workflowId: string, err: unknown): Promise<void> {
     const kind = CaseTriageOrchestratorService.failureKindOf(err);
     await this.store.update(workflowId, { failureKind: kind });
-    await this.store.appendEvent(workflowId, "failed", "Triage failed.");
+    await this.store.appendEvent(
+      workflowId,
+      "failed",
+      "Triage failed.",
+      undefined,
+      undefined,
+      CaseTriageOrchestratorService.buildFailureTrace(kind)
+    );
     const caseId = (await this.store.get(workflowId))?.caseId;
     if (caseId) {
       await this.trackOnSalesforce(caseId, workflowId, "failed");
@@ -365,6 +418,90 @@ export class CaseTriageOrchestratorService {
     }
   }
 
+  /**
+   * Node 2 eligibility — pure, config-driven, no Salesforce access.
+   * Gates the expensive reads + model call so low-value Cases skip the
+   * customer-history enrichment.
+   */
+  private isCustomerHistoryEligible(
+    context: SalesforceCaseContext,
+    triagePriority: TriagePriorityDto | undefined
+  ): CustomerHistoryEligibilityResult {
+    return evaluateCustomerHistoryEligibility(
+      context,
+      triagePriority,
+      this.config.orchestrator.customerHistory.eligibility
+    );
+  }
+
+  /**
+   * Node 2 read seam. Prefers the single governed Data 360 call and
+   * falls back to the scoped per-object reads; then layers any enabled
+   * external adapter signals. Every read is tenant- and Account-scoped
+   * and read-only. Per-source failures degrade rather than fail the
+   * node (carried in `bundle.missingSources` / `degradedSources`).
+   */
+  private async readCustomerContext(
+    scope: CustomerReadScope
+  ): Promise<CustomerHistoryReadResult> {
+    const startedAt = Date.now();
+    let bundle: CustomerReadBundle | undefined;
+    try {
+      bundle = await this.customerGateway.readCustomer360Bundle(scope);
+    } catch {
+      // Data Cloud miss: fall back to the scoped SOQL reads below.
+      bundle = undefined;
+    }
+    if (!bundle) {
+      bundle = await this.customerGateway.readCustomerBundle(scope);
+    }
+    const external = await this.externalAdapters.readAll(scope);
+    // One telemetry span for the customer read (no PII; counts only).
+    this.telemetry.recordAgentWorkflow({
+      operation: "orchestrator.customer_history.read",
+      useCase: "agentforce_customer_history",
+      latencyMs: Date.now() - startedAt,
+      healthStatus:
+        bundle.missingSources.length + external.degradedSources.length > 0
+          ? "degraded"
+          : "ok",
+      outcome: "success"
+    });
+    return {
+      bundle,
+      externalSignals: external.signals,
+      degradedSources: external.degradedSources
+    };
+  }
+
+  /** One sanitized telemetry span for the Node 2 enrichment. */
+  private logCustomerHistoryTelemetry(
+    workflowId: string,
+    channel: CustomerContextChannel | undefined
+  ): void {
+    if (!channel) {
+      return;
+    }
+    this.telemetry.recordAgentWorkflow({
+      operation: "orchestrator.customer_history",
+      useCase: "agentforce_customer_history",
+      requestId: workflowId,
+      provider: channel.provider,
+      model: channel.model,
+      latencyMs: channel.latencyMs ?? 0,
+      fallbackUsed: channel.fallbackUsed,
+      // Safe, non-PII workflow facts only: eligibility, risk grade, and
+      // whether the read degraded — never customer records.
+      healthStatus: channel.eligible
+        ? channel.degraded
+          ? "degraded"
+          : "ok"
+        : "skipped",
+      riskLevel: channel.package?.businessRisk.value,
+      outcome: "success"
+    });
+  }
+
   private logTelemetry(
     status: NodeLifecycleStatus,
     workflowId: string,
@@ -425,5 +562,290 @@ export class CaseTriageOrchestratorService {
       });
     }
     return details;
+  }
+
+  private static buildWaitingApprovalTrace(
+    result: CaseTriageStateType
+  ): OrchestrationExecutionTrace {
+    return {
+      stepKey: "awaiting_approval",
+      sections: [
+        {
+          key: "inputs",
+          title: "Inputs",
+          data: {
+            recommendedPriority:
+              result.triage?.recommendedPriority ?? "unknown",
+            writeBackRequested: true
+          }
+        },
+        {
+          key: "outputs",
+          title: "Outputs",
+          data: {
+            workflowStatus: "waiting_approval",
+            approvalRequired: true,
+            writeBackApplied: false
+          }
+        },
+        {
+          key: "state_before",
+          title: "State before step",
+          data: {
+            approvalRequired: false,
+            writeBackApplied: false
+          }
+        },
+        {
+          key: "state_after",
+          title: "State after step",
+          data: {
+            approvalRequired: true,
+            writeBackApplied: false,
+            approvalDecision: null
+          }
+        },
+        {
+          key: "state_changes",
+          title: "State changes",
+          data: [
+            {
+              path: "approvalRequired",
+              change: "modified",
+              before: false,
+              after: true
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  private static buildRejectedTrace(
+    result: CaseTriageStateType
+  ): OrchestrationExecutionTrace {
+    return {
+      stepKey: "reject_write_back",
+      sections: [
+        {
+          key: "inputs",
+          title: "Inputs",
+          data: {
+            recommendedPriority:
+              result.triage?.recommendedPriority ?? "unknown",
+            approvalDecision: result.approvalDecision ?? "rejected"
+          }
+        },
+        {
+          key: "outputs",
+          title: "Outputs",
+          data: {
+            workflowStatus: "rejected",
+            writeBackApplied: false,
+            caseUpdated: false
+          }
+        },
+        {
+          key: "state_before",
+          title: "State before step",
+          data: {
+            approvalRequired: true,
+            writeBackApplied: false
+          }
+        },
+        {
+          key: "state_after",
+          title: "State after step",
+          data: {
+            approvalRequired: true,
+            approvalDecision: result.approvalDecision ?? "rejected",
+            writeBackApplied: false,
+            workflowStatus: "rejected"
+          }
+        },
+        {
+          key: "state_changes",
+          title: "State changes",
+          data: [
+            {
+              path: "approvalDecision",
+              change: "added",
+              after: result.approvalDecision ?? "rejected"
+            },
+            {
+              path: "status",
+              change: "modified",
+              before: "waiting_approval",
+              after: "rejected"
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  private static buildDoneTrace(
+    result: CaseTriageStateType
+  ): OrchestrationExecutionTrace {
+    const triage = result.triage
+      ? {
+          recommendedPriority: result.triage.recommendedPriority,
+          summary: result.triage.summary,
+          suggestedNextStep: result.triage.suggestedNextStep,
+          provider: result.triage.provider,
+          model: result.triage.model,
+          fallbackUsed: result.triage.fallbackUsed,
+          latencyMs: result.triage.latencyMs
+        }
+      : null;
+    const customerContext = result.customerContext
+      ? CaseTriageOrchestratorService.buildCustomerContextState(
+          result.customerContext
+        )
+      : null;
+    return {
+      stepKey: "complete_workflow",
+      sections: [
+        {
+          key: "tool_calls",
+          title: "Tool calls",
+          data: [
+            {
+              tool: "SalesforceCaseGateway.applyWriteBack",
+              outcome: result.writeBackApplied ? "success" : "skipped"
+            }
+          ]
+        },
+        {
+          key: "inputs",
+          title: "Inputs",
+          data: {
+            triage,
+            approvalRequired: result.approvalRequired,
+            approvalDecision: result.approvalDecision ?? null
+          }
+        },
+        {
+          key: "outputs",
+          title: "Final node outputs",
+          data: {
+            workflowStatus: "done",
+            writeBackApplied: result.writeBackApplied,
+            triage,
+            customerContext
+          }
+        },
+        {
+          key: "state_before",
+          title: "State before step",
+          data: {
+            status: result.approvalRequired ? "waiting_approval" : "running",
+            writeBackApplied: false
+          }
+        },
+        {
+          key: "state_after",
+          title: "State after step",
+          data: {
+            status: "done",
+            writeBackApplied: result.writeBackApplied,
+            approvalDecision: result.approvalDecision ?? null
+          }
+        },
+        {
+          key: "state_changes",
+          title: "State changes",
+          data: [
+            {
+              path: "status",
+              change: "modified",
+              before: result.approvalRequired ? "waiting_approval" : "running",
+              after: "done"
+            },
+            {
+              path: "writeBackApplied",
+              change: result.writeBackApplied ? "modified" : "added",
+              before: false,
+              after: result.writeBackApplied
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  private static buildFailureTrace(
+    failureKind: string
+  ): OrchestrationExecutionTrace {
+    return {
+      stepKey: "workflow_failed",
+      sections: [
+        {
+          key: "outputs",
+          title: "Outputs",
+          data: {
+            workflowStatus: "failed",
+            failureKind
+          }
+        },
+        {
+          key: "state_after",
+          title: "State after step",
+          data: {
+            status: "failed",
+            failureKind
+          }
+        },
+        {
+          key: "state_changes",
+          title: "State changes",
+          data: [
+            {
+              path: "status",
+              change: "modified",
+              before: "running",
+              after: "failed"
+            },
+            {
+              path: "failureKind",
+              change: "added",
+              after: failureKind
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  private static buildCustomerContextState(
+    channel: CustomerContextChannel
+  ): OrchestrationTraceValue {
+    return {
+      eligible: channel.eligible,
+      eligibilityReason: channel.eligibilityReason ?? null,
+      degraded: channel.degraded,
+      degradedSources: channel.degradedSources ?? [],
+      package: channel.package
+        ? {
+            customerTier: channel.package.customerTier.value,
+            slaClass: channel.package.slaClass.value,
+            warrantyStatus: channel.package.warrantyStatus.value,
+            repeatIncident: channel.package.repeatIncident.value,
+            strategicAccount: channel.package.strategicAccount.value,
+            installedAssets: channel.package.installedAssets.value,
+            openIncidentCount: channel.package.openIncidentCount.value,
+            escalationHistory: channel.package.escalationHistory.value,
+            businessRisk: {
+              value: channel.package.businessRisk.value,
+              confidence: channel.package.businessRisk.confidence,
+              evidenceBasis: channel.package.businessRisk.evidenceBasis
+            }
+          }
+        : null,
+      provider: channel.provider ?? null,
+      model: channel.model ?? null,
+      fallbackUsed: channel.fallbackUsed ?? false,
+      latencyMs: channel.latencyMs ?? 0
+    };
   }
 }

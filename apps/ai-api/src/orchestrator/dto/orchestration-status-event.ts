@@ -4,6 +4,7 @@ import type {
   NodeLifecycleStatus,
   OrchestratorNodeId
 } from "./case-triage-lifecycle";
+import type { CustomerContextChannel } from "./customer-context";
 
 /**
  * A single safe label/value detail attached to a status event so the
@@ -14,6 +15,38 @@ import type {
 export interface OrchestrationEventDetail {
   label: string;
   value: string;
+}
+
+export type OrchestrationTraceValue =
+  | string
+  | number
+  | boolean
+  | null
+  | OrchestrationTraceValue[]
+  | { [key: string]: OrchestrationTraceValue }
+  | object;
+
+export interface OrchestrationStateChange {
+  path: string;
+  change: "added" | "modified";
+  before?: OrchestrationTraceValue;
+  after?: OrchestrationTraceValue;
+}
+
+export interface OrchestrationTraceSection {
+  key: string;
+  title: string;
+  data: OrchestrationTraceValue;
+}
+
+/**
+ * Auditable execution artifact for one safe orchestration step.
+ * Includes only engineering-visible evidence such as data sources,
+ * inputs, outputs, and state changes; never hidden model reasoning.
+ */
+export interface OrchestrationExecutionTrace {
+  stepKey: string;
+  sections: OrchestrationTraceSection[];
 }
 
 /**
@@ -37,6 +70,8 @@ export interface OrchestrationStatusEvent {
   safeSummary?: string;
   /** Safe, non-PII facts about what happened at this step. Optional. */
   details?: OrchestrationEventDetail[];
+  /** Structured, auditable execution trace for engineering review. */
+  trace?: OrchestrationExecutionTrace;
 }
 
 /**
@@ -68,6 +103,12 @@ export interface CaseTriageWorkflowSnapshot {
   approvalDecision?: ApprovalDecision;
   writeBackApplied: boolean;
   triage?: SanitizedTriageResult;
+  /**
+   * Node 2 (customer history) output. Self-contained and sanitized so
+   * the read-only UI can render the Customer Context Package. Absent
+   * until Node 2 runs; present-but-skipped when the case is ineligible.
+   */
+  customerContext?: CustomerContextChannel;
   /** Safe failure classification only (no stack traces, no raw text). */
   failureKind?: string;
   createdAt: string;

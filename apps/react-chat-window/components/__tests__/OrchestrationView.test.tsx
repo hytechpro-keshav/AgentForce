@@ -11,6 +11,7 @@ function snapshot(
 ): OrchestrationSnapshot {
   return {
     workflowId: "wf-9d6b898e-affa-406f-941c-6da4e3437e25",
+    node: "triage",
     caseNumber: "00004242",
     status: "done",
     approvalRequired: false,
@@ -25,10 +26,34 @@ function snapshot(
       latencyMs: 42
     },
     events: [
-      { status: "assigned", sequence: 1, occurredAt: "t1", safeSummary: "Triage assigned for case 00004242." },
-      { status: "running", sequence: 2, occurredAt: "t2", safeSummary: "Reading Case context from Salesforce." },
-      { status: "running", sequence: 3, occurredAt: "t3", safeSummary: "Running AI triage." },
-      { status: "done", sequence: 4, occurredAt: "t4", safeSummary: "Triage applied: priority critical." }
+      {
+        node: "triage",
+        status: "assigned",
+        sequence: 1,
+        occurredAt: "t1",
+        safeSummary: "Triage assigned for case 00004242."
+      },
+      {
+        node: "triage",
+        status: "running",
+        sequence: 2,
+        occurredAt: "t2",
+        safeSummary: "Reading Case context from Salesforce."
+      },
+      {
+        node: "triage",
+        status: "running",
+        sequence: 3,
+        occurredAt: "t3",
+        safeSummary: "Running AI triage."
+      },
+      {
+        node: "triage",
+        status: "done",
+        sequence: 4,
+        occurredAt: "t4",
+        safeSummary: "Triage applied: priority critical."
+      }
     ],
     ...overrides
   };
@@ -40,17 +65,20 @@ describe("OrchestrationPanel", () => {
   it("renders Node 1 status, timeline, and sanitized triage output", () => {
     render(<OrchestrationPanel snapshot={snapshot()} />);
 
-    expect(screen.getByText(/Node 1 · Triage/)).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("stage-triage")).getByText(/Node 1 · Triage/)
+    ).toBeInTheDocument();
     expect(screen.getByText("Case 00004242")).toBeInTheDocument();
     expect(screen.getByTestId("triage-priority")).toHaveTextContent(
       "priority: critical"
     );
     expect(screen.getByText("Outage affecting service.")).toBeInTheDocument();
     expect(screen.getByText(/Route to network operations\./)).toBeInTheDocument();
-    expect(screen.getByText(/openai · gpt-4o-mini/)).toBeInTheDocument();
+    expect(screen.getByText("openai")).toBeInTheDocument();
+    expect(screen.getByText("gpt-4o-mini")).toBeInTheDocument();
 
     const timeline = screen.getByTestId("status-timeline");
-    expect(timeline).toHaveTextContent("AI triage completed.");
+    expect(timeline).toHaveTextContent("Running AI triage.");
     expect(timeline).toHaveTextContent("Triage applied: priority critical.");
   });
 
@@ -60,12 +88,14 @@ describe("OrchestrationPanel", () => {
         snapshot={snapshot({
           events: [
             {
+              node: "triage",
               status: "assigned",
               sequence: 1,
               occurredAt: "t1",
               safeSummary: "Triage assigned for case 00004242."
             },
             {
+              node: "triage",
               status: "running",
               sequence: 2,
               occurredAt: "t2",
@@ -77,6 +107,7 @@ describe("OrchestrationPanel", () => {
               ]
             },
             {
+              node: "triage",
               status: "running",
               sequence: 3,
               occurredAt: "t3",
@@ -87,6 +118,7 @@ describe("OrchestrationPanel", () => {
               ]
             },
             {
+              node: "triage",
               status: "done",
               sequence: 4,
               occurredAt: "t4",
@@ -146,18 +178,144 @@ describe("OrchestrationPanel", () => {
       <OrchestrationPanel
         snapshot={snapshot({
           status: "failed",
+          node: "triage",
           writeBackApplied: false,
           triage: undefined,
           failureKind: "salesforce_not_found",
           events: [
-            { status: "assigned", sequence: 1, occurredAt: "t1", safeSummary: "Assigned" },
-            { status: "failed", sequence: 2, occurredAt: "t2", safeSummary: "Triage failed." }
+            {
+              node: "triage",
+              status: "assigned",
+              sequence: 1,
+              occurredAt: "t1",
+              safeSummary: "Assigned"
+            },
+            {
+              node: "triage",
+              status: "failed",
+              sequence: 2,
+              occurredAt: "t2",
+              safeSummary: "Triage failed."
+            }
           ]
         })}
       />
     );
-    expect(screen.getByText(/Triage could not complete/)).toHaveTextContent(
+    expect(screen.getByText(/Workflow could not complete/)).toHaveTextContent(
       "salesforce_not_found"
     );
+  });
+
+  it("renders execution trace sections and customer-context findings", () => {
+    render(
+      <OrchestrationPanel
+        snapshot={snapshot({
+          node: "triage",
+          customerContext: {
+            eligible: true,
+            degraded: false,
+            eligibilityReason: "origin=Phone priority=critical",
+            package: {
+              customerTier: {
+                value: "premium",
+                confidence: "high",
+                provenance: "Salesforce Account",
+                evidenceBasis: "Account tier: premium"
+              },
+              slaClass: {
+                value: "premium",
+                confidence: "high",
+                provenance: "Salesforce Entitlement",
+                evidenceBasis: "SLA class: premium"
+              },
+              warrantyStatus: {
+                value: "covered",
+                confidence: "high",
+                provenance: "Salesforce Asset warranty",
+                evidenceBasis: "Warranty status: covered"
+              },
+              repeatIncident: {
+                value: { repeat: true, count: 3, windowDays: 30 },
+                confidence: "high",
+                provenance: "Salesforce Case history",
+                evidenceBasis: "3 cases in 30d"
+              },
+              strategicAccount: {
+                value: true,
+                confidence: "high",
+                provenance: "Salesforce Account flag",
+                evidenceBasis: "Strategic flag: yes"
+              },
+              installedAssets: {
+                value: { totalAssets: 2, modelCount: 1, primaryModel: "VX-900" },
+                confidence: "high",
+                provenance: "Salesforce Asset",
+                evidenceBasis: "2 assets across 1 models"
+              },
+              openIncidentCount: {
+                value: 1,
+                confidence: "high",
+                provenance: "Salesforce Case history",
+                evidenceBasis: "1 open incidents"
+              },
+              escalationHistory: {
+                value: 2,
+                confidence: "high",
+                provenance: "Salesforce Case history",
+                evidenceBasis: "2 prior escalations"
+              },
+              businessRisk: {
+                value: "high",
+                confidence: "high",
+                provenance: "AI synthesis",
+                evidenceBasis: "Risk signals: strategic, repeat-failure, premium"
+              }
+            }
+          },
+          events: [
+            ...snapshot().events,
+            {
+              node: "customer_history",
+              status: "running",
+              sequence: 5,
+              occurredAt: "t5",
+              safeSummary: "Writing customer findings to state.",
+              trace: {
+                stepKey: "write_customer_context_state",
+                sections: [
+                  {
+                    key: "outputs",
+                    title: "Outputs",
+                    data: { customerContextWritten: true, businessRisk: "high" }
+                  },
+                  {
+                    key: "state_changes",
+                    title: "State changes",
+                    data: [
+                      {
+                        path: "customerContext",
+                        change: "added",
+                        after: { eligible: true }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        })}
+      />
+    );
+
+    expect(
+      screen.getByRole("heading", { name: /Customer context package/i })
+    ).toBeInTheDocument();
+    expect(screen.getByText("Customer Context finished")).toBeInTheDocument();
+    expect(
+      screen.getByText("Latest node: Node 2 · Customer Context")
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Repeat failure/)).toBeInTheDocument();
+    expect(screen.getByText(/Agent Reasoning \/ Execution Trace/)).toBeInTheDocument();
+    expect(screen.getByText(/State before and after each step/)).toBeInTheDocument();
   });
 });

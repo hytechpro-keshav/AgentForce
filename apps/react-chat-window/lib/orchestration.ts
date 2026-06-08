@@ -19,6 +19,8 @@ export const ORCHESTRATION_STATUSES = [
 ] as const;
 
 export type OrchestrationStatus = (typeof ORCHESTRATION_STATUSES)[number];
+export const ORCHESTRATION_NODE_IDS = ["triage", "customer_history"] as const;
+export type OrchestrationNodeId = (typeof ORCHESTRATION_NODE_IDS)[number];
 
 export const TRIAGE_PRIORITIES = ["low", "normal", "high", "critical"] as const;
 export type TriagePriority = (typeof TRIAGE_PRIORITIES)[number];
@@ -28,12 +30,80 @@ export interface OrchestrationEventDetail {
   value: string;
 }
 
+export type OrchestrationTraceValue =
+  | string
+  | number
+  | boolean
+  | null
+  | OrchestrationTraceValue[]
+  | { [key: string]: OrchestrationTraceValue };
+
+export interface OrchestrationStateChange {
+  path: string;
+  change: "added" | "modified";
+  before?: OrchestrationTraceValue;
+  after?: OrchestrationTraceValue;
+}
+
+export interface OrchestrationTraceSection {
+  key: string;
+  title: string;
+  data: OrchestrationTraceValue;
+}
+
+export interface OrchestrationExecutionTrace {
+  stepKey: string;
+  sections: OrchestrationTraceSection[];
+}
+
+export interface OrchestrationFinding<T extends OrchestrationTraceValue> {
+  value: T;
+  confidence: string;
+  provenance: string;
+  evidenceBasis: string;
+  notEvidenced?: boolean;
+}
+
+export interface OrchestrationCustomerContextPackage {
+  customerTier: OrchestrationFinding<string>;
+  slaClass: OrchestrationFinding<string>;
+  warrantyStatus: OrchestrationFinding<string>;
+  repeatIncident: OrchestrationFinding<{
+    repeat: boolean;
+    count: number;
+    windowDays: number;
+  }>;
+  strategicAccount: OrchestrationFinding<boolean>;
+  installedAssets: OrchestrationFinding<{
+    totalAssets: number;
+    modelCount: number;
+    primaryModel?: string;
+  }>;
+  openIncidentCount: OrchestrationFinding<number>;
+  escalationHistory: OrchestrationFinding<number>;
+  businessRisk: OrchestrationFinding<string>;
+}
+
+export interface OrchestrationCustomerContext {
+  eligible: boolean;
+  eligibilityReason?: string;
+  degraded: boolean;
+  degradedSources?: string[];
+  package?: OrchestrationCustomerContextPackage;
+  provider?: string;
+  model?: string;
+  fallbackUsed?: boolean;
+  latencyMs?: number;
+}
+
 export interface OrchestrationEvent {
+  node: OrchestrationNodeId;
   status: OrchestrationStatus;
   sequence: number;
   occurredAt: string;
   safeSummary?: string;
   details?: OrchestrationEventDetail[];
+  trace?: OrchestrationExecutionTrace;
 }
 
 export interface OrchestrationTriage {
@@ -48,12 +118,14 @@ export interface OrchestrationTriage {
 
 export interface OrchestrationSnapshot {
   workflowId: string;
+  node: OrchestrationNodeId;
   caseNumber?: string;
   status: OrchestrationStatus;
   approvalRequired: boolean;
   writeBackApplied: boolean;
   failureKind?: string;
   triage?: OrchestrationTriage;
+  customerContext?: OrchestrationCustomerContext;
   events: OrchestrationEvent[];
   updatedAt?: string;
 }
@@ -110,6 +182,13 @@ function isPriority(value: unknown): value is TriagePriority {
   );
 }
 
+function isNodeId(value: unknown): value is OrchestrationNodeId {
+  return (
+    typeof value === "string" &&
+    (ORCHESTRATION_NODE_IDS as readonly string[]).includes(value)
+  );
+}
+
 function str(value: unknown, max: number): string | undefined {
   return typeof value === "string" && value.trim()
     ? value.trim().slice(0, max)
@@ -134,6 +213,180 @@ function sanitizeTriage(value: unknown): OrchestrationTriage | undefined {
   };
 }
 
+function sanitizeTraceValue(
+  value: unknown,
+  depth = 0
+): OrchestrationTraceValue | undefined {
+  if (value === null) return null;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed ? trimmed.slice(0, 400) : undefined;
+  }
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? Math.round(value * 1000) / 1000 : undefined;
+  }
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (depth >= 4) {
+    return undefined;
+  }
+  if (Array.isArray(value)) {
+    const items = value
+      .slice(0, 20)
+      .map((item) => sanitizeTraceValue(item, depth + 1))
+      .filter((item): item is OrchestrationTraceValue => item !== undefined);
+    return items;
+  }
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+  const entries = Object.entries(value as Record<string, unknown>).slice(0, 24);
+  const out: Record<string, OrchestrationTraceValue> = {};
+  for (const [key, raw] of entries) {
+    const safeKey = key.trim().slice(0, 60);
+    if (!safeKey) continue;
+    const safeValue = sanitizeTraceValue(raw, depth + 1);
+    if (safeValue !== undefined) {
+      out[safeKey] = safeValue;
+    }
+  }
+  return out;
+}
+
+function sanitizeTrace(
+  value: unknown
+): OrchestrationExecutionTrace | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  const stepKey = str(record.stepKey, 80);
+  const rawSections = Array.isArray(record.sections) ? record.sections : [];
+  const sections: OrchestrationTraceSection[] = [];
+  for (const rawSection of rawSections.slice(0, 12)) {
+    if (!rawSection || typeof rawSection !== "object") continue;
+    const sectionRecord = rawSection as Record<string, unknown>;
+    const key = str(sectionRecord.key, 40);
+    const title = str(sectionRecord.title, 80);
+    const data = sanitizeTraceValue(sectionRecord.data);
+    if (!key || !title || data === undefined) continue;
+    sections.push({ key, title, data });
+  }
+  if (!stepKey || sections.length === 0) return undefined;
+  return { stepKey, sections };
+}
+
+function sanitizeFinding<T extends OrchestrationTraceValue>(
+  value: unknown
+): OrchestrationFinding<T> | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  const findingValue = sanitizeTraceValue(record.value);
+  const confidence = str(record.confidence, 24);
+  const provenance = str(record.provenance, 120);
+  const evidenceBasis = str(record.evidenceBasis, 240);
+  if (
+    findingValue === undefined ||
+    !confidence ||
+    !provenance ||
+    !evidenceBasis
+  ) {
+    return undefined;
+  }
+  return {
+    value: findingValue as T,
+    confidence,
+    provenance,
+    evidenceBasis,
+    notEvidenced: record.notEvidenced === true
+  };
+}
+
+function sanitizeCustomerContext(
+  value: unknown
+): OrchestrationCustomerContext | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  const rawPackage = record.package;
+  const pkg =
+    rawPackage && typeof rawPackage === "object"
+      ? (rawPackage as Record<string, unknown>)
+      : undefined;
+  const customerTier = pkg
+    ? sanitizeFinding<string>(pkg.customerTier)
+    : undefined;
+  const slaClass = pkg ? sanitizeFinding<string>(pkg.slaClass) : undefined;
+  const warrantyStatus = pkg
+    ? sanitizeFinding<string>(pkg.warrantyStatus)
+    : undefined;
+  const repeatIncident = pkg
+    ? sanitizeFinding<{
+        repeat: boolean;
+        count: number;
+        windowDays: number;
+      }>(pkg.repeatIncident)
+    : undefined;
+  const strategicAccount = pkg
+    ? sanitizeFinding<boolean>(pkg.strategicAccount)
+    : undefined;
+  const installedAssets = pkg
+    ? sanitizeFinding<{
+        totalAssets: number;
+        modelCount: number;
+        primaryModel?: string;
+      }>(pkg.installedAssets)
+    : undefined;
+  const openIncidentCount = pkg
+    ? sanitizeFinding<number>(pkg.openIncidentCount)
+    : undefined;
+  const escalationHistory = pkg
+    ? sanitizeFinding<number>(pkg.escalationHistory)
+    : undefined;
+  const businessRisk = pkg
+    ? sanitizeFinding<string>(pkg.businessRisk)
+    : undefined;
+  const customerPackage =
+    customerTier &&
+    slaClass &&
+    warrantyStatus &&
+    repeatIncident &&
+    strategicAccount &&
+    installedAssets &&
+    openIncidentCount &&
+    escalationHistory &&
+    businessRisk
+      ? {
+          customerTier,
+          slaClass,
+          warrantyStatus,
+          repeatIncident,
+          strategicAccount,
+          installedAssets,
+          openIncidentCount,
+          escalationHistory,
+          businessRisk
+        }
+      : undefined;
+  return {
+    eligible: record.eligible === true,
+    eligibilityReason: str(record.eligibilityReason, 240),
+    degraded: record.degraded === true,
+    degradedSources: Array.isArray(record.degradedSources)
+      ? record.degradedSources
+          .map((item) => str(item, 40))
+          .filter((item): item is string => Boolean(item))
+          .slice(0, 12)
+      : undefined,
+    package: customerPackage,
+    provider: str(record.provider, 60),
+    model: str(record.model, 120),
+    fallbackUsed: record.fallbackUsed === true,
+    latencyMs:
+      typeof record.latencyMs === "number" && record.latencyMs >= 0
+        ? Math.round(record.latencyMs)
+        : undefined
+  };
+}
+
 function sanitizeEvents(value: unknown): OrchestrationEvent[] {
   if (!Array.isArray(value)) return [];
   const out: OrchestrationEvent[] = [];
@@ -142,12 +395,14 @@ function sanitizeEvents(value: unknown): OrchestrationEvent[] {
     const record = raw as Record<string, unknown>;
     if (!isStatus(record.status)) continue;
     out.push({
+      node: isNodeId(record.node) ? record.node : "triage",
       status: record.status,
       sequence:
         typeof record.sequence === "number" ? record.sequence : out.length + 1,
       occurredAt: str(record.occurredAt, 40) ?? "",
       safeSummary: str(record.safeSummary, 240),
-      details: sanitizeDetails(record.details)
+      details: sanitizeDetails(record.details),
+      trace: sanitizeTrace(record.trace)
     });
   }
   return out.sort((a, b) => a.sequence - b.sequence);
@@ -187,12 +442,14 @@ export function sanitizeSnapshot(value: unknown): OrchestrationSnapshot | null {
   if (!workflowId || !isStatus(record.status)) return null;
   return {
     workflowId,
+    node: isNodeId(record.node) ? record.node : "triage",
     caseNumber: str(record.caseNumber, 32),
     status: record.status,
     approvalRequired: record.approvalRequired === true,
     writeBackApplied: record.writeBackApplied === true,
     failureKind: str(record.failureKind, 60),
     triage: sanitizeTriage(record.triage),
+    customerContext: sanitizeCustomerContext(record.customerContext),
     events: sanitizeEvents(record.events),
     updatedAt: str(record.updatedAt, 40)
   };

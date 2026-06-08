@@ -4,12 +4,12 @@ import { isValidCaseId, isValidWorkflowId } from "@/lib/orchestration";
 export const dynamic = "force-dynamic";
 
 /**
- * Internal, read-only first-node orchestration page.
+ * Internal, read-only orchestration engineering console.
  *
  * Open it with `?workflowId=wf-...` when you have the workflow id, or
  * `?caseId=500...` for the latest live workflow for that Case. This
- * surface only reflects Node 1 status and the sanitized triage output;
- * it never exposes approval controls or hidden reasoning.
+ * surface renders sanitized Node 1 and Node 2 execution artifacts; it
+ * never exposes approval controls or hidden reasoning.
  */
 export default function OrchestrationPage({
   searchParams
@@ -22,11 +22,11 @@ export default function OrchestrationPage({
   const validCaseId = caseId ? isValidCaseId(caseId) : false;
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-4 p-6">
+    <main className="mx-auto flex min-h-screen max-w-7xl flex-col gap-4 p-6">
       <div>
-        <h1 className="text-xl font-semibold">Triage Orchestration</h1>
+        <h1 className="text-xl font-semibold">Orchestration Console</h1>
         <p className="text-sm text-muted-foreground">
-          Live, read-only progress for the first orchestrator node.
+          Live, read-only engineering view of Node 1 triage and Node 2 customer context.
         </p>
       </div>
 

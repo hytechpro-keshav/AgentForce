@@ -2,11 +2,14 @@ import { Injectable, Logger } from "@nestjs/common";
 
 import type {
   NodeLifecycleStatus,
-  ApprovalDecision
+  ApprovalDecision,
+  OrchestratorNodeId
 } from "./dto/case-triage-lifecycle";
 import { TRIAGE_NODE_ID } from "./dto/case-triage-lifecycle";
+import type { CustomerContextChannel } from "./dto/customer-context";
 import type {
   CaseTriageWorkflowSnapshot,
+  OrchestrationExecutionTrace,
   OrchestrationEventDetail,
   SanitizedTriageResult
 } from "./dto/orchestration-status-event";
@@ -20,6 +23,7 @@ interface CreateWorkflowSeed {
 
 interface WorkflowPatch {
   triage?: SanitizedTriageResult;
+  customerContext?: CustomerContextChannel;
   approvalRequired?: boolean;
   approvalDecision?: ApprovalDecision;
   writeBackApplied?: boolean;
@@ -75,7 +79,55 @@ export class OrchestrationStatusStore {
       occurredAt: now,
       safeSummary: `Triage assigned${
         seed.caseNumber ? ` for case ${seed.caseNumber}` : ""
-      }.`
+      }.`,
+      trace: {
+        stepKey: "workflow_assigned",
+        sections: [
+          {
+            key: "inputs",
+            title: "Inputs",
+            data: {
+              caseNumberHint: seed.caseNumber ?? null,
+              caseIdProvided: true
+            }
+          },
+          {
+            key: "outputs",
+            title: "Outputs",
+            data: {
+              workflowId: seed.workflowId,
+              workflowStatus: "assigned",
+              currentNode: TRIAGE_NODE_ID
+            }
+          },
+          {
+            key: "state_after",
+            title: "State after step",
+            data: {
+              status: "assigned",
+              node: TRIAGE_NODE_ID,
+              caseNumber: seed.caseNumber ?? null
+            }
+          },
+          {
+            key: "state_changes",
+            title: "State changes",
+            data: [
+              { path: "status", change: "added", after: "assigned" },
+              { path: "node", change: "added", after: TRIAGE_NODE_ID },
+              ...(seed.caseNumber
+                ? [
+                    {
+                      path: "caseNumber",
+                      change: "added",
+                      after: seed.caseNumber
+                    }
+                  ]
+                : [])
+            ]
+          }
+        ]
+      }
     });
     this.workflows.set(seed.workflowId, snapshot);
     await this.persist(seed.workflowId);
@@ -127,7 +179,9 @@ export class OrchestrationStatusStore {
     workflowId: string,
     status: NodeLifecycleStatus,
     safeSummary?: string,
-    details?: OrchestrationEventDetail[]
+    details?: OrchestrationEventDetail[],
+    node: OrchestratorNodeId = TRIAGE_NODE_ID,
+    trace?: OrchestrationExecutionTrace
   ): Promise<void> {
     const snapshot = this.workflows.get(workflowId);
     if (!snapshot) {
@@ -138,14 +192,17 @@ export class OrchestrationStatusStore {
       workflowId,
       caseId: snapshot.caseId,
       caseNumber: snapshot.caseNumber,
-      node: TRIAGE_NODE_ID,
+      node,
       status,
       sequence: snapshot.events.length + 1,
       occurredAt: now,
       safeSummary,
-      details: details && details.length > 0 ? details : undefined
+      details: details && details.length > 0 ? details : undefined,
+      trace:
+        trace && trace.sections.length > 0 ? structuredClone(trace) : undefined
     });
     snapshot.status = status;
+    snapshot.node = node;
     snapshot.updatedAt = now;
     await this.persist(workflowId);
   }
@@ -156,6 +213,9 @@ export class OrchestrationStatusStore {
       return;
     }
     if (patch.triage !== undefined) snapshot.triage = patch.triage;
+    if (patch.customerContext !== undefined) {
+      snapshot.customerContext = patch.customerContext;
+    }
     if (patch.approvalRequired !== undefined) {
       snapshot.approvalRequired = patch.approvalRequired;
     }

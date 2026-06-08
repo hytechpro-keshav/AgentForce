@@ -1,10 +1,10 @@
 /**
- * Shared lifecycle vocabulary for the Node 1 case-triage walking
- * skeleton. These names are the contract the read-only UI renders and
- * the orchestrator state machine transitions through.
+ * Shared lifecycle vocabulary for the case-triage orchestrator. These
+ * names are the contract the read-only UI renders and the orchestrator
+ * state machine transitions through.
  *
- * Only Node 1 (triage) exists in this slice. Nodes 2-8 are
- * intentionally not modelled here.
+ * The slice now spans Node 1 (triage) and the non-interrupting Node 2
+ * (customer history). Nodes 3-8 are intentionally not modelled here.
  */
 
 export const NODE_LIFECYCLE_STATUSES = [
@@ -28,9 +28,12 @@ export function isTerminalLifecycleStatus(
   return TERMINAL_LIFECYCLE_STATUSES.has(status);
 }
 
-/** The only orchestrator node implemented in this slice. */
+/** The orchestrator nodes implemented in this slice. */
 export const TRIAGE_NODE_ID = "triage" as const;
-export type OrchestratorNodeId = typeof TRIAGE_NODE_ID;
+export const CUSTOMER_HISTORY_NODE_ID = "customer_history" as const;
+export type OrchestratorNodeId =
+  | typeof TRIAGE_NODE_ID
+  | typeof CUSTOMER_HISTORY_NODE_ID;
 
 /**
  * The approval resolution that gates the triage write-back. The

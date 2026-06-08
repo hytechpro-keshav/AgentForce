@@ -14,6 +14,7 @@ export const LLM_USE_CASES = [
   "openwebui_rag",
   "agentforce_support_triage",
   "agentforce_case_analysis",
+  "agentforce_customer_history",
   "agentforce_services_project_health",
   "agentforce_revenue_account_health",
   "agentforce_revenue_portfolio_intelligence",
