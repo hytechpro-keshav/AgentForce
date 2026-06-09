@@ -1,0 +1,11 @@
+---
+description: AI telemetry, token tracking, and OpenTelemetry gen_ai spans
+globs: apps/ai-api/src/**,packages/**,docs/**
+alwaysApply: false
+---
+
+# Telemetry
+
+Read and follow `.github/instructions/telemetry.instructions.md` before editing matching files.
+
+For reviews, use `.github/agents/telemetry-reviewer.agent.md`.

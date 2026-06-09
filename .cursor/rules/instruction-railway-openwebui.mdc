@@ -1,0 +1,11 @@
+---
+description: Railway deployment, Docker, and Open WebUI
+globs: apps/openwebui/**,**/railway.json,**/Dockerfile,**/docker-compose*.yml,docs/**/railway*.md
+alwaysApply: false
+---
+
+# Railway And Open WebUI
+
+Read and follow `.github/instructions/railway-openwebui.instructions.md` before editing matching files.
+
+For runbooks, use `.github/prompts/generate-production-runbook.prompt.md`.

@@ -1,0 +1,11 @@
+---
+description: Auth, secrets, PII, logging, and production readiness
+globs: force-app/main/default/classes/**,force-app/main/default/namedCredentials/**,force-app/main/default/externalCredentials/**,apps/ai-api/**,packages/**,docs/**
+alwaysApply: false
+---
+
+# Security And Observability
+
+Read and follow `.github/instructions/security-observability.instructions.md` before editing matching files.
+
+For reviews, use `.github/agents/security-reviewer.agent.md`.

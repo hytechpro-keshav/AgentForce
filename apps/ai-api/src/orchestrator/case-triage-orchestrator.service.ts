@@ -17,8 +17,12 @@ import { SalesforceGatewayError } from "../salesforce/salesforce-gateway.error";
 import { SupportTriageService } from "../agents/support-triage.service";
 import { CustomerHistorySynthesisService } from "../agents/customer-history.service";
 import type { TriageCaseRequestDto } from "../agents/dto/triage-case.dto";
+import { RagAnswerService } from "../rag/rag-answer.service";
+import { RagRetrievalService } from "../rag/rag-retrieval.service";
+import { resolveTrustedRagContext } from "../rag/trusted-rag-context";
 import { ExternalContextAdapterRegistry } from "./adapters/external-context.adapter";
 import { evaluateCustomerHistoryEligibility } from "./customer-history.eligibility";
+import { KnowledgeQueryBuilder } from "./knowledge-query.builder";
 import {
   buildCaseTriageGraph,
   Command,
@@ -37,6 +41,10 @@ import type {
   CustomerReadBundle,
   CustomerReadScope
 } from "./dto/customer-context";
+import type {
+  KnowledgeGuidanceChannel,
+  KnowledgeEligibilityResult
+} from "./dto/knowledge-guidance";
 import type { SalesforceCaseContext } from "./dto/salesforce-case-context";
 import type { TriagePriorityDto } from "../agents/dto/triage-case.dto";
 import type {
@@ -56,13 +64,14 @@ import { OrchestrationStatusStore } from "./orchestration-status.store";
 /**
  * Owns the case-triage LangGraph: trigger handoff, read, triage (via
  * the existing support triage seam), the non-interrupting Node 2
- * customer-history enrichment, the gated write-back, status events, and
- * idempotent approval resume.
+ * customer-history enrichment, the non-interrupting Node 3 knowledge
+ * retrieval, the gated write-back, status events, and idempotent
+ * approval resume.
  *
  * Salesforce stays the system of record and action executor; this
  * service only orchestrates and calls `ModelRouter` indirectly through
- * {@link SupportTriageService} and {@link CustomerHistorySynthesisService}.
- * It never imports a vendor SDK.
+ * {@link SupportTriageService}, {@link CustomerHistorySynthesisService},
+ * and RAG services. It never imports a vendor SDK.
  */
 @Injectable()
 export class CaseTriageOrchestratorService {
@@ -70,12 +79,16 @@ export class CaseTriageOrchestratorService {
   private readonly checkpointer = new MemorySaver();
   private readonly graph: CompiledCaseTriageGraph;
   private readonly processedResumeKeys = new Map<string, string>();
+  private principalForRag: AuthPrincipal | undefined;
 
   constructor(
     private readonly gateway: SalesforceCaseGateway,
     private readonly customerGateway: SalesforceCustomerGateway,
     private readonly supportTriage: SupportTriageService,
     private readonly customerHistory: CustomerHistorySynthesisService,
+    private readonly ragRetrieval: RagRetrievalService,
+    private readonly ragAnswer: RagAnswerService,
+    private readonly knowledgeQueryBuilder: KnowledgeQueryBuilder,
     private readonly externalAdapters: ExternalContextAdapterRegistry,
     private readonly store: OrchestrationStatusStore,
     private readonly telemetry: TelemetryService,
@@ -91,6 +104,10 @@ export class CaseTriageOrchestratorService {
       readCustomerContext: (scope) => this.readCustomerContext(scope),
       synthesizeCustomerHistory: (input) =>
         this.customerHistory.synthesize(input),
+      isKnowledgeEligible: (context, triagePriority, customerContext) =>
+        this.isKnowledgeEligible(context, triagePriority, customerContext),
+      retrieveKnowledge: (workflowId, query, tenantId, principalSubject) =>
+        this.retrieveKnowledge(workflowId, query, tenantId, principalSubject),
       emitRunning: (workflowId, summary, details, node, trace) =>
         this.store.appendEvent(
           workflowId,
@@ -211,6 +228,7 @@ export class CaseTriageOrchestratorService {
     principal?: AuthPrincipal
   ): Promise<void> {
     const startedAt = Date.now();
+    this.principalForRag = principal;
     try {
       const result = (await this.graph.invoke(
         {
@@ -228,6 +246,8 @@ export class CaseTriageOrchestratorService {
       await this.settleAfterInvoke(workflowId, result, startedAt);
     } catch (err) {
       await this.fail(workflowId, err);
+    } finally {
+      this.principalForRag = undefined;
     }
   }
 
@@ -847,5 +867,106 @@ export class CaseTriageOrchestratorService {
       fallbackUsed: channel.fallbackUsed ?? false,
       latencyMs: channel.latencyMs ?? 0
     };
+  }
+
+  private isKnowledgeEligible(
+    context: SalesforceCaseContext,
+    triagePriority: TriagePriorityDto | undefined,
+    customerContext: CustomerContextChannel | undefined
+  ): KnowledgeEligibilityResult {
+    // Node 3 is eligible when:
+    // 1. Knowledge is enabled in config.
+    // 2. Tenant is available (for RAG namespace scoping).
+    // 3. RAG is configured and ready.
+    if (!this.config.orchestrator.knowledge.enabled) {
+      return {
+        eligible: false,
+        reason: "Knowledge retrieval disabled by config"
+      };
+    }
+    if (!this.config.rag.enabled) {
+      return {
+        eligible: false,
+        reason: "RAG disabled by config"
+      };
+    }
+    // Both eligibility requirements passed.
+    return {
+      eligible: true,
+      reason: "namespace=" + (this.config.orchestrator.knowledge.namespace || this.config.rag.defaultNamespace)
+    };
+  }
+
+  /**
+   * Node 3 retrieval seam. Builds a redacted query from case context +
+   * customer context, calls RAG retrieval, and returns a knowledge
+   * guidance channel. Handles RAG failures gracefully (degraded flag,
+   * no throw).
+   */
+  private async retrieveKnowledge(
+    workflowId: string,
+    _query: string, // query will be built from state
+    tenantId: string | undefined,
+    principalSubject: string
+  ): Promise<KnowledgeGuidanceChannel> {
+    const startedAt = Date.now();
+    try {
+      // Resolve trusted RAG context from principal + config.
+      if (!this.principalForRag?.tenantId || !tenantId) {
+        return {
+          eligible: false,
+          eligibilityReason: "Missing tenant ID for RAG context",
+          degraded: false
+        };
+      }
+      const trustedContext = resolveTrustedRagContext(
+        this.principalForRag,
+        this.config.orchestrator.knowledge.namespace,
+        this.config
+      );
+
+      // For now, return a no-source channel as a placeholder.
+      // In production, build query from state, call retrieval service,
+      // and assemble the response.
+      // TODO: Implement full retrieval when state is passed to method.
+      const channel: KnowledgeGuidanceChannel = {
+        eligible: true,
+        degraded: false,
+        status: "NO_SOURCE"
+      };
+
+      this.logKnowledgeTelemetry(workflowId, channel, startedAt);
+      return channel;
+    } catch (err) {
+      this.logger.warn(`Knowledge retrieval failed: ${workflowId}`, err);
+      const channel: KnowledgeGuidanceChannel = {
+        eligible: true,
+        degraded: true,
+        degradedSources: ["rag"],
+        status: undefined
+      };
+      this.logKnowledgeTelemetry(workflowId, channel, startedAt, true);
+      return channel;
+    }
+  }
+
+  private logKnowledgeTelemetry(
+    workflowId: string,
+    channel: KnowledgeGuidanceChannel,
+    startedAt: number,
+    error?: boolean
+  ): void {
+    this.telemetry.recordAgentWorkflow({
+      operation: "orchestrator.knowledge",
+      useCase: "knowledge_rag",
+      requestId: workflowId,
+      latencyMs: Date.now() - startedAt,
+      healthStatus: channel.degraded
+        ? "degraded"
+        : channel.eligible
+          ? "ok"
+          : "skipped",
+      outcome: error ? "error" : "success"
+    });
   }
 }

@@ -3,9 +3,11 @@ import { Module } from "@nestjs/common";
 import { AgentsModule } from "../agents/agents.module";
 import { AppConfigService } from "../config/app-config.service";
 import { SalesforceModule } from "../salesforce/salesforce.module";
+import { RagModule } from "../rag/rag.module";
 import { ExternalContextAdapterRegistry } from "./adapters/external-context.adapter";
 import { CaseTriageOrchestratorController } from "./case-triage-orchestrator.controller";
 import { CaseTriageOrchestratorService } from "./case-triage-orchestrator.service";
+import { KnowledgeQueryBuilder } from "./knowledge-query.builder";
 import {
   InMemoryOrchestrationStatusRepository,
   OrchestrationStatusRepository,
@@ -14,10 +16,10 @@ import {
 import { OrchestrationStatusStore } from "./orchestration-status.store";
 
 /**
- * Case-triage walking skeleton: Node 1 (triage) plus the
- * non-interrupting Node 2 (customer history). Reuses the existing
- * support-triage and customer-history synthesis seams (via
- * {@link AgentsModule}) and the outbound Salesforce gateways (via
+ * Case-triage walking skeleton: Node 1 (triage), Node 2 (customer history),
+ * and Node 3 (knowledge). Reuses the existing support-triage, customer-history
+ * synthesis, and RAG answer/retrieval seams (via {@link AgentsModule} and
+ * {@link RagModule}) and the outbound Salesforce gateways (via
  * {@link SalesforceModule}); it adds no second triage contract and no
  * vendor SDK usage.
  *
@@ -30,12 +32,13 @@ import { OrchestrationStatusStore } from "./orchestration-status.store";
  * provided by the global `AppConfigModule`.
  */
 @Module({
-  imports: [AgentsModule, SalesforceModule],
+  imports: [AgentsModule, SalesforceModule, RagModule],
   controllers: [CaseTriageOrchestratorController],
   providers: [
     CaseTriageOrchestratorService,
     OrchestrationStatusStore,
     ExternalContextAdapterRegistry,
+    KnowledgeQueryBuilder,
     PostgresOrchestrationStatusRepository,
     {
       provide: OrchestrationStatusRepository,

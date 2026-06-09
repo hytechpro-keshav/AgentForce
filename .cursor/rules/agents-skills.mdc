@@ -1,0 +1,32 @@
+---
+description: Cursor project skills in .agents/skills
+globs: .agents/skills/**
+alwaysApply: false
+---
+
+# Project Skills
+
+`.agents/skills/` is the Cursor skills source of truth. `.github/skills/` mirrors it for GitHub Copilot — keep both in sync when adding or changing skills.
+
+Read the relevant `SKILL.md` before specialized work. Available skills:
+
+| Skill | Use when |
+|-------|----------|
+| `framework-selection` | Starting LangChain/LangGraph/Deep Agents work |
+| `langchain-dependencies` | Package versions and dependency setup |
+| `langchain-fundamentals` | Building LangChain agents |
+| `langchain-middleware` | HITL middleware and custom middleware |
+| `langchain-rag` | RAG ingestion, retrieval, vector stores |
+| `langgraph-fundamentals` | StateGraph, nodes, edges, streaming |
+| `langgraph-persistence` | Checkpointers, thread_id, Store |
+| `langgraph-human-in-the-loop` | interrupt(), approval workflows |
+| `langgraph-cli` | langgraph dev/build/deploy |
+| `langgraph-case-triage-slice` | Case triage walking skeleton |
+| `deep-agents-core` | Deep Agents harness |
+| `deep-agents-memory` | StateBackend, StoreBackend, filesystem |
+| `deep-agents-orchestration` | Subagents, planning, HITL |
+| `managed-deep-agents` | LangSmith managed deep agents API |
+| `new-org-tenant-onboarding` | Org and tenant onboarding |
+| `swarm` | Parallel fan-out workflows |
+
+Do not use external `npx skills` setup when a repo skill exists.

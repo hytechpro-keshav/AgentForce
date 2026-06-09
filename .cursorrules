@@ -2,6 +2,14 @@
 
 Read `AGENTS.md` first. It is the canonical project guidance for this monorepo.
 
+Cursor loads scoped guidance from `.cursor/rules/`. That folder routes to:
+
+- `.github/instructions/` — scoped coding rules
+- `.github/agents/` — reviewer personas
+- `.github/prompts/` — task templates
+- `.agents/skills/` — project skills (also linked at `.cursor/skills/`)
+- `docs/` — ADRs, runbooks, testing proof, orchestrator design
+
 Use CodeTrellis for repository context when available:
 
 - MCP server: `.vscode/mcp.json`

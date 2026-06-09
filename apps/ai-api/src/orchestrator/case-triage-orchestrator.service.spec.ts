@@ -128,7 +128,18 @@ function buildHarness(
           serviceNowEnabled: false,
           telemetryEnabled: false
         }
+      },
+      knowledge: {
+        enabled: false,
+        namespace: "customer-self-service",
+        queryMaxChars: 200,
+        retrievalTopK: 5,
+        scoreThreshold: 0.65
       }
+    },
+    rag: {
+      enabled: false,
+      defaultNamespace: "customer-self-service"
     },
     salesforceConnection: { enabled: true }
   } as unknown as AppConfigService;
@@ -162,6 +173,9 @@ function buildHarness(
     customerGateway,
     supportTriage,
     customerHistory,
+    {} as any, // ragRetrieval mock
+    {} as any, // ragAnswer mock
+    {} as any, // knowledgeQueryBuilder mock
     externalAdapters,
     store,
     telemetry,
@@ -454,6 +468,9 @@ describe("CaseTriageOrchestratorService", () => {
       } as unknown as SalesforceCustomerGateway,
       { triage: jest.fn() } as unknown as SupportTriageService,
       { synthesize: jest.fn() } as unknown as CustomerHistorySynthesisService,
+      {} as any, // ragRetrieval mock
+      {} as any, // ragAnswer mock
+      {} as any, // knowledgeQueryBuilder mock
       {
         readAll: jest.fn().mockResolvedValue({
           signals: [],
@@ -474,7 +491,18 @@ describe("CaseTriageOrchestratorService", () => {
               serviceNowEnabled: false,
               telemetryEnabled: false
             }
+          },
+          knowledge: {
+            enabled: false,
+            namespace: "customer-self-service",
+            queryMaxChars: 200,
+            retrievalTopK: 5,
+            scoreThreshold: 0.65
           }
+        },
+        rag: {
+          enabled: false,
+          defaultNamespace: "customer-self-service"
         },
         salesforceConnection: { enabled: true }
       } as unknown as AppConfigService

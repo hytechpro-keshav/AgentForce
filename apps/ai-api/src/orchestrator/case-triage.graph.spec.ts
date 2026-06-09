@@ -131,6 +131,12 @@ function buildDeps(overrides: Partial<CaseTriageGraphDeps> = {}): DepsHarness {
     isCustomerHistoryEligible: isEligible,
     readCustomerContext,
     synthesizeCustomerHistory: synthesize,
+    isKnowledgeEligible: jest.fn().mockReturnValue({ eligible: false, reason: "disabled_by_test" }),
+    retrieveKnowledge: jest.fn().mockResolvedValue({
+      eligible: false,
+      degraded: false,
+      status: undefined
+    } as any),
     emitRunning,
     checkpointer: new MemorySaver(),
     ...overrides

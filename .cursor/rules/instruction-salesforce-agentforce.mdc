@@ -1,0 +1,12 @@
+---
+description: Salesforce Agentforce metadata, planner bundles, and evals
+globs: force-app/main/default/genAiFunctions/**,force-app/main/default/genAiPlannerBundles/**,force-app/main/default/genAiPromptTemplates/**,force-app/main/default/genAiPlugins/**,force-app/main/default/flows/**,force-app/main/default/permissionsets/**,force-app/main/default/namedCredentials/**,force-app/main/default/externalCredentials/**,agent-eval/**
+alwaysApply: false
+---
+
+# Salesforce Agentforce
+
+Read and follow `.github/instructions/salesforce-agentforce.instructions.md` before editing matching files.
+
+For reviews, use `.github/agents/agentforce-reviewer.agent.md`.
+For new actions, start from `.github/prompts/create-agentforce-action.prompt.md`.

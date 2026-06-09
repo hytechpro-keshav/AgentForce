@@ -1,0 +1,12 @@
+---
+description: New Salesforce org and AI API tenant onboarding
+globs: docs/deployment/new-org-tenant-onboarding.md,.github/skills/new-org-tenant-onboarding/**,.github/agents/new-org-tenant-onboarding.agent.md,.github/prompts/onboard-new-org-tenant.prompt.md
+alwaysApply: false
+---
+
+# New Org Tenant Onboarding
+
+Read and follow `.github/instructions/new-org-tenant-onboarding.instructions.md` before editing matching files.
+
+Invoke skill `.agents/skills/new-org-tenant-onboarding/SKILL.md`.
+Use `.github/agents/new-org-tenant-onboarding.agent.md` and `.github/prompts/onboard-new-org-tenant.prompt.md`.

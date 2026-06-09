@@ -5,6 +5,7 @@ import type {
   OrchestratorNodeId
 } from "./case-triage-lifecycle";
 import type { CustomerContextChannel } from "./customer-context";
+import type { KnowledgeGuidanceChannel } from "./knowledge-guidance";
 
 /**
  * A single safe label/value detail attached to a status event so the
@@ -90,7 +91,7 @@ export interface SanitizedTriageResult {
 }
 
 /**
- * The full read model for one Node 1 workflow. Returned by the
+ * The full read model for one Node 1-3 workflow. Returned by the
  * read-only status endpoint and rendered by the first-node UI.
  */
 export interface CaseTriageWorkflowSnapshot {
@@ -109,6 +110,13 @@ export interface CaseTriageWorkflowSnapshot {
    * until Node 2 runs; present-but-skipped when the case is ineligible.
    */
   customerContext?: CustomerContextChannel;
+  /**
+   * Node 3 (knowledge) output. Self-contained and sanitized so the
+   * read-only UI can render knowledge guidance and source citations.
+   * Absent until Node 3 runs; present-but-skipped when ineligible or
+   * RAG disabled.
+   */
+  knowledgeGuidance?: KnowledgeGuidanceChannel;
   /** Safe failure classification only (no stack traces, no raw text). */
   failureKind?: string;
   createdAt: string;

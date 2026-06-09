@@ -1,0 +1,11 @@
+---
+description: Tests, Agentforce evals, CI workflows, and release validation
+globs: agent-eval/**,scripts/**,**/*.test.*,**/*Test.cls,.github/workflows/**,docs/testing/**
+alwaysApply: false
+---
+
+# Testing And Evals
+
+Read and follow `.github/instructions/testing-evals.instructions.md` before editing matching files.
+
+For release checks, use `.github/agents/release-checker.agent.md`.

@@ -1,0 +1,12 @@
+---
+description: NestJS AI API, Railway backend, DTOs, and observability
+globs: apps/ai-api/**,src/**,packages/shared-contracts/**
+alwaysApply: false
+---
+
+# NestJS AI API
+
+Read and follow `.github/instructions/nest-ai-api.instructions.md` before editing matching files.
+
+For architecture reviews, use `.github/agents/nest-ai-architect.agent.md`.
+For change reviews, use `.github/prompts/review-ai-change.prompt.md`.

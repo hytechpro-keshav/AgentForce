@@ -2,6 +2,8 @@
 
 Read `AGENTS.md` first. It is the canonical project guidance for this monorepo.
 
+Cursor IDE uses `.cursor/rules/` to route to `.github/`, `.agents/skills/`, and `docs/`. See the **Cursor IDE Configuration** section in `AGENTS.md`.
+
 Use CodeTrellis for repository context when available:
 
 - MCP server: `.vscode/mcp.json`

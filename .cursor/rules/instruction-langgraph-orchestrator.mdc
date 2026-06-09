@@ -1,0 +1,13 @@
+---
+description: LangGraph case triage orchestrator and Node 1 walking skeleton
+globs: apps/ai-api/src/orchestrator/**,apps/ai-api/src/agents/support-*.ts,apps/ai-api/src/agents/dto/*triage*.ts,apps/ai-api/src/agents/agents.module.ts,apps/ai-api/test/**,apps/react-chat-window/**,docs/orchestrator/**
+alwaysApply: false
+---
+
+# LangGraph Orchestrator
+
+Read and follow `.github/instructions/langgraph-orchestrator.instructions.md` before editing matching files.
+
+Also read `docs/orchestrator/case-triage-orchestrator-flow.md`.
+Invoke skill `.agents/skills/langgraph-case-triage-slice/SKILL.md` for the walking skeleton.
+Use `.github/agents/case-triage-slice-implementer.agent.md` and `.github/prompts/implement-case-triage-slice.prompt.md` for slice work.

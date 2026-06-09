@@ -1,0 +1,13 @@
+---
+description: RAG ingestion, retrieval, embeddings, and vector DB
+globs: apps/ai-api/src/rag/**,apps/ai-api/src/vector-db/**,packages/rag-core/**,data/**
+alwaysApply: false
+---
+
+# RAG And Vector
+
+Read and follow `.github/instructions/rag-vector.instructions.md` before editing matching files.
+
+For reviews, use `.github/agents/rag-quality-reviewer.agent.md`.
+For new endpoints, start from `.github/prompts/create-rag-endpoint.prompt.md`.
+Invoke skill `.agents/skills/langchain-rag/SKILL.md` for LangChain RAG patterns.

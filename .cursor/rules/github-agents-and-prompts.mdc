@@ -1,0 +1,38 @@
+---
+description: GitHub agent personas and prompt templates for reviews and workflows
+globs: .github/agents/**,.github/prompts/**
+alwaysApply: false
+---
+
+# GitHub Agents And Prompts
+
+These files are task-specific personas and templates shared with GitHub Copilot. Cursor uses the same source of truth.
+
+## Agents (`.github/agents/`)
+
+| File | Use when |
+|------|----------|
+| `agentforce-reviewer.agent.md` | Reviewing Salesforce Agentforce metadata |
+| `nest-ai-architect.agent.md` | Designing or reviewing NestJS AI API architecture |
+| `rag-quality-reviewer.agent.md` | Reviewing RAG retrieval and grounding |
+| `security-reviewer.agent.md` | Security, auth, secrets, and PII review |
+| `telemetry-reviewer.agent.md` | AI telemetry and observability review |
+| `release-checker.agent.md` | Release readiness and validation gates |
+| `code-review-orchestrator.agent.md` | Coordinating multi-area code reviews |
+| `case-triage-slice-implementer.agent.md` | Implementing the case triage walking skeleton |
+| `new-org-tenant-onboarding.agent.md` | Onboarding a new org or tenant |
+
+## Prompts (`.github/prompts/`)
+
+| File | Use when |
+|------|----------|
+| `create-agentforce-action.prompt.md` | Creating a new Agentforce action |
+| `add-llm-provider.prompt.md` | Adding a new LLM provider |
+| `create-rag-endpoint.prompt.md` | Creating a RAG endpoint |
+| `review-agentforce-metadata.prompt.md` | Reviewing Agentforce metadata changes |
+| `review-ai-change.prompt.md` | Reviewing AI API changes |
+| `implement-case-triage-slice.prompt.md` | Implementing the case triage slice |
+| `onboard-new-org-tenant.prompt.md` | Onboarding a new org or tenant |
+| `generate-production-runbook.prompt.md` | Generating a production runbook |
+
+Do not duplicate content from these files into Cursor rules.

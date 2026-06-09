@@ -1,0 +1,9 @@
+---
+description: React customer chat window and chat widget
+globs: apps/react-chat-window/**,chat-widget/**
+alwaysApply: false
+---
+
+# Frontend Chat
+
+Read and follow `.github/instructions/frontend-chat.instructions.md` before editing matching files.

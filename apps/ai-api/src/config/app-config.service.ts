@@ -278,6 +278,23 @@ export interface OrchestratorCustomerHistoryConfig {
   };
 }
 
+/**
+ * Node 3 (knowledge) configuration. RAG retrieval is OFF by default;
+ * when enabled, it uses the configured namespace for semantic search.
+ */
+export interface OrchestratorKnowledgeConfig {
+  /** Feature flag: enables Node 3 RAG retrieval. Default: false. */
+  enabled: boolean;
+  /** Optional namespace override; defaults to RAG config namespace. */
+  namespace?: string;
+  /** Query character limit; default 200. */
+  queryMaxChars: number;
+  /** Retrieval top-K; default 5. */
+  retrievalTopK: number;
+  /** Minimum similarity score (0–1); default 0.65. */
+  scoreThreshold: number;
+}
+
 export interface OrchestratorConfig {
   /**
    * Gate policy for the Node 1 triage write-back.
@@ -290,6 +307,7 @@ export interface OrchestratorConfig {
   persistence: OrchestratorPersistenceConfig;
   salesforceWriteBack: OrchestratorSalesforceWriteBackConfig;
   customerHistory: OrchestratorCustomerHistoryConfig;
+  knowledge: OrchestratorKnowledgeConfig;
 }
 
 export interface AppRuntimeConfig {
@@ -1808,7 +1826,8 @@ export class AppConfigService {
       persistence: AppConfigService.loadOrchestratorPersistence(env),
       salesforceWriteBack:
         AppConfigService.loadOrchestratorSalesforceWriteBack(env),
-      customerHistory: AppConfigService.loadOrchestratorCustomerHistory(env)
+      customerHistory: AppConfigService.loadOrchestratorCustomerHistory(env),
+      knowledge: AppConfigService.loadOrchestratorKnowledge(env)
     };
   }
 
@@ -1940,6 +1959,35 @@ export class AppConfigService {
         env.AI_API_ORCHESTRATOR_MAX_POOL_SIZE,
         5,
         "AI_API_ORCHESTRATOR_MAX_POOL_SIZE"
+      )
+    };
+  }
+
+  private static loadOrchestratorKnowledge(
+    env: NodeJS.ProcessEnv
+  ): OrchestratorKnowledgeConfig {
+    return {
+      enabled: AppConfigService.parseBooleanFlag(
+        env.AI_API_ORCHESTRATOR_KNOWLEDGE_ENABLED,
+        false,
+        "AI_API_ORCHESTRATOR_KNOWLEDGE_ENABLED"
+      ),
+      namespace: AppConfigService.normalize(
+        env.AI_API_ORCHESTRATOR_KNOWLEDGE_NAMESPACE
+      ),
+      queryMaxChars: AppConfigService.parsePositiveInteger(
+        env.AI_API_ORCHESTRATOR_KNOWLEDGE_QUERY_MAX_CHARS,
+        200,
+        "AI_API_ORCHESTRATOR_KNOWLEDGE_QUERY_MAX_CHARS"
+      ),
+      retrievalTopK: AppConfigService.parsePositiveInteger(
+        env.AI_API_ORCHESTRATOR_KNOWLEDGE_RETRIEVAL_TOP_K,
+        5,
+        "AI_API_ORCHESTRATOR_KNOWLEDGE_RETRIEVAL_TOP_K"
+      ),
+      scoreThreshold: AppConfigService.parseScoreThreshold(
+        env.AI_API_ORCHESTRATOR_KNOWLEDGE_SCORE_THRESHOLD,
+        0.65
       )
     };
   }

@@ -1,0 +1,9 @@
+---
+description: Apex invocable actions and HTTP callouts for Agentforce
+globs: force-app/main/default/classes/**/*.cls,force-app/main/default/classes/**/*.cls-meta.xml
+alwaysApply: false
+---
+
+# Apex Invocable
+
+Read and follow `.github/instructions/apex-invocable.instructions.md` before editing matching files.

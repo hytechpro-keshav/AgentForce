@@ -1,0 +1,36 @@
+---
+description: AgentForce monorepo context routing for Cursor
+alwaysApply: true
+---
+
+# Project Context
+
+Read `AGENTS.md` first. It is the canonical project-wide guidance.
+
+## Repository intelligence folders
+
+| Folder | Purpose |
+|--------|---------|
+| `.github/instructions/` | Scoped coding rules (`*.instructions.md`) — loaded automatically via matching `.cursor/rules/` |
+| `.github/agents/` | Reviewer personas (`*.agent.md`) for focused reviews |
+| `.github/prompts/` | Task templates (`*.prompt.md`) for repeatable workflows |
+| `.github/skills/` | GitHub Copilot skills mirror — keep in sync with `.agents/skills/` |
+| `.agents/skills/` | Cursor project skills — read the relevant `SKILL.md` before specialized work |
+| `docs/adr/` | Architecture decision records |
+| `docs/context/` | Phase history, lessons learned, reference patterns |
+| `docs/deployment/` | Railway, Salesforce, and onboarding runbooks |
+| `docs/testing/` | Proof docs, UAT scripts, eval notes |
+| `docs/orchestrator/` | LangGraph case triage orchestrator design |
+| `docs/agents/` | Agent capability and findings docs |
+
+## Workflow
+
+1. Read `AGENTS.md` for global rules.
+2. For scoped edits, follow the matching `.github/instructions/*.instructions.md` (also attached via file-scoped Cursor rules).
+3. For specialized tasks, read the matching `.agents/skills/*/SKILL.md` or `.github/prompts/*.prompt.md`.
+4. For architecture or phase context, check `docs/adr/` and `docs/context/project-memory.md`.
+5. For reviews, adopt the persona from the matching `.github/agents/*.agent.md`.
+
+Do not duplicate Salesforce, NestJS, RAG, Open WebUI, React chat, security, or release rules into Cursor files. Keep the source of truth in `AGENTS.md`, `.github/instructions/`, and `docs/adr/`.
+
+Use CodeTrellis when available: MCP server `.vscode/mcp.json`, matrix `.codetrellis/cache/AgentForce/matrix.prompt`.

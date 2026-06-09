@@ -1,0 +1,21 @@
+---
+description: Documentation library routing for docs edits and research
+globs: docs/**
+alwaysApply: false
+---
+
+# Docs Library
+
+When reading or editing `docs/**`, use this map:
+
+- `docs/adr/` — binding architecture decisions; cite the relevant ADR when proposing structural changes.
+- `docs/context/project-memory.md` — phase completion history, deployment IDs, and operational lessons.
+- `docs/context/reference-patterns.md` — external repo patterns to reuse.
+- `docs/deployment/` — Railway, Open WebUI, Salesforce OAuth, and tenant onboarding runbooks.
+- `docs/testing/` — proof docs, UAT checklists, and eval evidence.
+- `docs/orchestrator/` — case triage LangGraph node design and contracts.
+- `docs/agents/` — agent capability specs and intelligence findings.
+
+When adding docs, match the style of sibling files in the same folder. Do not log secrets, org credentials, or raw PII.
+
+For security or telemetry topics in docs, also follow `.github/instructions/security-observability.instructions.md`.

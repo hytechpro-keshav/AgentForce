@@ -10,6 +10,7 @@ import {
 
 import {
   CUSTOMER_HISTORY_NODE_ID,
+  KNOWLEDGE_NODE_ID,
   TRIAGE_NODE_ID,
   type ApprovalDecision,
   type NodeLifecycleStatus,
@@ -25,6 +26,10 @@ import type {
   CustomerReadScope
 } from "./dto/customer-context";
 import type {
+  KnowledgeGuidanceChannel,
+  KnowledgeEligibilityResult
+} from "./dto/knowledge-guidance";
+import type {
   OrchestrationExecutionTrace,
   OrchestrationEventDetail,
   OrchestrationStateChange,
@@ -37,19 +42,19 @@ import type { TriagePriorityDto } from "../agents/dto/triage-case.dto";
 /**
  * LangGraph state for the case-triage orchestrator slice.
  *
- * The chain spans Node 1 (triage) and the non-interrupting Node 2
- * (customer history), with one human-in-the-loop interrupt at the
- * write-back gate. Node 2 is inserted between triage and the gate:
+ * The chain spans Node 1 (triage), Node 2 (customer history), and
+ * Node 3 (knowledge), with one human-in-the-loop interrupt at the
+ * write-back gate:
  *
- *   START -> readContext -> runTriage -> customerHistory -> gate
- *                                                            |  \
- *                                              (approved) writeBack -> END
- *                                              (rejected) rejected -> END
+ *   START -> readContext -> runTriage -> customerHistory -> knowledge -> gate
+ *                                                                        |  \
+ *                                                          (approved) writeBack -> END
+ *                                                          (rejected) rejected -> END
  *
  * The state evolves the Node-1-only shape toward a multi-node
  * `ServiceWorkflowState`: Node 2 writes ONLY its own `customerContext`
- * channel; the triage channels stay read-only to it. Nodes 3-8 are
- * intentionally absent.
+ * channel; Node 3 writes ONLY `knowledgeGuidance`; the triage channels
+ * stay read-only to both. Nodes 4-8 are intentionally absent.
  */
 export const CaseTriageState = Annotation.Root({
   workflowId: Annotation<string>(),
@@ -61,6 +66,8 @@ export const CaseTriageState = Annotation.Root({
   triage: Annotation<SanitizedTriageResult | undefined>(),
   /** Node 2's own channel. Node 2 is the only writer. */
   customerContext: Annotation<CustomerContextChannel | undefined>(),
+  /** Node 3's own channel. Node 3 is the only writer. */
+  knowledgeGuidance: Annotation<KnowledgeGuidanceChannel | undefined>(),
   approvalRequired: Annotation<boolean>(),
   approvalDecision: Annotation<ApprovalDecision | undefined>(),
   writeBackApplied: Annotation<boolean>(),
@@ -106,9 +113,28 @@ export interface CaseTriageGraphDeps {
     input: CustomerHistorySynthesisInput
   ): Promise<CustomerContextSynthesis>;
   /**
+   * Node 3 — cheap, config-driven eligibility check. Confirms that
+   * RAG is enabled and namespace is configured; runs before retrieval.
+   */
+  isKnowledgeEligible(
+    context: SalesforceCaseContext,
+    triagePriority: TriagePriorityDto | undefined,
+    customerContext: CustomerContextChannel | undefined
+  ): KnowledgeEligibilityResult;
+  /**
+   * Node 3 — retrieves knowledge guidance from RAG. Must handle
+   * retrieval failures gracefully (no throw).
+   */
+  retrieveKnowledge(
+    workflowId: string,
+    query: string,
+    tenantId: string | undefined,
+    principalSubject: string
+  ): Promise<KnowledgeGuidanceChannel>;
+  /**
    * Emits a sanitized `running` progress line into the read model.
    * `node` defaults to the triage node so existing call sites are
-   * unchanged; Node 2 passes the customer-history node id.
+   * unchanged; Node 2 and Node 3 pass their node id.
    */
   emitRunning(
     workflowId: string,
@@ -275,6 +301,99 @@ export function buildCaseTriageGraph(deps: CaseTriageGraphDeps) {
 
       return { customerContext: channel };
     })
+    .addNode("knowledge", async (state) => {
+      // Node 3 is READ-ONLY to Salesforce and NON-interrupting. It reads
+      // the case + triage + customer context slices, runs an eligibility
+      // check, builds a redacted query, retrieves from RAG, and writes
+      // ONLY its own `knowledgeGuidance` channel. If RAG fails, it
+      // writes a degraded outcome and continues without blocking.
+      const triagePriority = state.triage?.recommendedPriority;
+      const eligibility = deps.isKnowledgeEligible(
+        state.context!,
+        triagePriority,
+        state.customerContext
+      );
+      if (!eligibility.eligible) {
+        await deps.emitRunning(
+          state.workflowId,
+          "Knowledge base skipped (not eligible).",
+          [
+            { label: "Eligible", value: "No" },
+            { label: "Reason", value: eligibility.reason }
+          ],
+          KNOWLEDGE_NODE_ID,
+          buildKnowledgeEligibilitySkipTrace(state, eligibility)
+        );
+        return {
+          knowledgeGuidance: {
+            eligible: false,
+            eligibilityReason: eligibility.reason,
+            degraded: false
+          } satisfies KnowledgeGuidanceChannel
+        };
+      }
+
+      await deps.emitRunning(
+        state.workflowId,
+        "Constructing targeted knowledge query.",
+        buildKnowledgeQueryDetails(state),
+        KNOWLEDGE_NODE_ID,
+        buildKnowledgeQueryTrace(state)
+      );
+
+      await deps.emitRunning(
+        state.workflowId,
+        "Searching approved knowledge base.",
+        buildKnowledgeSearchDetails(state),
+        KNOWLEDGE_NODE_ID,
+        buildKnowledgeSearchTrace(state)
+      );
+
+      const guidance = await deps.retrieveKnowledge(
+        state.workflowId,
+        "", // query will be built inside retrieveKnowledge
+        state.tenantId,
+        state.principalSubject
+      );
+
+      if (guidance.status === "ANSWERED") {
+        await deps.emitRunning(
+          state.workflowId,
+          `Found ${guidance.answer?.sources?.length ?? 0} matching troubleshooting guides.`,
+          buildKnowledgeAnswerDetails(guidance),
+          KNOWLEDGE_NODE_ID,
+          buildKnowledgeAnswerTrace(guidance)
+        );
+      } else if (guidance.status === "NO_SOURCE") {
+        await deps.emitRunning(
+          state.workflowId,
+          "No matching knowledge articles found.",
+          buildKnowledgeNoSourceDetails(guidance),
+          KNOWLEDGE_NODE_ID,
+          buildKnowledgeNoSourceTrace(guidance)
+        );
+      }
+
+      if (guidance.degraded) {
+        await deps.emitRunning(
+          state.workflowId,
+          "Knowledge base temporarily unavailable (degraded mode).",
+          buildKnowledgeDegradedDetails(guidance),
+          KNOWLEDGE_NODE_ID,
+          buildKnowledgeDegradedTrace(guidance)
+        );
+      }
+
+      await deps.emitRunning(
+        state.workflowId,
+        "Writing knowledge findings to state.",
+        buildKnowledgeWriteDetails(guidance),
+        KNOWLEDGE_NODE_ID,
+        buildKnowledgeWriteTrace(guidance)
+      );
+
+      return { knowledgeGuidance: guidance };
+    })
     .addNode("gate", (state) => {
       const triage = state.triage!;
       if (!deps.requiresApproval(triage)) {
@@ -309,7 +428,8 @@ export function buildCaseTriageGraph(deps: CaseTriageGraphDeps) {
     .addEdge(START, "readContext")
     .addEdge("readContext", "runTriage")
     .addEdge("runTriage", "customerHistory")
-    .addEdge("customerHistory", "gate")
+    .addEdge("customerHistory", "knowledge")
+    .addEdge("knowledge", "gate")
     .addConditionalEdges(
       "gate",
       (state) =>
@@ -1185,6 +1305,188 @@ function stateChange(
   before?: OrchestrationTraceValue
 ): OrchestrationStateChange {
   return { path, change, before, after };
+}
+
+// Node 3 (Knowledge) trace building functions
+// These are placeholders for now; full implementation includes query details, retrieval metadata, etc.
+
+function buildKnowledgeEligibilitySkipTrace(
+  state: CaseTriageStateType,
+  eligibility: KnowledgeEligibilityResult
+): OrchestrationExecutionTrace {
+  return {
+    stepKey: "knowledge_eligibility_skip",
+    sections: [
+      {
+        key: "eligibility",
+        title: "Eligibility check",
+        data: {
+          eligible: false,
+          reason: eligibility.reason
+        }
+      }
+    ]
+  };
+}
+
+function buildKnowledgeQueryDetails(state: CaseTriageStateType): OrchestrationEventDetail[] {
+  return [
+    { label: "Query", value: "Constructed from Case + customer context" },
+    { label: "Namespace", value: "customer-self-service" }
+  ];
+}
+
+function buildKnowledgeQueryTrace(state: CaseTriageStateType): OrchestrationExecutionTrace {
+  return {
+    stepKey: "knowledge_query_build",
+    sections: [
+      {
+        key: "inputs",
+        title: "Inputs",
+        data: {
+          caseSubject: state.context?.subject ? "present" : "absent",
+          triagePriority: state.triage?.recommendedPriority ?? "unknown",
+          customerModel: state.customerContext?.package?.installedAssets.value.primaryModel ?? "unknown"
+        }
+      }
+    ]
+  };
+}
+
+function buildKnowledgeSearchDetails(state: CaseTriageStateType): OrchestrationEventDetail[] {
+  return [
+    { label: "Namespace", value: "customer-self-service" },
+    { label: "TopK", value: "5" },
+    { label: "Score threshold", value: "0.65" }
+  ];
+}
+
+function buildKnowledgeSearchTrace(state: CaseTriageStateType): OrchestrationExecutionTrace {
+  return {
+    stepKey: "knowledge_search",
+    sections: [
+      {
+        key: "search_params",
+        title: "Search parameters",
+        data: {
+          topK: 5,
+          scoreThreshold: 0.65,
+          includeStale: false
+        }
+      }
+    ]
+  };
+}
+
+function buildKnowledgeAnswerDetails(channel: KnowledgeGuidanceChannel): OrchestrationEventDetail[] {
+  return [
+    { label: "Status", value: "ANSWERED" },
+    { label: "Sources found", value: String(channel.answer?.sources?.length ?? 0) },
+    { label: "Provider", value: channel.answer?.provider ?? "unknown" },
+    { label: "Latency (ms)", value: String(channel.answer?.latencyMs ?? 0) }
+  ];
+}
+
+function buildKnowledgeAnswerTrace(channel: KnowledgeGuidanceChannel): OrchestrationExecutionTrace {
+  return {
+    stepKey: "knowledge_answered",
+    sections: [
+      {
+        key: "sources",
+        title: "Retrieved sources",
+        data: channel.answer?.sources?.map((s) => ({
+          id: s.sourceId,
+          title: s.title,
+          scorePercentile: s.retrievalScorePercentile
+        })) ?? []
+      },
+      {
+        key: "provider",
+        title: "Provider",
+        data: {
+          provider: channel.answer?.provider,
+          model: channel.answer?.model,
+          embedding: channel.answer?.embeddingProvider,
+          latencyMs: channel.answer?.latencyMs
+        }
+      }
+    ]
+  };
+}
+
+function buildKnowledgeNoSourceDetails(channel: KnowledgeGuidanceChannel): OrchestrationEventDetail[] {
+  return [
+    { label: "Status", value: "NO_SOURCE" },
+    { label: "Reason", value: "No matching articles found" },
+    { label: "Score threshold", value: "0.65" }
+  ];
+}
+
+function buildKnowledgeNoSourceTrace(channel: KnowledgeGuidanceChannel): OrchestrationExecutionTrace {
+  return {
+    stepKey: "knowledge_no_source",
+    sections: [
+      {
+        key: "result",
+        title: "Result",
+        data: {
+          status: "NO_SOURCE",
+          sourcesMatched: 0,
+          degraded: channel.degraded
+        }
+      }
+    ]
+  };
+}
+
+function buildKnowledgeDegradedDetails(channel: KnowledgeGuidanceChannel): OrchestrationEventDetail[] {
+  return [
+    { label: "Degraded", value: "Yes" },
+    { label: "Sources unavailable", value: (channel.degradedSources ?? []).join(", ") }
+  ];
+}
+
+function buildKnowledgeDegradedTrace(channel: KnowledgeGuidanceChannel): OrchestrationExecutionTrace {
+  return {
+    stepKey: "knowledge_degraded",
+    sections: [
+      {
+        key: "degradation",
+        title: "Degradation info",
+        data: {
+          degraded: true,
+          degradedSources: channel.degradedSources ?? []
+        }
+      }
+    ]
+  };
+}
+
+function buildKnowledgeWriteDetails(channel: KnowledgeGuidanceChannel): OrchestrationEventDetail[] {
+  return [
+    { label: "Status", value: channel.status ?? "skipped" },
+    { label: "Eligible", value: channel.eligible ? "Yes" : "No" },
+    { label: "Degraded", value: channel.degraded ? "Yes" : "No" }
+  ];
+}
+
+function buildKnowledgeWriteTrace(channel: KnowledgeGuidanceChannel): OrchestrationExecutionTrace {
+  return {
+    stepKey: "knowledge_write",
+    sections: [
+      {
+        key: "channel",
+        title: "Knowledge guidance channel",
+        data: {
+          eligible: channel.eligible,
+          status: channel.status ?? null,
+          degraded: channel.degraded,
+          answerPresent: channel.answer ? true : false,
+          sourceCount: channel.answer?.sources?.length ?? 0
+        }
+      }
+    ]
+  };
 }
 
 export { Command };

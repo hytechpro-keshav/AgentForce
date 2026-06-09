@@ -61,6 +61,15 @@ This workspace is the canonical monorepo for a production-target hybrid AI archi
 - From `getsentry/warden`: scoped agents/skills, strict configuration schemas, YAML evals with `given` / `should_find` / `should_not_find`, LLM judge separation, and AI telemetry discipline.
 - From `getsentry/sentry`: package ownership, clear module boundaries, CODEOWNERS-style thinking, extensive fixtures, and tests that encode edge cases and corrupt-state behavior.
 
+## Cursor IDE Configuration
+
+- Cursor loads always-on and file-scoped rules from `.cursor/rules/`.
+- Project skills live in `.agents/skills/` and are linked at `.cursor/skills/`. `.github/skills/` mirrors them for GitHub Copilot — keep both in sync.
+- Scoped coding rules live in `.github/instructions/*.instructions.md`; Cursor rules route to them by file glob.
+- Reviewer personas live in `.github/agents/*.agent.md`; task templates live in `.github/prompts/*.prompt.md`.
+- Documentation lives in `docs/` (`adr/`, `context/`, `deployment/`, `testing/`, `orchestrator/`, `agents/`).
+- Do not duplicate architecture rules into Cursor wrapper files. `.cursorrules` and `.cursor/rules/` should point back to this `AGENTS.md`, `.github/instructions/`, and `docs/adr/`.
+
 ## CodeTrellis Context
 
 - CodeTrellis is configured in `.vscode/mcp.json`; use its MCP tools or CLI commands (`codetrellis context`, `codetrellis skills`, `codetrellis scan`) to gather repository context for AI sessions.

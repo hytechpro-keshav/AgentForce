@@ -1,0 +1,11 @@
+---
+description: LLM providers, embeddings, and ModelRouter
+globs: apps/ai-api/src/llm/**,packages/llm-core/**
+alwaysApply: false
+---
+
+# LLM Provider
+
+Read and follow `.github/instructions/llm-provider.instructions.md` before editing matching files.
+
+For new providers, start from `.github/prompts/add-llm-provider.prompt.md`.
