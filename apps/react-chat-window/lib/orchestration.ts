@@ -19,7 +19,11 @@ export const ORCHESTRATION_STATUSES = [
 ] as const;
 
 export type OrchestrationStatus = (typeof ORCHESTRATION_STATUSES)[number];
-export const ORCHESTRATION_NODE_IDS = ["triage", "customer_history"] as const;
+export const ORCHESTRATION_NODE_IDS = [
+  "triage",
+  "customer_history",
+  "knowledge"
+] as const;
 export type OrchestrationNodeId = (typeof ORCHESTRATION_NODE_IDS)[number];
 
 export const TRIAGE_PRIORITIES = ["low", "normal", "high", "critical"] as const;
@@ -96,6 +100,34 @@ export interface OrchestrationCustomerContext {
   latencyMs?: number;
 }
 
+export interface OrchestrationKnowledgeSource {
+  sourceId: string;
+  title: string;
+  version?: string;
+  chunkId?: string;
+  retrievalScorePercentile?: number;
+}
+
+export interface OrchestrationKnowledgeAnswer {
+  safeSummary: string;
+  sources: OrchestrationKnowledgeSource[];
+  provider?: string;
+  model?: string;
+  embeddingProvider?: string;
+  retrievalId?: string;
+  latencyMs?: number;
+  fallbackUsed?: boolean;
+}
+
+export interface OrchestrationKnowledgeGuidance {
+  eligible: boolean;
+  eligibilityReason?: string;
+  degraded: boolean;
+  degradedSources?: string[];
+  status?: "ANSWERED" | "NO_SOURCE";
+  answer?: OrchestrationKnowledgeAnswer;
+}
+
 export interface OrchestrationEvent {
   node: OrchestrationNodeId;
   status: OrchestrationStatus;
@@ -126,6 +158,7 @@ export interface OrchestrationSnapshot {
   failureKind?: string;
   triage?: OrchestrationTriage;
   customerContext?: OrchestrationCustomerContext;
+  knowledgeGuidance?: OrchestrationKnowledgeGuidance;
   events: OrchestrationEvent[];
   updatedAt?: string;
 }
@@ -387,6 +420,83 @@ function sanitizeCustomerContext(
   };
 }
 
+function sanitizeKnowledgeSource(
+  value: unknown
+): OrchestrationKnowledgeSource | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  const sourceId = str(record.sourceId, 120);
+  const title = str(record.title, 240);
+  if (!sourceId || !title) {
+    return undefined;
+  }
+  return {
+    sourceId,
+    title,
+    version: str(record.version, 60),
+    chunkId: str(record.chunkId, 120),
+    retrievalScorePercentile:
+      typeof record.retrievalScorePercentile === "number" &&
+      record.retrievalScorePercentile >= 0
+        ? Math.round(record.retrievalScorePercentile)
+        : undefined
+  };
+}
+
+function sanitizeKnowledgeAnswer(
+  value: unknown
+): OrchestrationKnowledgeAnswer | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  const safeSummary = str(record.safeSummary, 1000);
+  const sources = Array.isArray(record.sources)
+    ? record.sources
+        .map((item) => sanitizeKnowledgeSource(item))
+        .filter((item): item is OrchestrationKnowledgeSource => Boolean(item))
+        .slice(0, 10)
+    : [];
+  if (!safeSummary) {
+    return undefined;
+  }
+  return {
+    safeSummary,
+    sources,
+    provider: str(record.provider, 60),
+    model: str(record.model, 120),
+    embeddingProvider: str(record.embeddingProvider, 60),
+    retrievalId: str(record.retrievalId, 120),
+    latencyMs:
+      typeof record.latencyMs === "number" && record.latencyMs >= 0
+        ? Math.round(record.latencyMs)
+        : undefined,
+    fallbackUsed: record.fallbackUsed === true
+  };
+}
+
+function sanitizeKnowledgeGuidance(
+  value: unknown
+): OrchestrationKnowledgeGuidance | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  const status =
+    record.status === "ANSWERED" || record.status === "NO_SOURCE"
+      ? record.status
+      : undefined;
+  return {
+    eligible: record.eligible === true,
+    eligibilityReason: str(record.eligibilityReason, 240),
+    degraded: record.degraded === true,
+    degradedSources: Array.isArray(record.degradedSources)
+      ? record.degradedSources
+          .map((item) => str(item, 40))
+          .filter((item): item is string => Boolean(item))
+          .slice(0, 12)
+      : undefined,
+    status,
+    answer: sanitizeKnowledgeAnswer(record.answer)
+  };
+}
+
 function sanitizeEvents(value: unknown): OrchestrationEvent[] {
   if (!Array.isArray(value)) return [];
   const out: OrchestrationEvent[] = [];
@@ -450,6 +560,7 @@ export function sanitizeSnapshot(value: unknown): OrchestrationSnapshot | null {
     failureKind: str(record.failureKind, 60),
     triage: sanitizeTriage(record.triage),
     customerContext: sanitizeCustomerContext(record.customerContext),
+    knowledgeGuidance: sanitizeKnowledgeGuidance(record.knowledgeGuidance),
     events: sanitizeEvents(record.events),
     updatedAt: str(record.updatedAt, 40)
   };

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
  *
  * Open it with `?workflowId=wf-...` when you have the workflow id, or
  * `?caseId=500...` for the latest live workflow for that Case. This
- * surface renders sanitized Node 1 and Node 2 execution artifacts; it
+ * surface renders sanitized Node 1, Node 2, and Node 3 execution artifacts; it
  * never exposes approval controls or hidden reasoning.
  */
 export default function OrchestrationPage({
@@ -26,7 +26,7 @@ export default function OrchestrationPage({
       <div>
         <h1 className="text-xl font-semibold">Orchestration Console</h1>
         <p className="text-sm text-muted-foreground">
-          Live, read-only engineering view of Node 1 triage and Node 2 customer context.
+          Live, read-only engineering view of Node 1 triage, Node 2 customer context, and Node 3 knowledge guidance.
         </p>
       </div>
 

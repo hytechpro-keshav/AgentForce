@@ -8,6 +8,7 @@ import {
   CircleDot,
   Clock,
   Loader2,
+  Link2,
   ShieldQuestion,
   Sparkles,
   XCircle
@@ -54,6 +55,12 @@ const NODE_META: Record<
     shortLabel: "Customer Context",
     description:
       "Reads customer history, assembles the context package, and writes it to workflow state."
+  },
+  knowledge: {
+    label: "Node 3 · Knowledge Base",
+    shortLabel: "Knowledge",
+    description:
+      "Builds a targeted RAG query, retrieves approved troubleshooting guidance, and writes knowledge findings to workflow state."
   }
 };
 
@@ -163,6 +170,23 @@ function stageStatus(
   snapshot: OrchestrationSnapshot,
   node: OrchestrationNodeId
 ): StageStatus {
+  if (node === "knowledge") {
+    if (snapshot.knowledgeGuidance?.eligible === false) {
+      return "skipped";
+    }
+    if (snapshot.status === "failed" && snapshot.node === node) {
+      return "failed";
+    }
+    const events = nodeEvents(snapshot, node);
+    if (events.length === 0) {
+      return "pending";
+    }
+    if (snapshot.knowledgeGuidance) {
+      return "done";
+    }
+    return displayEventStatus(snapshot, events.at(-1)!);
+  }
+
   if (node === "customer_history") {
     if (snapshot.customerContext?.eligible === false) {
       return "skipped";
@@ -214,9 +238,13 @@ function displayEventStatus(
 
 function displayNode(snapshot: OrchestrationSnapshot): OrchestrationNodeId {
   if (snapshot.status === "done") {
-    return stageStatus(snapshot, "customer_history") === "pending"
-      ? "triage"
-      : "customer_history";
+    if (stageStatus(snapshot, "knowledge") !== "pending") {
+      return "knowledge";
+    }
+    if (stageStatus(snapshot, "customer_history") !== "pending") {
+      return "customer_history";
+    }
+    return "triage";
   }
   const lastEvent = snapshot.events.at(-1);
   return lastEvent ? eventNode(lastEvent) : snapshot.node;
@@ -246,7 +274,7 @@ function currentStageSummary(snapshot: OrchestrationSnapshot): string {
 }
 
 function completedStages(snapshot: OrchestrationSnapshot): number {
-  return (["triage", "customer_history"] as OrchestrationNodeId[]).filter(
+  return (["triage", "customer_history", "knowledge"] as OrchestrationNodeId[]).filter(
     (node) => {
       const status = stageStatus(snapshot, node);
       return status === "done" || status === "skipped";
@@ -348,7 +376,7 @@ function StageRail({ snapshot }: { snapshot: OrchestrationSnapshot }) {
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
-        {(["triage", "customer_history"] as OrchestrationNodeId[]).map(
+        {(["triage", "customer_history", "knowledge"] as OrchestrationNodeId[]).map(
           (node) => {
             const events = nodeEvents(snapshot, node);
             const status = stageStatus(snapshot, node);
@@ -379,6 +407,141 @@ function StageRail({ snapshot }: { snapshot: OrchestrationSnapshot }) {
           }
         )}
       </div>
+    </section>
+  );
+}
+
+function KnowledgeGuidanceSummary({
+  knowledgeGuidance
+}: {
+  knowledgeGuidance?: OrchestrationSnapshot["knowledgeGuidance"];
+}) {
+  if (!knowledgeGuidance) {
+    return null;
+  }
+
+  const sourceCount = knowledgeGuidance.answer?.sources.length ?? 0;
+
+  return (
+    <section className="space-y-3 rounded-xl border bg-card p-5 text-card-foreground shadow-sm">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Node 3 output
+          </p>
+          <h2 className="text-lg font-semibold">Knowledge guidance</h2>
+        </div>
+        <StageBadge
+          status={knowledgeGuidance.eligible ? "done" : "skipped"}
+        />
+      </div>
+
+      <p className="text-sm text-muted-foreground">
+        {knowledgeGuidance.eligible
+          ? knowledgeGuidance.eligibilityReason ??
+            "Knowledge retrieval executed for this workflow."
+          : knowledgeGuidance.eligibilityReason ??
+            "Knowledge retrieval was skipped for this workflow."}
+      </p>
+
+      <dl className="grid gap-3 md:grid-cols-2">
+        <FindingCard
+          label="Status"
+          value={knowledgeGuidance.status ?? "Skipped"}
+          supporting={
+            knowledgeGuidance.degraded
+              ? `Degraded: ${knowledgeGuidance.degradedSources?.join(", ") ?? "Yes"}`
+              : "Degraded: No"
+          }
+        />
+        <FindingCard
+          label="Sources found"
+          value={String(sourceCount)}
+          supporting={
+            knowledgeGuidance.answer?.retrievalId
+              ? `Retrieval id: ${knowledgeGuidance.answer.retrievalId}`
+              : "No retrieval id recorded"
+          }
+        />
+        {knowledgeGuidance.answer?.provider ? (
+          <FindingCard
+            label="Provider"
+            value={knowledgeGuidance.answer.provider}
+            supporting={
+              knowledgeGuidance.answer.model
+                ? `Model: ${knowledgeGuidance.answer.model}`
+                : undefined
+            }
+          />
+        ) : null}
+        {knowledgeGuidance.answer?.latencyMs !== undefined ? (
+          <FindingCard
+            label="Latency"
+            value={`${knowledgeGuidance.answer.latencyMs} ms`}
+            supporting={
+              knowledgeGuidance.answer.embeddingProvider
+                ? `Embeddings: ${knowledgeGuidance.answer.embeddingProvider}`
+                : undefined
+            }
+          />
+        ) : null}
+      </dl>
+
+      {knowledgeGuidance.answer?.safeSummary ? (
+        <div className="rounded-xl border bg-background p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Suggested next step
+          </p>
+          <p className="mt-2 text-sm text-foreground">
+            {knowledgeGuidance.answer.safeSummary}
+          </p>
+        </div>
+      ) : null}
+
+      {knowledgeGuidance.answer?.sources?.length ? (
+        <details className="rounded-xl border bg-background p-3">
+          <summary className="cursor-pointer text-sm font-medium text-foreground">
+            Retrieved sources
+          </summary>
+          <ul className="mt-3 space-y-2">
+            {knowledgeGuidance.answer.sources.map((source) => (
+              <li
+                key={`${source.sourceId}-${source.chunkId ?? "source"}`}
+                className="rounded-lg border bg-card px-3 py-2"
+              >
+                <div className="flex items-start gap-2">
+                  <Link2
+                    className="mt-0.5 h-4 w-4 text-muted-foreground"
+                    aria-hidden
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      {source.title}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {source.retrievalScorePercentile !== undefined
+                        ? `Score: ${source.retrievalScorePercentile}`
+                        : "Score unavailable"}
+                      {source.version ? ` · Version: ${source.version}` : ""}
+                    </p>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+
+      <details className="rounded-xl border bg-background p-3">
+        <summary className="cursor-pointer text-sm font-medium text-foreground">
+          Knowledge guidance JSON
+        </summary>
+        <div className="mt-3">
+          <JsonBlock
+            value={knowledgeGuidance as unknown as OrchestrationTraceValue}
+          />
+        </div>
+      </details>
     </section>
   );
 }
@@ -833,7 +996,7 @@ export function OrchestrationPanel({
               {snapshot.caseNumber ? `Case ${snapshot.caseNumber}` : "Workflow"}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Read-only engineering view of Node 1 triage and Node 2 customer context.
+              Read-only engineering view of Node 1 triage, Node 2 customer context, and Node 3 knowledge guidance.
             </p>
           </div>
           <StatusBadge status={snapshot.status} />
@@ -843,7 +1006,7 @@ export function OrchestrationPanel({
           <SummaryCard
             label="Current stage"
             value={currentStageSummary(snapshot)}
-            supporting={`Completed stages: ${completedStages(snapshot)}/2`}
+            supporting={`Completed stages: ${completedStages(snapshot)}/3`}
           />
           <SummaryCard
             label="Workflow id"
@@ -858,10 +1021,7 @@ export function OrchestrationPanel({
         </div>
 
         <p className="rounded-md bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
-          This view exposes sanitized execution artifacts, tool activity, and state transitions for engineering review. It does not expose hidden chain-of-thought or approval controls.
-        </p>
-        <p className="rounded-md border border-dashed border-muted-foreground/30 px-3 py-2 text-xs text-muted-foreground">
-          Approvals are handled in the account manager&apos;s email or Salesforce, never here.
+          This view exposes sanitized execution artifacts, state transitions, and read-only node outputs. Approvals remain outside this console.
         </p>
       </section>
 
@@ -875,6 +1035,9 @@ export function OrchestrationPanel({
         <div className="space-y-4">
           <TriageSummary snapshot={snapshot} />
           <CustomerContextSummary customerContext={snapshot.customerContext} />
+          <KnowledgeGuidanceSummary
+            knowledgeGuidance={snapshot.knowledgeGuidance}
+          />
         </div>
       </div>
 

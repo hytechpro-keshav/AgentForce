@@ -1,0 +1,1472 @@
+{
+  "kbArticles": [
+    {
+      "title": "Battery Not Charging on AeroVolt ProBook 15X",
+      "category": "Battery",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Battery percentage remains unchanged while plugged in",
+        "Charging indicator LED is off",
+        "System reports 'plugged in, not charging'"
+      ],
+      "cause": "Possible failure of SP-BATT-15X battery pack or SP-CHG-65W power adapter. May also be caused by firmware issue in battery controller.",
+      "resolution": [
+        "Verify SP-CHG-65W adapter functionality by testing on a known-good unit",
+        "Run built-in battery diagnostics from system BIOS",
+        "Check battery health via OS power management tools",
+        "Update BIOS to latest version for battery controller firmware fix",
+        "Replace SP-BATT-15X if diagnostics indicate failure"
+      ],
+      "inventoryReferences": ["SP-BATT-15X", "SP-CHG-65W"],
+      "locationReferences": ["WH-SJO-002", "WH-JCY-003"],
+      "keywords": [
+        "battery",
+        "charging",
+        "not charging",
+        "power adapter",
+        "plugged in"
+      ]
+    },
+    {
+      "title": "Battery Drains Rapidly on AeroVolt ProBook 15X",
+      "category": "Battery",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Battery depletes within 1-2 hours under normal usage",
+        "Battery percentage drops suddenly",
+        "System shuts down unexpectedly at 20-30% charge"
+      ],
+      "cause": "Degraded SP-BATT-15X battery cells causing reduced capacity. Background processes or display brightness may also contribute.",
+      "resolution": [
+        "Check battery wear level in BIOS diagnostics",
+        "Calibrate battery by fully discharging and recharging",
+        "Disable unnecessary background applications",
+        "Reduce display brightness to extend runtime",
+        "Replace SP-BATT-15X if wear level exceeds 30%"
+      ],
+      "inventoryReferences": ["SP-BATT-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "battery drain",
+        "rapid drain",
+        "battery life",
+        "capacity",
+        "runtime"
+      ]
+    },
+    {
+      "title": "Battery Not Detected on AeroVolt Stratos Air 13",
+      "category": "Battery",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "System shows 'No battery detected' in OS",
+        "Device only runs on AC power",
+        "BIOS does not show battery information"
+      ],
+      "cause": "SP-BATT-15X battery connector may be loose or disconnected. Battery management IC on motherboard may have failed.",
+      "resolution": [
+        "Power off and remove AC adapter",
+        "Reseat battery connector on motherboard",
+        "Test with a known-good SP-BATT-15X unit",
+        "Check motherboard battery detection circuit",
+        "Escalate to Tier 2 if battery is detected externally but not in system"
+      ],
+      "inventoryReferences": ["SP-BATT-15X", "SP-MB-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "battery not detected",
+        "no battery",
+        "battery missing",
+        "AC only"
+      ]
+    },
+    {
+      "title": "Battery Swelling on Quantum Apex 17-G",
+      "category": "Battery",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "Visible bulge or deformation on the bottom of the unit",
+        "Touchpad or keyboard elevated from chassis",
+        "Device does not sit flat on surface"
+      ],
+      "cause": "Swollen SP-BATT-15X battery pack due to gas buildup from cell degradation. Typically occurs in aging batteries or due to thermal stress.",
+      "resolution": [
+        "IMMEDIATELY cease use of the device",
+        "Do not attempt to puncture, dismantle, or charge the battery",
+        "Initiate battery replacement service request",
+        "Ship unit or schedule in-person service",
+        "Replace SP-BATT-15X under safety recall or warranty as applicable",
+        "Dispose of old battery per local hazardous material regulations"
+      ],
+      "inventoryReferences": ["SP-BATT-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "swollen battery",
+        "battery bulge",
+        "puffed battery",
+        "battery safety",
+        "deformation"
+      ]
+    },
+    {
+      "title": "Incorrect Battery Percentage Reported on AeroVolt ProBook 15X",
+      "category": "Battery",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Battery shows 100% but device shuts down soon after",
+        "Percentage jumps erratically (e.g., 60% to 10%)",
+        "Charge indicator does not match actual battery state"
+      ],
+      "cause": "Battery gauge calibration drift in SP-BATT-15X. Firmware bug in battery controller may misreport state of charge.",
+      "resolution": [
+        "Perform full battery calibration cycle: charge to 100%, discharge to 5%, recharge to 100%",
+        "Update BIOS firmware to latest version",
+        "Run battery diagnostics from BIOS setup",
+        "Replace SP-BATT-15X if inaccurate readings persist after two calibration cycles"
+      ],
+      "inventoryReferences": ["SP-BATT-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "battery percentage",
+        "inaccurate battery",
+        "calibration",
+        "battery gauge",
+        "wrong percentage"
+      ]
+    },
+    {
+      "title": "Battery Does Not Hold Charge on AeroVolt A5X Pro",
+      "category": "Battery",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "Battery drains to 0% within minutes of unplugging",
+        "Device only operates with SP-CHG-65W connected",
+        "Battery health shows critical in diagnostics"
+      ],
+      "cause": "End-of-life SP-BATT-15X battery. Cells unable to retain charge due to high cycle count or deep discharge damage.",
+      "resolution": [
+        "Verify cycle count via BIOS battery information page",
+        "Confirm battery health status in OS power settings",
+        "Initiate SP-BATT-15X replacement order from WH-SJO-002 (San Jose Spare Parts & Warranty Depot)",
+        "Advise customer to avoid full discharge cycles in future"
+      ],
+      "inventoryReferences": ["SP-BATT-15X", "SP-CHG-65W"],
+      "locationReferences": ["WH-SJO-002", "WH-JCY-003"],
+      "keywords": [
+        "battery hold charge",
+        "battery dead",
+        "battery replacement",
+        "end of life"
+      ]
+    },
+    {
+      "title": "Charging LED Behavior Abnormal on AeroVolt Nexus Docking Station",
+      "category": "Battery",
+      "productCode": "AV-ACC-NX-DOCK",
+      "symptoms": [
+        "Charging LED on docking station does not illuminate when laptop connected",
+        "Laptop battery does not charge through dock",
+        "Intermittent charging when using docking station"
+      ],
+      "cause": "SP-CHG-65W power delivery via docking station interrupted. Dock power IC failure or incompatible firmware version.",
+      "resolution": [
+        "Test SP-CHG-65W adapter directly with laptop (bypassing dock)",
+        "Update docking station firmware from support portal",
+        "Check USB-C cable integrity and connector pins",
+        "Test with alternate USB-C port on dock",
+        "Replace docking station if power delivery consistently fails"
+      ],
+      "inventoryReferences": ["SP-CHG-65W"],
+      "locationReferences": ["WH-JCY-003"],
+      "keywords": [
+        "docking station charging",
+        "dock battery",
+        "charging LED",
+        "USB-C charging"
+      ]
+    },
+    {
+      "title": "Battery Warning Messages on Quantum Apex 17-G",
+      "category": "Battery",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "Warning message: 'Battery needs to be replaced soon'",
+        "BIOS shows battery wear above threshold",
+        "OS power settings flag battery as poor health"
+      ],
+      "cause": "SP-BATT-15X has exceeded recommended wear level threshold. Normal end-of-life behavior after extended usage.",
+      "resolution": [
+        "Document battery wear percentage for warranty assessment",
+        "Check if unit is within warranty period",
+        "Initiate battery replacement if wear > 20% and unit is in warranty",
+        "Order SP-BATT-15X from WH-SJO-002 (San Jose Spare Parts & Warranty Depot)",
+        "Advise customer on battery care best practices"
+      ],
+      "inventoryReferences": ["SP-BATT-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "battery warning",
+        "replace battery",
+        "battery wear",
+        "battery health warning"
+      ]
+    },
+    {
+      "title": "Overheating Causes Battery Cutoff on AeroVolt ProBook 15X",
+      "category": "Battery",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "System shuts down suddenly when under load",
+        "Battery icon shows 'not charging' when system is hot",
+        "Device resumes charging after cooling down"
+      ],
+      "cause": "Thermal protection circuit halts charging when internal temperature exceeds safe threshold. May be related to SP-FAN-15X or SP-HEAT-15X failure.",
+      "resolution": [
+        "Ensure ventilation vents are unobstructed",
+        "Run fan diagnostics to check SP-FAN-15X operation",
+        "Clean vents with compressed air",
+        "Check thermal paste condition on CPU/GPU",
+        "Replace SP-FAN-15X or SP-HEAT-15X if thermal issues persist",
+        "Replace SP-BATT-15X if battery is damaged from repeated thermal events"
+      ],
+      "inventoryReferences": ["SP-BATT-15X", "SP-FAN-15X", "SP-HEAT-15X"],
+      "locationReferences": ["WH-SJO-002", "WH-FRA-004"],
+      "keywords": [
+        "overheating",
+        "thermal cutoff",
+        "battery not charging hot",
+        "temperature",
+        "fan"
+      ]
+    },
+    {
+      "title": "Battery Replacement Procedure for AeroVolt Stratos Air 13",
+      "category": "Battery",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "Customer requests proactive battery replacement",
+        "Battery wear level above 20%",
+        "Unit within warranty or extended service plan"
+      ],
+      "cause": "Scheduled maintenance or customer-initiated replacement of SP-BATT-15X.",
+      "resolution": [
+        "Verify entitlement and warranty status",
+        "Order SP-BATT-15X from WH-SJO-002 (San Jose Spare Parts & Warranty Depot)",
+        "Schedule technician visit or ship unit to service center",
+        "Technician to replace SP-BATT-15X following service manual procedures",
+        "Re-run battery calibration post-replacement",
+        "Update service record in case management system"
+      ],
+      "inventoryReferences": ["SP-BATT-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "battery replacement",
+        "replacement procedure",
+        "battery service",
+        "battery maintenance"
+      ]
+    },
+    {
+      "title": "65W Adapter Not Recognized on AeroVolt A5X Pro",
+      "category": "Battery",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "System shows 'Adapter not recognized' notification",
+        "Charging occurs slowly or not at all",
+        "BIOS reports unknown adapter"
+      ],
+      "cause": "SP-CHG-65W adapter ID chip failure or use of non-certified third-party adapter.",
+      "resolution": [
+        "Confirm adapter is OEM SP-CHG-65W unit",
+        "Try alternate SP-CHG-65W adapter from inventory",
+        "Inspect USB-C connector for damage or debris",
+        "Test alternate USB-C port on the device",
+        "Replace SP-CHG-65W adapter if ID chip failure confirmed"
+      ],
+      "inventoryReferences": ["SP-CHG-65W"],
+      "locationReferences": ["WH-JCY-003"],
+      "keywords": [
+        "adapter not recognized",
+        "charger not recognized",
+        "power adapter",
+        "65W"
+      ]
+    },
+    {
+      "title": "Battery Charge Stuck at 80% on AeroVolt ProBook 15X",
+      "category": "Battery",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Battery charges to exactly 80% and stops",
+        "Charge does not increase beyond 80% even after hours",
+        "No error messages displayed"
+      ],
+      "cause": "Battery Care Mode (charge limit) feature is enabled in BIOS or system utility, limiting SP-BATT-15X charge to 80% for longevity.",
+      "resolution": [
+        "Open BIOS settings and check Battery Care Mode or Charge Limit settings",
+        "Disable charge limit or set maximum charge to 100%",
+        "Verify setting is retained after reboot",
+        "If feature is not enabled but issue persists, test with replacement SP-BATT-15X"
+      ],
+      "inventoryReferences": ["SP-BATT-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "battery 80 percent",
+        "charge limit",
+        "battery care mode",
+        "stuck charging"
+      ]
+    },
+    {
+      "title": "Battery Status Not Visible in OS on Quantum Apex 17-G",
+      "category": "Battery",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "Battery icon missing from taskbar/system tray",
+        "Power settings show no battery information",
+        "Device behaves as if no battery is installed"
+      ],
+      "cause": "Battery driver corruption or missing ACPI battery driver. Alternatively, SP-BATT-15X connector may be loose.",
+      "resolution": [
+        "Check Device Manager for battery driver status",
+        "Uninstall and reinstall ACPI battery drivers",
+        "Reseat SP-BATT-15X connector internally",
+        "Test with known-good SP-BATT-15X",
+        "Escalate to Tier 2 if driver reinstall does not resolve"
+      ],
+      "inventoryReferences": ["SP-BATT-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "battery icon missing",
+        "battery driver",
+        "ACPI",
+        "no battery status"
+      ]
+    },
+    {
+      "title": "Charging Port Physical Damage Preventing Charge on AeroVolt ProBook 15X",
+      "category": "Battery",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "USB-C charging port visibly damaged or bent",
+        "SP-CHG-65W adapter does not seat securely",
+        "Charging intermittent or impossible"
+      ],
+      "cause": "Physical damage to USB-C charging port on motherboard. Not covered under standard warranty unless defect is present.",
+      "resolution": [
+        "Document physical damage with photographs",
+        "Assess warranty coverage \u2014 accidental damage may require separate claim",
+        "If motherboard USB-C port is damaged, SP-MB-15X replacement may be required",
+        "Escalate to Tier 2 for out-of-warranty damage assessment",
+        "Order SP-MB-15X from WH-SJO-002 (San Jose Spare Parts & Warranty Depot) if approved"
+      ],
+      "inventoryReferences": ["SP-MB-15X", "SP-CHG-65W"],
+      "locationReferences": ["WH-SJO-002", "WH-JCY-003"],
+      "keywords": [
+        "charging port damage",
+        "USB-C broken",
+        "port damaged",
+        "physical damage"
+      ]
+    },
+    {
+      "title": "Battery Firmware Update Required on AeroVolt Stratos Air 13",
+      "category": "Battery",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "BIOS alert: 'Battery firmware update recommended'",
+        "Battery reporting inconsistencies after OS update",
+        "Battery calibration fails"
+      ],
+      "cause": "Outdated firmware on SP-BATT-15X battery management IC incompatible with latest system BIOS.",
+      "resolution": [
+        "Download latest BIOS update from support portal",
+        "Apply BIOS update with SP-CHG-65W adapter connected",
+        "Battery firmware is updated as part of BIOS update package",
+        "Run battery diagnostics post-update to verify",
+        "If update fails, replace SP-BATT-15X from WH-SJO-002 (San Jose Spare Parts & Warranty Depot)"
+      ],
+      "inventoryReferences": ["SP-BATT-15X", "SP-CHG-65W"],
+      "locationReferences": ["WH-SJO-002", "WH-JCY-003"],
+      "keywords": [
+        "battery firmware",
+        "BIOS update",
+        "battery management",
+        "firmware update"
+      ]
+    },
+    {
+      "title": "Battery Percentage Drops to 0% Suddenly on AeroVolt A5X Pro",
+      "category": "Battery",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "Battery drops from 40% to 0% without warning",
+        "Sudden shutdown without low battery notification",
+        "Battery recharges normally but drops again suddenly"
+      ],
+      "cause": "Defective battery cell in SP-BATT-15X causing voltage collapse under load. Gauge IC calibration issue.",
+      "resolution": [
+        "Perform battery calibration cycle",
+        "Run extended battery diagnostics via BIOS",
+        "Document sudden shutdowns with event logs",
+        "Replace SP-BATT-15X \u2014 defective cell behavior indicates replacement is necessary",
+        "Order from WH-SJO-002 (San Jose Spare Parts & Warranty Depot) for fastest fulfillment"
+      ],
+      "inventoryReferences": ["SP-BATT-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "battery drops",
+        "sudden shutdown",
+        "voltage collapse",
+        "battery cell",
+        "0 percent"
+      ]
+    },
+    {
+      "title": "Battery Not Charging via USB-C on AeroVolt Nexus Docking Station",
+      "category": "Battery",
+      "productCode": "AV-ACC-NX-DOCK",
+      "symptoms": [
+        "Laptop plugged into dock but battery not charging",
+        "Dock USB-C port shows connected but no power delivery",
+        "SP-CHG-65W direct connection works fine"
+      ],
+      "cause": "Docking station power delivery negotiation failure. Dock firmware may not properly negotiate 65W delivery for laptop.",
+      "resolution": [
+        "Update AeroVolt Nexus Docking Station firmware",
+        "Check USB-C cable between dock and laptop \u2014 use certified cable",
+        "Verify dock is connected to SP-CHG-65W adapter",
+        "Test on alternate USB-C downstream port of dock",
+        "Replace dock if power delivery failure persists after firmware update"
+      ],
+      "inventoryReferences": ["SP-CHG-65W"],
+      "locationReferences": ["WH-JCY-003"],
+      "keywords": [
+        "dock charging",
+        "docking station USB-C",
+        "power delivery",
+        "65W dock"
+      ]
+    },
+    {
+      "title": "Battery Health Check Procedure for Warranty Assessment",
+      "category": "Battery",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Customer requests battery health evaluation",
+        "Unit submitted for warranty battery claim",
+        "Battery performance complaints"
+      ],
+      "cause": "Routine warranty assessment procedure for SP-BATT-15X battery health.",
+      "resolution": [
+        "Boot into BIOS and navigate to Battery Information",
+        "Record: Design Capacity, Full Charge Capacity, Wear Level, Cycle Count",
+        "If Wear Level > 20% and unit is within 1-year warranty \u2014 approve replacement",
+        "If Cycle Count < 300 and capacity < 70% \u2014 approve replacement",
+        "Order SP-BATT-15X from WH-SJO-002",
+        "Document findings in service case before ordering parts"
+      ],
+      "inventoryReferences": ["SP-BATT-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "battery health check",
+        "warranty assessment",
+        "battery capacity",
+        "cycle count",
+        "wear level"
+      ]
+    },
+    {
+      "title": "Multiple Charge Cycles in One Day on Quantum Apex 17-G",
+      "category": "Battery",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "Customer reports needing to charge device 3-4 times daily",
+        "Battery capacity measured at less than 50% of design capacity",
+        "Device over 2 years old"
+      ],
+      "cause": "Age-related capacity degradation of SP-BATT-15X. Normal wear after 500+ charge cycles.",
+      "resolution": [
+        "Verify cycle count and wear in BIOS",
+        "Check warranty/extended service plan status",
+        "If out of warranty, provide paid replacement quote for SP-BATT-15X",
+        "If within extended warranty, initiate replacement",
+        "Source SP-BATT-15X from WH-SJO-002 (San Jose Spare Parts & Warranty Depot)",
+        "Advise customer on optimal charging habits"
+      ],
+      "inventoryReferences": ["SP-BATT-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "frequent charging",
+        "battery degradation",
+        "capacity loss",
+        "aging battery"
+      ]
+    },
+    {
+      "title": "Battery Replacement Under Extended Service Plan on AeroVolt A5X Pro",
+      "category": "Battery",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "Customer has active Extended Service Plan",
+        "Battery wear level exceeds 20%",
+        "Customer requests proactive replacement"
+      ],
+      "cause": "Battery degradation covered under Extended Service Plan entitlement.",
+      "resolution": [
+        "Verify Extended Service Plan entitlement in case management system",
+        "Confirm SP-BATT-15X wear level via BIOS",
+        "Approve replacement under ESP if criteria met",
+        "Dispatch SP-BATT-15X from WH-SJO-002 (San Jose Spare Parts & Warranty Depot)",
+        "Schedule technician or ship prepaid label to customer",
+        "Close case with entitlement code and part dispatch reference"
+      ],
+      "inventoryReferences": ["SP-BATT-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "extended service plan",
+        "battery ESP",
+        "battery entitlement",
+        "proactive replacement"
+      ]
+    },
+    {
+      "title": "Keys Sticking or Not Registering on AeroVolt ProBook 15X",
+      "category": "Keyboard",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Individual keys require excessive force to press",
+        "Key presses not registering in OS",
+        "Keys physically stuck in pressed position"
+      ],
+      "cause": "Debris under key cap or damaged key switch in SP-KBD-15X backlit keyboard assembly.",
+      "resolution": [
+        "Attempt to clean affected keys with compressed air",
+        "Gently remove keycap and clean underneath (if serviceable)",
+        "Test keyboard in BIOS to confirm hardware-level issue",
+        "If multiple keys affected, replace SP-KBD-15X assembly",
+        "Order SP-KBD-15X from WH-SJO-002 (San Jose Spare Parts & Warranty Depot)"
+      ],
+      "inventoryReferences": ["SP-KBD-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "keys sticking",
+        "key not registering",
+        "keyboard keys",
+        "stuck key",
+        "key press"
+      ]
+    },
+    {
+      "title": "Keyboard Backlight Not Working on AeroVolt Stratos Air 13",
+      "category": "Keyboard",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "Keyboard backlight does not illuminate",
+        "Backlight toggle key has no effect",
+        "Backlight worked previously but stopped"
+      ],
+      "cause": "LED driver failure in SP-KBD-15X assembly or backlight control firmware issue.",
+      "resolution": [
+        "Confirm backlight is not disabled in BIOS settings",
+        "Try backlight toggle keyboard shortcut (Fn + F7 or equivalent)",
+        "Update keyboard firmware via BIOS update",
+        "Test keyboard backlight in BIOS setup to isolate OS vs hardware issue",
+        "Replace SP-KBD-15X if hardware backlight failure confirmed"
+      ],
+      "inventoryReferences": ["SP-KBD-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "keyboard backlight",
+        "backlight not working",
+        "keyboard light",
+        "LED backlight"
+      ]
+    },
+    {
+      "title": "Keyboard Water Damage on Quantum Apex 17-G",
+      "category": "Keyboard",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "Multiple keys not responding after liquid spill",
+        "Keyboard inputs erratic characters",
+        "Corrosion visible on keyboard flex cable"
+      ],
+      "cause": "Liquid ingress causing corrosion and short circuits in SP-KBD-15X keyboard assembly.",
+      "resolution": [
+        "Power off immediately \u2014 do not attempt to power on",
+        "Document liquid damage for warranty assessment (liquid damage voids standard warranty)",
+        "Inspect keyboard and internal components for corrosion",
+        "Replace SP-KBD-15X \u2014 liquid-damaged keyboards cannot be repaired",
+        "Assess if SP-MB-15X motherboard has been affected",
+        "Provide out-of-warranty repair quote if accidental damage plan not held"
+      ],
+      "inventoryReferences": ["SP-KBD-15X", "SP-MB-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "water damage",
+        "liquid spill",
+        "keyboard damage",
+        "spill",
+        "corrosion"
+      ]
+    },
+    {
+      "title": "Keyboard Types Wrong Characters on AeroVolt A5X Pro",
+      "category": "Keyboard",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "Pressing 'a' types '@' or other symbols",
+        "Number keys type symbols instead of numbers",
+        "Keyboard layout appears changed"
+      ],
+      "cause": "Incorrect keyboard layout set in OS. Num Lock or Fn Lock engaged. Not typically a SP-KBD-15X hardware failure.",
+      "resolution": [
+        "Check OS language/keyboard layout settings",
+        "Toggle Num Lock key off",
+        "Toggle Fn Lock if applicable",
+        "Verify correct regional layout is selected",
+        "If issue persists in BIOS, replace SP-KBD-15X as keyboard matrix may be damaged"
+      ],
+      "inventoryReferences": ["SP-KBD-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "wrong characters",
+        "keyboard layout",
+        "num lock",
+        "wrong keys",
+        "typing symbols"
+      ]
+    },
+    {
+      "title": "Keyboard Flex Cable Failure on AeroVolt ProBook 15X",
+      "category": "Keyboard",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Entire keyboard unresponsive",
+        "Keyboard works intermittently when lid is moved",
+        "Specific rows of keys stop working"
+      ],
+      "cause": "Torn or disconnected flex cable on SP-KBD-15X keyboard assembly. May be caused by previous repair work.",
+      "resolution": [
+        "Test keyboard connectivity in BIOS",
+        "Open base panel and inspect keyboard flex cable connection to motherboard",
+        "Reseat flex cable connector",
+        "If cable is torn, SP-KBD-15X full assembly replacement is required",
+        "Order SP-KBD-15X from WH-SJO-002 (San Jose Spare Parts & Warranty Depot)"
+      ],
+      "inventoryReferences": ["SP-KBD-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "keyboard flex cable",
+        "keyboard cable",
+        "keyboard intermittent",
+        "keyboard rows"
+      ]
+    },
+    {
+      "title": "Function Keys Not Working on AeroVolt Stratos Air 13",
+      "category": "Keyboard",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "F1-F12 keys act as media/special keys instead of function keys",
+        "Fn key combination does not produce expected results",
+        "Fn Lock appears to be stuck"
+      ],
+      "cause": "Fn Lock mode enabled or Function Key behavior setting in BIOS reversed.",
+      "resolution": [
+        "Press Fn + Esc to toggle Fn Lock (if supported)",
+        "Access BIOS settings and look for 'Function Key Behavior' option",
+        "Toggle between 'Function Key' and 'Multimedia Key' modes",
+        "Save BIOS settings and reboot",
+        "If physical Fn key is stuck, replace SP-KBD-15X"
+      ],
+      "inventoryReferences": ["SP-KBD-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": ["function keys", "fn key", "fn lock", "media keys", "F1 F12"]
+    },
+    {
+      "title": "Keyboard Key Cap Broken on Quantum Apex 17-G",
+      "category": "Keyboard",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "One or more key caps physically broken off",
+        "Key retainer clip missing",
+        "Key functions but cap is missing"
+      ],
+      "cause": "Physical damage to SP-KBD-15X key cap and retainer mechanism. User-induced damage in most cases.",
+      "resolution": [
+        "Assess warranty coverage for physical damage",
+        "If accidental damage plan covers this, approve SP-KBD-15X replacement",
+        "If out of warranty, quote full SP-KBD-15X keyboard assembly replacement",
+        "Individual key caps are not sold separately \u2014 full assembly replacement required",
+        "Order SP-KBD-15X from WH-SJO-002 (San Jose Spare Parts & Warranty Depot)"
+      ],
+      "inventoryReferences": ["SP-KBD-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "broken key cap",
+        "key cap missing",
+        "broken key",
+        "key retainer",
+        "physical damage"
+      ]
+    },
+    {
+      "title": "Ghost Typing on AeroVolt ProBook 15X",
+      "category": "Keyboard",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Characters appear on screen without keys being pressed",
+        "Random key inputs during startup",
+        "Text cursor moves randomly"
+      ],
+      "cause": "Debris or moisture triggering key switches in SP-KBD-15X. Rarely, electromagnetic interference. May also be touchpad-related.",
+      "resolution": [
+        "Clean keyboard with compressed air",
+        "Boot to BIOS to isolate OS vs hardware issue",
+        "Disable touchpad to rule out SP-TPAD-15X as cause",
+        "Test SP-KBD-15X in BIOS \u2014 if ghost inputs seen in BIOS, hardware fault confirmed",
+        "Replace SP-KBD-15X if ghost typing confirmed in hardware test"
+      ],
+      "inventoryReferences": ["SP-KBD-15X", "SP-TPAD-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "ghost typing",
+        "phantom keys",
+        "random input",
+        "ghost input",
+        "spurious keystrokes"
+      ]
+    },
+    {
+      "title": "Keyboard Backlight Color Options on AeroVolt A5X Pro",
+      "category": "Keyboard",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "Customer inquiry about backlight color customization",
+        "Backlight only shows white despite expecting RGB",
+        "Backlight customization software not recognizing keyboard"
+      ],
+      "cause": "SP-KBD-15X backlit keyboard assembly supports single-color white backlight only. RGB is not a feature of this model.",
+      "resolution": [
+        "Confirm to customer that SP-KBD-15X supports white backlight only \u2014 RGB is not available on AV-LP-A5X-PRO",
+        "Ensure backlight control software is updated to latest version",
+        "Offer brightness adjustment via Fn key shortcut",
+        "No hardware replacement needed unless backlight is non-functional"
+      ],
+      "inventoryReferences": ["SP-KBD-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "keyboard backlight color",
+        "RGB keyboard",
+        "backlight white",
+        "backlight customization"
+      ]
+    },
+    {
+      "title": "Keyboard Replacement Procedure for AeroVolt Stratos Air 13",
+      "category": "Keyboard",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "Technician-initiated SP-KBD-15X replacement",
+        "Multiple keys damaged or unresponsive",
+        "Customer approved replacement"
+      ],
+      "cause": "Scheduled or approved SP-KBD-15X keyboard assembly replacement.",
+      "resolution": [
+        "Power off device and disconnect SP-CHG-65W adapter",
+        "Remove base cover following service manual torque sequence",
+        "Disconnect battery SP-BATT-15X before proceeding",
+        "Disconnect keyboard flex cable from motherboard connector",
+        "Remove keyboard screws and lift assembly",
+        "Install new SP-KBD-15X, reconnect flex cable and test",
+        "Reassemble and verify all keys in BIOS"
+      ],
+      "inventoryReferences": ["SP-KBD-15X", "SP-BATT-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "keyboard replacement procedure",
+        "keyboard install",
+        "keyboard technician",
+        "SP-KBD-15X install"
+      ]
+    },
+    {
+      "title": "International Keyboard Layout Not Available for AeroVolt ProBook 15X",
+      "category": "Keyboard",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Customer requires non-English keyboard layout",
+        "Special characters not present on current keyboard",
+        "Language-specific keys missing"
+      ],
+      "cause": "SP-KBD-15X is ordered in region-specific layouts. Incorrect layout shipped or customer needs different regional variant.",
+      "resolution": [
+        "Verify which keyboard layout variant was shipped (check order details)",
+        "Check available SP-KBD-15X regional variants in inventory at WH-SJO-002 for EU layouts",
+        "For EMEA customers, source SP-KBD-15X from WH-SJO-002 (San Jose Spare Parts & Warranty Depot)",
+        "For US layouts, source from WH-SJO-002 (San Jose Spare Parts & Warranty Depot)",
+        "Update OS language/input settings to match new keyboard layout after replacement"
+      ],
+      "inventoryReferences": ["SP-KBD-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "international keyboard",
+        "keyboard layout",
+        "region keyboard",
+        "language keyboard",
+        "EMEA keyboard"
+      ]
+    },
+    {
+      "title": "Keyboard Hotkeys Not Functioning on Quantum Apex 17-G",
+      "category": "Keyboard",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "Volume, brightness, and media hotkeys have no effect",
+        "Hotkeys worked before OS reinstall",
+        "Fn combination keys non-functional"
+      ],
+      "cause": "Missing keyboard driver or hotkey utility software after OS reinstall. Not a SP-KBD-15X hardware failure.",
+      "resolution": [
+        "Download and install keyboard hotkey utility from support portal",
+        "Install latest chipset and keyboard drivers",
+        "Verify Fn key behavior in BIOS",
+        "Test hotkeys after driver reinstall",
+        "If hotkeys still fail in BIOS, replace SP-KBD-15X"
+      ],
+      "inventoryReferences": ["SP-KBD-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "hotkeys not working",
+        "keyboard hotkeys",
+        "Fn keys",
+        "media keys",
+        "volume keys"
+      ]
+    },
+    {
+      "title": "Keyboard and Touchpad Both Unresponsive on AeroVolt A5X Pro",
+      "category": "Keyboard",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "Both keyboard and touchpad unresponsive simultaneously",
+        "External USB keyboard and mouse work fine",
+        "Issue occurs after sleep/hibernate"
+      ],
+      "cause": "Internal USB hub or input controller on motherboard may have failed. Post-sleep power state issue common on this platform.",
+      "resolution": [
+        "Perform full power cycle \u2014 shut down completely, remove SP-CHG-65W, hold power 30 seconds",
+        "Update BIOS and chipset drivers",
+        "Check BIOS for input device settings",
+        "If issue persists across multiple reboots, test SP-KBD-15X and SP-TPAD-15X individually",
+        "Escalate to Tier 2 \u2014 possible SP-MB-15X motherboard input controller fault"
+      ],
+      "inventoryReferences": ["SP-KBD-15X", "SP-TPAD-15X", "SP-MB-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "keyboard touchpad unresponsive",
+        "input not working",
+        "sleep wake keyboard",
+        "USB hub"
+      ]
+    },
+    {
+      "title": "Display Flickering on AeroVolt ProBook 15X",
+      "category": "Display",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Screen flickers at irregular intervals",
+        "Flickering worsens when brightness is low",
+        "External monitor does not flicker"
+      ],
+      "cause": "Faulty SP-DISP-15X-FHD display panel PWM dimming circuit or loose display cable.",
+      "resolution": [
+        "Update display driver to latest version",
+        "Set display brightness to 100% to test if PWM-related",
+        "Inspect display cable connection at hinges",
+        "Run display test pattern in BIOS diagnostics",
+        "Replace SP-DISP-15X-FHD if flickering reproduced in BIOS"
+      ],
+      "inventoryReferences": ["SP-DISP-15X-FHD", "SP-HINGE-15X"],
+      "locationReferences": ["WH-SJO-002", "WH-FRA-004"],
+      "keywords": [
+        "display flickering",
+        "screen flicker",
+        "PWM flicker",
+        "display issue",
+        "flickering screen"
+      ]
+    },
+    {
+      "title": "Display Dead Pixels on AeroVolt Stratos Air 13",
+      "category": "Display",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "One or more pixels permanently black",
+        "Bright stuck pixels (always white or colored)",
+        "Pixel cluster visible in center of screen"
+      ],
+      "cause": "Manufacturing defect or physical damage causing dead/stuck pixels in SP-DISP-15X-FHD panel.",
+      "resolution": [
+        "Run dead pixel test tool to count and map affected pixels",
+        "Check warranty dead pixel policy \u2014 typically 5+ dead pixels in cluster qualifies for replacement",
+        "Document pixel location and count with photograph",
+        "Approve SP-DISP-15X-FHD replacement if threshold exceeded",
+        "Order from WH-SJO-002 (San Jose Spare Parts & Warranty Depot)"
+      ],
+      "inventoryReferences": ["SP-DISP-15X-FHD"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "dead pixels",
+        "stuck pixels",
+        "pixel defect",
+        "screen pixels",
+        "bright pixels"
+      ]
+    },
+    {
+      "title": "Black Screen on Boot on Quantum Apex 17-G",
+      "category": "Display",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "Screen remains black after power on",
+        "Power LED is on but no display",
+        "External monitor shows output"
+      ],
+      "cause": "SP-DISP-15X-FHD display panel failure, loose display cable, or GPU handoff issue to internal display.",
+      "resolution": [
+        "Connect external monitor to verify GPU is functional",
+        "Bright flashlight test \u2014 check for very dim backlight (LVDS signal present)",
+        "Reseat display cable at both ends (panel and motherboard)",
+        "Update graphics driver",
+        "Replace SP-DISP-15X-FHD if cable is intact and backlight is absent"
+      ],
+      "inventoryReferences": ["SP-DISP-15X-FHD"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "black screen",
+        "no display",
+        "blank screen",
+        "screen not working",
+        "boot black screen"
+      ]
+    },
+    {
+      "title": "Display Backlight Failure on AeroVolt A5X Pro",
+      "category": "Display",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "Screen backlight turns off shortly after booting",
+        "Image visible only with external light source",
+        "Backlight comes on for 2-3 seconds then turns off"
+      ],
+      "cause": "Inverter or LED backlight driver failure in SP-DISP-15X-FHD panel.",
+      "resolution": [
+        "Perform flashlight test to confirm backlight failure vs total panel failure",
+        "Check BIOS screen \u2014 if visible with flashlight, backlight circuit is at fault",
+        "Inspect display cable and connector at motherboard",
+        "Replace SP-DISP-15X-FHD panel",
+        "Order from WH-SJO-002 (San Jose Spare Parts & Warranty Depot) for domestic US shipment"
+      ],
+      "inventoryReferences": ["SP-DISP-15X-FHD"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "backlight failure",
+        "screen dark",
+        "backlight off",
+        "display backlight",
+        "dim screen"
+      ]
+    },
+    {
+      "title": "Display Cracked on AeroVolt ProBook 15X",
+      "category": "Display",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Visible cracks on display panel",
+        "Ink bleed or spreading discoloration",
+        "Portions of screen unusable"
+      ],
+      "cause": "Physical impact damage to SP-DISP-15X-FHD panel. Not covered under standard warranty.",
+      "resolution": [
+        "Document with photograph for case file",
+        "Assess accidental damage plan coverage",
+        "If accidental damage plan active \u2014 initiate replacement claim",
+        "If no coverage \u2014 provide out-of-warranty SP-DISP-15X-FHD replacement quote",
+        "Order SP-DISP-15X-FHD from WH-SJO-002 and schedule technician"
+      ],
+      "inventoryReferences": ["SP-DISP-15X-FHD"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "cracked screen",
+        "broken display",
+        "screen damage",
+        "physical damage",
+        "cracked display"
+      ]
+    },
+    {
+      "title": "Vertical Lines on Display on AeroVolt Stratos Air 13",
+      "category": "Display",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "Thin vertical lines across part of the screen",
+        "Lines are colored (red, green, or white)",
+        "Lines appear at fixed positions"
+      ],
+      "cause": "Damaged display ribbon cable or failed column driver in SP-DISP-15X-FHD panel.",
+      "resolution": [
+        "Apply gentle pressure to corners of panel to see if lines shift (indicates cable issue)",
+        "Reseat display cable at motherboard and panel connectors",
+        "If lines persist, SP-DISP-15X-FHD panel is internally damaged",
+        "Replace SP-DISP-15X-FHD",
+        "Source SP-DISP-15X-FHD from WH-SJO-002 (San Jose Spare Parts & Warranty Depot)"
+      ],
+      "inventoryReferences": ["SP-DISP-15X-FHD"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "vertical lines",
+        "screen lines",
+        "display lines",
+        "colored lines",
+        "column lines"
+      ]
+    },
+    {
+      "title": "Display Brightness Too Low on Quantum Apex 17-G",
+      "category": "Display",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "Screen appears very dim even at 100% brightness",
+        "Brightness slider has no effect",
+        "Auto-brightness reducing screen too much"
+      ],
+      "cause": "Ambient light sensor miscalibration, display driver issue, or weakening LED backlight in SP-DISP-15X-FHD.",
+      "resolution": [
+        "Disable auto-brightness in display settings",
+        "Update display adapter driver",
+        "Check BIOS display settings for brightness limits",
+        "Run display diagnostic to measure brightness level",
+        "If hardware brightness confirmed low, replace SP-DISP-15X-FHD"
+      ],
+      "inventoryReferences": ["SP-DISP-15X-FHD"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "low brightness",
+        "dim display",
+        "brightness issue",
+        "screen dim",
+        "auto brightness"
+      ]
+    },
+    {
+      "title": "Display Hinge Broken on AeroVolt ProBook 15X",
+      "category": "Display",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Lid does not stay at desired angle",
+        "Hinge feels loose or overly stiff",
+        "Cracking sound when opening or closing lid"
+      ],
+      "cause": "SP-HINGE-15X display hinge kit failure due to mechanical wear or physical stress.",
+      "resolution": [
+        "Assess if damage is warranty-covered or accidental",
+        "Check for associated display cable damage",
+        "Order SP-HINGE-15X kit from WH-FRA-004 (Frankfurt Logistics Center - Hall 4)",
+        "Replace SP-HINGE-15X following service manual hinge replacement procedure",
+        "Verify display cable routing is correct after hinge replacement"
+      ],
+      "inventoryReferences": ["SP-HINGE-15X", "SP-DISP-15X-FHD"],
+      "locationReferences": ["WH-FRA-004", "WH-SJO-002"],
+      "keywords": [
+        "hinge broken",
+        "loose hinge",
+        "display hinge",
+        "lid hinge",
+        "hinge cracking"
+      ]
+    },
+    {
+      "title": "Display Color Accuracy Issues on AeroVolt A5X Pro",
+      "category": "Display",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "Colors appear washed out or oversaturated",
+        "Display does not match color profile calibration",
+        "Photos and videos look different than on other displays"
+      ],
+      "cause": "Incorrect ICC color profile applied, display driver settings, or manufacturing variance in SP-DISP-15X-FHD panel.",
+      "resolution": [
+        "Reset display color settings to factory defaults in OS",
+        "Download and apply correct ICC profile for SP-DISP-15X-FHD from support portal",
+        "Update display adapter driver",
+        "Run display color calibration wizard in OS",
+        "If color inaccuracy is extreme and persists, replace SP-DISP-15X-FHD"
+      ],
+      "inventoryReferences": ["SP-DISP-15X-FHD"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "color accuracy",
+        "color profile",
+        "washed out",
+        "oversaturated",
+        "color calibration"
+      ]
+    },
+    {
+      "title": "External Display Not Detected via Docking Station",
+      "category": "Display",
+      "productCode": "AV-ACC-NX-DOCK",
+      "symptoms": [
+        "External monitor connected to AeroVolt Nexus Docking Station not detected",
+        "Display output works directly from laptop",
+        "Dock video ports (HDMI/DisplayPort) non-functional"
+      ],
+      "cause": "Docking station firmware out of date, DisplayLink driver missing, or dock power delivery insufficient.",
+      "resolution": [
+        "Update AeroVolt Nexus Docking Station firmware",
+        "Install latest DisplayLink driver on laptop",
+        "Ensure dock is powered via SP-CHG-65W adapter",
+        "Try different video output port on dock (HDMI vs DP)",
+        "Verify monitor cable and port compatibility",
+        "Replace dock if all ports fail after firmware update"
+      ],
+      "inventoryReferences": ["SP-CHG-65W", "SP-DISP-15X-FHD"],
+      "locationReferences": ["WH-JCY-003", "WH-SJO-002"],
+      "keywords": [
+        "external display",
+        "monitor not detected",
+        "docking station display",
+        "HDMI dock",
+        "DisplayPort"
+      ]
+    },
+    {
+      "title": "Screen Tearing During Video Playback on AeroVolt Stratos Air 13",
+      "category": "Display",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "Horizontal tearing artifacts during video or games",
+        "Tearing visible when scrolling",
+        "Issue not present on external monitor"
+      ],
+      "cause": "V-Sync disabled or refresh rate mismatch between GPU and SP-DISP-15X-FHD panel.",
+      "resolution": [
+        "Enable V-Sync in graphics control panel",
+        "Set display refresh rate to native panel rate in OS display settings",
+        "Update graphics driver",
+        "Enable panel self-refresh if available in BIOS",
+        "If tearing persists in BIOS diagnostics, inspect SP-DISP-15X-FHD cable"
+      ],
+      "inventoryReferences": ["SP-DISP-15X-FHD"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "screen tearing",
+        "display tearing",
+        "video tearing",
+        "V-sync",
+        "refresh rate"
+      ]
+    },
+    {
+      "title": "Touch Screen Unresponsive on Quantum Apex 17-G",
+      "category": "Display",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "Touchscreen does not respond to touch",
+        "Touch works in some areas but not others",
+        "Touch worked previously but stopped after update"
+      ],
+      "cause": "Digitizer driver corruption, firmware update disabling touch, or SP-DISP-15X-FHD digitizer hardware failure.",
+      "resolution": [
+        "Re-enable touchscreen in Device Manager if listed as disabled",
+        "Uninstall and reinstall HID touch driver",
+        "Update BIOS and touch firmware",
+        "Test touch in BIOS (if touch BIOS is supported)",
+        "Replace SP-DISP-15X-FHD touch-enabled panel if hardware fault confirmed"
+      ],
+      "inventoryReferences": ["SP-DISP-15X-FHD"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "touchscreen not working",
+        "touch unresponsive",
+        "digitizer",
+        "HID touch",
+        "touch screen"
+      ]
+    },
+    {
+      "title": "Display Replacement Procedure for AeroVolt ProBook 15X",
+      "category": "Display",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Approved display replacement by technician",
+        "SP-DISP-15X-FHD ordered and ready for install"
+      ],
+      "cause": "Technician-initiated display panel replacement.",
+      "resolution": [
+        "Power off and disconnect SP-CHG-65W adapter",
+        "Disconnect SP-BATT-15X battery before working on display assembly",
+        "Remove display bezel using pry tool",
+        "Disconnect display cable from panel",
+        "Remove panel mounting screws and extract SP-DISP-15X-FHD",
+        "Install new SP-DISP-15X-FHD and reconnect cable",
+        "Replace bezel and power on to verify display",
+        "Run display calibration post-install"
+      ],
+      "inventoryReferences": ["SP-DISP-15X-FHD", "SP-HINGE-15X", "SP-BATT-15X"],
+      "locationReferences": ["WH-SJO-002", "WH-FRA-004"],
+      "keywords": [
+        "display replacement",
+        "panel replacement",
+        "screen replacement",
+        "display install",
+        "LCD install"
+      ]
+    },
+    {
+      "title": "Display Goes Black After Login on AeroVolt A5X Pro",
+      "category": "Display",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "Display works during boot but goes black after OS login",
+        "External monitor continues to work",
+        "Display driver crash suspected"
+      ],
+      "cause": "GPU driver crash causing SP-DISP-15X-FHD output to disable. May also be caused by display power management settings.",
+      "resolution": [
+        "Boot in Safe Mode \u2014 if display works, confirm driver issue",
+        "Uninstall and clean-install GPU driver",
+        "Disable aggressive display power-off settings",
+        "Update BIOS",
+        "If display fails even in Safe Mode, inspect display cable and replace SP-DISP-15X-FHD if faulty"
+      ],
+      "inventoryReferences": ["SP-DISP-15X-FHD"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "display black after login",
+        "screen black login",
+        "GPU driver crash",
+        "display power off"
+      ]
+    },
+    {
+      "title": "Display Ghosting on AeroVolt Stratos Air 13",
+      "category": "Display",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "Shadow or afterimage visible after fast movement on screen",
+        "Mouse cursor leaves trail",
+        "Video playback shows motion blur artifacts"
+      ],
+      "cause": "High response time of SP-DISP-15X-FHD IPS panel. Not a defect but inherent panel characteristic.",
+      "resolution": [
+        "Explain IPS panel response time characteristics to customer",
+        "Enable overdrive setting in display settings if available",
+        "If ghosting is extreme and static images leave persistent burn-in, SP-DISP-15X-FHD may be defective",
+        "Document with screen recording for warranty assessment",
+        "Replace SP-DISP-15X-FHD if burn-in or severe ghosting confirmed as hardware defect"
+      ],
+      "inventoryReferences": ["SP-DISP-15X-FHD"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "display ghosting",
+        "afterimage",
+        "motion blur",
+        "IPS ghosting",
+        "screen trail"
+      ]
+    },
+    {
+      "title": "Display Hinge Replacement on AeroVolt Stratos Air 13",
+      "category": "Display",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "Both hinges broken or one cracked",
+        "Display wobbles",
+        "Lid does not stay open at angle"
+      ],
+      "cause": "SP-HINGE-15X display hinge kit worn or broken due to mechanical fatigue or accidental damage.",
+      "resolution": [
+        "Order SP-HINGE-15X kit from WH-FRA-004 (Frankfurt Logistics Center - Hall 4)",
+        "Technician to carefully disassemble lid assembly",
+        "Replace both hinges simultaneously for uniform tension",
+        "Inspect display cable during hinge service",
+        "Verify lid opens and closes smoothly after installation"
+      ],
+      "inventoryReferences": ["SP-HINGE-15X"],
+      "locationReferences": ["WH-FRA-004"],
+      "keywords": [
+        "hinge replacement",
+        "display hinge",
+        "lid hinge broken",
+        "hinge repair"
+      ]
+    },
+    {
+      "title": "Bright Spot on Display on Quantum Apex 17-G",
+      "category": "Display",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "Bright circular spot visible on screen",
+        "Spot appears regardless of displayed content",
+        "Spot not removable by cleaning"
+      ],
+      "cause": "Pressure point damage to SP-DISP-15X-FHD LCD layer causing backlight leakage.",
+      "resolution": [
+        "Confirm spot is internal (between layers) vs external smudge",
+        "Assess cause: pressure damage from closing lid on object",
+        "If accidental \u2014 check accidental damage coverage",
+        "If manufacturing defect \u2014 approve warranty replacement",
+        "Replace SP-DISP-15X-FHD panel"
+      ],
+      "inventoryReferences": ["SP-DISP-15X-FHD"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "bright spot",
+        "screen spot",
+        "backlight bleed",
+        "pressure damage",
+        "LCD spot"
+      ]
+    },
+    {
+      "title": "Horizontal Lines on Display After Drop on AeroVolt A5X Pro",
+      "category": "Display",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "Horizontal lines appeared after device was dropped",
+        "Lines cover bottom third of screen",
+        "Touch and display functions otherwise normal"
+      ],
+      "cause": "Physical impact caused fracture in SP-DISP-15X-FHD panel's row driver or ribbon connection.",
+      "resolution": [
+        "Document impact damage with photographs",
+        "Assess accidental damage plan coverage",
+        "If no coverage, provide out-of-warranty replacement quote for SP-DISP-15X-FHD",
+        "Order SP-DISP-15X-FHD from WH-SJO-002 (San Jose Spare Parts & Warranty Depot)",
+        "Technician to replace panel and verify cable seating"
+      ],
+      "inventoryReferences": ["SP-DISP-15X-FHD"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "horizontal lines",
+        "lines after drop",
+        "impact damage",
+        "display damage",
+        "dropped laptop"
+      ]
+    },
+    {
+      "title": "Display Not Auto-Rotating on AeroVolt Stratos Air 13",
+      "category": "Display",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "Display does not rotate when device is turned in tablet mode",
+        "Auto-rotation toggle grayed out in OS",
+        "Screen stays in landscape mode in all orientations"
+      ],
+      "cause": "Accelerometer/gyroscope driver missing or disabled after OS reinstall. Not a SP-DISP-15X-FHD panel issue.",
+      "resolution": [
+        "Enable auto-rotation in OS action center settings",
+        "Install or update sensor hub driver",
+        "Check Device Manager for sensor device status",
+        "Update BIOS and EC firmware",
+        "If sensor hardware is missing, escalate to Tier 2"
+      ],
+      "inventoryReferences": ["SP-DISP-15X-FHD"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "auto rotation",
+        "screen rotation",
+        "tablet mode",
+        "accelerometer",
+        "rotation lock"
+      ]
+    },
+    {
+      "title": "Display Scratched on Quantum Apex 17-G",
+      "category": "Display",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "Visible scratch on display surface",
+        "Scratch does not affect display output",
+        "Customer requests cosmetic replacement"
+      ],
+      "cause": "Surface scratch on SP-DISP-15X-FHD anti-glare or glass coating. Physical damage.",
+      "resolution": [
+        "Confirm scratch does not affect display functionality",
+        "Cosmetic damage not covered under standard warranty",
+        "If accidental damage plan active, assess eligibility",
+        "If customer requests out-of-warranty replacement, provide SP-DISP-15X-FHD quote",
+        "Order from WH-SJO-002 if replacement approved"
+      ],
+      "inventoryReferences": ["SP-DISP-15X-FHD"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "scratched screen",
+        "screen scratch",
+        "cosmetic damage",
+        "display scratch",
+        "anti-glare scratch"
+      ]
+    },
+    {
+      "title": "Multi-Monitor Setup Issues with AeroVolt Nexus Docking Station",
+      "category": "Display",
+      "productCode": "AV-ACC-NX-DOCK",
+      "symptoms": [
+        "Cannot extend display to two external monitors simultaneously",
+        "Second monitor shown as duplicate only",
+        "Display arrangement not saved"
+      ],
+      "cause": "Bandwidth limitation of USB-C connection or DisplayLink configuration needed for multi-monitor via AeroVolt Nexus Docking Station.",
+      "resolution": [
+        "Update AeroVolt Nexus Docking Station firmware and DisplayLink software",
+        "Use both video output ports on dock for dual monitors",
+        "Verify laptop supports dual display output via USB-C",
+        "Adjust display arrangement in OS display settings",
+        "Test different monitor configurations \u2014 DP + HDMI simultaneously"
+      ],
+      "inventoryReferences": ["SP-DISP-15X-FHD", "SP-CHG-65W"],
+      "locationReferences": ["WH-SJO-002", "WH-JCY-003"],
+      "keywords": [
+        "multi monitor",
+        "dual display",
+        "docking station monitors",
+        "extend display",
+        "DisplayLink"
+      ]
+    },
+    {
+      "title": "Display Panel Warranty Claim for AeroVolt ProBook 15X",
+      "category": "Display",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "SP-DISP-15X-FHD failure within warranty period",
+        "Customer submitting display warranty claim",
+        "Display issue confirmed as hardware defect"
+      ],
+      "cause": "Manufacturing defect in SP-DISP-15X-FHD display panel requiring warranty replacement.",
+      "resolution": [
+        "Verify warranty status and confirm defect is not due to physical damage",
+        "Open warranty claim in case management system",
+        "Approve SP-DISP-15X-FHD replacement order from WH-SJO-002",
+        "Arrange technician dispatch or mail-in service",
+        "Update case with tracking and expected completion date",
+        "Follow up with customer upon closure"
+      ],
+      "inventoryReferences": ["SP-DISP-15X-FHD"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "display warranty",
+        "warranty claim",
+        "display defect",
+        "panel warranty",
+        "LCD warranty"
+      ]
+    }
+  ]
+}

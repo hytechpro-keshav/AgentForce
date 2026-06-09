@@ -1,0 +1,1052 @@
+{
+  "kbArticles": [
+    {
+      "title": "Laptop Does Not Power On with AeroVolt ProBook 15X",
+      "category": "Power & Charging",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "No response when pressing power button",
+        "No LED indicators light up",
+        "System was working previously"
+      ],
+      "cause": "SP-CHG-65W adapter failure, depleted SP-BATT-15X, or power button flex cable issue.",
+      "resolution": [
+        "Connect SP-CHG-65W and attempt power on",
+        "Perform hard reset: hold power button for 30 seconds with adapter disconnected",
+        "Verify SP-CHG-65W LED is illuminated",
+        "Test with alternate SP-CHG-65W adapter",
+        "If no POST, escalate to Tier 2 for motherboard assessment"
+      ],
+      "inventoryReferences": ["SP-CHG-65W", "SP-BATT-15X", "SP-MB-15X"],
+      "locationReferences": ["WH-JCY-003", "WH-SJO-002"],
+      "keywords": [
+        "no power",
+        "won't turn on",
+        "power button",
+        "dead laptop",
+        "not booting"
+      ]
+    },
+    {
+      "title": "SP-CHG-65W Adapter Gets Excessively Hot",
+      "category": "Power & Charging",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Power adapter is too hot to touch",
+        "Adapter emits burning smell",
+        "Adapter cuts out when hot"
+      ],
+      "cause": "Overloaded SP-CHG-65W adapter or internal thermal protection fault. Faulty unit.",
+      "resolution": [
+        "Immediately unplug SP-CHG-65W adapter",
+        "Do not continue using the adapter",
+        "Test with alternate SP-CHG-65W from WH-JCY-003 (Jersey City Distribution Hub - Secaucus WH) inventory",
+        "Replace SP-CHG-65W \u2014 defective adapters are safety hazards",
+        "Do not attempt to repair the adapter"
+      ],
+      "inventoryReferences": ["SP-CHG-65W"],
+      "locationReferences": ["WH-JCY-003"],
+      "keywords": [
+        "adapter hot",
+        "charger overheating",
+        "adapter burning",
+        "hot charger",
+        "safety"
+      ]
+    },
+    {
+      "title": "Power Cuts Out Under Load on AeroVolt Stratos Air 13",
+      "category": "Power & Charging",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "System shuts down immediately when running demanding applications",
+        "Power loss occurs with SP-CHG-65W connected",
+        "Event log shows unexpected shutdown"
+      ],
+      "cause": "SP-CHG-65W adapter cannot supply sufficient current under high GPU/CPU load. May also be SP-BATT-15X instability.",
+      "resolution": [
+        "Verify SP-CHG-65W is genuine 65W adapter (check label)",
+        "Test with load-bearing applications while monitoring power draw",
+        "Update EC firmware for power management",
+        "Check event log for thermal vs power event",
+        "Replace SP-CHG-65W if power delivery is confirmed insufficient"
+      ],
+      "inventoryReferences": ["SP-CHG-65W", "SP-BATT-15X"],
+      "locationReferences": ["WH-JCY-003", "WH-SJO-002"],
+      "keywords": [
+        "power cutout",
+        "shuts down load",
+        "power delivery",
+        "under load shutdown",
+        "EC firmware"
+      ]
+    },
+    {
+      "title": "USB-C Port Not Charging Laptop on AeroVolt A5X Pro",
+      "category": "Power & Charging",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "SP-CHG-65W connected to USB-C but no charging",
+        "USB-C port works for data but not power",
+        "Other USB-C ports charge fine"
+      ],
+      "cause": "One of the USB-C ports may not support Power Delivery. Or port-specific failure on motherboard.",
+      "resolution": [
+        "Confirm which USB-C ports support Power Delivery (check product spec sheet)",
+        "Try alternate USB-C port on device",
+        "Inspect USB-C port for debris or bent pins",
+        "If PD-capable port is non-functional, SP-MB-15X replacement may be required",
+        "Escalate to Tier 2 for port-level diagnosis"
+      ],
+      "inventoryReferences": ["SP-CHG-65W", "SP-MB-15X"],
+      "locationReferences": ["WH-JCY-003", "WH-SJO-002"],
+      "keywords": [
+        "USB-C not charging",
+        "power delivery",
+        "USB-C port",
+        "charging port failure"
+      ]
+    },
+    {
+      "title": "Power Adapter Cable Damage on AeroVolt ProBook 15X",
+      "category": "Power & Charging",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "SP-CHG-65W cable is visibly frayed or kinked",
+        "Charging intermittent depending on cable position",
+        "Sparks observed near cable bend"
+      ],
+      "cause": "Physical cable damage to SP-CHG-65W power adapter. Safety hazard.",
+      "resolution": [
+        "Immediately stop using the damaged SP-CHG-65W adapter",
+        "This is a safety issue \u2014 do not attempt to tape or repair the cable",
+        "Replace SP-CHG-65W from WH-JCY-003 (Jersey City Distribution Hub - Secaucus WH)",
+        "Check if within warranty \u2014 adapters covered under standard warranty",
+        "Ship replacement adapter to customer"
+      ],
+      "inventoryReferences": ["SP-CHG-65W"],
+      "locationReferences": ["WH-JCY-003"],
+      "keywords": [
+        "cable damage",
+        "frayed cable",
+        "adapter cable",
+        "charger cable",
+        "safety hazard"
+      ]
+    },
+    {
+      "title": "Laptop Runs on AC But Battery Doesn't Charge on Quantum Apex 17-G",
+      "category": "Power & Charging",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "System works fine on AC but battery percentage stays flat",
+        "'Plugged in, not charging' status",
+        "Battery percentage was 45% when plugged in, remains 45% after hours"
+      ],
+      "cause": "Battery charge threshold set in BIOS, or SP-BATT-15X battery controller fault.",
+      "resolution": [
+        "Check BIOS for battery charge limit or care mode settings",
+        "Disable charge limit and save BIOS settings",
+        "If no BIOS limit, run battery diagnostics",
+        "Update BIOS firmware",
+        "Replace SP-BATT-15X if charge circuit fault confirmed"
+      ],
+      "inventoryReferences": ["SP-BATT-15X", "SP-CHG-65W"],
+      "locationReferences": ["WH-SJO-002", "WH-JCY-003"],
+      "keywords": [
+        "not charging",
+        "plugged in not charging",
+        "battery flat on AC",
+        "charge limit",
+        "charge threshold"
+      ]
+    },
+    {
+      "title": "Power Surge Damage to AeroVolt Stratos Air 13",
+      "category": "Power & Charging",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "Device stopped working after power outage or surge",
+        "SP-CHG-65W adapter non-functional",
+        "Device powers on but screen remains black"
+      ],
+      "cause": "Power surge damage to SP-CHG-65W adapter or SP-MB-15X motherboard power regulation circuits.",
+      "resolution": [
+        "Test with known-good SP-CHG-65W adapter",
+        "Assess motherboard power input circuits",
+        "Power surge damage not covered under standard warranty",
+        "Recommend customer use surge protector going forward",
+        "If SP-MB-15X damaged, provide out-of-warranty motherboard replacement quote",
+        "Order SP-CHG-65W from WH-JCY-003 (Jersey City Distribution Hub - Secaucus WH) first to eliminate adapter as cause"
+      ],
+      "inventoryReferences": ["SP-CHG-65W", "SP-MB-15X"],
+      "locationReferences": ["WH-JCY-003", "WH-SJO-002"],
+      "keywords": [
+        "power surge",
+        "surge damage",
+        "power outage",
+        "adapter damaged",
+        "surge protector"
+      ]
+    },
+    {
+      "title": "Slow Charging Speed on AeroVolt A5X Pro",
+      "category": "Power & Charging",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "Battery charges at less than 1% per minute",
+        "Charging takes 6+ hours for full charge",
+        "Charging was faster previously"
+      ],
+      "cause": "Reduced charging speed due to thermal throttling of charge rate, battery wear, or SP-CHG-65W delivering less than rated 65W.",
+      "resolution": [
+        "Confirm SP-CHG-65W is rated 65W (check label and adapter ID in BIOS)",
+        "Charge in a cool environment to prevent thermal-limited charging",
+        "Check battery wear \u2014 older batteries charge slower",
+        "Test with alternate SP-CHG-65W adapter",
+        "Update BIOS for power management improvements"
+      ],
+      "inventoryReferences": ["SP-CHG-65W", "SP-BATT-15X"],
+      "locationReferences": ["WH-JCY-003", "WH-SJO-002"],
+      "keywords": [
+        "slow charging",
+        "charging speed",
+        "slow charge",
+        "battery charging slow",
+        "6 hours charge"
+      ]
+    },
+    {
+      "title": "No POST After Connecting New SP-CHG-65W Adapter",
+      "category": "Power & Charging",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "System does not boot after adapter replacement",
+        "Power LED flashes but no display",
+        "New SP-CHG-65W verified working on another device"
+      ],
+      "cause": "BIOS EC may not recognize new adapter after certain firmware conditions. May require BIOS reset.",
+      "resolution": [
+        "Remove SP-CHG-65W and SP-BATT-15X, hold power 30 seconds",
+        "Reconnect adapter and boot \u2014 should clear EC state",
+        "If still no POST, connect to external display to check for display-only issue",
+        "Update BIOS if system posts on external display",
+        "If system does not post at all, escalate to Tier 2 for SP-MB-15X assessment"
+      ],
+      "inventoryReferences": ["SP-CHG-65W", "SP-BATT-15X", "SP-MB-15X"],
+      "locationReferences": ["WH-JCY-003", "WH-SJO-002"],
+      "keywords": [
+        "no POST adapter",
+        "power adapter POST",
+        "EC reset",
+        "BIOS reset",
+        "no boot new charger"
+      ]
+    },
+    {
+      "title": "Power LED Blinking Pattern on AeroVolt Stratos Air 13",
+      "category": "Power & Charging",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "Power LED blinks in specific pattern instead of solid",
+        "System does not boot",
+        "LED pattern: 3 blinks, pause, 2 blinks"
+      ],
+      "cause": "POST diagnostic LED code indicating specific hardware failure. Blink pattern maps to component fault.",
+      "resolution": [
+        "Document exact blink pattern",
+        "Refer to POST blink code table: 3-2 pattern indicates RAM fault",
+        "Reseat SP-RAM-16-DDR5 module(s)",
+        "Test with single RAM module",
+        "Replace SP-RAM-16-DDR5 if fault persists",
+        "Escalate to Tier 2 if blink pattern indicates motherboard fault"
+      ],
+      "inventoryReferences": ["SP-RAM-16-DDR5", "SP-MB-15X"],
+      "locationReferences": ["WH-AUS-001", "WH-SJO-002"],
+      "keywords": [
+        "LED blink pattern",
+        "POST blink",
+        "power LED",
+        "diagnostic blink",
+        "blink code"
+      ]
+    },
+    {
+      "title": "Device Powers Off When Closing Lid on AeroVolt ProBook 15X",
+      "category": "Power & Charging",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "System shuts down instead of sleeping when lid closed",
+        "Data loss occurs when lid is closed",
+        "Power button and lid have same behavior"
+      ],
+      "cause": "OS power settings configured to shut down (instead of sleep) on lid close.",
+      "resolution": [
+        "Access OS power plan settings",
+        "Change 'When I close the lid' to 'Sleep' or 'Hibernate'",
+        "Verify setting for both battery and plugged-in scenarios",
+        "Save settings and test by closing lid",
+        "If system still shuts down despite correct setting, check BIOS lid-close action"
+      ],
+      "inventoryReferences": [],
+      "locationReferences": [],
+      "keywords": [
+        "lid close shutdown",
+        "power settings lid",
+        "sleep on lid close",
+        "shut down lid",
+        "hibernate"
+      ]
+    },
+    {
+      "title": "Wake from Sleep Fails on Quantum Apex 17-G",
+      "category": "Power & Charging",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "Pressing power button or key does not wake device from sleep",
+        "Display stays black after wake attempt",
+        "Power LED indicates sleep state but no response"
+      ],
+      "cause": "Deep sleep state (S3/Modern Standby) issue or display driver failure on wake.",
+      "resolution": [
+        "Hold power button for 10 seconds to force shutdown, then restart",
+        "Update BIOS and display driver",
+        "Change sleep state from Modern Standby to S3 in BIOS if available",
+        "Disable Fast Startup in OS power settings",
+        "If wake failure persists, escalate \u2014 may indicate SP-MB-15X EC firmware issue"
+      ],
+      "inventoryReferences": ["SP-MB-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "wake from sleep",
+        "sleep mode",
+        "sleep failure",
+        "display wake",
+        "Modern Standby"
+      ]
+    },
+    {
+      "title": "Power Button Stuck on AeroVolt A5X Pro",
+      "category": "Power & Charging",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "Power button physically depressed and stuck",
+        "System continuously powers on and off",
+        "Button click not tactile"
+      ],
+      "cause": "Debris lodged under power button or damaged power button assembly on SP-MB-15X motherboard.",
+      "resolution": [
+        "Attempt to clear debris with compressed air",
+        "If button is mechanically stuck, do not force \u2014 internal damage risk",
+        "Power button assembly replacement requires SP-MB-15X service",
+        "Escalate to Tier 2 for power button repair",
+        "Order SP-MB-15X from WH-SJO-002 if full motherboard replacement required"
+      ],
+      "inventoryReferences": ["SP-MB-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "power button stuck",
+        "stuck button",
+        "power button broken",
+        "stuck power key"
+      ]
+    },
+    {
+      "title": "Third-Party Charger Warning on AeroVolt ProBook 15X",
+      "category": "Power & Charging",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Warning: 'Unrecognized charger connected'",
+        "Charging works but at reduced speed",
+        "System recommends using genuine adapter"
+      ],
+      "cause": "Third-party USB-C charger lacks the ID chip required by AeroVolt firmware for full power delivery handshake.",
+      "resolution": [
+        "Advise customer to use SP-CHG-65W genuine adapter for full performance",
+        "Explain risks: third-party adapters may not provide stable 65W and can cause charging issues",
+        "Replace with SP-CHG-65W from WH-JCY-003 (Jersey City Distribution Hub - Secaucus WH)",
+        "If customer insists on third-party, document and note warranty implications"
+      ],
+      "inventoryReferences": ["SP-CHG-65W"],
+      "locationReferences": ["WH-JCY-003"],
+      "keywords": [
+        "third party charger",
+        "unrecognized charger",
+        "charger warning",
+        "non-OEM charger",
+        "adapter warning"
+      ]
+    },
+    {
+      "title": "Docking Station Not Powering Laptop on AeroVolt Nexus Docking Station",
+      "category": "Power & Charging",
+      "productCode": "AV-ACC-NX-DOCK",
+      "symptoms": [
+        "Laptop connected to dock via USB-C but battery not charging",
+        "Dock indicators show power but laptop shows no charge",
+        "Dock power delivery LED flashing"
+      ],
+      "cause": "AeroVolt Nexus Docking Station not receiving adequate power from SP-CHG-65W, or dock firmware power negotiation failure.",
+      "resolution": [
+        "Ensure SP-CHG-65W is connected to dock and illuminated",
+        "Try different USB-C port on dock",
+        "Update dock firmware to latest version",
+        "Inspect dock USB-C connector for damage",
+        "Replace dock if power passthrough consistently fails"
+      ],
+      "inventoryReferences": ["SP-CHG-65W"],
+      "locationReferences": ["WH-JCY-003"],
+      "keywords": [
+        "dock not charging",
+        "docking station power",
+        "dock USB-C",
+        "power passthrough"
+      ]
+    },
+    {
+      "title": "System Runs Only When Plugged In \u2014 Battery Bypassed on AeroVolt A5X Pro",
+      "category": "Power & Charging",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "System shuts down immediately when SP-CHG-65W is unplugged",
+        "Battery shows 0% and won't charge",
+        "System works fine when plugged in"
+      ],
+      "cause": "Completely discharged and dead SP-BATT-15X that cannot hold any charge.",
+      "resolution": [
+        "Run battery diagnostics via BIOS",
+        "Confirm battery is detected but capacity reads 0 or near-0",
+        "Replace SP-BATT-15X",
+        "After replacement, perform battery calibration cycle",
+        "Order SP-BATT-15X from WH-SJO-002 (San Jose Spare Parts & Warranty Depot) for fastest delivery"
+      ],
+      "inventoryReferences": ["SP-BATT-15X", "SP-CHG-65W"],
+      "locationReferences": ["WH-SJO-002", "WH-JCY-003"],
+      "keywords": [
+        "battery bypassed",
+        "dead battery",
+        "only on AC",
+        "battery 0 percent",
+        "battery completely dead"
+      ]
+    },
+    {
+      "title": "EC Firmware Update Causes Power Issues on AeroVolt Stratos Air 13",
+      "category": "Power & Charging",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "Power management issues after recent firmware update",
+        "Charging stops after EC firmware update",
+        "System power unstable post-update"
+      ],
+      "cause": "Incomplete or failed EC firmware update causing power management regression.",
+      "resolution": [
+        "Download and re-apply the latest BIOS/EC firmware from support portal",
+        "Ensure SP-CHG-65W is connected during update",
+        "Do not interrupt firmware update process",
+        "If EC is stuck in failed state, contact Tier 2 for EC recovery procedure",
+        "In rare cases, SP-MB-15X replacement may be needed after botched EC update"
+      ],
+      "inventoryReferences": ["SP-CHG-65W", "SP-MB-15X"],
+      "locationReferences": ["WH-JCY-003", "WH-SJO-002"],
+      "keywords": [
+        "EC firmware",
+        "firmware update",
+        "power after update",
+        "EC update",
+        "firmware regression"
+      ]
+    },
+    {
+      "title": "AC Adapter LED Not Illuminated on AeroVolt ProBook 15X",
+      "category": "Power & Charging",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "SP-CHG-65W adapter LED does not light up when plugged in",
+        "Laptop does not detect power from adapter",
+        "Adapter feels warm but no LED"
+      ],
+      "cause": "Faulty LED circuit in SP-CHG-65W or adapter in protection mode due to fault condition.",
+      "resolution": [
+        "Try adapter on another outlet to rule out power source issue",
+        "Test SP-CHG-65W on another AeroVolt laptop if available",
+        "No LED with no charging = replace SP-CHG-65W",
+        "Order from WH-JCY-003 (Jersey City Distribution Hub - Secaucus WH)"
+      ],
+      "inventoryReferences": ["SP-CHG-65W"],
+      "locationReferences": ["WH-JCY-003"],
+      "keywords": [
+        "adapter LED",
+        "charger LED",
+        "LED not on",
+        "adapter not working",
+        "no indicator"
+      ]
+    },
+    {
+      "title": "Power Management Settings Reset After Update on Quantum Apex 17-G",
+      "category": "Power & Charging",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "Power plan reverted to balanced after OS update",
+        "Battery charge limit reset to default",
+        "Custom power settings lost"
+      ],
+      "cause": "OS or BIOS update overwrote custom power management settings and battery care configuration.",
+      "resolution": [
+        "Re-configure power plan in OS settings",
+        "Re-enter battery charge limit in BIOS",
+        "Document custom settings for future reference",
+        "Check if power management software needs reinstall after OS update"
+      ],
+      "inventoryReferences": [],
+      "locationReferences": [],
+      "keywords": [
+        "power settings reset",
+        "power plan",
+        "settings after update",
+        "battery limit reset",
+        "power management"
+      ]
+    },
+    {
+      "title": "Short Circuit Indicator Triggered on AeroVolt A5X Pro",
+      "category": "Power & Charging",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "SP-CHG-65W shuts off immediately when plugged into laptop",
+        "Adapter cycles on and off rapidly",
+        "System does not power on"
+      ],
+      "cause": "Short circuit in laptop power input circuitry, damaged USB-C port, or SP-MB-15X power rail fault.",
+      "resolution": [
+        "DO NOT continue to plug in adapter \u2014 risk of damage",
+        "Test SP-CHG-65W on another device to confirm adapter is functioning",
+        "Inspect USB-C power port for debris or damage",
+        "This indicates SP-MB-15X power circuit failure \u2014 escalate to Tier 2 immediately",
+        "Ship device for service if motherboard fault confirmed"
+      ],
+      "inventoryReferences": ["SP-CHG-65W", "SP-MB-15X"],
+      "locationReferences": ["WH-JCY-003", "WH-SJO-002"],
+      "keywords": [
+        "short circuit",
+        "adapter shuts off",
+        "power fault",
+        "power input failure",
+        "motherboard power"
+      ]
+    },
+    {
+      "title": "SP-CHG-65W Compatibility with AeroVolt Nexus Docking Station",
+      "category": "Power & Charging",
+      "productCode": "AV-ACC-NX-DOCK",
+      "symptoms": [
+        "Customer asks if SP-CHG-65W works with docking station",
+        "Docking station has different wattage adapter bundled",
+        "Adapter interchangeability inquiry"
+      ],
+      "cause": "Customer inquiry \u2014 no fault. SP-CHG-65W compatibility check with AeroVolt Nexus Docking Station.",
+      "resolution": [
+        "Confirm SP-CHG-65W (65W) is compatible with AeroVolt Nexus Docking Station",
+        "Note: dock may require 65W minimum to power downstream devices and charge laptop simultaneously",
+        "If customer is running multiple monitors and charging through dock, recommend verifying power budget",
+        "SP-CHG-65W available from WH-JCY-003 (Jersey City Distribution Hub - Secaucus WH) and WH-JCY-003"
+      ],
+      "inventoryReferences": ["SP-CHG-65W"],
+      "locationReferences": ["WH-JCY-003"],
+      "keywords": [
+        "adapter compatibility",
+        "dock adapter",
+        "65W dock",
+        "charger dock",
+        "power compatibility"
+      ]
+    },
+    {
+      "title": "Power LED Always On \u2014 Cannot Power Off on AeroVolt ProBook 15X",
+      "category": "Power & Charging",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Power LED stays on even after shutdown",
+        "Cannot confirm device is fully powered off",
+        "Device appears in off state but LED glows"
+      ],
+      "cause": "Network wake or USB wake feature keeping LED active. Some states indicate standby rather than full shutdown.",
+      "resolution": [
+        "Check BIOS for 'Wake on LAN', 'Wake on USB', 'Deep Sleep' settings",
+        "Enable Deep Sleep / S5 state in BIOS",
+        "Disable network wake features",
+        "Verify OS is performing full shutdown vs hybrid shutdown (disable Fast Startup)",
+        "If LED stays on even after S5 is enabled, escalate \u2014 possible SP-MB-15X EC fault"
+      ],
+      "inventoryReferences": ["SP-MB-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "power LED on",
+        "always on LED",
+        "shutdown LED",
+        "wake on LAN",
+        "deep sleep"
+      ]
+    },
+    {
+      "title": "Multiple Devices on Same SP-CHG-65W Adapter \u2014 Compatibility",
+      "category": "Power & Charging",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "Customer wants to use one SP-CHG-65W adapter for multiple AeroVolt laptops",
+        "Adapter compatibility across models inquiry"
+      ],
+      "cause": "Customer inquiry regarding SP-CHG-65W cross-model compatibility.",
+      "resolution": [
+        "Confirm SP-CHG-65W is compatible across AV-LP-15X-PRO, AV-LP-13A-STRAT, AV-LP-A5X-PRO",
+        "Note: QA-LP-17G-APEX may have higher wattage requirements \u2014 verify specifications",
+        "One adapter per device is recommended for charging speed",
+        "Sharing adapters between devices is functionally acceptable but not recommended for simultaneous use"
+      ],
+      "inventoryReferences": ["SP-CHG-65W"],
+      "locationReferences": ["WH-JCY-003"],
+      "keywords": [
+        "adapter compatibility",
+        "cross model charger",
+        "one adapter",
+        "shared charger",
+        "65W compatibility"
+      ]
+    },
+    {
+      "title": "Charging Not Starting After Long Storage on AeroVolt Stratos Air 13",
+      "category": "Power & Charging",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "Device stored for 6+ months will not charge",
+        "Battery at 0% and SP-CHG-65W shows adapter detected but no charge progress",
+        "System does not power on"
+      ],
+      "cause": "SP-BATT-15X battery deeply discharged below recovery threshold during long storage.",
+      "resolution": [
+        "Leave SP-CHG-65W connected for 30-60 minutes with device off",
+        "Battery recovery mode should begin automatically at very low charge rate",
+        "After 30 min, attempt power on",
+        "If battery does not recover, replace SP-BATT-15X",
+        "Advise customer to store at 50% charge and charge every 3 months"
+      ],
+      "inventoryReferences": ["SP-BATT-15X", "SP-CHG-65W"],
+      "locationReferences": ["WH-SJO-002", "WH-JCY-003"],
+      "keywords": [
+        "deep discharge",
+        "long storage",
+        "battery recovery",
+        "storage battery",
+        "not charging storage"
+      ]
+    },
+    {
+      "title": "Charging Via USB-C on Left vs Right Port on AeroVolt ProBook 15X",
+      "category": "Power & Charging",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Charging only works on one USB-C port",
+        "Right USB-C port shows 'not charging'",
+        "Customer asking which port supports charging"
+      ],
+      "cause": "On AV-LP-15X-PRO, only the left USB-C port supports full Power Delivery (65W). Right port is data-only.",
+      "resolution": [
+        "Advise customer to connect SP-CHG-65W to left-side USB-C port",
+        "Right USB-C port is for data/video only \u2014 does not support charging",
+        "If left port is damaged, escalate for SP-MB-15X assessment",
+        "Document this as informational \u2014 no hardware fault"
+      ],
+      "inventoryReferences": ["SP-CHG-65W"],
+      "locationReferences": ["WH-JCY-003"],
+      "keywords": [
+        "USB-C port charging",
+        "left port",
+        "right port",
+        "which port charges",
+        "power delivery port"
+      ]
+    },
+    {
+      "title": "CPU Fan Not Spinning on AeroVolt ProBook 15X",
+      "category": "Thermal & Fan",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "No audible fan noise under heavy load",
+        "System overheats and throttles rapidly",
+        "Fan diagnostics report fan failure"
+      ],
+      "cause": "Failed SP-FAN-15X cooling fan assembly. Fan motor seized or fan connector disconnected.",
+      "resolution": [
+        "Run fan diagnostics from BIOS",
+        "Listen for fan spin-up during POST",
+        "Inspect fan connector on motherboard",
+        "Replace SP-FAN-15X if fan does not spin in diagnostics",
+        "Order SP-FAN-15X from WH-FRA-004 (Frankfurt Logistics Center - Hall 4)"
+      ],
+      "inventoryReferences": ["SP-FAN-15X", "SP-HEAT-15X"],
+      "locationReferences": ["WH-FRA-004"],
+      "keywords": [
+        "fan not spinning",
+        "fan failure",
+        "no fan",
+        "fan stopped",
+        "cooling fan"
+      ]
+    },
+    {
+      "title": "Loud Fan Noise on AeroVolt Stratos Air 13",
+      "category": "Thermal & Fan",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "Fan runs constantly at maximum speed",
+        "Loud grinding or rattling noise from fan",
+        "Fan noise increases when system wakes from sleep"
+      ],
+      "cause": "Debris in SP-FAN-15X fan blades, worn fan bearing, or thermal management firmware issue.",
+      "resolution": [
+        "Clean vents with compressed air to remove dust buildup",
+        "Run fan diagnostics to check for bearing noise pattern",
+        "Update BIOS for fan curve improvements",
+        "If grinding/rattling noise persists, replace SP-FAN-15X",
+        "Source from WH-FRA-004 (Frankfurt Logistics Center - Hall 4)"
+      ],
+      "inventoryReferences": ["SP-FAN-15X"],
+      "locationReferences": ["WH-FRA-004"],
+      "keywords": [
+        "loud fan",
+        "fan noise",
+        "grinding fan",
+        "fan rattling",
+        "noisy fan"
+      ]
+    },
+    {
+      "title": "System Overheating and Throttling on Quantum Apex 17-G",
+      "category": "Thermal & Fan",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "CPU performance drops drastically after a few minutes of use",
+        "System temperature exceeds 95\u00b0C under load",
+        "Fan is spinning but throttling occurs"
+      ],
+      "cause": "Degraded thermal paste on SP-HEAT-15X heat sink, partially blocked vents, or worn SP-FAN-15X.",
+      "resolution": [
+        "Clean cooling vents with compressed air",
+        "Replenish thermal paste on CPU and GPU heatsink (SP-HEAT-15X)",
+        "Test fan RPM in BIOS diagnostics",
+        "Ensure device is not used on fabric surfaces",
+        "Replace SP-HEAT-15X if thermal interface material is dried out or heat pipes are damaged"
+      ],
+      "inventoryReferences": ["SP-FAN-15X", "SP-HEAT-15X"],
+      "locationReferences": ["WH-FRA-004"],
+      "keywords": [
+        "overheating",
+        "thermal throttling",
+        "CPU throttle",
+        "heat",
+        "temperature high"
+      ]
+    },
+    {
+      "title": "Fan Speed Control Not Working on AeroVolt A5X Pro",
+      "category": "Thermal & Fan",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "Fan always at 100% speed regardless of temperature",
+        "Fan speed cannot be adjusted via software",
+        "Fan curve appears non-responsive"
+      ],
+      "cause": "EC firmware bug causing fan control to default to maximum speed mode. SP-FAN-15X hardware likely working.",
+      "resolution": [
+        "Update BIOS/EC firmware from support portal",
+        "After firmware update, test fan behavior under various loads",
+        "If fan still stuck at max, run fan diagnostics",
+        "Check fan PWM signal with service tool if available",
+        "Replace SP-FAN-15X only if hardware fan control circuit confirmed faulty"
+      ],
+      "inventoryReferences": ["SP-FAN-15X"],
+      "locationReferences": ["WH-FRA-004"],
+      "keywords": [
+        "fan speed control",
+        "fan always max",
+        "EC firmware fan",
+        "fan curve",
+        "PWM fan"
+      ]
+    },
+    {
+      "title": "Heat Sink Replacement Procedure on AeroVolt ProBook 15X",
+      "category": "Thermal & Fan",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Approved SP-HEAT-15X replacement",
+        "Thermal paste reapplication needed",
+        "Persistent thermal throttling after fan replacement"
+      ],
+      "cause": "Degraded thermal interface material or damaged heat pipes in SP-HEAT-15X assembly.",
+      "resolution": [
+        "Power off and disconnect SP-CHG-65W and SP-BATT-15X",
+        "Remove base panel and fan assembly SP-FAN-15X",
+        "Remove SP-HEAT-15X heat sink screws in X-pattern",
+        "Clean old thermal paste from CPU/GPU with isopropyl alcohol",
+        "Apply new thermal paste in pea-sized dot method",
+        "Install new SP-HEAT-15X and secure screws in X-pattern to spec torque",
+        "Reinstall SP-FAN-15X and test for throttling"
+      ],
+      "inventoryReferences": ["SP-HEAT-15X", "SP-FAN-15X", "SP-BATT-15X"],
+      "locationReferences": ["WH-FRA-004", "WH-SJO-002"],
+      "keywords": [
+        "heat sink replacement",
+        "thermal paste",
+        "SP-HEAT-15X install",
+        "heatsink procedure",
+        "heat pipes"
+      ]
+    },
+    {
+      "title": "Thermal Shutdown During Video Encoding on AeroVolt Stratos Air 13",
+      "category": "Thermal & Fan",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "System shuts down after 10-15 minutes of video encoding",
+        "Event log shows thermal protection triggered",
+        "No warning before shutdown"
+      ],
+      "cause": "Sustained high CPU load exceeds cooling capacity of SP-FAN-15X or SP-HEAT-15X has degraded thermal contact.",
+      "resolution": [
+        "Clean fan vents with compressed air",
+        "Test on hard flat surface for proper airflow",
+        "Update BIOS for improved thermal management",
+        "Monitor CPU temperature during encoding with diagnostic tool",
+        "If temperatures above 90\u00b0C, replace SP-HEAT-15X and reapply thermal paste"
+      ],
+      "inventoryReferences": ["SP-FAN-15X", "SP-HEAT-15X"],
+      "locationReferences": ["WH-FRA-004"],
+      "keywords": [
+        "thermal shutdown",
+        "video encoding",
+        "sustained load",
+        "thermal protection",
+        "shutdown temperature"
+      ]
+    },
+    {
+      "title": "Fan Replacement Procedure on AeroVolt A5X Pro",
+      "category": "Thermal & Fan",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "SP-FAN-15X ordered and ready for replacement",
+        "Technician-initiated fan assembly replacement"
+      ],
+      "cause": "Scheduled or approved SP-FAN-15X cooling fan assembly replacement.",
+      "resolution": [
+        "Power off and disconnect all power sources",
+        "Remove base panel",
+        "Disconnect SP-FAN-15X connector from motherboard",
+        "Remove fan mounting screws",
+        "Extract SP-FAN-15X from chassis",
+        "Install new SP-FAN-15X and reconnect power connector",
+        "Reapply thermal paste if SP-HEAT-15X was disturbed",
+        "Test fan operation in BIOS before closing chassis"
+      ],
+      "inventoryReferences": ["SP-FAN-15X", "SP-HEAT-15X"],
+      "locationReferences": ["WH-FRA-004"],
+      "keywords": [
+        "fan replacement",
+        "SP-FAN-15X install",
+        "fan assembly",
+        "technician fan",
+        "cooling install"
+      ]
+    },
+    {
+      "title": "Dust Accumulation Causing Thermal Issues on Quantum Apex 17-G",
+      "category": "Thermal & Fan",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "Gradual increase in fan noise over several months",
+        "System temperatures higher than baseline",
+        "Vents visibly dusty"
+      ],
+      "cause": "Dust buildup blocking SP-FAN-15X and SP-HEAT-15X air channels, reducing cooling efficiency.",
+      "resolution": [
+        "Power off and unplug SP-CHG-65W",
+        "Use compressed air to blow out vents from exhaust end",
+        "For thorough cleaning, open base panel and clean SP-FAN-15X blades and fins directly",
+        "Clean SP-HEAT-15X fin stack",
+        "Reassemble and verify temperatures return to normal range",
+        "Recommend annual cleaning to customer"
+      ],
+      "inventoryReferences": ["SP-FAN-15X", "SP-HEAT-15X"],
+      "locationReferences": ["WH-FRA-004"],
+      "keywords": [
+        "dust cleaning",
+        "thermal maintenance",
+        "dusty fan",
+        "cleaning vents",
+        "preventive maintenance"
+      ]
+    },
+    {
+      "title": "Single Fan vs Dual Fan Thermal Performance on Quantum Apex 17-G",
+      "category": "Thermal & Fan",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "Customer reports thermal issues after partial fan replacement",
+        "One fan replaced, one not \u2014 temperatures still high",
+        "Technician question on fan replacement strategy"
+      ],
+      "cause": "QA-LP-17G-APEX uses dual SP-FAN-15X fan assemblies (CPU + GPU). Replacing only one may not resolve thermal issues.",
+      "resolution": [
+        "Confirm both SP-FAN-15X fans are operational in BIOS diagnostics",
+        "If one fan is degraded, recommend replacing both simultaneously to ensure balanced cooling",
+        "Order two SP-FAN-15X units from WH-FRA-004 (Frankfurt Logistics Center - Hall 4)",
+        "Both fans share the SP-HEAT-15X heat pipe network \u2014 inspect heat pipes for damage"
+      ],
+      "inventoryReferences": ["SP-FAN-15X", "SP-HEAT-15X"],
+      "locationReferences": ["WH-FRA-004"],
+      "keywords": [
+        "dual fan",
+        "two fans",
+        "both fans",
+        "fan strategy",
+        "thermal dual fan"
+      ]
+    },
+    {
+      "title": "Abnormal CPU Temperature on Idle on AeroVolt A5X Pro",
+      "category": "Thermal & Fan",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "CPU temperature at 70\u00b0C while idle",
+        "Fan runs loudly even with no applications open",
+        "System warm to touch when idle"
+      ],
+      "cause": "Background processes consuming high CPU (e.g., antivirus, update services) causing false 'idle' temperature. May also indicate SP-HEAT-15X degradation.",
+      "resolution": [
+        "Open Task Manager and identify high CPU usage processes",
+        "End or configure background processes",
+        "Test true idle temperature with no applications running",
+        "If temperature still above 60\u00b0C at true idle, inspect SP-HEAT-15X thermal contact",
+        "Reapply thermal paste if heat sink is dry"
+      ],
+      "inventoryReferences": ["SP-FAN-15X", "SP-HEAT-15X"],
+      "locationReferences": ["WH-FRA-004"],
+      "keywords": [
+        "idle temperature",
+        "high idle temp",
+        "background CPU",
+        "idle fan noise",
+        "CPU hot idle"
+      ]
+    },
+    {
+      "title": "Heat Pipes Damaged on AeroVolt ProBook 15X",
+      "category": "Thermal & Fan",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Visible dent or crack on heat pipe visible through vents",
+        "Thermal throttling despite clean vents and good thermal paste",
+        "One side of SP-HEAT-15X fin stack barely warm while CPU is hot"
+      ],
+      "cause": "Physical damage to copper heat pipes in SP-HEAT-15X assembly, causing coolant leak and reduced heat transfer.",
+      "resolution": [
+        "Heat pipe damage requires full SP-HEAT-15X assembly replacement",
+        "Document damage \u2014 usually caused by drop or physical pressure",
+        "Assess warranty coverage",
+        "Order SP-HEAT-15X from WH-FRA-004 (Frankfurt Logistics Center - Hall 4)",
+        "Replace SP-HEAT-15X and reapply thermal paste on all contact surfaces"
+      ],
+      "inventoryReferences": ["SP-HEAT-15X", "SP-FAN-15X"],
+      "locationReferences": ["WH-FRA-004"],
+      "keywords": [
+        "heat pipe damage",
+        "damaged heat pipe",
+        "heat pipe crack",
+        "cooling pipe",
+        "thermal damage"
+      ]
+    },
+    {
+      "title": "Fan Speed Reporting Incorrect in OS on AeroVolt Stratos Air 13",
+      "category": "Thermal & Fan",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "Third-party monitoring tool shows fan at 0 RPM",
+        "Fan is audibly spinning",
+        "OS power management shows no fan data"
+      ],
+      "cause": "Third-party tools may not support proprietary EC fan reporting on AeroVolt platforms. Not a SP-FAN-15X hardware issue.",
+      "resolution": [
+        "Use AeroVolt System Diagnostics utility for accurate fan RPM readings",
+        "Run BIOS fan diagnostics to confirm fan is operational",
+        "Advise customer that third-party tools may not report EC-managed fan data accurately",
+        "No hardware action needed if fan is operating correctly per BIOS"
+      ],
+      "inventoryReferences": ["SP-FAN-15X"],
+      "locationReferences": ["WH-FRA-004"],
+      "keywords": [
+        "fan RPM",
+        "fan speed reporting",
+        "0 RPM",
+        "fan monitoring",
+        "EC fan reporting"
+      ]
+    },
+    {
+      "title": "Thermal Paste Reapplication Service for AeroVolt ProBook 15X",
+      "category": "Thermal & Fan",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Device is 2+ years old with increasing temperatures",
+        "Customer requests preventive thermal maintenance",
+        "Performance degradation due to thermal throttling"
+      ],
+      "cause": "Thermal paste on SP-HEAT-15X has dried and hardened over time, reducing heat transfer efficiency.",
+      "resolution": [
+        "Schedule technician service for thermal paste reapplication",
+        "Technician to disassemble and clean CPU/GPU surfaces",
+        "Apply new high-quality thermal compound to SP-HEAT-15X contact surfaces",
+        "Clean SP-FAN-15X and SP-HEAT-15X fin stack during same service",
+        "Verify temperatures post-service via BIOS diagnostics"
+      ],
+      "inventoryReferences": ["SP-HEAT-15X", "SP-FAN-15X"],
+      "locationReferences": ["WH-FRA-004"],
+      "keywords": [
+        "thermal paste",
+        "thermal reapplication",
+        "preventive maintenance",
+        "dried thermal paste",
+        "thermal compound"
+      ]
+    },
+    {
+      "title": "Fan Starts Then Stops During Boot on AeroVolt A5X Pro",
+      "category": "Thermal & Fan",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "Fan spins briefly at startup then stops completely",
+        "Fan does not restart even under CPU load",
+        "System overheats within minutes"
+      ],
+      "cause": "EC fan control reading incorrect sensor data, causing fan to shut down. May be SP-FAN-15X motor issue or EC firmware bug.",
+      "resolution": [
+        "Update BIOS/EC firmware to resolve known fan control bugs",
+        "Run fan diagnostics \u2014 manually command fan to max speed",
+        "If fan spins on manual command but not automatically, EC firmware issue",
+        "If fan does not spin on manual command, replace SP-FAN-15X",
+        "Order from WH-FRA-004 (Frankfurt Logistics Center - Hall 4)"
+      ],
+      "inventoryReferences": ["SP-FAN-15X"],
+      "locationReferences": ["WH-FRA-004"],
+      "keywords": [
+        "fan stops",
+        "fan starts stops",
+        "boot fan",
+        "EC fan control",
+        "fan cut off"
+      ]
+    }
+  ]
+}

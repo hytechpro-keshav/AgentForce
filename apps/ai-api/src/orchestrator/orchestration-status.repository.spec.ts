@@ -381,6 +381,29 @@ const customerChannel = {
   }
 };
 
+const knowledgeChannel = {
+  eligible: true,
+  degraded: false,
+  status: "ANSWERED" as const,
+  answer: {
+    safeSummary:
+      "Verify adapter functionality, run BIOS diagnostics, and replace SP-BATT-15X if diagnostics confirm failure.",
+    sources: [
+      {
+        sourceId: "kb-av-lp-15x-pro-battery-1",
+        title: "Battery Not Charging on AeroVolt ProBook 15X",
+        retrievalScorePercentile: 81
+      }
+    ],
+    provider: "openai",
+    model: "gpt-4o-mini",
+    embeddingProvider: "openai",
+    retrievalId: "ret-123",
+    latencyMs: 253,
+    fallbackUsed: false
+  }
+};
+
 describe("orchestration repository — customer-context channel", () => {
   it("round-trips the Node 2 channel in the in-memory repository", async () => {
     const repo = new InMemoryOrchestrationStatusRepository();
@@ -435,5 +458,60 @@ describe("orchestration repository — customer-context channel", () => {
       "premium"
     );
     expect(loaded?.customerContext?.eligible).toBe(true);
+  });
+});
+
+describe("orchestration repository — knowledge-guidance channel", () => {
+  it("round-trips the Node 3 channel in the in-memory repository", async () => {
+    const repo = new InMemoryOrchestrationStatusRepository();
+    await repo.save(snapshot({ knowledgeGuidance: knowledgeChannel }));
+    const loaded = await repo.get("wf-1");
+    expect(loaded?.knowledgeGuidance?.status).toBe("ANSWERED");
+    expect(loaded?.knowledgeGuidance?.answer?.sources[0]?.sourceId).toBe(
+      "kb-av-lp-15x-pro-battery-1"
+    );
+  });
+
+  it("persists knowledge_guidance as a jsonb parameter in Postgres", async () => {
+    const query = jest.fn().mockResolvedValue({ rows: [] });
+    const { repo } = postgresRepo(query);
+    await repo.save(snapshot({ knowledgeGuidance: knowledgeChannel }));
+
+    const sql = String(query.mock.calls[0][0]);
+    expect(sql).toContain("knowledge_guidance");
+    const params = query.mock.calls[0][1] as unknown[];
+    expect(typeof params[11]).toBe("string");
+    expect(String(params[11])).toContain("Battery Not Charging on AeroVolt ProBook 15X");
+  });
+
+  it("maps a stored knowledge_guidance row back into the channel", async () => {
+    const now = new Date();
+    const query = jest.fn().mockResolvedValue({
+      rows: [
+        {
+          workflow_id: "wf-1",
+          case_id: "500000000000001",
+          case_number: null,
+          node: "knowledge",
+          status: "done",
+          approval_required: false,
+          approval_decision: null,
+          write_back_applied: true,
+          failure_kind: null,
+          triage: null,
+          customer_context: null,
+          knowledge_guidance: knowledgeChannel,
+          events: "[]",
+          created_at: now,
+          updated_at: now
+        }
+      ]
+    });
+    const { repo } = postgresRepo(query);
+
+    const loaded = await repo.get("wf-1");
+    expect(loaded?.knowledgeGuidance?.eligible).toBe(true);
+    expect(loaded?.knowledgeGuidance?.status).toBe("ANSWERED");
+    expect(loaded?.knowledgeGuidance?.answer?.retrievalId).toBe("ret-123");
   });
 });

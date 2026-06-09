@@ -1,0 +1,322 @@
+{
+  "assets": [
+    {
+      "assetName": "AeroVolt ProBook 15X - Corporate Deployment 01",
+      "product": "AeroVolt ProBook 15X",
+      "productCode": "AV-LP-15X-PRO",
+      "serialNumber": "SN-PRO15X-2026-0041A",
+      "installDate": "2026-06-09",
+      "purchaseDate": "2026-06-01",
+      "usageEndDate": "2029-06-01",
+      "status": "Installed",
+      "quantity": 1.0,
+      "account": "Sample Account for Entitlements"
+    },
+    {
+      "assetName": "AeroVolt Stratos Air 13 - Exec Travel Unit",
+      "productCode": "AV-LP-13A-STRAT",
+      "serialNumber": "SN-STRAT13-AIR-0112",
+      "installDate": "2026-06-09",
+      "purchaseDate": "2026-06-02",
+      "usageEndDate": "2027-12-31",
+      "status": "Installed",
+      "quantity": 1.0,
+      "account": "Sample Account for Entitlements"
+    },
+    {
+      "assetName": "Quantum Apex 17-G - R&D Rendering Rig",
+      "productCode": "QA-LP-17G-APEX",
+      "serialNumber": "SN-APEX17G-99842-X",
+      "installDate": "2026-06-09",
+      "purchaseDate": "2026-05-28",
+      "usageEndDate": "2028-05-28",
+      "status": "Installed",
+      "quantity": 1.0,
+      "account": "Sample Account for Entitlements"
+    },
+    {
+      "assetName": "AeroVolt Nexus Docking Station - Desk 402",
+      "productCode": "AV-ACC-NX-DOCK",
+      "serialNumber": "SN-NXDOCK-4K-88391",
+      "installDate": "2026-06-09",
+      "purchaseDate": "2026-06-01",
+      "usageEndDate": "2030-06-01",
+      "status": "Installed",
+      "quantity": 1.0
+    },
+    {
+      "assetName": "Node Validation Asset",
+      "contact": "Jason Luu",
+      "productCode": "AV-LP-A5X-PRO",
+      "serialNumber": "SIN-0982X-AVLT2026",
+      "installDate": "2026-06-09"
+    }
+  ],
+  "locations": [
+    {
+      "locationName": "Austin Fulfillment Center - Alpha Dock",
+      "locationType": "Warehouse",
+      "externalReference": "WH-AUS-001",
+      "timeZone": "Pacific/Marquesas",
+      "description": "Primary storage hub for finished laptop inventory and bulk components awaiting distribution.",
+      "drivingDirections": "Exit 231 off IH-35, turn east onto Logistics Way. Third building on the left."
+    },
+    {
+      "locationName": "San Jose Spare Parts & Warranty Depot",
+      "locationType": "Plant",
+      "externalReference": "WH-SJO-002",
+      "timeZone": "Pacific/Marquesas",
+      "description": "Receiving center for customer returns, screen replacements, battery recycling, and warranty repair parts.",
+      "drivingDirections": "Enter via Gate 4 off Silicon Valley Blvd."
+    },
+    {
+      "locationName": "Jersey City Distribution Hub - Secaucus WH",
+      "locationType": "Warehouse",
+      "externalReference": "WH-JCY-003",
+      "description": "Regional transit warehouse optimizing next-day shipping for Northeast enterprise clients.",
+      "drivingDirections": "Take Route 3 Exit toward County Ave. Follow logistics park signage to Building C."
+    },
+    {
+      "locationName": "Frankfurt Logistics Center - Hall 4",
+      "locationType": "Warehouse",
+      "externalReference": "WH-FRA-004",
+      "timeZone": "Europe/Berlin",
+      "description": "International central node for European operations.",
+      "drivingDirections": "Access via Airport South gate. Freight clearance documentation required."
+    }
+  ],
+  "inventory": [
+    {
+      "inventoryItemName": "15.6 inch FHD Display Panel",
+      "productCode": "SP-DISP-15X-FHD",
+      "category": "Display",
+      "compatibleProduct": "AV-LP-15X-PRO",
+      "productName": "AeroVolt ProBook 15X",
+      "productCategory": "Laptop Spare Parts",
+      "quantityOnHand": 40,
+      "locationReference": "WH-SJO-002",
+      "locationName": "San Jose Spare Parts & Warranty Depot",
+      "warehouseReference": "WH-SJO-002",
+      "warehouseName": "San Jose Spare Parts & Warranty Depot",
+      "locationType": "Plant",
+      "status": "Available"
+    },
+    {
+      "inventoryItemName": "6 Cell Battery Pack",
+      "productCode": "SP-BATT-15X",
+      "category": "Battery",
+      "compatibleProduct": "AV-LP-15X-PRO",
+      "productName": "AeroVolt ProBook 15X",
+      "productCategory": "Laptop Spare Parts",
+      "quantityOnHand": 75,
+      "locationReference": "WH-SJO-002",
+      "locationName": "San Jose Spare Parts & Warranty Depot",
+      "warehouseReference": "WH-SJO-002",
+      "warehouseName": "San Jose Spare Parts & Warranty Depot",
+      "locationType": "Plant",
+      "status": "Available"
+    },
+    {
+      "inventoryItemName": "Backlit Keyboard Assembly",
+      "productCode": "SP-KBD-15X",
+      "category": "Keyboard",
+      "compatibleProduct": "AV-LP-15X-PRO",
+      "productName": "AeroVolt ProBook 15X",
+      "productCategory": "Laptop Spare Parts",
+      "quantityOnHand": 55,
+      "locationReference": "WH-SJO-002",
+      "locationName": "San Jose Spare Parts & Warranty Depot",
+      "warehouseReference": "WH-SJO-002",
+      "warehouseName": "San Jose Spare Parts & Warranty Depot",
+      "locationType": "Plant",
+      "status": "Available"
+    },
+    {
+      "inventoryItemName": "16GB DDR5 RAM Module",
+      "productCode": "SP-RAM-16-DDR5",
+      "category": "Memory",
+      "compatibleProduct": "ALL",
+      "productName": "Universal (All Laptop Models)",
+      "productCategory": "Universal Components",
+      "quantityOnHand": 150,
+      "locationReference": "WH-AUS-001",
+      "locationName": "Austin Fulfillment Center - Alpha Dock",
+      "warehouseReference": "WH-AUS-001",
+      "warehouseName": "Austin Fulfillment Center - Alpha Dock",
+      "locationType": "Warehouse",
+      "status": "Available"
+    },
+    {
+      "inventoryItemName": "1TB NVMe SSD",
+      "productCode": "SP-SSD-1TB-NVME",
+      "category": "Storage",
+      "compatibleProduct": "ALL",
+      "productName": "Universal (All Laptop Models)",
+      "productCategory": "Universal Components",
+      "quantityOnHand": 120,
+      "locationReference": "WH-AUS-001",
+      "locationName": "Austin Fulfillment Center - Alpha Dock",
+      "warehouseReference": "WH-AUS-001",
+      "warehouseName": "Austin Fulfillment Center - Alpha Dock",
+      "locationType": "Warehouse",
+      "status": "Available"
+    },
+    {
+      "inventoryItemName": "WiFi 6E Adapter",
+      "productCode": "SP-WIFI-6E",
+      "category": "Network",
+      "compatibleProduct": "ALL",
+      "productName": "Universal (All Laptop Models)",
+      "productCategory": "Universal Components",
+      "quantityOnHand": 90,
+      "locationReference": "WH-AUS-001",
+      "locationName": "Austin Fulfillment Center - Alpha Dock",
+      "warehouseReference": "WH-AUS-001",
+      "warehouseName": "Austin Fulfillment Center - Alpha Dock",
+      "locationType": "Warehouse",
+      "status": "Available"
+    },
+    {
+      "inventoryItemName": "Cooling Fan Assembly",
+      "productCode": "SP-FAN-15X",
+      "category": "Cooling",
+      "compatibleProduct": "AV-LP-15X-PRO",
+      "productName": "AeroVolt ProBook 15X",
+      "productCategory": "Laptop Spare Parts",
+      "quantityOnHand": 60,
+      "locationReference": "WH-FRA-004",
+      "locationName": "Frankfurt Logistics Center - Hall 4",
+      "warehouseReference": "WH-FRA-004",
+      "warehouseName": "Frankfurt Logistics Center - Hall 4",
+      "locationType": "Warehouse",
+      "status": "Available"
+    },
+    {
+      "inventoryItemName": "Heat Sink Assembly",
+      "productCode": "SP-HEAT-15X",
+      "category": "Cooling",
+      "compatibleProduct": "AV-LP-15X-PRO",
+      "productName": "AeroVolt ProBook 15X",
+      "productCategory": "Laptop Spare Parts",
+      "quantityOnHand": 35,
+      "locationReference": "WH-FRA-004",
+      "locationName": "Frankfurt Logistics Center - Hall 4",
+      "warehouseReference": "WH-FRA-004",
+      "warehouseName": "Frankfurt Logistics Center - Hall 4",
+      "locationType": "Warehouse",
+      "status": "Available"
+    },
+    {
+      "inventoryItemName": "Motherboard Replacement Unit",
+      "productCode": "SP-MB-15X",
+      "category": "Motherboard",
+      "compatibleProduct": "AV-LP-15X-PRO",
+      "productName": "AeroVolt ProBook 15X",
+      "productCategory": "Laptop Spare Parts",
+      "quantityOnHand": 10,
+      "locationReference": "WH-SJO-002",
+      "locationName": "San Jose Spare Parts & Warranty Depot",
+      "warehouseReference": "WH-SJO-002",
+      "warehouseName": "San Jose Spare Parts & Warranty Depot",
+      "locationType": "Plant",
+      "status": "Available"
+    },
+    {
+      "inventoryItemName": "65W USB-C Power Adapter",
+      "productCode": "SP-CHG-65W",
+      "category": "Power",
+      "compatibleProduct": "ALL",
+      "productName": "Universal (All Laptop Models)",
+      "productCategory": "Universal Components",
+      "quantityOnHand": 200,
+      "locationReference": "WH-JCY-003",
+      "locationName": "Jersey City Distribution Hub - Secaucus WH",
+      "warehouseReference": "WH-JCY-003",
+      "warehouseName": "Jersey City Distribution Hub - Secaucus WH",
+      "locationType": "Warehouse",
+      "status": "Available"
+    },
+    {
+      "inventoryItemName": "Touchpad Assembly",
+      "productCode": "SP-TPAD-15X",
+      "category": "Input",
+      "compatibleProduct": "AV-LP-15X-PRO",
+      "productName": "AeroVolt ProBook 15X",
+      "productCategory": "Laptop Spare Parts",
+      "quantityOnHand": 45,
+      "locationReference": "WH-SJO-002",
+      "locationName": "San Jose Spare Parts & Warranty Depot",
+      "warehouseReference": "WH-SJO-002",
+      "warehouseName": "San Jose Spare Parts & Warranty Depot",
+      "locationType": "Plant",
+      "status": "Available"
+    },
+    {
+      "inventoryItemName": "Display Hinge Kit",
+      "productCode": "SP-HINGE-15X",
+      "category": "Mechanical",
+      "compatibleProduct": "AV-LP-15X-PRO",
+      "productName": "AeroVolt ProBook 15X",
+      "productCategory": "Laptop Spare Parts",
+      "quantityOnHand": 80,
+      "locationReference": "WH-FRA-004",
+      "locationName": "Frankfurt Logistics Center - Hall 4",
+      "warehouseReference": "WH-FRA-004",
+      "warehouseName": "Frankfurt Logistics Center - Hall 4",
+      "locationType": "Warehouse",
+      "status": "Available"
+    }
+  ],
+  "productCatalog": [
+    {
+      "productCode": "AV-LP-15X-PRO",
+      "productName": "AeroVolt ProBook 15X",
+      "productCategory": "Laptop",
+      "isUniversal": false
+    },
+    {
+      "productCode": "AV-LP-13A-STRAT",
+      "productName": "AeroVolt Stratos Air 13",
+      "productCategory": "Laptop",
+      "isUniversal": false
+    },
+    {
+      "productCode": "QA-LP-17G-APEX",
+      "productName": "Quantum Apex 17-G",
+      "productCategory": "Laptop",
+      "isUniversal": false
+    },
+    {
+      "productCode": "ALL",
+      "productName": "Universal (All Laptop Models)",
+      "productCategory": "Universal Components",
+      "isUniversal": true
+    }
+  ],
+  "warehouseMappings": [
+    {
+      "warehouseReference": "WH-AUS-001",
+      "warehouseName": "Austin Fulfillment Center - Alpha Dock",
+      "locationType": "Warehouse",
+      "region": "North America"
+    },
+    {
+      "warehouseReference": "WH-SJO-002",
+      "warehouseName": "San Jose Spare Parts & Warranty Depot",
+      "locationType": "Plant",
+      "region": "North America"
+    },
+    {
+      "warehouseReference": "WH-JCY-003",
+      "warehouseName": "Jersey City Distribution Hub - Secaucus WH",
+      "locationType": "Warehouse",
+      "region": "North America"
+    },
+    {
+      "warehouseReference": "WH-FRA-004",
+      "warehouseName": "Frankfurt Logistics Center - Hall 4",
+      "locationType": "Warehouse",
+      "region": "Europe"
+    }
+  ]
+}

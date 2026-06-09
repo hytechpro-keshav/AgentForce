@@ -1,0 +1,1361 @@
+{
+  "kbArticles": [
+    {
+      "title": "No POST on AeroVolt ProBook 15X",
+      "category": "Motherboard & POST",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "System does not start at all \u2014 no beeps, no LEDs, no display",
+        "Confirmed power adapter SP-CHG-65W is functional",
+        "Battery SP-BATT-15X is charged"
+      ],
+      "cause": "SP-MB-15X motherboard failure or critical hardware fault preventing POST (Power-On Self Test).",
+      "resolution": [
+        "Perform hard reset: disconnect SP-CHG-65W and SP-BATT-15X, hold power 30 seconds",
+        "Remove all external accessories and retry",
+        "Reseat SP-RAM-16-DDR5 module",
+        "Attempt boot with single RAM stick",
+        "If still no POST, motherboard replacement (SP-MB-15X) may be required",
+        "Escalate to Tier 2 with full documentation before ordering SP-MB-15X"
+      ],
+      "inventoryReferences": ["SP-MB-15X", "SP-RAM-16-DDR5", "SP-CHG-65W"],
+      "locationReferences": ["WH-SJO-002", "WH-AUS-001", "WH-JCY-003"],
+      "keywords": [
+        "no POST",
+        "no power",
+        "dead system",
+        "POST failure",
+        "no boot"
+      ]
+    },
+    {
+      "title": "BIOS Corrupted on AeroVolt Stratos Air 13",
+      "category": "Motherboard & POST",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "BIOS update failed mid-process",
+        "System boots to black screen with no BIOS",
+        "LED blink code indicates BIOS fault"
+      ],
+      "cause": "Incomplete or failed BIOS flash corrupted the SP-MB-15X BIOS chip firmware.",
+      "resolution": [
+        "Attempt BIOS recovery via USB recovery key (download recovery image from support portal)",
+        "Insert recovery USB and power on while holding Fn+B or model-specific recovery keys",
+        "If USB recovery fails, BIOS chip reflash requires service center",
+        "In extreme cases, SP-MB-15X replacement is required",
+        "Order SP-MB-15X from WH-SJO-002 if recovery fails"
+      ],
+      "inventoryReferences": ["SP-MB-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "BIOS corrupted",
+        "BIOS failure",
+        "BIOS flash",
+        "BIOS recovery",
+        "corrupted firmware"
+      ]
+    },
+    {
+      "title": "Motherboard Replacement Procedure for AeroVolt ProBook 15X",
+      "category": "Motherboard & POST",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "SP-MB-15X replacement approved by Tier 2",
+        "All other troubleshooting steps exhausted"
+      ],
+      "cause": "Motherboard hardware failure requiring SP-MB-15X full board replacement.",
+      "resolution": [
+        "Order SP-MB-15X from WH-SJO-002 (San Jose Spare Parts & Warranty Depot) with correct platform configuration",
+        "Backup customer data if possible before service",
+        "Technician: remove all components \u2014 battery SP-BATT-15X, SSD SP-SSD-1TB-NVME, RAM SP-RAM-16-DDR5",
+        "Disconnect all cables from old board",
+        "Install new SP-MB-15X and reconnect all components",
+        "Reassemble and test POST, then run full diagnostics",
+        "Update BIOS and EC firmware on new board"
+      ],
+      "inventoryReferences": [
+        "SP-MB-15X",
+        "SP-BATT-15X",
+        "SP-SSD-1TB-NVME",
+        "SP-RAM-16-DDR5"
+      ],
+      "locationReferences": ["WH-SJO-002", "WH-AUS-001"],
+      "keywords": [
+        "motherboard replacement",
+        "SP-MB-15X install",
+        "board replacement",
+        "motherboard procedure"
+      ]
+    },
+    {
+      "title": "POST Beep Code Diagnostics on Quantum Apex 17-G",
+      "category": "Motherboard & POST",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "System emits beep codes during startup",
+        "Display remains black",
+        "Beep pattern varies"
+      ],
+      "cause": "POST beep codes indicate hardware fault detected by SP-MB-15X BIOS during power-on self-test.",
+      "resolution": [
+        "1 beep: Normal POST, no error",
+        "3 beeps: Memory (RAM) failure \u2014 reseat or replace SP-RAM-16-DDR5",
+        "5 beeps: CPU failure \u2014 escalate to Tier 2",
+        "6 beeps: Keyboard controller \u2014 check SP-KBD-15X",
+        "8 beeps: Display/GPU failure \u2014 check SP-DISP-15X-FHD",
+        "Document beep pattern and escalate if not resolvable by component swap"
+      ],
+      "inventoryReferences": [
+        "SP-MB-15X",
+        "SP-RAM-16-DDR5",
+        "SP-KBD-15X",
+        "SP-DISP-15X-FHD"
+      ],
+      "locationReferences": ["WH-SJO-002", "WH-AUS-001"],
+      "keywords": [
+        "beep codes",
+        "POST beeps",
+        "boot beeps",
+        "BIOS beep",
+        "diagnostic beeps"
+      ]
+    },
+    {
+      "title": "USB Ports Not Working on AeroVolt A5X Pro",
+      "category": "Motherboard & POST",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "All USB-A ports not recognized",
+        "USB devices not detected",
+        "USB hub on AeroVolt Nexus Docking Station also not working"
+      ],
+      "cause": "USB controller on SP-MB-15X failed or USB driver corruption.",
+      "resolution": [
+        "Reinstall USB/chipset drivers",
+        "Check Device Manager for USB controller errors",
+        "Test in BIOS \u2014 if USB devices not recognized there, hardware fault confirmed",
+        "Update BIOS for USB controller fixes",
+        "If hardware USB controller fault confirmed, SP-MB-15X replacement required"
+      ],
+      "inventoryReferences": ["SP-MB-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "USB not working",
+        "USB ports",
+        "USB controller",
+        "USB failure",
+        "devices not detected"
+      ]
+    },
+    {
+      "title": "BIOS Settings Lost After Shutdown on AeroVolt ProBook 15X",
+      "category": "Motherboard & POST",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Time and date reset to default after every shutdown",
+        "BIOS settings lost on power cycle",
+        "System prompts to set date/time on every boot"
+      ],
+      "cause": "CMOS battery on SP-MB-15X has failed. CMOS battery maintains RTC and BIOS settings when main power is off.",
+      "resolution": [
+        "Confirm BIOS settings reset is consistent",
+        "CMOS battery replacement requires SP-MB-15X service (battery is soldered on this platform)",
+        "Workaround: set date/time via OS sync if NTP available",
+        "For permanent fix, escalate for SP-MB-15X CMOS battery replacement service",
+        "Schedule service if under warranty"
+      ],
+      "inventoryReferences": ["SP-MB-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "BIOS reset",
+        "CMOS battery",
+        "time reset",
+        "date reset",
+        "BIOS settings lost"
+      ]
+    },
+    {
+      "title": "POST Error Code 0xA1 on AeroVolt Stratos Air 13",
+      "category": "Motherboard & POST",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "POST error code 0xA1 displayed on screen",
+        "System boots to error screen",
+        "Cannot access BIOS"
+      ],
+      "cause": "Error code 0xA1 indicates NVMe SSD not detected during POST \u2014 SP-SSD-1TB-NVME not responding.",
+      "resolution": [
+        "Reseat SP-SSD-1TB-NVME in M.2 slot",
+        "Test with alternate SP-SSD-1TB-NVME to confirm SSD vs slot issue",
+        "Update BIOS for NVMe compatibility",
+        "If SSD is not detected after reseating, replace SP-SSD-1TB-NVME",
+        "If slot is faulty, SP-MB-15X replacement needed"
+      ],
+      "inventoryReferences": ["SP-SSD-1TB-NVME", "SP-MB-15X"],
+      "locationReferences": ["WH-AUS-001", "WH-SJO-002"],
+      "keywords": [
+        "POST error 0xA1",
+        "SSD not detected POST",
+        "POST code",
+        "NVMe POST error",
+        "boot error code"
+      ]
+    },
+    {
+      "title": "Integrated Graphics Not Working on Quantum Apex 17-G",
+      "category": "Motherboard & POST",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "Display output only works via external GPU",
+        "Integrated graphics missing in Device Manager",
+        "BIOS setting for integrated GPU cannot be accessed"
+      ],
+      "cause": "Integrated GPU on SP-MB-15X may be disabled in BIOS or hardware fault on GPU die.",
+      "resolution": [
+        "Access BIOS and check Graphics Mode setting",
+        "Switch from Discrete-Only to Auto/Optimus mode",
+        "Update graphics driver for integrated GPU",
+        "If integrated GPU does not appear even in BIOS, SP-MB-15X hardware fault",
+        "Escalate to Tier 2 \u2014 motherboard GPU die failure is non-repairable without board replacement"
+      ],
+      "inventoryReferences": ["SP-MB-15X", "SP-DISP-15X-FHD"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "integrated GPU",
+        "GPU not working",
+        "iGPU",
+        "graphics mode BIOS",
+        "display adapter"
+      ]
+    },
+    {
+      "title": "Motherboard POST LED Error Code Reference for AeroVolt ProBook 15X",
+      "category": "Motherboard & POST",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Agent needs LED blink code reference",
+        "Customer reports specific LED pattern"
+      ],
+      "cause": "Reference article for LED POST diagnostic codes on AV-LP-15X-PRO platform.",
+      "resolution": [
+        "1 blink: POST in progress \u2014 normal",
+        "2 blinks: BIOS recovery mode",
+        "3 blinks: RAM error \u2014 reseat SP-RAM-16-DDR5",
+        "4 blinks: Thermal error \u2014 check SP-FAN-15X",
+        "5 blinks: CPU/Motherboard fault \u2014 escalate Tier 2",
+        "6 blinks: Display failure \u2014 check SP-DISP-15X-FHD",
+        "Rapid continuous blinks: Power fault \u2014 check SP-CHG-65W and SP-BATT-15X"
+      ],
+      "inventoryReferences": [
+        "SP-MB-15X",
+        "SP-RAM-16-DDR5",
+        "SP-FAN-15X",
+        "SP-DISP-15X-FHD",
+        "SP-CHG-65W"
+      ],
+      "locationReferences": [
+        "WH-SJO-002",
+        "WH-AUS-001",
+        "WH-FRA-004",
+        "WH-JCY-003"
+      ],
+      "keywords": [
+        "LED blink code",
+        "POST LED",
+        "blink reference",
+        "diagnostic codes",
+        "error codes"
+      ]
+    },
+    {
+      "title": "Motherboard Failure After Liquid Damage on AeroVolt A5X Pro",
+      "category": "Motherboard & POST",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "System stopped working after liquid spill",
+        "Visible corrosion on motherboard",
+        "Intermittent operation before total failure"
+      ],
+      "cause": "Liquid damage to SP-MB-15X motherboard causing corrosion and short circuits.",
+      "resolution": [
+        "Power off immediately \u2014 do not attempt to power on",
+        "Document liquid damage for claim assessment",
+        "Standard warranty does not cover liquid damage",
+        "Assess accidental damage plan coverage",
+        "If no coverage, provide out-of-warranty quote for SP-MB-15X replacement",
+        "Order SP-MB-15X from WH-SJO-002 (San Jose Spare Parts & Warranty Depot)"
+      ],
+      "inventoryReferences": ["SP-MB-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "liquid damage motherboard",
+        "water damage board",
+        "corrosion",
+        "spill motherboard",
+        "board failure"
+      ]
+    },
+    {
+      "title": "Thunderbolt Port Not Working on AeroVolt ProBook 15X",
+      "category": "Motherboard & POST",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Thunderbolt devices not recognized",
+        "Thunderbolt controller missing in Device Manager",
+        "AeroVolt Nexus Docking Station connects via USB only, not Thunderbolt"
+      ],
+      "cause": "Thunderbolt controller firmware outdated or Thunderbolt driver missing. Rarely SP-MB-15X hardware fault.",
+      "resolution": [
+        "Install latest Thunderbolt driver from support portal",
+        "Update Thunderbolt controller firmware",
+        "Enable Thunderbolt in BIOS if disabled",
+        "Authorize Thunderbolt connection when prompted",
+        "If Thunderbolt controller absent in Device Manager after driver install, SP-MB-15X fault \u2014 escalate"
+      ],
+      "inventoryReferences": ["SP-MB-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "Thunderbolt not working",
+        "Thunderbolt port",
+        "TB4",
+        "Thunderbolt driver",
+        "dock Thunderbolt"
+      ]
+    },
+    {
+      "title": "HDMI Port No Output on AeroVolt Stratos Air 13",
+      "category": "Motherboard & POST",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "HDMI connected to TV or monitor but no signal",
+        "External display detected in OS settings but black screen",
+        "HDMI port feels loose"
+      ],
+      "cause": "HDMI controller driver issue, HDMI port physical damage, or GPU output configuration.",
+      "resolution": [
+        "Update display driver",
+        "Try different HDMI cable and monitor",
+        "Cycle display output using Fn+F8 or Windows+P",
+        "Inspect HDMI port for bent pins",
+        "If port is physically damaged, SP-MB-15X replacement may be needed"
+      ],
+      "inventoryReferences": ["SP-MB-15X", "SP-DISP-15X-FHD"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "HDMI no output",
+        "HDMI port",
+        "external monitor HDMI",
+        "HDMI black screen",
+        "display output"
+      ]
+    },
+    {
+      "title": "Ethernet Port Not Working on Quantum Apex 17-G",
+      "category": "Motherboard & POST",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "Ethernet cable connected but no network",
+        "LAN adapter missing in Device Manager",
+        "Network lights on port not illuminated"
+      ],
+      "cause": "LAN driver missing or LAN controller on SP-MB-15X has failed.",
+      "resolution": [
+        "Install LAN driver from support portal",
+        "Check Device Manager for Ethernet adapter",
+        "Test with different Ethernet cable and switch port",
+        "Update BIOS for LAN controller fixes",
+        "If LAN controller absent in Device Manager after driver install, SP-MB-15X fault"
+      ],
+      "inventoryReferences": ["SP-MB-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "ethernet not working",
+        "LAN not working",
+        "network port",
+        "ethernet driver",
+        "LAN controller"
+      ]
+    },
+    {
+      "title": "POST Takes Too Long on AeroVolt A5X Pro",
+      "category": "Motherboard & POST",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "BIOS POST takes 30+ seconds",
+        "Logo screen hangs before OS loads",
+        "Boot time significantly longer than before"
+      ],
+      "cause": "BIOS memory training, SSD detection issue, or USB device connected during boot causing delays.",
+      "resolution": [
+        "Remove all USB devices and retry",
+        "Enable Fast Boot in BIOS",
+        "Run SP-SSD-1TB-NVME diagnostics \u2014 slow SSD detection can delay POST",
+        "Reseat SP-RAM-16-DDR5 \u2014 memory retraining after unseating causes delays",
+        "If POST hangs are progressive, check SP-MB-15X for hardware degradation"
+      ],
+      "inventoryReferences": ["SP-SSD-1TB-NVME", "SP-RAM-16-DDR5", "SP-MB-15X"],
+      "locationReferences": ["WH-AUS-001", "WH-SJO-002"],
+      "keywords": [
+        "slow POST",
+        "slow boot",
+        "POST delay",
+        "BIOS slow",
+        "long startup"
+      ]
+    },
+    {
+      "title": "Audio Not Working on AeroVolt ProBook 15X",
+      "category": "Motherboard & POST",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "No sound from speakers",
+        "Audio device missing in Device Manager",
+        "Audio worked before OS reinstall"
+      ],
+      "cause": "Audio driver missing after OS reinstall. Rarely, audio codec failure on SP-MB-15X.",
+      "resolution": [
+        "Install audio driver from support portal",
+        "Check Device Manager for audio device",
+        "Verify audio output device is set correctly in OS",
+        "Update BIOS for audio controller support",
+        "If audio device absent after driver install, SP-MB-15X audio codec fault \u2014 escalate"
+      ],
+      "inventoryReferences": ["SP-MB-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "no audio",
+        "sound not working",
+        "audio driver",
+        "speakers",
+        "audio device missing"
+      ]
+    },
+    {
+      "title": "SP-MB-15X Shipping and Handling Protocols",
+      "category": "Motherboard & POST",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Technician preparing to ship SP-MB-15X",
+        "Agent ordering SP-MB-15X for dispatch"
+      ],
+      "cause": "Reference article for SP-MB-15X motherboard shipping and handling requirements.",
+      "resolution": [
+        "SP-MB-15X must be shipped in anti-static packaging",
+        "Include all original mounting hardware",
+        "Do not ship with battery or SSD installed \u2014 ship bare board only",
+        "Ship from WH-SJO-002 (San Jose Spare Parts & Warranty Depot) — sole stock location for SP-MB-15X (10 units on hand)",
+        "For EU customers, escalate to warehouse coordinator for international transfer from WH-SJO-002",
+        "Expedited shipping required for warranty replacements \u2014 standard processing 1-2 business days from WH-SJO-002 (San Jose Spare Parts & Warranty Depot)",
+        "Include RMA number on packaging"
+      ],
+      "inventoryReferences": ["SP-MB-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "motherboard shipping",
+        "SP-MB-15X shipping",
+        "board handling",
+        "anti-static",
+        "RMA"
+      ]
+    },
+    {
+      "title": "BIOS Version Check Procedure on AeroVolt Stratos Air 13",
+      "category": "Motherboard & POST",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "Agent needs to verify current BIOS version",
+        "Customer asking about BIOS update status"
+      ],
+      "cause": "Reference article for checking BIOS version on AV-LP-13A-STRAT.",
+      "resolution": [
+        "Method 1: Press F2 during POST to enter BIOS \u2014 version displayed on main page",
+        "Method 2: In OS, run 'msinfo32' \u2192 System Summary \u2192 BIOS Version/Date",
+        "Method 3: In OS terminal, run 'wmic bios get smbiosbiosversion'",
+        "Compare version against latest on support portal",
+        "If outdated, download and apply update with SP-CHG-65W connected"
+      ],
+      "inventoryReferences": ["SP-MB-15X", "SP-CHG-65W"],
+      "locationReferences": ["WH-SJO-002", "WH-JCY-003"],
+      "keywords": [
+        "BIOS version",
+        "check BIOS",
+        "BIOS update",
+        "firmware version",
+        "system info"
+      ]
+    },
+    {
+      "title": "Motherboard Under Warranty Replacement on AeroVolt A5X Pro",
+      "category": "Motherboard & POST",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "SP-MB-15X confirmed defective",
+        "Unit within warranty period",
+        "Tier 2 has approved motherboard replacement"
+      ],
+      "cause": "Warranty-covered SP-MB-15X failure requiring replacement.",
+      "resolution": [
+        "Verify warranty status and get Tier 2 approval code",
+        "Open replacement order in case management system",
+        "Source SP-MB-15X from WH-SJO-002 (San Jose Spare Parts & Warranty Depot)",
+        "Arrange dispatch to service center or technician",
+        "Customer data protection: advise backup before service",
+        "Close case with approval code and tracking reference"
+      ],
+      "inventoryReferences": ["SP-MB-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "motherboard warranty",
+        "board warranty replacement",
+        "Tier 2 approval",
+        "warranty board",
+        "MB warranty"
+      ]
+    },
+    {
+      "title": "SD Card Slot Not Reading on Quantum Apex 17-G",
+      "category": "Motherboard & POST",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "SD card inserted but not recognized",
+        "SD card reader missing in Device Manager",
+        "Works on external USB card reader"
+      ],
+      "cause": "SD card reader controller on SP-MB-15X has failed or driver is missing.",
+      "resolution": [
+        "Install SD card reader driver from support portal",
+        "Test with multiple SD cards to rule out card fault",
+        "Check Device Manager for card reader device",
+        "Update BIOS",
+        "If reader absent from Device Manager after driver install, SP-MB-15X fault \u2014 escalate"
+      ],
+      "inventoryReferences": ["SP-MB-15X"],
+      "locationReferences": ["WH-SJO-002"],
+      "keywords": [
+        "SD card not reading",
+        "SD slot",
+        "card reader",
+        "SD card driver",
+        "memory card"
+      ]
+    },
+    {
+      "title": "POST Completes But OS Does Not Load on AeroVolt ProBook 15X",
+      "category": "Motherboard & POST",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "BIOS POST completes normally",
+        "BIOS detects SP-SSD-1TB-NVME",
+        "OS fails to load \u2014 black screen or spinning cursor indefinitely"
+      ],
+      "cause": "OS boot loader corruption or SP-SSD-1TB-NVME file system error. Not a motherboard issue.",
+      "resolution": [
+        "Boot from USB recovery media",
+        "Run startup repair from OS recovery environment",
+        "Run disk check (CHKDSK) on SP-SSD-1TB-NVME",
+        "If OS is unrecoverable, reinstall OS",
+        "Verify BIOS boot order points to SP-SSD-1TB-NVME"
+      ],
+      "inventoryReferences": ["SP-SSD-1TB-NVME", "SP-MB-15X"],
+      "locationReferences": ["WH-AUS-001", "WH-SJO-002"],
+      "keywords": [
+        "POST complete OS not load",
+        "boot loader",
+        "OS failure",
+        "spinning cursor",
+        "startup repair"
+      ]
+    },
+    {
+      "title": "SSD Not Detected on AeroVolt ProBook 15X",
+      "category": "SSD & Storage",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "BIOS shows no NVMe device",
+        "OS installer says no disks available",
+        "Storage missing in Device Manager"
+      ],
+      "cause": "SP-SSD-1TB-NVME loose in M.2 slot, corrupted, or M.2 slot failure on SP-MB-15X.",
+      "resolution": [
+        "Reseat SP-SSD-1TB-NVME in M.2 slot \u2014 ensure screw is securing SSD",
+        "Check BIOS for NVMe device listing",
+        "Test with alternate SP-SSD-1TB-NVME if available",
+        "Update BIOS for NVMe compatibility improvements",
+        "If M.2 slot is faulty, SP-MB-15X replacement required"
+      ],
+      "inventoryReferences": ["SP-SSD-1TB-NVME", "SP-MB-15X"],
+      "locationReferences": ["WH-AUS-001", "WH-SJO-002"],
+      "keywords": [
+        "SSD not detected",
+        "NVMe not found",
+        "no disk",
+        "M.2 not detected",
+        "storage missing"
+      ]
+    },
+    {
+      "title": "Slow SSD Performance on Quantum Apex 17-G",
+      "category": "SSD & Storage",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "SSD read/write speeds far below rated spec",
+        "Applications take long to load",
+        "OS feels sluggish despite high-end CPU"
+      ],
+      "cause": "SP-SSD-1TB-NVME running in SATA compatibility mode instead of NVMe, thermal throttling of SSD, or driver issue.",
+      "resolution": [
+        "Verify SSD is running in NVMe mode in BIOS (not SATA/AHCI mode)",
+        "Update NVMe driver to Microsoft standard or OEM NVMe driver",
+        "Run storage benchmark to confirm throughput",
+        "Check SSD temperature \u2014 NVMe SSDs throttle above 70\u00b0C",
+        "Ensure SP-HEAT-15X thermal pad covers M.2 slot area"
+      ],
+      "inventoryReferences": ["SP-SSD-1TB-NVME", "SP-HEAT-15X"],
+      "locationReferences": ["WH-AUS-001", "WH-FRA-004"],
+      "keywords": [
+        "slow SSD",
+        "NVMe performance",
+        "SSD speed",
+        "slow storage",
+        "SSD throttle"
+      ]
+    },
+    {
+      "title": "SSD Failure and Data Loss on AeroVolt A5X Pro",
+      "category": "SSD & Storage",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "System crashes with storage errors",
+        "BIOS reports SP-SSD-1TB-NVME in failed state",
+        "Data corruption or files missing"
+      ],
+      "cause": "SP-SSD-1TB-NVME has reached end of life or has experienced sudden failure due to power event or wear.",
+      "resolution": [
+        "Run SSD diagnostics \u2014 capture SMART data",
+        "If SMART reports reallocated sectors or critical errors \u2014 SSD is failing",
+        "Advise customer to backup remaining data immediately",
+        "Replace SP-SSD-1TB-NVME from WH-AUS-001 (Austin Fulfillment Center - Alpha Dock)",
+        "Reinstall OS on new drive",
+        "If within warranty, initiate warranty replacement"
+      ],
+      "inventoryReferences": ["SP-SSD-1TB-NVME"],
+      "locationReferences": ["WH-AUS-001"],
+      "keywords": [
+        "SSD failure",
+        "data loss",
+        "SMART failure",
+        "SSD crashed",
+        "storage failure"
+      ]
+    },
+    {
+      "title": "SSD Replacement Procedure on AeroVolt Stratos Air 13",
+      "category": "SSD & Storage",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "SP-SSD-1TB-NVME replacement approved",
+        "Technician-initiated storage replacement"
+      ],
+      "cause": "Scheduled or warranty SP-SSD-1TB-NVME NVMe SSD replacement.",
+      "resolution": [
+        "Back up customer data before starting",
+        "Power off and disconnect SP-CHG-65W and SP-BATT-15X",
+        "Remove base panel",
+        "Remove M.2 screw securing SP-SSD-1TB-NVME",
+        "Carefully remove SSD at 30-degree angle",
+        "Insert new SP-SSD-1TB-NVME and secure with screw",
+        "Reassemble and boot to BIOS to verify detection",
+        "Install OS or restore from backup"
+      ],
+      "inventoryReferences": ["SP-SSD-1TB-NVME", "SP-BATT-15X"],
+      "locationReferences": ["WH-AUS-001", "WH-SJO-002"],
+      "keywords": [
+        "SSD replacement",
+        "NVMe replacement",
+        "M.2 install",
+        "SSD install procedure"
+      ]
+    },
+    {
+      "title": "Full Disk Encryption Prevents SSD Warranty Replacement on AeroVolt ProBook 15X",
+      "category": "SSD & Storage",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Customer's SP-SSD-1TB-NVME needs replacement",
+        "SSD has BitLocker or full-disk encryption enabled",
+        "Recovery key may not be available"
+      ],
+      "cause": "Full disk encryption on SP-SSD-1TB-NVME means data is unrecoverable during replacement without recovery key.",
+      "resolution": [
+        "Advise customer to retrieve recovery key before SSD replacement",
+        "If encryption key unavailable, data will be lost after replacement \u2014 document customer acceptance",
+        "Proceed with SP-SSD-1TB-NVME replacement only after customer acknowledges data loss",
+        "Post-replacement: install OS fresh on new SP-SSD-1TB-NVME"
+      ],
+      "inventoryReferences": ["SP-SSD-1TB-NVME"],
+      "locationReferences": ["WH-AUS-001"],
+      "keywords": [
+        "BitLocker",
+        "encryption",
+        "SSD encryption",
+        "recovery key",
+        "full disk encryption"
+      ]
+    },
+    {
+      "title": "SSD Upgrade Request on Quantum Apex 17-G",
+      "category": "SSD & Storage",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "Customer requests storage upgrade from 1TB to 2TB",
+        "Current SP-SSD-1TB-NVME running low on capacity",
+        "Customer purchasing upgrade independently"
+      ],
+      "cause": "Customer-initiated storage upgrade.",
+      "resolution": [
+        "Note: warranty on customer-installed parts is not covered by OEM",
+        "Advise customer to backup data before upgrade",
+        "SP-SSD-1TB-NVME is M.2 2280 form factor \u2014 customer should match this spec",
+        "If customer wants OEM SP-SSD-1TB-NVME replaced with larger OEM unit, this must be processed as paid upgrade",
+        "Refer customer to upgrade service if applicable"
+      ],
+      "inventoryReferences": ["SP-SSD-1TB-NVME"],
+      "locationReferences": ["WH-AUS-001"],
+      "keywords": [
+        "SSD upgrade",
+        "storage upgrade",
+        "more storage",
+        "bigger SSD",
+        "2TB upgrade"
+      ]
+    },
+    {
+      "title": "OS Drive Showing in Wrong BIOS Slot on AeroVolt A5X Pro",
+      "category": "SSD & Storage",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "BIOS boot list shows multiple NVMe entries",
+        "System boots to wrong OS or drive",
+        "Boot order cannot be saved"
+      ],
+      "cause": "BIOS boot order misconfiguration after SP-SSD-1TB-NVME reseating or dual-drive configuration.",
+      "resolution": [
+        "Enter BIOS and navigate to Boot Order",
+        "Set SP-SSD-1TB-NVME (primary OS drive) as first boot device",
+        "Save and exit BIOS",
+        "If boot order resets, check for Fast Boot interference",
+        "Disable Secure Boot temporarily if needed to identify correct drive"
+      ],
+      "inventoryReferences": ["SP-SSD-1TB-NVME"],
+      "locationReferences": ["WH-AUS-001"],
+      "keywords": [
+        "boot order",
+        "wrong drive",
+        "BIOS boot",
+        "NVMe boot order",
+        "boot priority"
+      ]
+    },
+    {
+      "title": "Storage Diagnostic Tool Usage for SP-SSD-1TB-NVME",
+      "category": "SSD & Storage",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Agent needs to run storage diagnostic",
+        "Customer reports intermittent disk errors",
+        "Pre-replacement SSD health assessment needed"
+      ],
+      "cause": "Reference article for SSD diagnostics procedure on SP-SSD-1TB-NVME.",
+      "resolution": [
+        "Download AeroVolt Storage Diagnostics from support portal",
+        "Boot from diagnostic USB or run from within OS",
+        "Select SP-SSD-1TB-NVME as target drive",
+        "Run SMART quick test (2 minutes)",
+        "Run extended test for intermittent issues (30-60 minutes)",
+        "Export diagnostic report and attach to service case",
+        "Healthy: proceed with SW troubleshooting. Failed: proceed with replacement from WH-AUS-001 (Austin Fulfillment Center - Alpha Dock)"
+      ],
+      "inventoryReferences": ["SP-SSD-1TB-NVME"],
+      "locationReferences": ["WH-AUS-001"],
+      "keywords": [
+        "SSD diagnostic",
+        "storage diagnostic",
+        "SMART test",
+        "NVMe health",
+        "disk test"
+      ]
+    },
+    {
+      "title": "Windows Cannot Be Installed on NVMe on AeroVolt Stratos Air 13",
+      "category": "SSD & Storage",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "OS installer reports 'Cannot install to this disk'",
+        "Installer cannot find SP-SSD-1TB-NVME",
+        "Installing OS from USB fails"
+      ],
+      "cause": "NVMe driver not loaded in OS installer, BIOS in SATA mode, or Secure Boot preventing installation.",
+      "resolution": [
+        "Enable NVMe drivers in OS installer (load driver from USB)",
+        "Check BIOS \u2014 ensure storage mode is set to NVMe/AHCI",
+        "Disable Secure Boot during initial installation",
+        "Ensure BIOS is in UEFI mode (not Legacy)",
+        "Re-run installation after configuration changes"
+      ],
+      "inventoryReferences": ["SP-SSD-1TB-NVME"],
+      "locationReferences": ["WH-AUS-001"],
+      "keywords": [
+        "OS install NVMe",
+        "cannot install disk",
+        "Windows NVMe",
+        "installation disk error",
+        "UEFI install"
+      ]
+    },
+    {
+      "title": "SSD Warranty Replacement from WH-AUS-001",
+      "category": "SSD & Storage",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "SP-SSD-1TB-NVME confirmed failed by diagnostics",
+        "Unit within warranty period",
+        "Replacement approved by agent"
+      ],
+      "cause": "Warranty-covered SP-SSD-1TB-NVME failure.",
+      "resolution": [
+        "Confirm unit warranty status",
+        "Log SSD diagnostic report to case",
+        "Order SP-SSD-1TB-NVME from WH-AUS-001 (Austin Fulfillment Center - Alpha Dock)",
+        "For EU customers, escalate to warehouse coordinator for transfer from WH-AUS-001",
+        "Dispatch replacement within 1 business day per SLA",
+        "Provide tracking to customer and update case"
+      ],
+      "inventoryReferences": ["SP-SSD-1TB-NVME"],
+      "locationReferences": ["WH-AUS-001"],
+      "keywords": [
+        "SSD warranty replacement",
+        "SSD dispatch",
+        "WH-SJO-002",
+        "warranty SSD",
+        "replacement drive"
+      ]
+    },
+    {
+      "title": "SSD Read Speed Drops After Windows Update on Quantum Apex 17-G",
+      "category": "SSD & Storage",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "SSD performance degraded after a Windows update",
+        "Sequential read speeds dropped from 3500 MB/s to 800 MB/s",
+        "BIOS shows SSD as NVMe but performance is SATA-level"
+      ],
+      "cause": "Windows update replaced optimized NVMe driver with generic Microsoft AHCI driver.",
+      "resolution": [
+        "Check driver in Device Manager \u2014 look for 'Standard SATA AHCI Controller' vs NVMe driver",
+        "Reinstall OEM NVMe driver from support portal",
+        "Restart and rerun benchmark to verify",
+        "If issue recurs after Windows update, set NVMe driver update policy to prevent rollback"
+      ],
+      "inventoryReferences": ["SP-SSD-1TB-NVME"],
+      "locationReferences": ["WH-AUS-001"],
+      "keywords": [
+        "SSD speed drop",
+        "NVMe driver",
+        "Windows update SSD",
+        "AHCI driver",
+        "storage speed"
+      ]
+    },
+    {
+      "title": "SSD Filling Up Causing OS Slowdown on AeroVolt ProBook 15X",
+      "category": "SSD & Storage",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "OS extremely slow",
+        "Disk shows 95%+ full",
+        "Applications crash with 'out of disk space' errors"
+      ],
+      "cause": "SP-SSD-1TB-NVME storage full causing OS virtual memory and temp file operations to fail.",
+      "resolution": [
+        "Run Disk Cleanup to remove temp files",
+        "Empty Recycle Bin",
+        "Identify large files using disk analysis tool",
+        "Move data to external storage",
+        "Disable hibernation to recover hiberfil.sys space",
+        "If customer consistently needs more space, discuss storage upgrade options"
+      ],
+      "inventoryReferences": ["SP-SSD-1TB-NVME"],
+      "locationReferences": ["WH-AUS-001"],
+      "keywords": [
+        "disk full",
+        "SSD full",
+        "out of space",
+        "storage full",
+        "disk cleanup"
+      ]
+    },
+    {
+      "title": "SSD Part Number Verification for WH Inventory",
+      "category": "SSD & Storage",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Agent needs to verify SP-SSD-1TB-NVME stock before placing order",
+        "Customer inquiring about storage availability"
+      ],
+      "cause": "Reference article for SP-SSD-1TB-NVME inventory check across warehouse locations.",
+      "resolution": [
+        "Primary stock: WH-AUS-001 (Austin Fulfillment Center - Alpha Dock) \u2014 120 units on hand",
+        "Part code: SP-SSD-1TB-NVME \u2014 compatible with ALL products",
+        "Check live inventory before placing order",
+        "If out of stock, escalate to warehouse coordinator for transfer from another depot"
+      ],
+      "inventoryReferences": ["SP-SSD-1TB-NVME"],
+      "locationReferences": ["WH-AUS-001"],
+      "keywords": [
+        "SSD inventory",
+        "stock check",
+        "SSD availability",
+        "part availability",
+        "warehouse stock"
+      ]
+    },
+    {
+      "title": "BSOD MEMORY_MANAGEMENT on AeroVolt ProBook 15X",
+      "category": "RAM & BSOD",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Blue screen error: MEMORY_MANAGEMENT (0x0000001A)",
+        "Random crashes during normal use",
+        "Crash dump file generated"
+      ],
+      "cause": "Defective or incompatible SP-RAM-16-DDR5 memory module causing memory addressing errors.",
+      "resolution": [
+        "Run Windows Memory Diagnostic or Memtest86 overnight",
+        "Reseat SP-RAM-16-DDR5 module",
+        "Test with single memory module if dual-channel",
+        "Replace SP-RAM-16-DDR5 if errors found in memory test",
+        "Order from WH-AUS-001 (Austin Fulfillment Center - Alpha Dock)"
+      ],
+      "inventoryReferences": ["SP-RAM-16-DDR5"],
+      "locationReferences": ["WH-AUS-001"],
+      "keywords": [
+        "MEMORY_MANAGEMENT",
+        "BSOD",
+        "blue screen",
+        "RAM error",
+        "0x0000001A"
+      ]
+    },
+    {
+      "title": "BSOD BAD_POOL_CALLER on AeroVolt Stratos Air 13",
+      "category": "RAM & BSOD",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "Blue screen: BAD_POOL_CALLER (0x000000C2)",
+        "Crash occurs when opening specific applications",
+        "Error dump indicates memory pool corruption"
+      ],
+      "cause": "Software driver corrupting memory pool or SP-RAM-16-DDR5 hardware fault.",
+      "resolution": [
+        "Identify recently installed drivers and uninstall",
+        "Run Memtest86 to rule out SP-RAM-16-DDR5 hardware fault",
+        "Use verifier.exe (Driver Verifier) to identify faulty driver",
+        "If memory test fails, replace SP-RAM-16-DDR5",
+        "If software-caused, reinstall OS or roll back problematic driver"
+      ],
+      "inventoryReferences": ["SP-RAM-16-DDR5"],
+      "locationReferences": ["WH-AUS-001"],
+      "keywords": [
+        "BAD_POOL_CALLER",
+        "BSOD pool",
+        "pool corruption",
+        "driver BSOD",
+        "memory pool"
+      ]
+    },
+    {
+      "title": "System RAM Not Fully Recognized on Quantum Apex 17-G",
+      "category": "RAM & BSOD",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "System shows 8GB usable out of 16GB installed",
+        "Memory remapping issue",
+        "BIOS shows correct amount but OS reports less"
+      ],
+      "cause": "BIOS memory remapping disabled, integrated GPU consuming shared RAM, or SP-RAM-16-DDR5 seating issue.",
+      "resolution": [
+        "Enable memory remapping in BIOS advanced settings",
+        "Check BIOS IGPU shared memory allocation \u2014 reduce if overly large",
+        "Reseat SP-RAM-16-DDR5",
+        "Verify OS is 64-bit (32-bit OS limits RAM to 4GB)",
+        "If 8GB still showing after BIOS fix, test with alternate SP-RAM-16-DDR5 module"
+      ],
+      "inventoryReferences": ["SP-RAM-16-DDR5"],
+      "locationReferences": ["WH-AUS-001"],
+      "keywords": [
+        "RAM not recognized",
+        "memory not showing",
+        "8GB showing 16GB",
+        "memory remapping",
+        "usable RAM"
+      ]
+    },
+    {
+      "title": "RAM Replacement Procedure for AeroVolt ProBook 15X",
+      "category": "RAM & BSOD",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "SP-RAM-16-DDR5 confirmed defective",
+        "Replacement ordered from WH-SJO-002"
+      ],
+      "cause": "Approved SP-RAM-16-DDR5 DDR5 RAM module replacement.",
+      "resolution": [
+        "Power off and disconnect SP-CHG-65W and SP-BATT-15X",
+        "Open base panel",
+        "Locate SO-DIMM slot \u2014 release retention clips",
+        "Remove old SP-RAM-16-DDR5 at 45-degree angle",
+        "Insert new SP-RAM-16-DDR5 at 45 degrees until fully seated",
+        "Press down until retention clips lock",
+        "Reassemble and boot \u2014 verify in BIOS that 16GB is shown"
+      ],
+      "inventoryReferences": ["SP-RAM-16-DDR5", "SP-BATT-15X"],
+      "locationReferences": ["WH-AUS-001", "WH-SJO-002"],
+      "keywords": [
+        "RAM replacement",
+        "DDR5 install",
+        "memory install",
+        "SP-RAM-16-DDR5 procedure",
+        "DIMM replacement"
+      ]
+    },
+    {
+      "title": "BSOD IRQL_NOT_LESS_OR_EQUAL on AeroVolt A5X Pro",
+      "category": "RAM & BSOD",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "Blue screen: IRQL_NOT_LESS_OR_EQUAL (0x0000000A)",
+        "Crash occurs during sleep/wake or hardware operation",
+        "Event log references a specific driver"
+      ],
+      "cause": "Hardware driver accessing invalid memory address. Often Wi-Fi, GPU, or storage drivers. May also be SP-RAM-16-DDR5 instability.",
+      "resolution": [
+        "Analyze minidump file \u2014 identify offending driver",
+        "Update or rollback the identified driver",
+        "Update all hardware drivers from support portal",
+        "Run memory test to rule out SP-RAM-16-DDR5",
+        "If memory test fails, replace SP-RAM-16-DDR5 from WH-AUS-001 (Austin Fulfillment Center - Alpha Dock)"
+      ],
+      "inventoryReferences": ["SP-RAM-16-DDR5"],
+      "locationReferences": ["WH-AUS-001"],
+      "keywords": [
+        "IRQL_NOT_LESS_OR_EQUAL",
+        "BSOD 0x0000000A",
+        "driver BSOD",
+        "IRQ error",
+        "BSOD driver"
+      ]
+    },
+    {
+      "title": "Random BSOD Without Specific Error Code on AeroVolt Stratos Air 13",
+      "category": "RAM & BSOD",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "BSOD occurs randomly, different stop codes each time",
+        "No consistent error message",
+        "Crashes during different activities"
+      ],
+      "cause": "SP-RAM-16-DDR5 failing intermittently, causing varied BSOD codes. Multiple random codes strongly indicate RAM hardware issue.",
+      "resolution": [
+        "Run Memtest86 for minimum 4 passes \u2014 errors on any pass = faulty RAM",
+        "Test single module at a time if dual-channel",
+        "Replace SP-RAM-16-DDR5 if errors found",
+        "If no memory errors, check SSD health and run temperature stress test",
+        "Order SP-RAM-16-DDR5 from WH-AUS-001 if replacement confirmed"
+      ],
+      "inventoryReferences": ["SP-RAM-16-DDR5", "SP-SSD-1TB-NVME"],
+      "locationReferences": ["WH-AUS-001"],
+      "keywords": [
+        "random BSOD",
+        "multiple stop codes",
+        "random crash",
+        "intermittent BSOD",
+        "Memtest"
+      ]
+    },
+    {
+      "title": "System Freezes Without BSOD on Quantum Apex 17-G",
+      "category": "RAM & BSOD",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "System freezes completely \u2014 no response to input",
+        "No BSOD \u2014 hard freeze requiring power button",
+        "Happens at irregular intervals"
+      ],
+      "cause": "SP-RAM-16-DDR5 or SP-SSD-1TB-NVME fault. Thermal issues from SP-FAN-15X can also cause hard freezes.",
+      "resolution": [
+        "Check system temperature during normal use",
+        "Run memory diagnostics overnight",
+        "Run SSD SMART test",
+        "Check event logs for critical errors before freeze events",
+        "If no diagnostic errors found, update all drivers and BIOS",
+        "Escalate if freezes persist with no diagnostic evidence"
+      ],
+      "inventoryReferences": [
+        "SP-RAM-16-DDR5",
+        "SP-SSD-1TB-NVME",
+        "SP-FAN-15X"
+      ],
+      "locationReferences": ["WH-AUS-001", "WH-FRA-004"],
+      "keywords": [
+        "hard freeze",
+        "system frozen",
+        "no BSOD freeze",
+        "computer locks up",
+        "freeze crash"
+      ]
+    },
+    {
+      "title": "BSOD PAGE_FAULT_IN_NONPAGED_AREA on AeroVolt ProBook 15X",
+      "category": "RAM & BSOD",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Blue screen: PAGE_FAULT_IN_NONPAGED_AREA (0x00000050)",
+        "Occurs when using specific applications",
+        "References ntoskrnl.exe or driver file"
+      ],
+      "cause": "Software trying to access invalid memory region. SP-RAM-16-DDR5 errors or corrupt system files.",
+      "resolution": [
+        "Run SFC (System File Checker) to repair corrupt OS files",
+        "Run DISM to repair component store",
+        "Run memory diagnostic for SP-RAM-16-DDR5",
+        "If referencing a driver file, update or rollback that driver",
+        "If memory test fails, replace SP-RAM-16-DDR5"
+      ],
+      "inventoryReferences": ["SP-RAM-16-DDR5"],
+      "locationReferences": ["WH-AUS-001"],
+      "keywords": [
+        "PAGE_FAULT",
+        "BSOD 0x50",
+        "page fault",
+        "nonpaged area",
+        "SFC repair"
+      ]
+    },
+    {
+      "title": "RAM Not Running at Rated Speed on AeroVolt A5X Pro",
+      "category": "RAM & BSOD",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "SP-RAM-16-DDR5 rated at 5600MHz but running at 4800MHz",
+        "BIOS shows memory at lower speed",
+        "Performance below expected"
+      ],
+      "cause": "XMP/EXPO profile not enabled in BIOS for SP-RAM-16-DDR5.",
+      "resolution": [
+        "Enter BIOS and navigate to Memory settings",
+        "Enable XMP or EXPO profile for SP-RAM-16-DDR5",
+        "Select the correct profile (XMP Profile 1 for 5600MHz)",
+        "Save and reboot \u2014 verify speed in BIOS and Task Manager",
+        "Note: enabling XMP may affect stability \u2014 test with memory diagnostics after enabling"
+      ],
+      "inventoryReferences": ["SP-RAM-16-DDR5"],
+      "locationReferences": ["WH-AUS-001"],
+      "keywords": [
+        "RAM speed",
+        "DDR5 speed",
+        "XMP profile",
+        "memory speed",
+        "5600MHz"
+      ]
+    },
+    {
+      "title": "RAM Warranty Replacement on AeroVolt Stratos Air 13",
+      "category": "RAM & BSOD",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "Memtest86 shows errors on SP-RAM-16-DDR5",
+        "Unit within warranty",
+        "Customer requests RAM replacement"
+      ],
+      "cause": "Defective SP-RAM-16-DDR5 module confirmed by memory diagnostics.",
+      "resolution": [
+        "Attach Memtest86 error report to case",
+        "Verify warranty status",
+        "Approve SP-RAM-16-DDR5 replacement",
+        "Order from WH-AUS-001 (Austin Fulfillment Center - Alpha Dock)",
+        "Dispatch replacement and schedule technician or provide self-install guide",
+        "Run memory diagnostic post-replacement to confirm resolution"
+      ],
+      "inventoryReferences": ["SP-RAM-16-DDR5"],
+      "locationReferences": ["WH-AUS-001"],
+      "keywords": [
+        "RAM warranty",
+        "memory replacement warranty",
+        "Memtest errors",
+        "DDR5 warranty",
+        "memory defect"
+      ]
+    },
+    {
+      "title": "Dual Channel RAM Configuration on Quantum Apex 17-G",
+      "category": "RAM & BSOD",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "Customer upgraded to 32GB but system running in single channel",
+        "Performance lower than expected after upgrade",
+        "BIOS shows single channel mode"
+      ],
+      "cause": "Two SP-RAM-16-DDR5 modules installed in same slot pair (both in slot 1) instead of matched slots for dual-channel.",
+      "resolution": [
+        "Power off and open base panel",
+        "Ensure one SP-RAM-16-DDR5 module is in Slot A and one in Slot B",
+        "Slot labeling typically: DIMM0 + DIMM1 = dual channel pair",
+        "Reseat modules in correct paired slots",
+        "Boot and verify dual channel in BIOS memory info",
+        "Run benchmark to confirm performance improvement"
+      ],
+      "inventoryReferences": ["SP-RAM-16-DDR5"],
+      "locationReferences": ["WH-AUS-001"],
+      "keywords": [
+        "dual channel",
+        "single channel",
+        "RAM slots",
+        "memory channel",
+        "32GB dual channel"
+      ]
+    },
+    {
+      "title": "BSOD CRITICAL_PROCESS_DIED After Windows Update on AeroVolt ProBook 15X",
+      "category": "RAM & BSOD",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Blue screen: CRITICAL_PROCESS_DIED after recent Windows update",
+        "System crashes within minutes of login",
+        "Safe Mode boots successfully"
+      ],
+      "cause": "Windows update incompatibility with current driver stack. Unlikely SP-RAM-16-DDR5 hardware issue if Safe Mode works.",
+      "resolution": [
+        "Boot in Safe Mode and uninstall recent Windows update",
+        "Roll back problematic update via Windows Update history",
+        "Update all drivers before re-applying Windows update",
+        "If BSOD persists in Safe Mode, run SP-RAM-16-DDR5 diagnostics",
+        "Consider clean OS install if issue is irreparable"
+      ],
+      "inventoryReferences": ["SP-RAM-16-DDR5"],
+      "locationReferences": ["WH-AUS-001"],
+      "keywords": [
+        "CRITICAL_PROCESS_DIED",
+        "BSOD update",
+        "Windows update BSOD",
+        "Safe Mode",
+        "update crash"
+      ]
+    },
+    {
+      "title": "RAM Module Not Compatible Warning on AeroVolt A5X Pro",
+      "category": "RAM & BSOD",
+      "productCode": "AV-LP-A5X-PRO",
+      "symptoms": [
+        "BIOS warning: 'Memory module may not be compatible'",
+        "System boots but instability observed",
+        "Non-OEM RAM installed"
+      ],
+      "cause": "Non-OEM DDR5 RAM installed \u2014 may not be on the BIOS compatibility list. OEM SP-RAM-16-DDR5 is validated.",
+      "resolution": [
+        "Advise customer that non-OEM RAM is not supported under warranty",
+        "Recommend reinstalling OEM SP-RAM-16-DDR5",
+        "If customer insists on third-party RAM, document and note warranty implications",
+        "If OEM SP-RAM-16-DDR5 is needed, source from WH-AUS-001 (Austin Fulfillment Center - Alpha Dock)",
+        "Run memory diagnostic to assess stability with current configuration"
+      ],
+      "inventoryReferences": ["SP-RAM-16-DDR5"],
+      "locationReferences": ["WH-AUS-001"],
+      "keywords": [
+        "RAM compatibility",
+        "memory warning",
+        "third party RAM",
+        "BIOS memory warning",
+        "non-OEM RAM"
+      ]
+    },
+    {
+      "title": "Memory Upgrade Path for AeroVolt Stratos Air 13",
+      "category": "RAM & BSOD",
+      "productCode": "AV-LP-13A-STRAT",
+      "symptoms": [
+        "Customer wants to upgrade from 16GB to 32GB",
+        "Inquiry on maximum supported RAM",
+        "Compatibility question for RAM upgrade"
+      ],
+      "cause": "Customer inquiry \u2014 memory upgrade planning.",
+      "resolution": [
+        "AV-LP-13A-STRAT supports maximum of 32GB DDR5 via two SO-DIMM slots",
+        "Currently supports SP-RAM-16-DDR5 (16GB) \u2014 dual configuration = 32GB total",
+        "Recommend OEM SP-RAM-16-DDR5 for compatibility",
+        "RAM upgrade is customer-serviceable but voids warranty on that component",
+        "Order SP-RAM-16-DDR5 from WH-AUS-001 (Austin Fulfillment Center - Alpha Dock) for OEM-supported upgrade"
+      ],
+      "inventoryReferences": ["SP-RAM-16-DDR5"],
+      "locationReferences": ["WH-AUS-001"],
+      "keywords": [
+        "memory upgrade",
+        "RAM upgrade",
+        "32GB",
+        "max RAM",
+        "upgrade path"
+      ]
+    },
+    {
+      "title": "BSOD SYSTEM_THREAD_EXCEPTION_NOT_HANDLED on Quantum Apex 17-G",
+      "category": "RAM & BSOD",
+      "productCode": "QA-LP-17G-APEX",
+      "symptoms": [
+        "BSOD: SYSTEM_THREAD_EXCEPTION_NOT_HANDLED referencing nvlddmkm.sys or iaStorAC.sys",
+        "Crash during GPU-intensive workloads",
+        "References NVMe storage or GPU driver"
+      ],
+      "cause": "GPU driver or NVMe driver unhandled exception. May be triggered by SP-RAM-16-DDR5 instability during intensive operations.",
+      "resolution": [
+        "Update GPU driver and NVMe driver from support portal",
+        "If referencing iaStorAC.sys \u2014 reinstall Intel RST or switch to Microsoft NVMe driver",
+        "Run extended Memtest86 test for SP-RAM-16-DDR5",
+        "Run SSD SMART extended test on SP-SSD-1TB-NVME",
+        "If both hardware tests pass, issue is driver \u2014 escalate to Tier 2 if unresolvable"
+      ],
+      "inventoryReferences": ["SP-RAM-16-DDR5", "SP-SSD-1TB-NVME"],
+      "locationReferences": ["WH-AUS-001"],
+      "keywords": [
+        "SYSTEM_THREAD_EXCEPTION",
+        "nvlddmkm",
+        "GPU BSOD",
+        "driver exception",
+        "thread exception"
+      ]
+    },
+    {
+      "title": "RAM Inventory Availability Across Warehouses",
+      "category": "RAM & BSOD",
+      "productCode": "AV-LP-15X-PRO",
+      "symptoms": [
+        "Agent needs to check SP-RAM-16-DDR5 stock",
+        "Customer needs urgent RAM replacement"
+      ],
+      "cause": "Reference article for SP-RAM-16-DDR5 inventory and sourcing.",
+      "resolution": [
+        "Primary stock: WH-AUS-001 (Austin Fulfillment Center - Alpha Dock) \u2014 150 units on hand",
+        "Part code: SP-RAM-16-DDR5 \u2014 compatible with ALL products",
+        "Check availability before placing order \u2014 SP-RAM-16-DDR5 is a high-turnover part",
+        "Expedited shipping available for active warranty cases"
+      ],
+      "inventoryReferences": ["SP-RAM-16-DDR5"],
+      "locationReferences": ["WH-AUS-001"],
+      "keywords": [
+        "RAM inventory",
+        "DDR5 stock",
+        "memory availability",
+        "warehouse RAM",
+        "SP-RAM-16-DDR5 stock"
+      ]
+    }
+  ]
+}

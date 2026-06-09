@@ -4,6 +4,29 @@ import {
 } from "./orchestration-status.repository";
 import { OrchestrationStatusStore } from "./orchestration-status.store";
 
+const knowledgeGuidance = {
+  eligible: true,
+  degraded: false,
+  status: "ANSWERED" as const,
+  answer: {
+    safeSummary:
+      "Verify adapter functionality, run BIOS diagnostics, and replace SP-BATT-15X if diagnostics confirm failure.",
+    sources: [
+      {
+        sourceId: "kb-av-lp-15x-pro-battery-1",
+        title: "Battery Not Charging on AeroVolt ProBook 15X",
+        retrievalScorePercentile: 81
+      }
+    ],
+    provider: "openai",
+    model: "gpt-4o-mini",
+    embeddingProvider: "openai",
+    retrievalId: "ret-123",
+    latencyMs: 253,
+    fallbackUsed: false
+  }
+};
+
 describe("OrchestrationStatusStore", () => {
   function build(
     repository: OrchestrationStatusRepository = new InMemoryOrchestrationStatusRepository()
@@ -57,6 +80,21 @@ describe("OrchestrationStatusStore", () => {
     const snapshot = (await store.get("wf-1"))!;
     expect(snapshot.writeBackApplied).toBe(true);
     expect(snapshot.approvalRequired).toBe(true);
+    expect(snapshot.events).toHaveLength(1);
+  });
+
+  it("merges the knowledge guidance channel without adding an event", async () => {
+    const store = build();
+    await store.createAssigned({
+      workflowId: "wf-1",
+      caseId: "500000000000001"
+    });
+    await store.update("wf-1", {
+      knowledgeGuidance
+    });
+    const snapshot = (await store.get("wf-1"))!;
+    expect(snapshot.knowledgeGuidance?.status).toBe("ANSWERED");
+    expect(snapshot.knowledgeGuidance?.answer?.sources).toHaveLength(1);
     expect(snapshot.events).toHaveLength(1);
   });
 

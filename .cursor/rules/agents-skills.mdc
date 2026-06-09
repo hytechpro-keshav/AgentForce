@@ -27,6 +27,7 @@ Read the relevant `SKILL.md` before specialized work. Available skills:
 | `deep-agents-orchestration` | Subagents, planning, HITL |
 | `managed-deep-agents` | LangSmith managed deep agents API |
 | `new-org-tenant-onboarding` | Org and tenant onboarding |
+| `railway-quick-deploy` | Deploy current workspace changes to Railway |
 | `swarm` | Parallel fan-out workflows |
 
 Do not use external `npx skills` setup when a repo skill exists.

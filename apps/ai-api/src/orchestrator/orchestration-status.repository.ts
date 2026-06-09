@@ -13,6 +13,7 @@ import type {
   OrchestratorNodeId
 } from "./dto/case-triage-lifecycle";
 import type { CustomerContextChannel } from "./dto/customer-context";
+import type { KnowledgeGuidanceChannel } from "./dto/knowledge-guidance";
 import type {
   CaseTriageWorkflowSnapshot,
   OrchestrationStatusEvent,
@@ -102,6 +103,7 @@ interface OrchestrationWorkflowRow extends QueryResultRow {
   failure_kind: string | null;
   triage: unknown;
   customer_context: unknown;
+  knowledge_guidance: unknown;
   events: unknown;
   created_at: Date | string;
   updated_at: Date | string;
@@ -171,11 +173,12 @@ export class PostgresOrchestrationStatusRepository
             failure_kind,
             triage,
             customer_context,
+            knowledge_guidance,
             events,
             created_at,
             updated_at
           ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12::jsonb, $13, $14
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12::jsonb, $13::jsonb, $14, $15
           )
           ON CONFLICT (workflow_id) DO UPDATE SET
             case_id = EXCLUDED.case_id,
@@ -188,6 +191,7 @@ export class PostgresOrchestrationStatusRepository
             failure_kind = EXCLUDED.failure_kind,
             triage = EXCLUDED.triage,
             customer_context = EXCLUDED.customer_context,
+            knowledge_guidance = EXCLUDED.knowledge_guidance,
             events = EXCLUDED.events,
             created_at = EXCLUDED.created_at,
             updated_at = EXCLUDED.updated_at
@@ -205,6 +209,9 @@ export class PostgresOrchestrationStatusRepository
           snapshot.triage ? JSON.stringify(snapshot.triage) : null,
           snapshot.customerContext
             ? JSON.stringify(snapshot.customerContext)
+            : null,
+          snapshot.knowledgeGuidance
+            ? JSON.stringify(snapshot.knowledgeGuidance)
             : null,
           JSON.stringify(snapshot.events ?? []),
           snapshot.createdAt,
@@ -278,10 +285,15 @@ export class PostgresOrchestrationStatusRepository
           failure_kind text,
           triage jsonb,
           customer_context jsonb,
+          knowledge_guidance jsonb,
           events jsonb NOT NULL DEFAULT '[]'::jsonb,
           created_at timestamptz NOT NULL,
           updated_at timestamptz NOT NULL
         )
+      `);
+      await client.query(`
+        ALTER TABLE ai_api_orchestration_workflows
+        ADD COLUMN IF NOT EXISTS knowledge_guidance jsonb
       `);
       await client.query(
         "CREATE INDEX IF NOT EXISTS ai_api_orchestration_workflows_case_idx ON ai_api_orchestration_workflows(case_id)"
@@ -316,6 +328,10 @@ export class PostgresOrchestrationStatusRepository
       customerContext:
         PostgresOrchestrationStatusRepository.parseCustomerContext(
           row.customer_context
+        ),
+      knowledgeGuidance:
+        PostgresOrchestrationStatusRepository.parseKnowledgeGuidance(
+          row.knowledge_guidance
         ),
       createdAt: PostgresOrchestrationStatusRepository.toIso(row.created_at),
       updatedAt: PostgresOrchestrationStatusRepository.toIso(row.updated_at),
@@ -370,6 +386,22 @@ export class PostgresOrchestrationStatusRepository
       }
     }
     return value as CustomerContextChannel;
+  }
+
+  private static parseKnowledgeGuidance(
+    value: unknown
+  ): KnowledgeGuidanceChannel | undefined {
+    if (value === null || value === undefined) {
+      return undefined;
+    }
+    if (typeof value === "string") {
+      try {
+        return JSON.parse(value) as KnowledgeGuidanceChannel;
+      } catch {
+        return undefined;
+      }
+    }
+    return value as KnowledgeGuidanceChannel;
   }
 
   private static toIso(value: Date | string): string {

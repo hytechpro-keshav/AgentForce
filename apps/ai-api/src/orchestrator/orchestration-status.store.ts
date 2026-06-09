@@ -7,6 +7,7 @@ import type {
 } from "./dto/case-triage-lifecycle";
 import { TRIAGE_NODE_ID } from "./dto/case-triage-lifecycle";
 import type { CustomerContextChannel } from "./dto/customer-context";
+import type { KnowledgeGuidanceChannel } from "./dto/knowledge-guidance";
 import type {
   CaseTriageWorkflowSnapshot,
   OrchestrationExecutionTrace,
@@ -24,6 +25,7 @@ interface CreateWorkflowSeed {
 interface WorkflowPatch {
   triage?: SanitizedTriageResult;
   customerContext?: CustomerContextChannel;
+  knowledgeGuidance?: KnowledgeGuidanceChannel;
   approvalRequired?: boolean;
   approvalDecision?: ApprovalDecision;
   writeBackApplied?: boolean;
@@ -215,6 +217,9 @@ export class OrchestrationStatusStore {
     if (patch.triage !== undefined) snapshot.triage = patch.triage;
     if (patch.customerContext !== undefined) {
       snapshot.customerContext = patch.customerContext;
+    }
+    if (patch.knowledgeGuidance !== undefined) {
+      snapshot.knowledgeGuidance = patch.knowledgeGuidance;
     }
     if (patch.approvalRequired !== undefined) {
       snapshot.approvalRequired = patch.approvalRequired;

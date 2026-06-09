@@ -68,6 +68,11 @@ describe("OrchestrationPanel", () => {
     expect(
       within(screen.getByTestId("stage-triage")).getByText(/Node 1 · Triage/)
     ).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("stage-knowledge")).getByText(
+        /Node 3 · Knowledge Base/
+      )
+    ).toBeInTheDocument();
     expect(screen.getByText("Case 00004242")).toBeInTheDocument();
     expect(screen.getByTestId("triage-priority")).toHaveTextContent(
       "priority: critical"
@@ -152,7 +157,7 @@ describe("OrchestrationPanel", () => {
   it("shows the read-only / approvals-elsewhere notice", () => {
     render(<OrchestrationPanel snapshot={snapshot()} />);
     expect(
-      screen.getByText(/Approvals are\s+handled in the account manager/i)
+      screen.getByText(/Approvals remain outside this console/i)
     ).toBeInTheDocument();
   });
 
@@ -301,8 +306,58 @@ describe("OrchestrationPanel", () => {
                   }
                 ]
               }
+            },
+            {
+              node: "knowledge",
+              status: "running",
+              sequence: 6,
+              occurredAt: "t6",
+              safeSummary: "Writing knowledge findings to state.",
+              trace: {
+                stepKey: "knowledge_write",
+                sections: [
+                  {
+                    key: "outputs",
+                    title: "Outputs",
+                    data: { knowledgeGuidanceWritten: true, status: "ANSWERED" }
+                  },
+                  {
+                    key: "state_changes",
+                    title: "State changes",
+                    data: [
+                      {
+                        path: "knowledgeGuidance",
+                        change: "added",
+                        after: { eligible: true, status: "ANSWERED" }
+                      }
+                    ]
+                  }
+                ]
+              }
             }
-          ]
+          ],
+          knowledgeGuidance: {
+            eligible: true,
+            degraded: false,
+            status: "ANSWERED",
+            answer: {
+              safeSummary:
+                "Verify adapter functionality, run BIOS diagnostics, and replace SP-BATT-15X if diagnostics confirm failure.",
+              sources: [
+                {
+                  sourceId: "kb-av-lp-15x-pro-battery-1",
+                  title: "Battery Not Charging on AeroVolt ProBook 15X",
+                  retrievalScorePercentile: 81
+                }
+              ],
+              provider: "openai",
+              model: "gpt-4o-mini",
+              embeddingProvider: "openai",
+              retrievalId: "ret-123",
+              latencyMs: 253,
+              fallbackUsed: false
+            }
+          }
         })}
       />
     );
@@ -310,12 +365,22 @@ describe("OrchestrationPanel", () => {
     expect(
       screen.getByRole("heading", { name: /Customer context package/i })
     ).toBeInTheDocument();
-    expect(screen.getByText("Customer Context finished")).toBeInTheDocument();
     expect(
-      screen.getByText("Latest node: Node 2 · Customer Context")
+      screen.getByRole("heading", { name: /Knowledge guidance/i })
+    ).toBeInTheDocument();
+    expect(screen.getByText("Knowledge finished")).toBeInTheDocument();
+    expect(
+      screen.getByText("Latest node: Node 3 · Knowledge Base")
     ).toBeInTheDocument();
     expect(screen.getByText(/Repeat failure/)).toBeInTheDocument();
-    expect(screen.getByText(/Agent Reasoning \/ Execution Trace/)).toBeInTheDocument();
+    expect(screen.getByText(/Suggested next step/i)).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/Battery Not Charging on AeroVolt ProBook 15X/).length
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText(/Agent Reasoning \/ Execution Trace/).length
+    ).toBeGreaterThan(0);
     expect(screen.getByText(/State before and after each step/)).toBeInTheDocument();
+    expect(screen.getByText(/Knowledge · Writing knowledge findings to state\./)).toBeInTheDocument();
   });
 });

@@ -27,7 +27,8 @@ import type {
 } from "./dto/customer-context";
 import type {
   KnowledgeGuidanceChannel,
-  KnowledgeEligibilityResult
+  KnowledgeEligibilityResult,
+  KnowledgeQueryInput
 } from "./dto/knowledge-guidance";
 import type {
   OrchestrationExecutionTrace,
@@ -127,7 +128,7 @@ export interface CaseTriageGraphDeps {
    */
   retrieveKnowledge(
     workflowId: string,
-    query: string,
+    queryInput: KnowledgeQueryInput,
     tenantId: string | undefined,
     principalSubject: string
   ): Promise<KnowledgeGuidanceChannel>;
@@ -349,9 +350,20 @@ export function buildCaseTriageGraph(deps: CaseTriageGraphDeps) {
         buildKnowledgeSearchTrace(state)
       );
 
+      const queryInput: KnowledgeQueryInput = {
+        caseSubject: state.context?.subject,
+        caseDescription: state.context?.description,
+        triagePriority: state.triage?.recommendedPriority,
+        customerTier: state.customerContext?.package?.customerTier.value,
+        productModel:
+          state.customerContext?.package?.installedAssets.value.primaryModel,
+        warrantyStatus: state.customerContext?.package?.warrantyStatus.value,
+        repeatIncidentCount:
+          state.customerContext?.package?.repeatIncident.value.count
+      };
       const guidance = await deps.retrieveKnowledge(
         state.workflowId,
-        "", // query will be built inside retrieveKnowledge
+        queryInput,
         state.tenantId,
         state.principalSubject
       );
@@ -1483,6 +1495,36 @@ function buildKnowledgeWriteTrace(channel: KnowledgeGuidanceChannel): Orchestrat
           degraded: channel.degraded,
           answerPresent: channel.answer ? true : false,
           sourceCount: channel.answer?.sources?.length ?? 0
+        }
+      },
+      {
+        key: "state_changes",
+        title: "State changes",
+        data: [
+          {
+            path: "knowledgeGuidance",
+            change: "added",
+            after: {
+              eligible: channel.eligible,
+              status: channel.status ?? null,
+              degraded: channel.degraded,
+              answerPresent: channel.answer ? true : false,
+              sourceCount: channel.answer?.sources?.length ?? 0
+            }
+          }
+        ]
+      },
+      {
+        key: "state_after",
+        title: "State after step",
+        data: {
+          knowledgeGuidance: {
+            eligible: channel.eligible,
+            status: channel.status ?? null,
+            degraded: channel.degraded,
+            answerPresent: channel.answer ? true : false,
+            sourceCount: channel.answer?.sources?.length ?? 0
+          }
         }
       }
     ]

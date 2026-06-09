@@ -117,7 +117,7 @@ export interface KnowledgeEligibilityInput {
 export interface KnowledgeQueryInput {
   caseSubject?: string;
   caseDescription?: string;
-  triagePriority?: string;
+  triagePriority?: "low" | "normal" | "high" | "critical";
   triageSeverity?: string;
   customerTier?: string;
   productModel?: string;
