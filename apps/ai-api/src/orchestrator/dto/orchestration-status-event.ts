@@ -6,6 +6,7 @@ import type {
 } from "./case-triage-lifecycle";
 import type { CustomerContextChannel } from "./customer-context";
 import type { KnowledgeGuidanceChannel } from "./knowledge-guidance";
+import type { OrchestratorVerdict } from "./orchestrator-verdict";
 
 /**
  * A single safe label/value detail attached to a status event so the
@@ -117,6 +118,12 @@ export interface CaseTriageWorkflowSnapshot {
    * RAG disabled.
    */
   knowledgeGuidance?: KnowledgeGuidanceChannel;
+  /**
+   * Final Verdict — observability-only synthesis after Nodes 1-3.
+   * Generated for the operator console from the typed channels; never
+   * parsed by downstream nodes. Absent until the workflow settles.
+   */
+  orchestratorVerdict?: OrchestratorVerdict;
   /** Safe failure classification only (no stack traces, no raw text). */
   failureKind?: string;
   createdAt: string;

@@ -23,12 +23,14 @@ import {
   type OrchestrationCustomerContext,
   type OrchestrationEvent,
   type OrchestrationExecutionTrace,
+  type OrchestrationKnowledgeGuidance,
   type OrchestrationNodeId,
   type OrchestrationSnapshot,
   type OrchestrationStateChange,
   type OrchestrationStatus,
   type OrchestrationTraceSection,
-  type OrchestrationTraceValue
+  type OrchestrationTraceValue,
+  type OrchestrationVerdict
 } from "@/lib/orchestration";
 
 const STATUS_ICON: Record<OrchestrationStatus, typeof CircleDot> = {
@@ -286,6 +288,40 @@ function formatJson(value: OrchestrationTraceValue): string {
   return JSON.stringify(value, null, 2);
 }
 
+/**
+ * Node 3's `safeSummary` is often a concatenation of retrieval metadata
+ * like "Product: X, Category: Y, Issue: Z". This splits that pattern
+ * into scannable label/value rows for the operator. Returns an empty
+ * list when the text is ordinary prose, so the caller can fall back to a
+ * readable paragraph. This is display-only parsing of an already-safe,
+ * already-sanitized string — never a machine contract.
+ */
+function parseGuidanceFields(
+  summary: string
+): { label: string; value: string }[] {
+  const labelPattern = /(^|[,;.]\s+)([A-Z][A-Za-z0-9 /&'()-]{1,28}):\s*/g;
+  const matches = [...summary.matchAll(labelPattern)];
+  if (matches.length < 2) {
+    return [];
+  }
+  const fields: { label: string; value: string }[] = [];
+  for (let i = 0; i < matches.length; i += 1) {
+    const match = matches[i];
+    const label = match[2].trim();
+    const valueStart = (match.index ?? 0) + match[0].length;
+    const valueEnd =
+      i + 1 < matches.length ? matches[i + 1].index ?? summary.length : summary.length;
+    const value = summary
+      .slice(valueStart, valueEnd)
+      .replace(/[;,.\s]+$/, "")
+      .trim();
+    if (label && value) {
+      fields.push({ label, value });
+    }
+  }
+  return fields;
+}
+
 function JsonBlock({ value }: { value: OrchestrationTraceValue }) {
   return (
     <pre className="overflow-x-auto rounded-lg bg-slate-950 p-3 text-xs text-slate-100">
@@ -411,6 +447,183 @@ function StageRail({ snapshot }: { snapshot: OrchestrationSnapshot }) {
   );
 }
 
+function FinalVerdict({ verdict }: { verdict?: OrchestrationVerdict }) {
+  if (!verdict || (!verdict.headline && !verdict.summary)) {
+    return null;
+  }
+  return (
+    <section
+      className="space-y-4 rounded-xl border bg-card p-5 text-card-foreground shadow-sm"
+      data-testid="final-verdict"
+      aria-label="Orchestrator final verdict"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-2">
+          <Sparkles className="mt-0.5 h-5 w-5 text-primary" aria-hidden />
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Orchestrator verdict
+            </p>
+            {verdict.headline ? (
+              <h2 className="text-lg font-semibold text-foreground">
+                {verdict.headline}
+              </h2>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {verdict.summary ? (
+        <p className="text-sm leading-relaxed text-foreground">
+          {verdict.summary}
+        </p>
+      ) : null}
+
+      {verdict.highlights.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {verdict.highlights.map((highlight) => (
+            <span
+              key={highlight.label}
+              className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground"
+            >
+              <span className="font-medium text-foreground">
+                {highlight.label}:
+              </span>
+              {highlight.value}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
+      {verdict.recommendedSteps.length > 0 ? (
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Recommended steps
+          </p>
+          <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-sm text-foreground">
+            {verdict.recommendedSteps.map((step, index) => (
+              <li key={`${index}-${step.slice(0, 16)}`}>{step}</li>
+            ))}
+          </ol>
+        </div>
+      ) : null}
+
+      <p className="rounded-md bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+        Human-readable summary for operators. Generated from triage, customer
+        context, and knowledge findings — downstream automation uses the typed
+        channels, not this text.
+      </p>
+    </section>
+  );
+}
+
+function KnowledgeActions({
+  actions
+}: {
+  actions: NonNullable<
+    NonNullable<OrchestrationKnowledgeGuidance["answer"]>["recommendedActions"]
+  >;
+}) {
+  return (
+    <div
+      className="rounded-xl border bg-background p-4"
+      data-testid="knowledge-actions"
+    >
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Recommended actions
+      </p>
+      <ul className="mt-2 space-y-2">
+        {actions.map((action, index) => (
+          <li
+            key={`${index}-${action.actionType}`}
+            className="rounded-lg border bg-card px-3 py-2"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium text-foreground">
+                {action.actionType.replace(/_/g, " ")}
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] uppercase tracking-wide text-muted-foreground">
+                  {action.confidence}
+                </span>
+                {action.requiredApproval ? (
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-amber-800">
+                    Approval
+                  </span>
+                ) : null}
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {action.rationale}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function KnowledgeSafetyFlags({
+  flags
+}: {
+  flags: NonNullable<
+    NonNullable<OrchestrationKnowledgeGuidance["answer"]>["safetyFlags"]
+  >;
+}) {
+  return (
+    <div
+      className="rounded-xl border border-amber-200 bg-amber-50 p-4"
+      data-testid="knowledge-safety-flags"
+    >
+      <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-amber-800">
+        <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+        Safety warnings
+      </p>
+      <ul className="mt-2 space-y-1.5">
+        {flags.map((flag) => (
+          <li key={flag.code} className="text-sm text-amber-900">
+            <span className="font-medium uppercase">{flag.severity}:</span>{" "}
+            {flag.message}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function GuidanceDetail({ summary }: { summary: string }) {
+  const fields = parseGuidanceFields(summary);
+  return (
+    <div
+      className="rounded-xl border bg-background p-4"
+      data-testid="knowledge-guidance-detail"
+    >
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Recommended guidance
+      </p>
+      {fields.length > 0 ? (
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          {fields.map((field) => (
+            <div
+              key={field.label}
+              className="rounded-lg border bg-card px-3 py-2"
+            >
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                {field.label}
+              </p>
+              <p className="mt-1 text-sm font-medium text-foreground">
+                {field.value}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-2 text-sm leading-relaxed text-foreground">{summary}</p>
+      )}
+    </div>
+  );
+}
+
 function KnowledgeGuidanceSummary({
   knowledgeGuidance
 }: {
@@ -463,6 +676,13 @@ function KnowledgeGuidanceSummary({
               : "No retrieval id recorded"
           }
         />
+        {knowledgeGuidance.answer?.guidanceConfidence ? (
+          <FindingCard
+            label="Guidance confidence"
+            value={knowledgeGuidance.answer.guidanceConfidence}
+            supporting="Graded from retrieval signals"
+          />
+        ) : null}
         {knowledgeGuidance.answer?.provider ? (
           <FindingCard
             label="Provider"
@@ -487,22 +707,32 @@ function KnowledgeGuidanceSummary({
         ) : null}
       </dl>
 
-      {knowledgeGuidance.answer?.safeSummary ? (
-        <div className="rounded-xl border bg-background p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Suggested next step
-          </p>
-          <p className="mt-2 text-sm text-foreground">
-            {knowledgeGuidance.answer.safeSummary}
-          </p>
-        </div>
+      {knowledgeGuidance.answer?.recommendedActions?.length ? (
+        <KnowledgeActions actions={knowledgeGuidance.answer.recommendedActions} />
+      ) : null}
+
+      {knowledgeGuidance.answer?.safetyFlags?.length ? (
+        <KnowledgeSafetyFlags flags={knowledgeGuidance.answer.safetyFlags} />
+      ) : null}
+
+      {knowledgeGuidance.answer?.displaySummary ||
+      knowledgeGuidance.answer?.safeSummary ? (
+        <GuidanceDetail
+          summary={
+            knowledgeGuidance.answer.displaySummary ??
+            knowledgeGuidance.answer.safeSummary
+          }
+        />
       ) : null}
 
       {knowledgeGuidance.answer?.sources?.length ? (
-        <details className="rounded-xl border bg-background p-3">
-          <summary className="cursor-pointer text-sm font-medium text-foreground">
-            Retrieved sources
-          </summary>
+        <div
+          className="rounded-xl border bg-background p-4"
+          data-testid="knowledge-sources"
+        >
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {`Sources (${knowledgeGuidance.answer.sources.length})`}
+          </p>
           <ul className="mt-3 space-y-2">
             {knowledgeGuidance.answer.sources.map((source) => (
               <li
@@ -529,7 +759,7 @@ function KnowledgeGuidanceSummary({
               </li>
             ))}
           </ul>
-        </details>
+        </div>
       ) : null}
 
       <details className="rounded-xl border bg-background p-3">
@@ -1024,6 +1254,8 @@ export function OrchestrationPanel({
           This view exposes sanitized execution artifacts, state transitions, and read-only node outputs. Approvals remain outside this console.
         </p>
       </section>
+
+      <FinalVerdict verdict={snapshot.orchestratorVerdict} />
 
       <StageRail snapshot={snapshot} />
 

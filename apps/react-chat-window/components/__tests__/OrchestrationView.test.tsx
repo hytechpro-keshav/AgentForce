@@ -373,7 +373,7 @@ describe("OrchestrationPanel", () => {
       screen.getByText("Latest node: Node 3 · Knowledge Base")
     ).toBeInTheDocument();
     expect(screen.getByText(/Repeat failure/)).toBeInTheDocument();
-    expect(screen.getByText(/Suggested next step/i)).toBeInTheDocument();
+    expect(screen.getByText(/Recommended guidance/i)).toBeInTheDocument();
     expect(
       screen.getAllByText(/Battery Not Charging on AeroVolt ProBook 15X/).length
     ).toBeGreaterThan(0);
@@ -382,5 +382,182 @@ describe("OrchestrationPanel", () => {
     ).toBeGreaterThan(0);
     expect(screen.getByText(/State before and after each step/)).toBeInTheDocument();
     expect(screen.getByText(/Knowledge · Writing knowledge findings to state\./)).toBeInTheDocument();
+  });
+
+  it("renders Node 3 guidance as scannable label/value rows and always-visible sources", () => {
+    render(
+      <OrchestrationPanel
+        snapshot={snapshot({
+          node: "knowledge",
+          knowledgeGuidance: {
+            eligible: true,
+            degraded: false,
+            status: "ANSWERED",
+            answer: {
+              safeSummary:
+                "Product: AeroVolt ProBook 15X, Category: Power, Issue: Battery not charging, Symptoms: No charge LED, Cause: Faulty adapter",
+              sources: [
+                {
+                  sourceId: "kb-av-lp-15x-pro-battery-1",
+                  title: "Battery Not Charging on AeroVolt ProBook 15X",
+                  version: "3",
+                  retrievalScorePercentile: 81
+                }
+              ],
+              provider: "openai",
+              model: "gpt-4o-mini",
+              retrievalId: "ret-123",
+              latencyMs: 253
+            }
+          }
+        })}
+      />
+    );
+
+    const detail = screen.getByTestId("knowledge-guidance-detail");
+    expect(within(detail).getByText("Product")).toBeInTheDocument();
+    expect(within(detail).getByText("AeroVolt ProBook 15X")).toBeInTheDocument();
+    expect(within(detail).getByText("Issue")).toBeInTheDocument();
+    expect(within(detail).getByText("Battery not charging")).toBeInTheDocument();
+    expect(within(detail).getByText("Cause")).toBeInTheDocument();
+
+    // Sources are visible without expanding a collapsed panel.
+    const sources = screen.getByTestId("knowledge-sources");
+    expect(sources.tagName).not.toBe("DETAILS");
+    expect(
+      within(sources).getByText(
+        "Battery Not Charging on AeroVolt ProBook 15X"
+      )
+    ).toBeInTheDocument();
+    expect(within(sources).getByText(/Score: 81/)).toBeInTheDocument();
+  });
+
+  it("renders the Final Verdict panel with headline, steps, and highlights", () => {
+    render(
+      <OrchestrationPanel
+        snapshot={snapshot({
+          orchestratorVerdict: {
+            headline: "Critical priority case · high business risk",
+            summary:
+              "Triage recommends critical priority with high business risk. The recommended priority was written back to the Case.",
+            recommendedSteps: [
+              "Route to network operations.",
+              'Review 2 knowledge source(s), starting with "Battery Not Charging".'
+            ],
+            highlights: [
+              { label: "Priority", value: "critical" },
+              { label: "Business risk", value: "high" },
+              { label: "Write-back", value: "Applied" }
+            ],
+            basis: ["triage", "customerContext", "knowledgeGuidance"]
+          }
+        })}
+      />
+    );
+
+    const verdict = screen.getByTestId("final-verdict");
+    expect(
+      within(verdict).getByText(/Critical priority case/)
+    ).toBeInTheDocument();
+    expect(within(verdict).getByText(/Route to network operations\./)).toBeInTheDocument();
+    expect(within(verdict).getByText(/Business risk:/)).toBeInTheDocument();
+    expect(
+      within(verdict).getByText(/downstream automation uses the typed channels/i)
+    ).toBeInTheDocument();
+  });
+
+  it("omits the Final Verdict panel when there is no verdict", () => {
+    render(<OrchestrationPanel snapshot={snapshot()} />);
+    expect(screen.queryByTestId("final-verdict")).toBeNull();
+  });
+
+  it("renders typed Node 3 actions, confidence, and prefers displaySummary", () => {
+    render(
+      <OrchestrationPanel
+        snapshot={snapshot({
+          node: "knowledge",
+          knowledgeGuidance: {
+            eligible: true,
+            degraded: false,
+            status: "ANSWERED",
+            answer: {
+              safeSummary: "Product: X, Category: Power",
+              displaySummary: "Run diagnostics, then replace the battery if needed.",
+              guidanceConfidence: "high",
+              recommendedActions: [
+                {
+                  actionType: "run_diagnostic",
+                  confidence: "high",
+                  rationale: "Run BIOS battery diagnostics first.",
+                  requiredApproval: false
+                },
+                {
+                  actionType: "replace_part",
+                  confidence: "medium",
+                  rationale: "Replace SP-BATT-15X if confirmed.",
+                  requiredApproval: true
+                }
+              ],
+              safetyFlags: [
+                {
+                  code: "HV",
+                  message: "Disconnect power before servicing.",
+                  severity: "warning"
+                }
+              ],
+              sources: [{ sourceId: "kb-1", title: "Battery guide" }]
+            }
+          }
+        })}
+      />
+    );
+
+    const actions = screen.getByTestId("knowledge-actions");
+    expect(within(actions).getByText(/run diagnostic/i)).toBeInTheDocument();
+    expect(within(actions).getByText(/Run BIOS battery diagnostics first\./)).toBeInTheDocument();
+    expect(within(actions).getByText("Approval")).toBeInTheDocument();
+
+    expect(
+      within(screen.getByTestId("knowledge-safety-flags")).getByText(
+        /Disconnect power before servicing\./
+      )
+    ).toBeInTheDocument();
+
+    // Display summary is preferred over the raw safeSummary metadata.
+    const detail = screen.getByTestId("knowledge-guidance-detail");
+    expect(
+      within(detail).getByText(/Run diagnostics, then replace the battery/)
+    ).toBeInTheDocument();
+
+    expect(screen.getByText(/Guidance confidence/)).toBeInTheDocument();
+  });
+
+  it("falls back to readable prose when Node 3 guidance is not label/value metadata", () => {
+    render(
+      <OrchestrationPanel
+        snapshot={snapshot({
+          node: "knowledge",
+          knowledgeGuidance: {
+            eligible: true,
+            degraded: false,
+            status: "ANSWERED",
+            answer: {
+              safeSummary:
+                "Verify adapter functionality and replace the battery if diagnostics confirm failure.",
+              sources: [],
+              provider: "openai",
+              model: "gpt-4o-mini"
+            }
+          }
+        })}
+      />
+    );
+
+    const detail = screen.getByTestId("knowledge-guidance-detail");
+    expect(
+      within(detail).getByText(
+        /Verify adapter functionality and replace the battery/
+      )
+    ).toBeInTheDocument();
   });
 });

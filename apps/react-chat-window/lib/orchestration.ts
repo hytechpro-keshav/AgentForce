@@ -108,8 +108,34 @@ export interface OrchestrationKnowledgeSource {
   retrievalScorePercentile?: number;
 }
 
+export type OrchestrationEvidenceConfidence = "high" | "medium" | "low";
+
+export interface OrchestrationActionRecommendation {
+  actionType: string;
+  confidence: OrchestrationEvidenceConfidence;
+  rationale: string;
+  requiredApproval: boolean;
+}
+
+export interface OrchestrationPartRecommendation {
+  partNumber: string;
+  description?: string;
+  confidence: OrchestrationEvidenceConfidence;
+}
+
+export interface OrchestrationSafetyFlag {
+  code: string;
+  message: string;
+  severity: "info" | "warning" | "critical";
+}
+
 export interface OrchestrationKnowledgeAnswer {
   safeSummary: string;
+  displaySummary?: string;
+  guidanceConfidence?: OrchestrationEvidenceConfidence;
+  recommendedActions?: OrchestrationActionRecommendation[];
+  suggestedParts?: OrchestrationPartRecommendation[];
+  safetyFlags?: OrchestrationSafetyFlag[];
   sources: OrchestrationKnowledgeSource[];
   provider?: string;
   model?: string;
@@ -126,6 +152,24 @@ export interface OrchestrationKnowledgeGuidance {
   degradedSources?: string[];
   status?: "ANSWERED" | "NO_SOURCE";
   answer?: OrchestrationKnowledgeAnswer;
+}
+
+export interface OrchestrationVerdictHighlight {
+  label: string;
+  value: string;
+}
+
+/**
+ * Final Verdict — observability-only operator narrative synthesized
+ * after Nodes 1-3. Display-only; never a machine contract.
+ */
+export interface OrchestrationVerdict {
+  headline: string;
+  summary: string;
+  recommendedSteps: string[];
+  highlights: OrchestrationVerdictHighlight[];
+  basis: string[];
+  generatedAt?: string;
 }
 
 export interface OrchestrationEvent {
@@ -159,6 +203,7 @@ export interface OrchestrationSnapshot {
   triage?: OrchestrationTriage;
   customerContext?: OrchestrationCustomerContext;
   knowledgeGuidance?: OrchestrationKnowledgeGuidance;
+  orchestratorVerdict?: OrchestrationVerdict;
   events: OrchestrationEvent[];
   updatedAt?: string;
 }
@@ -443,6 +488,77 @@ function sanitizeKnowledgeSource(
   };
 }
 
+function isConfidence(
+  value: unknown
+): value is OrchestrationEvidenceConfidence {
+  return value === "high" || value === "medium" || value === "low";
+}
+
+function sanitizeActionRecommendations(
+  value: unknown
+): OrchestrationActionRecommendation[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const out: OrchestrationActionRecommendation[] = [];
+  for (const raw of value) {
+    if (out.length >= 6) break;
+    if (!raw || typeof raw !== "object") continue;
+    const record = raw as Record<string, unknown>;
+    const actionType = str(record.actionType, 40);
+    const rationale = str(record.rationale, 240);
+    if (!actionType || !rationale) continue;
+    out.push({
+      actionType,
+      rationale,
+      confidence: isConfidence(record.confidence) ? record.confidence : "low",
+      requiredApproval: record.requiredApproval === true
+    });
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+function sanitizeParts(
+  value: unknown
+): OrchestrationPartRecommendation[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const out: OrchestrationPartRecommendation[] = [];
+  for (const raw of value) {
+    if (out.length >= 6) break;
+    if (!raw || typeof raw !== "object") continue;
+    const record = raw as Record<string, unknown>;
+    const partNumber = str(record.partNumber, 60);
+    if (!partNumber) continue;
+    out.push({
+      partNumber,
+      description: str(record.description, 120),
+      confidence: isConfidence(record.confidence) ? record.confidence : "low"
+    });
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+function sanitizeSafetyFlags(
+  value: unknown
+): OrchestrationSafetyFlag[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const out: OrchestrationSafetyFlag[] = [];
+  for (const raw of value) {
+    if (out.length >= 6) break;
+    if (!raw || typeof raw !== "object") continue;
+    const record = raw as Record<string, unknown>;
+    const code = str(record.code, 40);
+    const message = str(record.message, 160);
+    if (!code || !message) continue;
+    const severity =
+      record.severity === "info" ||
+      record.severity === "warning" ||
+      record.severity === "critical"
+        ? record.severity
+        : "info";
+    out.push({ code, message, severity });
+  }
+  return out.length > 0 ? out : undefined;
+}
+
 function sanitizeKnowledgeAnswer(
   value: unknown
 ): OrchestrationKnowledgeAnswer | undefined {
@@ -460,6 +576,13 @@ function sanitizeKnowledgeAnswer(
   }
   return {
     safeSummary,
+    displaySummary: str(record.displaySummary, 1000),
+    guidanceConfidence: isConfidence(record.guidanceConfidence)
+      ? record.guidanceConfidence
+      : undefined,
+    recommendedActions: sanitizeActionRecommendations(record.recommendedActions),
+    suggestedParts: sanitizeParts(record.suggestedParts),
+    safetyFlags: sanitizeSafetyFlags(record.safetyFlags),
     sources,
     provider: str(record.provider, 60),
     model: str(record.model, 120),
@@ -494,6 +617,51 @@ function sanitizeKnowledgeGuidance(
       : undefined,
     status,
     answer: sanitizeKnowledgeAnswer(record.answer)
+  };
+}
+
+function sanitizeVerdictHighlights(
+  value: unknown
+): OrchestrationVerdictHighlight[] {
+  if (!Array.isArray(value)) return [];
+  const out: OrchestrationVerdictHighlight[] = [];
+  for (const raw of value) {
+    if (out.length >= 8) break;
+    if (!raw || typeof raw !== "object") continue;
+    const record = raw as Record<string, unknown>;
+    const label = str(record.label, 40);
+    const highlightValue = str(record.value, 80);
+    if (!label || !highlightValue) continue;
+    out.push({ label, value: highlightValue });
+  }
+  return out;
+}
+
+function sanitizeVerdict(value: unknown): OrchestrationVerdict | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  const headline = str(record.headline, 160);
+  const summary = str(record.summary, 400);
+  if (!headline && !summary) return undefined;
+  const recommendedSteps = Array.isArray(record.recommendedSteps)
+    ? record.recommendedSteps
+        .map((item) => str(item, 240))
+        .filter((item): item is string => Boolean(item))
+        .slice(0, 6)
+    : [];
+  const basis = Array.isArray(record.basis)
+    ? record.basis
+        .map((item) => str(item, 40))
+        .filter((item): item is string => Boolean(item))
+        .slice(0, 6)
+    : [];
+  return {
+    headline: headline ?? "",
+    summary: summary ?? "",
+    recommendedSteps,
+    highlights: sanitizeVerdictHighlights(record.highlights),
+    basis,
+    generatedAt: str(record.generatedAt, 40)
   };
 }
 
@@ -561,6 +729,7 @@ export function sanitizeSnapshot(value: unknown): OrchestrationSnapshot | null {
     triage: sanitizeTriage(record.triage),
     customerContext: sanitizeCustomerContext(record.customerContext),
     knowledgeGuidance: sanitizeKnowledgeGuidance(record.knowledgeGuidance),
+    orchestratorVerdict: sanitizeVerdict(record.orchestratorVerdict),
     events: sanitizeEvents(record.events),
     updatedAt: str(record.updatedAt, 40)
   };

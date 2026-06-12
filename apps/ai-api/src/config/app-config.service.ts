@@ -293,6 +293,13 @@ export interface OrchestratorKnowledgeConfig {
   retrievalTopK: number;
   /** Minimum similarity score (0–1); default 0.65. */
   scoreThreshold: number;
+  /**
+   * Feature flag: when Node 3 is ANSWERED, run an LLM extraction step
+   * (via ModelRouter) to produce typed `recommendedActions`,
+   * `suggestedParts`, `safetyFlags`, and `displaySummary`. Default: true
+   * (only runs when `enabled` is also true, so off by default overall).
+   */
+  extractionEnabled: boolean;
 }
 
 export interface OrchestratorConfig {
@@ -1988,6 +1995,11 @@ export class AppConfigService {
       scoreThreshold: AppConfigService.parseScoreThreshold(
         env.AI_API_ORCHESTRATOR_KNOWLEDGE_SCORE_THRESHOLD,
         0.65
+      ),
+      extractionEnabled: AppConfigService.parseBooleanFlag(
+        env.AI_API_ORCHESTRATOR_KNOWLEDGE_EXTRACTION_ENABLED,
+        true,
+        "AI_API_ORCHESTRATOR_KNOWLEDGE_EXTRACTION_ENABLED"
       )
     };
   }

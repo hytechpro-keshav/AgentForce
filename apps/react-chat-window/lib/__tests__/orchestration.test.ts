@@ -124,6 +124,116 @@ describe("sanitizeSnapshot", () => {
     expect("rawPrompt" in (snapshot as object)).toBe(false);
   });
 
+  it("parses the orchestrator verdict and drops unsafe extras", () => {
+    const snapshot = sanitizeSnapshot({
+      workflowId: VALID_WORKFLOW_ID,
+      node: "knowledge",
+      status: "done",
+      approvalRequired: false,
+      writeBackApplied: true,
+      orchestratorVerdict: {
+        headline: "Critical priority case · high business risk",
+        summary: "Triage recommends critical priority.",
+        recommendedSteps: ["Route to network ops.", "Review 2 sources."],
+        highlights: [
+          { label: "Priority", value: "critical" },
+          { label: "Write-back", value: "Applied" }
+        ],
+        basis: ["triage", "knowledgeGuidance"],
+        generatedAt: "2026-06-10T00:00:00.000Z",
+        rawChainOfThought: "should-not-survive"
+      },
+      events: []
+    });
+
+    expect(snapshot).not.toBeNull();
+    expect(snapshot!.orchestratorVerdict?.headline).toContain("Critical priority");
+    expect(snapshot!.orchestratorVerdict?.recommendedSteps).toHaveLength(2);
+    expect(snapshot!.orchestratorVerdict?.highlights).toHaveLength(2);
+    expect(JSON.stringify(snapshot)).not.toContain("should-not-survive");
+  });
+
+  it("parses typed knowledge fields and drops malformed entries", () => {
+    const snapshot = sanitizeSnapshot({
+      workflowId: VALID_WORKFLOW_ID,
+      node: "knowledge",
+      status: "done",
+      approvalRequired: false,
+      writeBackApplied: true,
+      knowledgeGuidance: {
+        eligible: true,
+        degraded: false,
+        status: "ANSWERED",
+        answer: {
+          safeSummary: "fallback",
+          displaySummary: "Run diagnostics first.",
+          guidanceConfidence: "high",
+          recommendedActions: [
+            {
+              actionType: "run_diagnostic",
+              confidence: "high",
+              rationale: "Run BIOS diagnostics.",
+              requiredApproval: false
+            },
+            { actionType: "broken" },
+            { rationale: "no action type" }
+          ],
+          suggestedParts: [{ partNumber: "SP-BATT-15X", confidence: "medium" }],
+          safetyFlags: [
+            { code: "HV", message: "High voltage.", severity: "critical" }
+          ],
+          sources: [{ sourceId: "kb-1", title: "Guide" }]
+        }
+      },
+      events: []
+    });
+
+    const answer = snapshot!.knowledgeGuidance?.answer;
+    expect(answer?.displaySummary).toBe("Run diagnostics first.");
+    expect(answer?.guidanceConfidence).toBe("high");
+    expect(answer?.recommendedActions).toHaveLength(1);
+    expect(answer?.recommendedActions?.[0].actionType).toBe("run_diagnostic");
+    expect(answer?.suggestedParts).toHaveLength(1);
+    expect(answer?.safetyFlags?.[0].severity).toBe("critical");
+  });
+
+  it("defaults an unknown guidance confidence to undefined", () => {
+    const snapshot = sanitizeSnapshot({
+      workflowId: VALID_WORKFLOW_ID,
+      node: "knowledge",
+      status: "done",
+      approvalRequired: false,
+      writeBackApplied: true,
+      knowledgeGuidance: {
+        eligible: true,
+        degraded: false,
+        status: "ANSWERED",
+        answer: {
+          safeSummary: "x",
+          guidanceConfidence: "super-high",
+          sources: []
+        }
+      },
+      events: []
+    });
+    expect(
+      snapshot!.knowledgeGuidance?.answer?.guidanceConfidence
+    ).toBeUndefined();
+  });
+
+  it("omits the verdict when headline and summary are absent", () => {
+    const snapshot = sanitizeSnapshot({
+      workflowId: VALID_WORKFLOW_ID,
+      node: "triage",
+      status: "done",
+      approvalRequired: false,
+      writeBackApplied: false,
+      orchestratorVerdict: { recommendedSteps: ["x"] },
+      events: []
+    });
+    expect(snapshot!.orchestratorVerdict).toBeUndefined();
+  });
+
   it("returns null for a missing workflowId or bad status", () => {
     expect(sanitizeSnapshot({ status: "done" })).toBeNull();
     expect(

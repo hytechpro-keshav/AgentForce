@@ -193,7 +193,9 @@ echo "=== [7] Assertions ==="
 
 knowledge_status=$(echo "${snapshot}" | jq -r '.knowledgeGuidance.status // "absent"')
 knowledge_eligible=$(echo "${snapshot}" | jq -r '.knowledgeGuidance.eligible // false')
-knowledge_degraded=$(echo "${snapshot}" | jq -r '.knowledgeGuidance.degraded // true')
+# Use an explicit conditional: jq's `//` treats a real `false` as absent and
+# would wrongly report a healthy (degraded=false) channel as degraded.
+knowledge_degraded=$(echo "${snapshot}" | jq -r 'if (.knowledgeGuidance.degraded == true) then "true" else "false" end')
 triage_priority=$(echo "${snapshot}" | jq -r '.triage.recommendedPriority // "absent"')
 
 errors=0

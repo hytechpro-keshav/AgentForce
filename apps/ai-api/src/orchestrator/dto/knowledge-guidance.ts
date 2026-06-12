@@ -8,6 +8,10 @@
  * latency) — never raw chunk content, account ids, or customer names.
  */
 
+import type { EvidenceConfidence } from "./customer-context";
+
+export type { EvidenceConfidence } from "./customer-context";
+
 /**
  * Reference to a knowledge source that was retrieved by Node 3. Contains
  * only metadata — never raw article content or chunk text.
@@ -21,6 +25,42 @@ export interface KnowledgeSourceRef {
 }
 
 /**
+ * Canonical, machine-consumable action recommendation shared across
+ * Knowledge, Parts, Scheduling, and Resolution nodes. Downstream nodes
+ * branch on `actionType` + `requiredApproval` — never on prose.
+ */
+export type KnowledgeActionType =
+  | "replace_part"
+  | "schedule_visit"
+  | "run_diagnostic"
+  | "escalate_vendor"
+  | "customer_instruction";
+
+export interface ActionRecommendation {
+  actionType: KnowledgeActionType;
+  confidence: EvidenceConfidence;
+  /** Safe, non-PII reason; never raw chunk text or chain-of-thought. */
+  rationale: string;
+  requiredApproval: boolean;
+}
+
+/** A part suggested by knowledge guidance, by safe identifier only. */
+export interface PartRecommendation {
+  /** Safe, non-PII part identifier (e.g. "SP-BATT-15X"). */
+  partNumber: string;
+  description?: string;
+  confidence: EvidenceConfidence;
+}
+
+/** A machine-readable safety signal raised by knowledge guidance. */
+export interface KnowledgeSafetyFlag {
+  code: string;
+  /** Safe, non-PII description of the safety concern. */
+  message: string;
+  severity: "info" | "warning" | "critical";
+}
+
+/**
  * The knowledge guidance answer produced when retrieval succeeds.
  * Contains only a safe summary and source references.
  */
@@ -28,8 +68,32 @@ export interface KnowledgeAnswer {
   /**
    * Safe, source-cited guidance text. This is a constructed summary
    * (usually from the retrieval service), not raw chunk content.
+   *
+   * @deprecated for machine consumption — downstream nodes must read the
+   * typed `recommendedActions` / `suggestedParts` instead of parsing this
+   * string. Retained for backward compatibility and as a display
+   * fallback while producers are migrated. Prefer `displaySummary` for UI.
    */
   safeSummary: string;
+  /**
+   * Machine-consumable next actions derived from the retrieved guidance.
+   * Downstream nodes (Parts, Scheduling, Resolution, Guardrail) branch on
+   * these typed values — never on `safeSummary`. Optional during the
+   * additive migration; absent until an extraction step populates it.
+   */
+  recommendedActions?: ActionRecommendation[];
+  /** Machine-consumable suggested parts, by safe identifier only. */
+  suggestedParts?: PartRecommendation[];
+  /** Overall confidence in the guidance, graded from retrieval signals. */
+  guidanceConfidence?: EvidenceConfidence;
+  /** Machine-readable safety signals (e.g. high-voltage warning). */
+  safetyFlags?: KnowledgeSafetyFlag[];
+  /**
+   * UI-only, human-readable guidance summary. Observability-only — NOT a
+   * machine input. When present, the read-only UI prefers this over
+   * `safeSummary`.
+   */
+  displaySummary?: string;
   /**
    * List of source references: id, title, version, chunk ids. These
    * are pointers to the authoritative sources in the vector DB.

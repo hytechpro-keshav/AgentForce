@@ -78,6 +78,6 @@ fi
 curl -sS -X POST "${AI_API_BASE_URL%/}/agent/knowledge/answer" \
   -H "authorization: Bearer ${AI_API_BEARER_TOKEN}" \
   -H "content-type: application/json" \
-  -d "$(node -e "console.log(JSON.stringify({question: process.argv[1], requestId: process.argv[2]}))" "${SMOKE_QUESTION}" "${SMOKE_REQUEST_ID}")"
+  -d "$(jq -nc --arg q "${SMOKE_QUESTION}" --arg r "${SMOKE_REQUEST_ID}" '{question: $q, requestId: $r}')"
 
 printf '\n'

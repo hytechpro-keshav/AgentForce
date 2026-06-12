@@ -50,6 +50,8 @@ import type {
   KnowledgeEligibilityResult,
   KnowledgeQueryInput
 } from "./dto/knowledge-guidance";
+import { deriveGuidanceConfidence } from "./knowledge-confidence";
+import { KnowledgeGuidanceExtractor } from "./knowledge-guidance-extractor.service";
 import type { SalesforceCaseContext } from "./dto/salesforce-case-context";
 import type { TriagePriorityDto } from "../agents/dto/triage-case.dto";
 import type {
@@ -59,6 +61,8 @@ import type {
   OrchestrationTraceValue,
   SanitizedTriageResult
 } from "./dto/orchestration-status-event";
+import type { OrchestratorVerdict } from "./dto/orchestrator-verdict";
+import { synthesizeOrchestratorVerdict } from "./orchestrator-verdict.synthesizer";
 import type { ResumeCaseTriageDto } from "./dto/resume-case-triage.dto";
 import type {
   TriggerCaseTriageAcceptedDto,
@@ -97,7 +101,8 @@ export class CaseTriageOrchestratorService {
     private readonly externalAdapters: ExternalContextAdapterRegistry,
     private readonly store: OrchestrationStatusStore,
     private readonly telemetry: TelemetryService,
-    private readonly config: AppConfigService
+    private readonly config: AppConfigService,
+    private readonly knowledgeExtractor: KnowledgeGuidanceExtractor
   ) {
     this.graph = buildCaseTriageGraph({
       readContext: (caseId) => this.gateway.readCaseContext(caseId),
@@ -266,7 +271,11 @@ export class CaseTriageOrchestratorService {
         approvalRequired: true,
         triage: result.triage,
         customerContext: result.customerContext,
-        knowledgeGuidance: result.knowledgeGuidance
+        knowledgeGuidance: result.knowledgeGuidance,
+        orchestratorVerdict: CaseTriageOrchestratorService.buildVerdict(
+          result,
+          "waiting_approval"
+        )
       });
       await this.store.appendEvent(
         workflowId,
@@ -297,7 +306,11 @@ export class CaseTriageOrchestratorService {
         customerContext: result.customerContext,
         knowledgeGuidance: result.knowledgeGuidance,
         approvalRequired: result.approvalRequired,
-        approvalDecision: result.approvalDecision
+        approvalDecision: result.approvalDecision,
+        orchestratorVerdict: CaseTriageOrchestratorService.buildVerdict(
+          result,
+          "rejected"
+        )
       });
       await this.store.appendEvent(
         workflowId,
@@ -319,7 +332,11 @@ export class CaseTriageOrchestratorService {
       knowledgeGuidance: result.knowledgeGuidance,
       writeBackApplied: Boolean(result.writeBackApplied),
       approvalRequired: result.approvalRequired,
-      approvalDecision: result.approvalDecision
+      approvalDecision: result.approvalDecision,
+      orchestratorVerdict: CaseTriageOrchestratorService.buildVerdict(
+        result,
+        "done"
+      )
     });
     await this.store.appendEvent(
       workflowId,
@@ -566,6 +583,27 @@ export class CaseTriageOrchestratorService {
       return `llm_${err.kind}`;
     }
     return "unexpected";
+  }
+
+  /**
+   * Final Verdict synthesis — the post-knowledge observability step.
+   * Deterministically assembles an operator-facing recommendation from
+   * the sanitized typed channels. Observability-only: never parsed by
+   * any downstream node.
+   */
+  private static buildVerdict(
+    result: CaseTriageStateType,
+    status: NodeLifecycleStatus
+  ): OrchestratorVerdict {
+    return synthesizeOrchestratorVerdict({
+      status,
+      writeBackApplied: Boolean(result.writeBackApplied),
+      approvalRequired: result.approvalRequired,
+      approvalDecision: result.approvalDecision,
+      triage: result.triage,
+      customerContext: result.customerContext,
+      knowledgeGuidance: result.knowledgeGuidance
+    });
   }
 
   /** Safe, non-PII facts about the completed write-back step. */
@@ -981,26 +1019,72 @@ export class CaseTriageOrchestratorService {
         return channel;
       }
 
+      const guidanceConfidence = deriveGuidanceConfidence(
+        retrieval.rawMatches.map((m) => m.score)
+      );
+      const answer: KnowledgeGuidanceChannel["answer"] = {
+        safeSummary: this.buildKnowledgeSafeSummary(retrieval.rawMatches),
+        guidanceConfidence,
+        sources: retrieval.rawMatches.map((m) => ({
+          sourceId: m.metadata.sourceId,
+          title: m.metadata.title,
+          version: m.metadata.documentVersion,
+          chunkId: m.metadata.chunkId,
+          retrievalScorePercentile:
+            m.score != null ? Math.round(m.score * 100) : undefined
+        })),
+        provider: "openai",
+        embeddingProvider: "openai",
+        retrievalId: retrieval.retrievalId,
+        latencyMs: Date.now() - startedAt,
+        fallbackUsed: false
+      };
+
+      // Node 3 answer-extraction: distill typed actions/parts/flags from the
+      // grounded chunks. Best-effort — failures leave the deterministic,
+      // score-based guidance untouched (see KnowledgeGuidanceExtractor).
+      if (this.config.orchestrator.knowledge.extractionEnabled) {
+        const extracted = await this.knowledgeExtractor.extract({
+          requestId: workflowId,
+          query,
+          tenantId: trustedContext.tenantId,
+          matches: retrieval.rawMatches.map((m) => ({
+            text: m.text,
+            metadata: {
+              sourceId: m.metadata.sourceId,
+              title: m.metadata.title,
+              chunkId: m.metadata.chunkId
+            }
+          })),
+          useCase: "knowledge_rag"
+        });
+        if (extracted.displaySummary) {
+          answer.displaySummary = extracted.displaySummary;
+        }
+        if (extracted.recommendedActions.length > 0) {
+          answer.recommendedActions = extracted.recommendedActions.map(
+            (action) => ({ ...action, confidence: guidanceConfidence })
+          );
+        }
+        if (extracted.suggestedParts.length > 0) {
+          answer.suggestedParts = extracted.suggestedParts.map((part) => ({
+            ...part,
+            confidence: guidanceConfidence
+          }));
+        }
+        if (extracted.safetyFlags.length > 0) {
+          answer.safetyFlags = extracted.safetyFlags;
+        }
+        if (extracted.fallbackUsed) {
+          answer.fallbackUsed = true;
+        }
+      }
+
       const channel: KnowledgeGuidanceChannel = {
         eligible: true,
         degraded: false,
         status: "ANSWERED",
-        answer: {
-          safeSummary: this.buildKnowledgeSafeSummary(retrieval.rawMatches),
-          sources: retrieval.rawMatches.map((m) => ({
-            sourceId: m.metadata.sourceId,
-            title: m.metadata.title,
-            version: m.metadata.documentVersion,
-            chunkId: m.metadata.chunkId,
-            retrievalScorePercentile:
-              m.score != null ? Math.round(m.score * 100) : undefined
-          })),
-          provider: "openai",
-          embeddingProvider: "openai",
-          retrievalId: retrieval.retrievalId,
-          latencyMs: Date.now() - startedAt,
-          fallbackUsed: false
-        }
+        answer
       };
       this.logKnowledgeTelemetry(workflowId, channel, startedAt);
       return channel;

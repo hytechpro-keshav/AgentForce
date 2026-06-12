@@ -2,11 +2,13 @@ import { Module } from "@nestjs/common";
 
 import { AgentsModule } from "../agents/agents.module";
 import { AppConfigService } from "../config/app-config.service";
+import { LlmModule } from "../llm/llm.module";
 import { SalesforceModule } from "../salesforce/salesforce.module";
 import { RagModule } from "../rag/rag.module";
 import { ExternalContextAdapterRegistry } from "./adapters/external-context.adapter";
 import { CaseTriageOrchestratorController } from "./case-triage-orchestrator.controller";
 import { CaseTriageOrchestratorService } from "./case-triage-orchestrator.service";
+import { KnowledgeGuidanceExtractor } from "./knowledge-guidance-extractor.service";
 import { KnowledgeQueryBuilder } from "./knowledge-query.builder";
 import {
   InMemoryOrchestrationStatusRepository,
@@ -32,13 +34,14 @@ import { OrchestrationStatusStore } from "./orchestration-status.store";
  * provided by the global `AppConfigModule`.
  */
 @Module({
-  imports: [AgentsModule, SalesforceModule, RagModule],
+  imports: [AgentsModule, SalesforceModule, RagModule, LlmModule],
   controllers: [CaseTriageOrchestratorController],
   providers: [
     CaseTriageOrchestratorService,
     OrchestrationStatusStore,
     ExternalContextAdapterRegistry,
     KnowledgeQueryBuilder,
+    KnowledgeGuidanceExtractor,
     PostgresOrchestrationStatusRepository,
     {
       provide: OrchestrationStatusRepository,

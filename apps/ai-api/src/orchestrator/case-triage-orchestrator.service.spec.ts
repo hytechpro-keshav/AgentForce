@@ -19,6 +19,15 @@ import type { SalesforceCaseContext } from "./dto/salesforce-case-context";
 const SECRET_DESCRIPTION =
   "Customer Jane Doe jane@example.com lost power; account ACCT-99 secret-detail.";
 
+/** Empty knowledge extraction for the KnowledgeGuidanceExtractor fake. */
+function emptyExtraction() {
+  return {
+    recommendedActions: [],
+    suggestedParts: [],
+    safetyFlags: []
+  };
+}
+
 /** A complete, fully-abstained Customer Context Package for Node 2 fakes. */
 function buildAbstainedSynthesis(): CustomerContextSynthesis {
   const abstain = <T>(value: T) => ({
@@ -134,7 +143,8 @@ function buildHarness(
         namespace: "customer-self-service",
         queryMaxChars: 200,
         retrievalTopK: 5,
-        scoreThreshold: 0.65
+        scoreThreshold: 0.65,
+        extractionEnabled: false
       }
     },
     rag: {
@@ -179,7 +189,8 @@ function buildHarness(
     externalAdapters,
     store,
     telemetry,
-    config
+    config,
+    { extract: jest.fn().mockResolvedValue(emptyExtraction()) } as any
   );
 
   return {
@@ -497,7 +508,8 @@ describe("CaseTriageOrchestratorService", () => {
             namespace: "customer-self-service",
             queryMaxChars: 200,
             retrievalTopK: 5,
-            scoreThreshold: 0.65
+            scoreThreshold: 0.65,
+            extractionEnabled: false
           }
         },
         rag: {
@@ -505,7 +517,8 @@ describe("CaseTriageOrchestratorService", () => {
           defaultNamespace: "customer-self-service"
         },
         salesforceConnection: { enabled: true }
-      } as unknown as AppConfigService
+      } as unknown as AppConfigService,
+      { extract: jest.fn().mockResolvedValue(emptyExtraction()) } as any
     );
 
     const resolved =
