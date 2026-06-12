@@ -348,7 +348,16 @@ AI_API_ORCHESTRATOR_KNOWLEDGE_NAMESPACE=customer-self-service
 AI_API_ORCHESTRATOR_KNOWLEDGE_QUERY_MAX_CHARS=200
 AI_API_ORCHESTRATOR_KNOWLEDGE_RETRIEVAL_TOP_K=5
 AI_API_ORCHESTRATOR_KNOWLEDGE_SCORE_THRESHOLD=0.65
+AI_API_ORCHESTRATOR_KNOWLEDGE_EXTRACTION_ENABLED=true    # LLM answer-extraction; only runs when KNOWLEDGE_ENABLED=true
 ```
+
+When `ANSWERED`, the `KnowledgeGuidanceExtractor` distills the retrieved chunks
+into typed `recommendedActions[]`, `suggestedParts[]`, `safetyFlags[]`, and
+`displaySummary` via `ModelRouter`, grounded only on the authorized excerpts.
+It is best-effort and abstaining: malformed output or a provider error leaves the
+deterministic, score-based guidance untouched. Set
+`AI_API_ORCHESTRATOR_KNOWLEDGE_EXTRACTION_ENABLED=false` to keep retrieval +
+deterministic confidence without the extra LLM call.
 
 ---
 

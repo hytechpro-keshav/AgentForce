@@ -32,7 +32,18 @@ These files are task-specific personas and templates shared with GitHub Copilot.
 | `review-agentforce-metadata.prompt.md` | Reviewing Agentforce metadata changes |
 | `review-ai-change.prompt.md` | Reviewing AI API changes |
 | `implement-case-triage-slice.prompt.md` | Implementing the case triage slice |
+| `service-workflow-architecture-review.prompt.md` | Review + remediate orchestrator contracts, Node 3 UI, and Final Verdict |
 | `onboard-new-org-tenant.prompt.md` | Onboarding a new org or tenant |
 | `generate-production-runbook.prompt.md` | Generating a production runbook |
+
+## Task routing
+
+Pick the persona/prompt to read first based on the task:
+
+| Task | Read first |
+|------|------------|
+| Review Salesforce / Agentforce metadata | `.github/agents/agentforce-reviewer.agent.md` or `.github/prompts/review-agentforce-metadata.prompt.md` |
+| Review orchestrator / Node 3 / Final Verdict | `.github/prompts/service-workflow-architecture-review.prompt.md` |
+| Implement case triage | `.github/agents/case-triage-slice-implementer.agent.md` + `.github/prompts/implement-case-triage-slice.prompt.md` |
 
 Do not duplicate content from these files into Cursor rules.

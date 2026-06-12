@@ -291,6 +291,14 @@ approval policy requires it; resume is idempotent.
    what happened at every step (reported priority, provider, model, latency,
    write-back outcome) — never raw Case text, names, account ids, or prompts.
 
+**Final Verdict (observability-only):** after Nodes 1–3 settle, the orchestrator
+synthesizes `CaseTriageWorkflowSnapshot.orchestratorVerdict` (`OrchestratorVerdict`)
+deterministically from the typed channels — no LLM call, no PII, no
+chain-of-thought. It is human-facing only; downstream automation consumes the
+typed channels, never this rendered text. The UI shows it as a "Orchestrator
+verdict" panel. See remediation status + deferred work in
+[service-workflow-remediation-backlog.md](service-workflow-remediation-backlog.md).
+
 **Durable persistence (restart-safe Case lookup):** the in-memory read model is
 written through (best-effort) to an `OrchestrationStatusRepository`. Default
 `memory` keeps the prior single-instance behaviour; `postgres` persists the full
