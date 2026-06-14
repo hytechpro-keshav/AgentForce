@@ -1,0 +1,10 @@
+# Minimal Code Analyzer config — points Java engines at Homebrew OpenJDK 17.
+# See: https://developer.salesforce.com/docs/platform/salesforce-code-analyzer/guide/config-custom.html
+
+engines:
+  pmd:
+    java_command: "/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home/bin/java"
+  cpd:
+    java_command: "/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home/bin/java"
+  sfge:
+    java_command: "/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home/bin/java"

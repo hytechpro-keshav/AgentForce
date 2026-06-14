@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Backorder_Reason__c</fullName>
+    <description
+  >Why a product request line was created when inventory was unavailable or insufficient.</description>
+    <inlineHelpText
+  >Backorder or replenishment reason for inventory ops.</inlineHelpText>
+    <label>Backorder Reason</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Out of Stock</fullName>
+                <default>true</default>
+                <label>Out of Stock</label>
+            </value>
+            <value>
+                <fullName>Low Stock Threshold</fullName>
+                <default>false</default>
+                <label>Low Stock Threshold</label>
+            </value>
+            <value>
+                <fullName>Cross Region Transfer Required</fullName>
+                <default>false</default>
+                <label>Cross Region Transfer Required</label>
+            </value>
+            <value>
+                <fullName>Replenishment</fullName>
+                <default>false</default>
+                <label>Replenishment</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

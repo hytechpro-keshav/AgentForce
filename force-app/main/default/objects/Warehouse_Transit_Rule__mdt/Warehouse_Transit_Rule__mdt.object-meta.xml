@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description
+  >Transit time rules between warehouse ExternalReference codes and destination regions for AI Parts ETA calculation.</description>
+    <label>Warehouse Transit Rule</label>
+    <pluralLabel>Warehouse Transit Rules</pluralLabel>
+    <visibility>Public</visibility>
+</CustomObject>

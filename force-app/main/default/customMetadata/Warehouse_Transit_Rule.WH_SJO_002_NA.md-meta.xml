@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomMetadata
+  xmlns="http://soap.sforce.com/2006/04/metadata"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+>
+    <label>WH-SJO-002 to North America</label>
+    <protected>false</protected>
+    <values>
+        <field>Source_Warehouse_Ref__c</field>
+        <value xsi:type="xsd:string">WH-SJO-002</value>
+    </values>
+    <values>
+        <field>Destination_Region__c</field>
+        <value xsi:type="xsd:string">North America</value>
+    </values>
+    <values>
+        <field>Transit_Hours_Min__c</field>
+        <value xsi:type="xsd:double">4.0</value>
+    </values>
+    <values>
+        <field>Transit_Hours_Max__c</field>
+        <value xsi:type="xsd:double">8.0</value>
+    </values>
+    <values>
+        <field>Cross_Region__c</field>
+        <value xsi:type="xsd:boolean">false</value>
+    </values>
+</CustomMetadata>

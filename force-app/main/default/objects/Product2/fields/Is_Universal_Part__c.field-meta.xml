@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Is_Universal_Part__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description
+  >True when Compatible_Product_Code__c is ALL — part fits any supported laptop model.</description>
+    <inlineHelpText
+  >Check for universal components (RAM, SSD, power adapters, etc.).</inlineHelpText>
+    <label>Is Universal Part</label>
+    <type>Checkbox</type>
+</CustomField>

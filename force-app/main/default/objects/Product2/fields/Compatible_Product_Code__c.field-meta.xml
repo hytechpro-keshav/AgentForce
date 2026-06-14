@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Compatible_Product_Code__c</fullName>
+    <description
+  >Host product ProductCode this spare part fits, or ALL for universal components. Used by the AI Parts &amp; Logistics orchestrator for compatibility checks. Keyed by ProductCode, not Product2 Id.</description>
+    <externalId>false</externalId>
+    <inlineHelpText
+  >Laptop product code (e.g. AV-LP-15X-PRO) or ALL for universal spare parts.</inlineHelpText>
+    <label>Compatible Product Code</label>
+    <length>40</length>
+    <required>false</required>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

@@ -1,16 +1,6 @@
 {
-  "servers": {
-    "codetrellis": {
-      "type": "stdio",
-      "command": "codetrellis",
-      "args": [
-        "mcp",
-        "${workspaceFolder}"
-      ],
-      "env": {}
-    },
+  "mcpServers": {
     "salesforce": {
-      "type": "stdio",
       "command": "npx",
       "args": [
         "-y",
@@ -20,8 +10,7 @@
         "--toolsets",
         "data,metadata,users,testing,code-analysis",
         "--dynamic-tools"
-      ],
-      "env": {}
+      ]
     }
   }
 }

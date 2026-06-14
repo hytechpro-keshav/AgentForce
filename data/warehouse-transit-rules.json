@@ -1,0 +1,65 @@
+{
+  "destinationRegionRules": {
+    "US": "North America",
+    "CA": "North America",
+    "MX": "North America",
+    "DE": "Europe",
+    "FR": "Europe",
+    "GB": "Europe"
+  },
+  "priorityModifiers": {
+    "critical": 0.75,
+    "high": 0.9,
+    "normal": 1.0,
+    "low": 1.15
+  },
+  "lowStockThresholds": {
+    "SP-MB-15X": 10,
+    "SP-DISP-15X-FHD": 5,
+    "default": 0
+  },
+  "transitRules": [
+    {
+      "sourceWarehouseRef": "WH-SJO-002",
+      "destinationRegion": "North America",
+      "transitHoursMin": 4,
+      "transitHoursMax": 8,
+      "crossRegion": false
+    },
+    {
+      "sourceWarehouseRef": "WH-JCY-003",
+      "destinationRegion": "North America",
+      "transitHoursMin": 6,
+      "transitHoursMax": 12,
+      "crossRegion": false
+    },
+    {
+      "sourceWarehouseRef": "WH-AUS-001",
+      "destinationRegion": "North America",
+      "transitHoursMin": 8,
+      "transitHoursMax": 16,
+      "crossRegion": false
+    },
+    {
+      "sourceWarehouseRef": "WH-FRA-004",
+      "destinationRegion": "North America",
+      "transitHoursMin": 24,
+      "transitHoursMax": 48,
+      "crossRegion": true
+    },
+    {
+      "sourceWarehouseRef": "WH-FRA-004",
+      "destinationRegion": "Europe",
+      "transitHoursMin": 4,
+      "transitHoursMax": 8,
+      "crossRegion": false
+    },
+    {
+      "sourceWarehouseRef": "WH-SJO-002",
+      "destinationRegion": "Europe",
+      "transitHoursMin": 24,
+      "transitHoursMax": 48,
+      "crossRegion": true
+    }
+  ]
+}

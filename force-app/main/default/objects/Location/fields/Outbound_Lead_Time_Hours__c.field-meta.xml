@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Outbound_Lead_Time_Hours__c</fullName>
+    <description
+  >Pick-and-pack lead time at this warehouse before shipment. Added to transit hours for delivery ETA.</description>
+    <externalId>false</externalId>
+    <inlineHelpText
+  >Hours from order acceptance to dispatch from this location.</inlineHelpText>
+    <label>Outbound Lead Time (Hours)</label>
+    <precision>4</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackHistory>false</trackHistory>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>
