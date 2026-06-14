@@ -1,0 +1,1 @@
+../../.github/agents/release-checker.agent.md

@@ -1,0 +1,1 @@
+../../.github/agents/new-org-tenant-onboarding.agent.md

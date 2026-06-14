@@ -1,0 +1,1 @@
+../../.github/agents/nest-ai-architect.agent.md

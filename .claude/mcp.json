@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "codetrellis": {
+      "command": "codetrellis",
+      "args": ["mcp", "."],
+      "env": {}
+    }
+  }
+}
