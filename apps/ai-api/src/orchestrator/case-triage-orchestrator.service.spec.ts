@@ -4,8 +4,10 @@ import type { SupportTriageService } from "../agents/support-triage.service";
 import type { CustomerHistorySynthesisService } from "../agents/customer-history.service";
 import type { SalesforceCaseGateway } from "../salesforce/salesforce-case.gateway";
 import type { SalesforceCustomerGateway } from "../salesforce/salesforce-customer.gateway";
+import type { SalesforceInventoryGateway } from "../salesforce/salesforce-inventory.gateway";
 import { SalesforceGatewayError } from "../salesforce/salesforce-gateway.error";
 import { CaseTriageOrchestratorService } from "./case-triage-orchestrator.service";
+import { PartsLogisticsPlannerService } from "./parts-logistics-planner.service";
 import { ExternalContextAdapterRegistry } from "./adapters/external-context.adapter";
 import {
   InMemoryOrchestrationStatusRepository,
@@ -145,7 +147,8 @@ function buildHarness(
         retrievalTopK: 5,
         scoreThreshold: 0.65,
         extractionEnabled: false
-      }
+      },
+      partsLogistics: { enabled: false }
     },
     rag: {
       enabled: false,
@@ -178,6 +181,14 @@ function buildHarness(
     readAll: jest.fn().mockResolvedValue({ signals: [], degradedSources: [] })
   } as unknown as ExternalContextAdapterRegistry;
 
+  const inventoryGateway = {
+    isConfigured: () => true,
+    readStockForParts: jest
+      .fn()
+      .mockResolvedValue({ source: "none", rows: [], degraded: false })
+  } as unknown as SalesforceInventoryGateway;
+  const partsPlanner = new PartsLogisticsPlannerService();
+
   const service = new CaseTriageOrchestratorService(
     gateway,
     customerGateway,
@@ -190,7 +201,9 @@ function buildHarness(
     store,
     telemetry,
     config,
-    { extract: jest.fn().mockResolvedValue(emptyExtraction()) } as any
+    { extract: jest.fn().mockResolvedValue(emptyExtraction()) } as any,
+    inventoryGateway,
+    partsPlanner
   );
 
   return {
@@ -510,7 +523,8 @@ describe("CaseTriageOrchestratorService", () => {
             retrievalTopK: 5,
             scoreThreshold: 0.65,
             extractionEnabled: false
-          }
+          },
+          partsLogistics: { enabled: false }
         },
         rag: {
           enabled: false,
@@ -518,7 +532,14 @@ describe("CaseTriageOrchestratorService", () => {
         },
         salesforceConnection: { enabled: true }
       } as unknown as AppConfigService,
-      { extract: jest.fn().mockResolvedValue(emptyExtraction()) } as any
+      { extract: jest.fn().mockResolvedValue(emptyExtraction()) } as any,
+      {
+        isConfigured: () => true,
+        readStockForParts: jest
+          .fn()
+          .mockResolvedValue({ source: "none", rows: [], degraded: false })
+      } as unknown as SalesforceInventoryGateway,
+      new PartsLogisticsPlannerService()
     );
 
     const resolved =

@@ -8,6 +8,7 @@ import type {
 import { TRIAGE_NODE_ID } from "./dto/case-triage-lifecycle";
 import type { CustomerContextChannel } from "./dto/customer-context";
 import type { KnowledgeGuidanceChannel } from "./dto/knowledge-guidance";
+import type { PartsLogisticsChannel } from "./dto/parts-logistics";
 import type { OrchestratorVerdict } from "./dto/orchestrator-verdict";
 import type {
   CaseTriageWorkflowSnapshot,
@@ -27,6 +28,7 @@ interface WorkflowPatch {
   triage?: SanitizedTriageResult;
   customerContext?: CustomerContextChannel;
   knowledgeGuidance?: KnowledgeGuidanceChannel;
+  partsLogistics?: PartsLogisticsChannel;
   orchestratorVerdict?: OrchestratorVerdict;
   approvalRequired?: boolean;
   approvalDecision?: ApprovalDecision;
@@ -222,6 +224,9 @@ export class OrchestrationStatusStore {
     }
     if (patch.knowledgeGuidance !== undefined) {
       snapshot.knowledgeGuidance = patch.knowledgeGuidance;
+    }
+    if (patch.partsLogistics !== undefined) {
+      snapshot.partsLogistics = patch.partsLogistics;
     }
     if (patch.orchestratorVerdict !== undefined) {
       snapshot.orchestratorVerdict = patch.orchestratorVerdict;

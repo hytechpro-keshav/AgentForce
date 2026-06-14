@@ -19,10 +19,13 @@ export function synthesizeOrchestratorVerdict(
   const pkg = input.customerContext?.package;
   const knowledge = input.knowledgeGuidance;
 
+  const parts = input.partsLogistics;
+
   const basis: string[] = [];
   if (triage) basis.push("triage");
   if (pkg) basis.push("customerContext");
   if (knowledge) basis.push("knowledgeGuidance");
+  if (parts) basis.push("partsLogistics");
 
   const priority = triage?.recommendedPriority;
   const risk = pkg?.businessRisk.value;
@@ -46,7 +49,9 @@ export function synthesizeOrchestratorVerdict(
   return {
     headline: clip(headline, 160),
     summary: clip(summary, 400),
-    recommendedSteps: recommendedSteps.map((step) => clip(step, 240)).slice(0, 6),
+    recommendedSteps: recommendedSteps
+      .map((step) => clip(step, 240))
+      .slice(0, 6),
     highlights: highlights.slice(0, 8),
     basis,
     generatedAt: new Date().toISOString()
@@ -59,7 +64,9 @@ function buildHeadline(
   risk: string | undefined,
   knowledgeAnswered: boolean
 ): string {
-  const priorityLabel = priority ? `${capitalize(priority)} priority case` : "Case triaged";
+  const priorityLabel = priority
+    ? `${capitalize(priority)} priority case`
+    : "Case triaged";
   const clauses: string[] = [priorityLabel];
   if (risk) {
     clauses.push(`${risk} business risk`);
@@ -183,7 +190,9 @@ function buildHighlights(
   if (repeat) {
     highlights.push({
       label: "Repeat failure",
-      value: repeat.repeat ? `Yes (${repeat.count} in ${repeat.windowDays}d)` : "No"
+      value: repeat.repeat
+        ? `Yes (${repeat.count} in ${repeat.windowDays}d)`
+        : "No"
     });
   }
   if (knowledge) {
@@ -207,6 +216,24 @@ function buildHighlights(
       });
     }
   }
+  const parts = input.partsLogistics;
+  if (parts && parts.eligible !== false) {
+    highlights.push({
+      label: "Parts fulfillment",
+      value:
+        parts.fulfillmentReadiness ??
+        (parts.degraded ? "Degraded" : (parts.status ?? "n/a"))
+    });
+    const approvals = (parts.partPlans ?? []).filter(
+      (p) => p.requiredApproval
+    ).length;
+    if (approvals > 0) {
+      highlights.push({
+        label: "Parts approvals",
+        value: `${approvals} required`
+      });
+    }
+  }
   highlights.push({
     label: "Write-back",
     value:
@@ -227,5 +254,7 @@ function capitalize(value: string): string {
 
 function clip(value: string, max: number): string {
   const trimmed = value.trim();
-  return trimmed.length > max ? `${trimmed.slice(0, max - 1).trimEnd()}…` : trimmed;
+  return trimmed.length > max
+    ? `${trimmed.slice(0, max - 1).trimEnd()}…`
+    : trimmed;
 }

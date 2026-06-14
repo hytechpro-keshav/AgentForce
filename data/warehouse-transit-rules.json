@@ -18,6 +18,11 @@
     "SP-DISP-15X-FHD": 5,
     "default": 0
   },
+  "defaultLastMile": {
+    "transitHoursMin": 24,
+    "transitHoursMax": 48,
+    "crossRegion": true
+  },
   "transitRules": [
     {
       "sourceWarehouseRef": "WH-SJO-002",
@@ -61,5 +66,54 @@
       "transitHoursMax": 48,
       "crossRegion": true
     }
-  ]
+  ],
+  "interWarehouseRules": [
+    {
+      "sourceWarehouseRef": "WH-FRA-004",
+      "destinationWarehouseRef": "WH-AUS-001",
+      "transitHoursMin": 24,
+      "transitHoursMax": 48,
+      "crossRegion": true
+    },
+    {
+      "sourceWarehouseRef": "WH-FRA-004",
+      "destinationWarehouseRef": "WH-JCY-003",
+      "transitHoursMin": 24,
+      "transitHoursMax": 48,
+      "crossRegion": true
+    },
+    {
+      "sourceWarehouseRef": "WH-SJO-002",
+      "destinationWarehouseRef": "WH-JCY-003",
+      "transitHoursMin": 8,
+      "transitHoursMax": 16,
+      "crossRegion": false
+    },
+    {
+      "sourceWarehouseRef": "WH-SJO-002",
+      "destinationWarehouseRef": "WH-AUS-001",
+      "transitHoursMin": 12,
+      "transitHoursMax": 24,
+      "crossRegion": false
+    },
+    {
+      "sourceWarehouseRef": "WH-JCY-003",
+      "destinationWarehouseRef": "WH-AUS-001",
+      "transitHoursMin": 10,
+      "transitHoursMax": 20,
+      "crossRegion": false
+    }
+  ],
+  "fulfillmentRanking": {
+    "North America": ["WH-AUS-001", "WH-JCY-003", "WH-SJO-002"],
+    "Europe": ["WH-FRA-004"]
+  },
+  "defaultInterWarehouse": {
+    "transitHoursMin": 24,
+    "transitHoursMax": 48,
+    "crossRegion": true
+  },
+  "destinationProcessingHours": 4,
+  "replenishmentHoursMin": 72,
+  "replenishmentHoursMax": 120
 }

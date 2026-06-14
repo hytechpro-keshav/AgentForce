@@ -147,7 +147,9 @@ describe("sanitizeSnapshot", () => {
     });
 
     expect(snapshot).not.toBeNull();
-    expect(snapshot!.orchestratorVerdict?.headline).toContain("Critical priority");
+    expect(snapshot!.orchestratorVerdict?.headline).toContain(
+      "Critical priority"
+    );
     expect(snapshot!.orchestratorVerdict?.recommendedSteps).toHaveLength(2);
     expect(snapshot!.orchestratorVerdict?.highlights).toHaveLength(2);
     expect(JSON.stringify(snapshot)).not.toContain("should-not-survive");
@@ -195,6 +197,91 @@ describe("sanitizeSnapshot", () => {
     expect(answer?.recommendedActions?.[0].actionType).toBe("run_diagnostic");
     expect(answer?.suggestedParts).toHaveLength(1);
     expect(answer?.safetyFlags?.[0].severity).toBe("critical");
+  });
+
+  it("sanitizes the Node 4 parts logistics channel and drops unknown part rows", () => {
+    const snapshot = sanitizeSnapshot({
+      workflowId: VALID_WORKFLOW_ID,
+      node: "parts_logistics",
+      status: "done",
+      approvalRequired: false,
+      writeBackApplied: true,
+      partsLogistics: {
+        eligible: true,
+        degraded: false,
+        status: "PARTIAL",
+        fulfillmentReadiness: "partial",
+        fulfillmentConfidence: "high",
+        candidateSources: ["knowledge"],
+        partPlans: [
+          {
+            partNumber: "SP-BATT-15X",
+            partName: "6 Cell Battery Pack",
+            requestedQuantity: 1,
+            compatibility: "confirmed",
+            compatibilityEvidence: "match",
+            availability: "unavailable",
+            exceptionType: "inter_warehouse_transfer",
+            reservationStatus: "planned",
+            sourceWarehouseReference: "WH-SJO-002",
+            fulfillmentWarehouseReference: "WH-AUS-001",
+            transferRequired: true,
+            estimatedArrivalWindow: "26–46 hours (inter-warehouse transfer)",
+            etaSegments: [
+              { segment: "source_processing", hoursMin: 2, hoursMax: 2 }
+            ],
+            confidence: "high",
+            requiredApproval: false,
+            rationale: "Plan transfer SJO -> AUS."
+          },
+          // Missing partNumber -> dropped.
+          { availability: "available" }
+        ]
+      },
+      events: []
+    });
+
+    const parts = snapshot!.partsLogistics;
+    expect(parts?.status).toBe("PARTIAL");
+    expect(parts?.fulfillmentReadiness).toBe("partial");
+    expect(parts?.partPlans).toHaveLength(1);
+    const plan = parts!.partPlans![0];
+    expect(plan.partNumber).toBe("SP-BATT-15X");
+    expect(plan.transferRequired).toBe(true);
+    expect(plan.sourceWarehouseReference).toBe("WH-SJO-002");
+    expect(plan.etaSegments).toHaveLength(1);
+  });
+
+  it("never leaks a serial number injected into the parts channel", () => {
+    const snapshot = sanitizeSnapshot({
+      workflowId: VALID_WORKFLOW_ID,
+      node: "parts_logistics",
+      status: "done",
+      approvalRequired: false,
+      writeBackApplied: true,
+      partsLogistics: {
+        eligible: true,
+        degraded: false,
+        status: "PLANNED",
+        partPlans: [
+          {
+            partNumber: "SP-BATT-15X",
+            requestedQuantity: 1,
+            compatibility: "confirmed",
+            compatibilityEvidence: "ok",
+            availability: "available",
+            exceptionType: "none",
+            reservationStatus: "planned",
+            confidence: "high",
+            requiredApproval: false,
+            rationale: "ready"
+          }
+        ]
+      },
+      events: []
+    });
+    // The sanitizer only copies known fields, so an injected serial cannot survive.
+    expect(JSON.stringify(snapshot)).not.toContain("SN-PRO15X");
   });
 
   it("defaults an unknown guidance confidence to undefined", () => {

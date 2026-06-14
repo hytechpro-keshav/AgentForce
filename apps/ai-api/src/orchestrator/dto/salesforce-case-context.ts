@@ -18,4 +18,16 @@ export interface SalesforceCaseContext {
   /** Salesforce Priority mapped to the triage priority vocabulary. */
   reportedPriority?: TriagePriorityDto;
   accountId?: string;
+  /**
+   * Node 4 (parts & logistics) read context. The installed Asset and
+   * its product code anchor part compatibility; the service ship-to
+   * drives fulfillment-warehouse selection. The asset serial number is
+   * safe for orchestration use but must NOT reach UI status events.
+   */
+  assetId?: string;
+  assetProductCode?: string;
+  assetSerialNumber?: string;
+  serviceShipToCity?: string;
+  serviceShipToState?: string;
+  serviceShipToCountry?: string;
 }

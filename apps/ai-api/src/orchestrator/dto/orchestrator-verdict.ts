@@ -11,9 +11,13 @@
  * sanitized channels (priority, risk grade, warranty, source titles).
  */
 
-import type { ApprovalDecision, NodeLifecycleStatus } from "./case-triage-lifecycle";
+import type {
+  ApprovalDecision,
+  NodeLifecycleStatus
+} from "./case-triage-lifecycle";
 import type { CustomerContextChannel } from "./customer-context";
 import type { KnowledgeGuidanceChannel } from "./knowledge-guidance";
+import type { PartsLogisticsChannel } from "./parts-logistics";
 import type { SanitizedTriageResult } from "./orchestration-status-event";
 
 /** A single labeled key fact surfaced in the verdict. */
@@ -56,4 +60,5 @@ export interface OrchestratorVerdictInput {
   triage?: SanitizedTriageResult;
   customerContext?: CustomerContextChannel;
   knowledgeGuidance?: KnowledgeGuidanceChannel;
+  partsLogistics?: PartsLogisticsChannel;
 }

@@ -302,6 +302,16 @@ export interface OrchestratorKnowledgeConfig {
   extractionEnabled: boolean;
 }
 
+/**
+ * Node 4 (parts & logistics) configuration. Read/plan slice is OFF by
+ * default; when enabled, the non-interrupting node reads live inventory
+ * and produces a fulfillment plan. No Salesforce writes in Phase 4a.
+ */
+export interface OrchestratorPartsLogisticsConfig {
+  /** Feature flag: enables Node 4 parts & logistics planning. */
+  enabled: boolean;
+}
+
 export interface OrchestratorConfig {
   /**
    * Gate policy for the Node 1 triage write-back.
@@ -315,6 +325,7 @@ export interface OrchestratorConfig {
   salesforceWriteBack: OrchestratorSalesforceWriteBackConfig;
   customerHistory: OrchestratorCustomerHistoryConfig;
   knowledge: OrchestratorKnowledgeConfig;
+  partsLogistics: OrchestratorPartsLogisticsConfig;
 }
 
 export interface AppRuntimeConfig {
@@ -1834,7 +1845,20 @@ export class AppConfigService {
       salesforceWriteBack:
         AppConfigService.loadOrchestratorSalesforceWriteBack(env),
       customerHistory: AppConfigService.loadOrchestratorCustomerHistory(env),
-      knowledge: AppConfigService.loadOrchestratorKnowledge(env)
+      knowledge: AppConfigService.loadOrchestratorKnowledge(env),
+      partsLogistics: AppConfigService.loadOrchestratorPartsLogistics(env)
+    };
+  }
+
+  private static loadOrchestratorPartsLogistics(
+    env: NodeJS.ProcessEnv
+  ): OrchestratorPartsLogisticsConfig {
+    return {
+      enabled: AppConfigService.parseBooleanFlag(
+        env.AI_API_ORCHESTRATOR_PARTS_ENABLED,
+        false,
+        "AI_API_ORCHESTRATOR_PARTS_ENABLED"
+      )
     };
   }
 

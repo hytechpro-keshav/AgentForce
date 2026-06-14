@@ -11,6 +11,7 @@ import {
 import {
   CUSTOMER_HISTORY_NODE_ID,
   KNOWLEDGE_NODE_ID,
+  PARTS_LOGISTICS_NODE_ID,
   TRIAGE_NODE_ID,
   type ApprovalDecision,
   type NodeLifecycleStatus,
@@ -30,6 +31,10 @@ import type {
   KnowledgeEligibilityResult,
   KnowledgeQueryInput
 } from "./dto/knowledge-guidance";
+import type {
+  PartsLogisticsChannel,
+  PartsLogisticsEligibilityResult
+} from "./dto/parts-logistics";
 import type {
   OrchestrationExecutionTrace,
   OrchestrationEventDetail,
@@ -69,6 +74,8 @@ export const CaseTriageState = Annotation.Root({
   customerContext: Annotation<CustomerContextChannel | undefined>(),
   /** Node 3's own channel. Node 3 is the only writer. */
   knowledgeGuidance: Annotation<KnowledgeGuidanceChannel | undefined>(),
+  /** Node 4's own channel. Node 4 is the only writer. */
+  partsLogistics: Annotation<PartsLogisticsChannel | undefined>(),
   approvalRequired: Annotation<boolean>(),
   approvalDecision: Annotation<ApprovalDecision | undefined>(),
   writeBackApplied: Annotation<boolean>(),
@@ -132,6 +139,25 @@ export interface CaseTriageGraphDeps {
     tenantId: string | undefined,
     principalSubject: string
   ): Promise<KnowledgeGuidanceChannel>;
+  /**
+   * Node 4 — cheap, config-driven eligibility check. Confirms parts
+   * logistics is enabled; runs before any inventory read.
+   */
+  isPartsLogisticsEligible(
+    context: SalesforceCaseContext,
+    triagePriority: TriagePriorityDto | undefined
+  ): PartsLogisticsEligibilityResult;
+  /**
+   * Node 4 — collects part candidates, reads live inventory, and runs
+   * the deterministic fulfillment-location-first planner. Must handle
+   * inventory-read failures gracefully (degraded flag, no throw).
+   */
+  planPartsLogistics(
+    workflowId: string,
+    context: SalesforceCaseContext,
+    knowledgeGuidance: KnowledgeGuidanceChannel | undefined,
+    triagePriority: TriagePriorityDto | undefined
+  ): Promise<PartsLogisticsChannel>;
   /**
    * Emits a sanitized `running` progress line into the read model.
    * `node` defaults to the triage node so existing call sites are
@@ -406,6 +432,86 @@ export function buildCaseTriageGraph(deps: CaseTriageGraphDeps) {
 
       return { knowledgeGuidance: guidance };
     })
+    .addNode("parts", async (state) => {
+      // Node 4 is READ-ONLY to Salesforce and NON-interrupting. It reads
+      // the case asset + ship-to and the upstream knowledge guidance,
+      // checks eligibility, plans fulfillment against live inventory, and
+      // writes ONLY its own `partsLogistics` channel. If inventory reads
+      // fail it writes a degraded outcome and continues without blocking.
+      const triagePriority = state.triage?.recommendedPriority;
+      const eligibility = deps.isPartsLogisticsEligible(
+        state.context!,
+        triagePriority
+      );
+      if (!eligibility.eligible) {
+        await deps.emitRunning(
+          state.workflowId,
+          "Parts & logistics skipped (not eligible).",
+          [
+            { label: "Eligible", value: "No" },
+            { label: "Reason", value: eligibility.reason }
+          ],
+          PARTS_LOGISTICS_NODE_ID,
+          buildPartsEligibilitySkipTrace(state, eligibility)
+        );
+        return {
+          partsLogistics: {
+            eligible: false,
+            eligibilityReason: eligibility.reason,
+            degraded: false
+          } satisfies PartsLogisticsChannel
+        };
+      }
+
+      await deps.emitRunning(
+        state.workflowId,
+        "Selecting fulfillment warehouse and reading live inventory.",
+        buildPartsReadDetails(state),
+        PARTS_LOGISTICS_NODE_ID,
+        buildPartsReadTrace(state)
+      );
+
+      const parts = await deps.planPartsLogistics(
+        state.workflowId,
+        state.context!,
+        state.knowledgeGuidance,
+        triagePriority
+      );
+
+      if (parts.degraded) {
+        await deps.emitRunning(
+          state.workflowId,
+          "Inventory temporarily unavailable (degraded mode).",
+          [
+            { label: "Degraded", value: "Yes" },
+            {
+              label: "Sources",
+              value: (parts.degradedSources ?? []).join(", ") || "inventory"
+            }
+          ],
+          PARTS_LOGISTICS_NODE_ID,
+          buildPartsDegradedTrace(parts)
+        );
+      } else {
+        await deps.emitRunning(
+          state.workflowId,
+          buildPartsPlanSummary(parts),
+          buildPartsPlanDetails(parts),
+          PARTS_LOGISTICS_NODE_ID,
+          buildPartsPlanTrace(parts)
+        );
+      }
+
+      await deps.emitRunning(
+        state.workflowId,
+        "Writing parts & logistics plan to state.",
+        buildPartsWriteDetails(parts),
+        PARTS_LOGISTICS_NODE_ID,
+        buildPartsWriteTrace(parts)
+      );
+
+      return { partsLogistics: parts };
+    })
     .addNode("gate", (state) => {
       const triage = state.triage!;
       if (!deps.requiresApproval(triage)) {
@@ -441,7 +547,8 @@ export function buildCaseTriageGraph(deps: CaseTriageGraphDeps) {
     .addEdge("readContext", "runTriage")
     .addEdge("runTriage", "customerHistory")
     .addEdge("customerHistory", "knowledge")
-    .addEdge("knowledge", "gate")
+    .addEdge("knowledge", "parts")
+    .addEdge("parts", "gate")
     .addConditionalEdges(
       "gate",
       (state) =>
@@ -1341,14 +1448,18 @@ function buildKnowledgeEligibilitySkipTrace(
   };
 }
 
-function buildKnowledgeQueryDetails(state: CaseTriageStateType): OrchestrationEventDetail[] {
+function buildKnowledgeQueryDetails(
+  state: CaseTriageStateType
+): OrchestrationEventDetail[] {
   return [
     { label: "Query", value: "Constructed from Case + customer context" },
     { label: "Namespace", value: "customer-self-service" }
   ];
 }
 
-function buildKnowledgeQueryTrace(state: CaseTriageStateType): OrchestrationExecutionTrace {
+function buildKnowledgeQueryTrace(
+  state: CaseTriageStateType
+): OrchestrationExecutionTrace {
   return {
     stepKey: "knowledge_query_build",
     sections: [
@@ -1358,14 +1469,18 @@ function buildKnowledgeQueryTrace(state: CaseTriageStateType): OrchestrationExec
         data: {
           caseSubject: state.context?.subject ? "present" : "absent",
           triagePriority: state.triage?.recommendedPriority ?? "unknown",
-          customerModel: state.customerContext?.package?.installedAssets.value.primaryModel ?? "unknown"
+          customerModel:
+            state.customerContext?.package?.installedAssets.value
+              .primaryModel ?? "unknown"
         }
       }
     ]
   };
 }
 
-function buildKnowledgeSearchDetails(state: CaseTriageStateType): OrchestrationEventDetail[] {
+function buildKnowledgeSearchDetails(
+  state: CaseTriageStateType
+): OrchestrationEventDetail[] {
   return [
     { label: "Namespace", value: "customer-self-service" },
     { label: "TopK", value: "5" },
@@ -1373,7 +1488,9 @@ function buildKnowledgeSearchDetails(state: CaseTriageStateType): OrchestrationE
   ];
 }
 
-function buildKnowledgeSearchTrace(state: CaseTriageStateType): OrchestrationExecutionTrace {
+function buildKnowledgeSearchTrace(
+  state: CaseTriageStateType
+): OrchestrationExecutionTrace {
   return {
     stepKey: "knowledge_search",
     sections: [
@@ -1390,27 +1507,35 @@ function buildKnowledgeSearchTrace(state: CaseTriageStateType): OrchestrationExe
   };
 }
 
-function buildKnowledgeAnswerDetails(channel: KnowledgeGuidanceChannel): OrchestrationEventDetail[] {
+function buildKnowledgeAnswerDetails(
+  channel: KnowledgeGuidanceChannel
+): OrchestrationEventDetail[] {
   return [
     { label: "Status", value: "ANSWERED" },
-    { label: "Sources found", value: String(channel.answer?.sources?.length ?? 0) },
+    {
+      label: "Sources found",
+      value: String(channel.answer?.sources?.length ?? 0)
+    },
     { label: "Provider", value: channel.answer?.provider ?? "unknown" },
     { label: "Latency (ms)", value: String(channel.answer?.latencyMs ?? 0) }
   ];
 }
 
-function buildKnowledgeAnswerTrace(channel: KnowledgeGuidanceChannel): OrchestrationExecutionTrace {
+function buildKnowledgeAnswerTrace(
+  channel: KnowledgeGuidanceChannel
+): OrchestrationExecutionTrace {
   return {
     stepKey: "knowledge_answered",
     sections: [
       {
         key: "sources",
         title: "Retrieved sources",
-        data: channel.answer?.sources?.map((s) => ({
-          id: s.sourceId,
-          title: s.title,
-          scorePercentile: s.retrievalScorePercentile
-        })) ?? []
+        data:
+          channel.answer?.sources?.map((s) => ({
+            id: s.sourceId,
+            title: s.title,
+            scorePercentile: s.retrievalScorePercentile
+          })) ?? []
       },
       {
         key: "provider",
@@ -1426,7 +1551,9 @@ function buildKnowledgeAnswerTrace(channel: KnowledgeGuidanceChannel): Orchestra
   };
 }
 
-function buildKnowledgeNoSourceDetails(channel: KnowledgeGuidanceChannel): OrchestrationEventDetail[] {
+function buildKnowledgeNoSourceDetails(
+  channel: KnowledgeGuidanceChannel
+): OrchestrationEventDetail[] {
   return [
     { label: "Status", value: "NO_SOURCE" },
     { label: "Reason", value: "No matching articles found" },
@@ -1434,7 +1561,9 @@ function buildKnowledgeNoSourceDetails(channel: KnowledgeGuidanceChannel): Orche
   ];
 }
 
-function buildKnowledgeNoSourceTrace(channel: KnowledgeGuidanceChannel): OrchestrationExecutionTrace {
+function buildKnowledgeNoSourceTrace(
+  channel: KnowledgeGuidanceChannel
+): OrchestrationExecutionTrace {
   return {
     stepKey: "knowledge_no_source",
     sections: [
@@ -1451,14 +1580,21 @@ function buildKnowledgeNoSourceTrace(channel: KnowledgeGuidanceChannel): Orchest
   };
 }
 
-function buildKnowledgeDegradedDetails(channel: KnowledgeGuidanceChannel): OrchestrationEventDetail[] {
+function buildKnowledgeDegradedDetails(
+  channel: KnowledgeGuidanceChannel
+): OrchestrationEventDetail[] {
   return [
     { label: "Degraded", value: "Yes" },
-    { label: "Sources unavailable", value: (channel.degradedSources ?? []).join(", ") }
+    {
+      label: "Sources unavailable",
+      value: (channel.degradedSources ?? []).join(", ")
+    }
   ];
 }
 
-function buildKnowledgeDegradedTrace(channel: KnowledgeGuidanceChannel): OrchestrationExecutionTrace {
+function buildKnowledgeDegradedTrace(
+  channel: KnowledgeGuidanceChannel
+): OrchestrationExecutionTrace {
   return {
     stepKey: "knowledge_degraded",
     sections: [
@@ -1474,7 +1610,9 @@ function buildKnowledgeDegradedTrace(channel: KnowledgeGuidanceChannel): Orchest
   };
 }
 
-function buildKnowledgeWriteDetails(channel: KnowledgeGuidanceChannel): OrchestrationEventDetail[] {
+function buildKnowledgeWriteDetails(
+  channel: KnowledgeGuidanceChannel
+): OrchestrationEventDetail[] {
   return [
     { label: "Status", value: channel.status ?? "skipped" },
     { label: "Eligible", value: channel.eligible ? "Yes" : "No" },
@@ -1482,7 +1620,9 @@ function buildKnowledgeWriteDetails(channel: KnowledgeGuidanceChannel): Orchestr
   ];
 }
 
-function buildKnowledgeWriteTrace(channel: KnowledgeGuidanceChannel): OrchestrationExecutionTrace {
+function buildKnowledgeWriteTrace(
+  channel: KnowledgeGuidanceChannel
+): OrchestrationExecutionTrace {
   return {
     stepKey: "knowledge_write",
     sections: [
@@ -1526,6 +1666,206 @@ function buildKnowledgeWriteTrace(channel: KnowledgeGuidanceChannel): Orchestrat
             sourceCount: channel.answer?.sources?.length ?? 0
           }
         }
+      }
+    ]
+  };
+}
+
+// Node 4 (Parts & Logistics) detail + trace builders. Every value is a
+// safe, non-PII fact: part codes, warehouse reference codes, ETA windows,
+// exception and approval reasons — never serial numbers or raw rows.
+
+function buildPartsEligibilitySkipTrace(
+  state: CaseTriageStateType,
+  eligibility: PartsLogisticsEligibilityResult
+): OrchestrationExecutionTrace {
+  return {
+    stepKey: "parts_logistics_eligibility_skip",
+    sections: [
+      {
+        key: "eligibility",
+        title: "Eligibility check",
+        data: {
+          eligible: false,
+          reason: eligibility.reason,
+          assetLinked: Boolean(state.context?.assetId)
+        }
+      }
+    ]
+  };
+}
+
+function buildPartsReadDetails(
+  state: CaseTriageStateType
+): OrchestrationEventDetail[] {
+  return [
+    {
+      label: "Ship-to",
+      value:
+        [state.context?.serviceShipToCity, state.context?.serviceShipToState]
+          .filter(Boolean)
+          .join(", ") || "unknown"
+    },
+    {
+      label: "Asset model",
+      value: state.context?.assetProductCode ?? "unknown"
+    },
+    {
+      label: "Suggested parts",
+      value: String(
+        state.knowledgeGuidance?.answer?.suggestedParts?.length ?? 0
+      )
+    }
+  ];
+}
+
+function buildPartsReadTrace(
+  state: CaseTriageStateType
+): OrchestrationExecutionTrace {
+  return {
+    stepKey: "parts_logistics_read",
+    sections: [
+      {
+        key: "inputs",
+        title: "Inputs",
+        data: {
+          shipToCountry: state.context?.serviceShipToCountry ?? "unknown",
+          shipToState: state.context?.serviceShipToState ?? "unknown",
+          assetProductCode: state.context?.assetProductCode ?? "unknown",
+          suggestedPartCount:
+            state.knowledgeGuidance?.answer?.suggestedParts?.length ?? 0
+        }
+      },
+      {
+        key: "data_sources",
+        title: "Data sources queried",
+        data: [
+          {
+            system: "Salesforce",
+            object: "ProductItem",
+            action: "readStockForParts",
+            keys: "Product2.ProductCode + Location.ExternalReference"
+          }
+        ]
+      }
+    ]
+  };
+}
+
+function buildPartsDegradedTrace(
+  channel: PartsLogisticsChannel
+): OrchestrationExecutionTrace {
+  return {
+    stepKey: "parts_logistics_degraded",
+    sections: [
+      {
+        key: "degradation",
+        title: "Degradation info",
+        data: {
+          degraded: true,
+          degradedSources: channel.degradedSources ?? ["salesforce_inventory"],
+          fulfillmentReadiness: channel.fulfillmentReadiness ?? "unknown"
+        }
+      }
+    ]
+  };
+}
+
+function buildPartsPlanSummary(channel: PartsLogisticsChannel): string {
+  const count = channel.partPlans?.length ?? 0;
+  const readiness = channel.fulfillmentReadiness ?? "unknown";
+  return `Planned ${count} part(s) — fulfillment ${readiness}.`;
+}
+
+function buildPartsPlanDetails(
+  channel: PartsLogisticsChannel
+): OrchestrationEventDetail[] {
+  const details: OrchestrationEventDetail[] = [
+    { label: "Status", value: channel.status ?? "n/a" },
+    {
+      label: "Fulfillment",
+      value: channel.fulfillmentReadiness ?? "unknown"
+    },
+    { label: "Parts", value: String(channel.partPlans?.length ?? 0) }
+  ];
+  const approvals = (channel.partPlans ?? []).filter(
+    (p) => p.requiredApproval
+  ).length;
+  if (approvals > 0) {
+    details.push({ label: "Approvals needed", value: String(approvals) });
+  }
+  return details;
+}
+
+function buildPartsPlanTrace(
+  channel: PartsLogisticsChannel
+): OrchestrationExecutionTrace {
+  return {
+    stepKey: "parts_logistics_plan",
+    sections: [
+      {
+        key: "part_plans",
+        title: "Part plans",
+        data: (channel.partPlans ?? []).map((p) => ({
+          partNumber: p.partNumber,
+          compatibility: p.compatibility,
+          availability: p.availability,
+          exceptionType: p.exceptionType,
+          fulfillmentWarehouse: p.fulfillmentWarehouseReference ?? null,
+          sourceWarehouse: p.sourceWarehouseReference ?? null,
+          transferRequired: p.transferRequired ?? false,
+          etaWindow: p.estimatedArrivalWindow ?? null,
+          requiredApproval: p.requiredApproval,
+          approvalReason: p.approvalReason ?? "none"
+        }))
+      },
+      {
+        key: "outputs",
+        title: "Outputs",
+        data: {
+          status: channel.status ?? null,
+          fulfillmentReadiness: channel.fulfillmentReadiness ?? null,
+          fulfillmentConfidence: channel.fulfillmentConfidence ?? null,
+          candidateSources: channel.candidateSources ?? []
+        }
+      }
+    ]
+  };
+}
+
+function buildPartsWriteDetails(
+  channel: PartsLogisticsChannel
+): OrchestrationEventDetail[] {
+  return [
+    { label: "Eligible", value: channel.eligible ? "Yes" : "No" },
+    { label: "Status", value: channel.status ?? "skipped" },
+    { label: "Degraded", value: channel.degraded ? "Yes" : "No" }
+  ];
+}
+
+function buildPartsWriteTrace(
+  channel: PartsLogisticsChannel
+): OrchestrationExecutionTrace {
+  const after = {
+    eligible: channel.eligible,
+    status: channel.status ?? null,
+    degraded: channel.degraded,
+    fulfillmentReadiness: channel.fulfillmentReadiness ?? null,
+    partCount: channel.partPlans?.length ?? 0
+  };
+  return {
+    stepKey: "parts_logistics_write",
+    sections: [
+      { key: "channel", title: "Parts logistics channel", data: after },
+      {
+        key: "state_changes",
+        title: "State changes",
+        data: [{ path: "partsLogistics", change: "added", after }]
+      },
+      {
+        key: "state_after",
+        title: "State after step",
+        data: { partsLogistics: after }
       }
     ]
   };

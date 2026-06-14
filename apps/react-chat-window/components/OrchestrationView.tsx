@@ -63,6 +63,12 @@ const NODE_META: Record<
     shortLabel: "Knowledge",
     description:
       "Builds a targeted RAG query, retrieves approved troubleshooting guidance, and writes knowledge findings to workflow state."
+  },
+  parts_logistics: {
+    label: "Node 4 · Parts & Logistics",
+    shortLabel: "Parts & Logistics",
+    description:
+      "Selects the fulfillment warehouse from the Case ship-to, reads live inventory, and plans part availability and multi-segment ETA."
   }
 };
 
@@ -189,6 +195,23 @@ function stageStatus(
     return displayEventStatus(snapshot, events.at(-1)!);
   }
 
+  if (node === "parts_logistics") {
+    if (snapshot.partsLogistics?.eligible === false) {
+      return "skipped";
+    }
+    if (snapshot.status === "failed" && snapshot.node === node) {
+      return "failed";
+    }
+    const events = nodeEvents(snapshot, node);
+    if (events.length === 0) {
+      return "pending";
+    }
+    if (snapshot.partsLogistics) {
+      return "done";
+    }
+    return displayEventStatus(snapshot, events.at(-1)!);
+  }
+
   if (node === "customer_history") {
     if (snapshot.customerContext?.eligible === false) {
       return "skipped";
@@ -231,7 +254,8 @@ function displayEventStatus(
 ): OrchestrationStatus {
   if (
     event.status === "running" &&
-    (event.sequence < snapshot.events.length || isTerminalStatus(snapshot.status))
+    (event.sequence < snapshot.events.length ||
+      isTerminalStatus(snapshot.status))
   ) {
     return "done";
   }
@@ -240,6 +264,9 @@ function displayEventStatus(
 
 function displayNode(snapshot: OrchestrationSnapshot): OrchestrationNodeId {
   if (snapshot.status === "done") {
+    if (stageStatus(snapshot, "parts_logistics") !== "pending") {
+      return "parts_logistics";
+    }
     if (stageStatus(snapshot, "knowledge") !== "pending") {
       return "knowledge";
     }
@@ -276,12 +303,17 @@ function currentStageSummary(snapshot: OrchestrationSnapshot): string {
 }
 
 function completedStages(snapshot: OrchestrationSnapshot): number {
-  return (["triage", "customer_history", "knowledge"] as OrchestrationNodeId[]).filter(
-    (node) => {
-      const status = stageStatus(snapshot, node);
-      return status === "done" || status === "skipped";
-    }
-  ).length;
+  return (
+    [
+      "triage",
+      "customer_history",
+      "knowledge",
+      "parts_logistics"
+    ] as OrchestrationNodeId[]
+  ).filter((node) => {
+    const status = stageStatus(snapshot, node);
+    return status === "done" || status === "skipped";
+  }).length;
 }
 
 function formatJson(value: OrchestrationTraceValue): string {
@@ -310,7 +342,9 @@ function parseGuidanceFields(
     const label = match[2].trim();
     const valueStart = (match.index ?? 0) + match[0].length;
     const valueEnd =
-      i + 1 < matches.length ? matches[i + 1].index ?? summary.length : summary.length;
+      i + 1 < matches.length
+        ? (matches[i + 1].index ?? summary.length)
+        : summary.length;
     const value = summary
       .slice(valueStart, valueEnd)
       .replace(/[;,.\s]+$/, "")
@@ -406,42 +440,49 @@ function StageRail({ snapshot }: { snapshot: OrchestrationSnapshot }) {
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Workflow stages
           </p>
-          <h2 className="text-lg font-semibold">Current and completed stages</h2>
+          <h2 className="text-lg font-semibold">
+            Current and completed stages
+          </h2>
         </div>
         <StatusBadge status={snapshot.status} />
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
-        {(["triage", "customer_history", "knowledge"] as OrchestrationNodeId[]).map(
-          (node) => {
-            const events = nodeEvents(snapshot, node);
-            const status = stageStatus(snapshot, node);
-            return (
-              <div
-                key={node}
-                className="rounded-xl border bg-background p-4"
-                data-testid={`stage-${node}`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">
-                      {nodeMeta(node).label}
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {nodeMeta(node).description}
-                    </p>
-                  </div>
-                  <StageBadge status={status} />
+        {(
+          [
+            "triage",
+            "customer_history",
+            "knowledge",
+            "parts_logistics"
+          ] as OrchestrationNodeId[]
+        ).map((node) => {
+          const events = nodeEvents(snapshot, node);
+          const status = stageStatus(snapshot, node);
+          return (
+            <div
+              key={node}
+              className="rounded-xl border bg-background p-4"
+              data-testid={`stage-${node}`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    {nodeMeta(node).label}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {nodeMeta(node).description}
+                  </p>
                 </div>
-                <p className="mt-3 text-xs text-muted-foreground">
-                  {events.length > 0
-                    ? `${events.length} step${events.length === 1 ? "" : "s"} emitted`
-                    : "No events emitted yet."}
-                </p>
+                <StageBadge status={status} />
               </div>
-            );
-          }
-        )}
+              <p className="mt-3 text-xs text-muted-foreground">
+                {events.length > 0
+                  ? `${events.length} step${events.length === 1 ? "" : "s"} emitted`
+                  : "No events emitted yet."}
+              </p>
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -618,7 +659,9 @@ function GuidanceDetail({ summary }: { summary: string }) {
           ))}
         </div>
       ) : (
-        <p className="mt-2 text-sm leading-relaxed text-foreground">{summary}</p>
+        <p className="mt-2 text-sm leading-relaxed text-foreground">
+          {summary}
+        </p>
       )}
     </div>
   );
@@ -644,17 +687,15 @@ function KnowledgeGuidanceSummary({
           </p>
           <h2 className="text-lg font-semibold">Knowledge guidance</h2>
         </div>
-        <StageBadge
-          status={knowledgeGuidance.eligible ? "done" : "skipped"}
-        />
+        <StageBadge status={knowledgeGuidance.eligible ? "done" : "skipped"} />
       </div>
 
       <p className="text-sm text-muted-foreground">
         {knowledgeGuidance.eligible
-          ? knowledgeGuidance.eligibilityReason ??
-            "Knowledge retrieval executed for this workflow."
-          : knowledgeGuidance.eligibilityReason ??
-            "Knowledge retrieval was skipped for this workflow."}
+          ? (knowledgeGuidance.eligibilityReason ??
+            "Knowledge retrieval executed for this workflow.")
+          : (knowledgeGuidance.eligibilityReason ??
+            "Knowledge retrieval was skipped for this workflow.")}
       </p>
 
       <dl className="grid gap-3 md:grid-cols-2">
@@ -708,7 +749,9 @@ function KnowledgeGuidanceSummary({
       </dl>
 
       {knowledgeGuidance.answer?.recommendedActions?.length ? (
-        <KnowledgeActions actions={knowledgeGuidance.answer.recommendedActions} />
+        <KnowledgeActions
+          actions={knowledgeGuidance.answer.recommendedActions}
+        />
       ) : null}
 
       {knowledgeGuidance.answer?.safetyFlags?.length ? (
@@ -843,6 +886,127 @@ function TriageSummary({ snapshot }: { snapshot: OrchestrationSnapshot }) {
   );
 }
 
+function PartsLogisticsSummary({
+  partsLogistics
+}: {
+  partsLogistics?: OrchestrationSnapshot["partsLogistics"];
+}) {
+  if (!partsLogistics) {
+    return null;
+  }
+
+  const plans = partsLogistics.partPlans ?? [];
+  const approvals = plans.filter((p) => p.requiredApproval).length;
+
+  return (
+    <section
+      className="space-y-3 rounded-xl border bg-card p-5 text-card-foreground shadow-sm"
+      data-testid="parts-logistics-summary"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Node 4 output
+          </p>
+          <h2 className="text-lg font-semibold">Parts &amp; logistics</h2>
+        </div>
+        <StageBadge status={partsLogistics.eligible ? "done" : "skipped"} />
+      </div>
+
+      <p className="text-sm text-muted-foreground">
+        {partsLogistics.eligible
+          ? (partsLogistics.eligibilityReason ??
+            "Fulfillment planning executed for this workflow.")
+          : (partsLogistics.eligibilityReason ??
+            "Parts logistics was skipped for this workflow.")}
+      </p>
+
+      <dl className="grid gap-3 md:grid-cols-2">
+        <FindingCard
+          label="Status"
+          value={partsLogistics.status ?? "Skipped"}
+          supporting={
+            partsLogistics.degraded
+              ? `Degraded: ${partsLogistics.degradedSources?.join(", ") ?? "Yes"}`
+              : "Degraded: No"
+          }
+        />
+        <FindingCard
+          label="Fulfillment readiness"
+          value={partsLogistics.fulfillmentReadiness ?? "unknown"}
+          supporting={
+            partsLogistics.fulfillmentConfidence
+              ? `Confidence: ${partsLogistics.fulfillmentConfidence}`
+              : undefined
+          }
+        />
+        <FindingCard label="Parts planned" value={String(plans.length)} />
+        {approvals > 0 ? (
+          <FindingCard
+            label="Approvals required"
+            value={String(approvals)}
+            supporting="Resolved at the Node 6 approval gate"
+          />
+        ) : null}
+      </dl>
+
+      {plans.length > 0 ? (
+        <div
+          className="rounded-xl border bg-background p-4"
+          data-testid="parts-logistics-plans"
+        >
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {`Part plans (${plans.length})`}
+          </p>
+          <ul className="mt-3 space-y-2">
+            {plans.map((plan) => (
+              <li
+                key={plan.partNumber}
+                className="rounded-lg border bg-card px-3 py-2"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      {plan.partNumber}
+                      {plan.partName ? ` · ${plan.partName}` : ""}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {`Availability: ${plan.availability} · ${plan.exceptionType}`}
+                      {plan.estimatedArrivalWindow
+                        ? ` · ETA ${plan.estimatedArrivalWindow}`
+                        : ""}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {plan.transferRequired && plan.sourceWarehouseReference
+                        ? `Transfer ${plan.sourceWarehouseReference} → ${plan.fulfillmentWarehouseReference ?? "fulfillment WH"}`
+                        : plan.fulfillmentWarehouseReference
+                          ? `Fulfillment WH: ${plan.fulfillmentWarehouseReference}`
+                          : ""}
+                    </p>
+                  </div>
+                  {plan.requiredApproval ? (
+                    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                      <AlertTriangle className="h-3 w-3" aria-hidden />
+                      {plan.approvalReason && plan.approvalReason !== "none"
+                        ? plan.approvalReason.replace(/_/g, " ")
+                        : "approval"}
+                    </span>
+                  ) : null}
+                </div>
+                {plan.rationale ? (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {plan.rationale}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function FindingCard({
   label,
   value,
@@ -888,7 +1052,10 @@ function CustomerContextSummary({
   const strategic = customerFindingValue(customerContext, "strategicAccount");
   const assets = customerFindingValue(customerContext, "installedAssets");
   const incidents = customerFindingValue(customerContext, "openIncidentCount");
-  const escalations = customerFindingValue(customerContext, "escalationHistory");
+  const escalations = customerFindingValue(
+    customerContext,
+    "escalationHistory"
+  );
   const sla = customerFindingValue(customerContext, "slaClass");
   const warranty = customerFindingValue(customerContext, "warrantyStatus");
 
@@ -906,10 +1073,10 @@ function CustomerContextSummary({
 
       <p className="text-sm text-muted-foreground">
         {customerContext.eligible
-          ? customerContext.eligibilityReason ??
-            "Customer history executed for this workflow."
-          : customerContext.eligibilityReason ??
-            "Customer history was skipped for this workflow."}
+          ? (customerContext.eligibilityReason ??
+            "Customer history executed for this workflow.")
+          : (customerContext.eligibilityReason ??
+            "Customer history was skipped for this workflow.")}
       </p>
 
       <dl className="grid gap-3 md:grid-cols-2">
@@ -930,7 +1097,13 @@ function CustomerContextSummary({
         {strategic ? (
           <FindingCard
             label="Strategic account"
-            value={strategic.notEvidenced ? "Not evidenced" : strategic.value ? "Yes" : "No"}
+            value={
+              strategic.notEvidenced
+                ? "Not evidenced"
+                : strategic.value
+                  ? "Yes"
+                  : "No"
+            }
             supporting={strategic.evidenceBasis}
           />
         ) : null}
@@ -976,7 +1149,9 @@ function CustomerContextSummary({
           Customer context package JSON
         </summary>
         <div className="mt-3">
-          <JsonBlock value={customerContext as unknown as OrchestrationTraceValue} />
+          <JsonBlock
+            value={customerContext as unknown as OrchestrationTraceValue}
+          />
         </div>
       </details>
     </section>
@@ -1050,7 +1225,10 @@ function EventTrace({ event }: { event: OrchestrationEvent }) {
     return null;
   }
   return (
-    <details className="rounded-xl border bg-muted/30 p-3" data-testid="event-trace">
+    <details
+      className="rounded-xl border bg-muted/30 p-3"
+      data-testid="event-trace"
+    >
       <summary className="cursor-pointer text-sm font-medium text-foreground">
         Agent Reasoning / Execution Trace
       </summary>
@@ -1126,7 +1304,9 @@ function ExecutionTimeline({ snapshot }: { snapshot: OrchestrationSnapshot }) {
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Agent reasoning / execution trace
           </p>
-          <h2 className="text-lg font-semibold">Structured execution details</h2>
+          <h2 className="text-lg font-semibold">
+            Structured execution details
+          </h2>
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Sparkles className="h-4 w-4" aria-hidden />
@@ -1153,7 +1333,11 @@ function ExecutionTimeline({ snapshot }: { snapshot: OrchestrationSnapshot }) {
   );
 }
 
-function WorkflowStateInspection({ snapshot }: { snapshot: OrchestrationSnapshot }) {
+function WorkflowStateInspection({
+  snapshot
+}: {
+  snapshot: OrchestrationSnapshot;
+}) {
   const stateEvents = snapshot.events.filter(
     (event) =>
       Boolean(traceSection(event.trace, "state_before")) ||
@@ -1171,7 +1355,9 @@ function WorkflowStateInspection({ snapshot }: { snapshot: OrchestrationSnapshot
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Workflow state inspection
         </p>
-        <h2 className="text-lg font-semibold">State before and after each step</h2>
+        <h2 className="text-lg font-semibold">
+          State before and after each step
+        </h2>
       </div>
 
       <div className="space-y-3">
@@ -1186,7 +1372,8 @@ function WorkflowStateInspection({ snapshot }: { snapshot: OrchestrationSnapshot
               open={event === stateEvents[0]}
             >
               <summary className="cursor-pointer text-sm font-medium text-foreground">
-                {nodeMeta(eventNode(event)).shortLabel} · {event.safeSummary ?? statusLabel(event.status)}
+                {nodeMeta(eventNode(event)).shortLabel} ·{" "}
+                {event.safeSummary ?? statusLabel(event.status)}
               </summary>
               <div className="mt-3 space-y-3">
                 {changes ? <TraceSectionView section={changes} /> : null}
@@ -1226,7 +1413,8 @@ export function OrchestrationPanel({
               {snapshot.caseNumber ? `Case ${snapshot.caseNumber}` : "Workflow"}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Read-only engineering view of Node 1 triage, Node 2 customer context, and Node 3 knowledge guidance.
+              Read-only engineering view of Node 1 triage, Node 2 customer
+              context, and Node 3 knowledge guidance.
             </p>
           </div>
           <StatusBadge status={snapshot.status} />
@@ -1246,12 +1434,17 @@ export function OrchestrationPanel({
           <SummaryCard
             label="Write-back"
             value={snapshot.writeBackApplied ? "Applied" : "Pending / skipped"}
-            supporting={snapshot.approvalRequired ? "Approval gate enabled" : "No approval gate active"}
+            supporting={
+              snapshot.approvalRequired
+                ? "Approval gate enabled"
+                : "No approval gate active"
+            }
           />
         </div>
 
         <p className="rounded-md bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
-          This view exposes sanitized execution artifacts, state transitions, and read-only node outputs. Approvals remain outside this console.
+          This view exposes sanitized execution artifacts, state transitions,
+          and read-only node outputs. Approvals remain outside this console.
         </p>
       </section>
 
@@ -1270,6 +1463,7 @@ export function OrchestrationPanel({
           <KnowledgeGuidanceSummary
             knowledgeGuidance={snapshot.knowledgeGuidance}
           />
+          <PartsLogisticsSummary partsLogistics={snapshot.partsLogistics} />
         </div>
       </div>
 

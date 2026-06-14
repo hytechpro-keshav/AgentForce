@@ -22,7 +22,8 @@ export type OrchestrationStatus = (typeof ORCHESTRATION_STATUSES)[number];
 export const ORCHESTRATION_NODE_IDS = [
   "triage",
   "customer_history",
-  "knowledge"
+  "knowledge",
+  "parts_logistics"
 ] as const;
 export type OrchestrationNodeId = (typeof ORCHESTRATION_NODE_IDS)[number];
 
@@ -154,6 +155,51 @@ export interface OrchestrationKnowledgeGuidance {
   answer?: OrchestrationKnowledgeAnswer;
 }
 
+export interface OrchestrationEtaSegment {
+  segment: string;
+  hoursMin: number;
+  hoursMax: number;
+  description?: string;
+}
+
+export interface OrchestrationPartPlan {
+  partNumber: string;
+  partName?: string;
+  requestedQuantity: number;
+  compatibility: string;
+  compatibilityEvidence: string;
+  availability: string;
+  quantityOnHand?: number;
+  fulfillmentWarehouseReference?: string;
+  fulfillmentWarehouseName?: string;
+  fulfillmentWarehouseRegion?: string;
+  sourceWarehouseReference?: string;
+  sourceWarehouseName?: string;
+  transferRequired?: boolean;
+  exceptionType: string;
+  reservationStatus: string;
+  estimatedArrivalWindow?: string;
+  etaSegments?: OrchestrationEtaSegment[];
+  confidence: OrchestrationEvidenceConfidence;
+  requiredApproval: boolean;
+  approvalReason?: string;
+  rationale: string;
+}
+
+export interface OrchestrationPartsLogistics {
+  eligible: boolean;
+  eligibilityReason?: string;
+  degraded: boolean;
+  degradedSources?: string[];
+  status?: "PLANNED" | "PARTIAL" | "UNAVAILABLE" | "SKIPPED";
+  partPlans?: OrchestrationPartPlan[];
+  fulfillmentReadiness?: string;
+  fulfillmentConfidence?: OrchestrationEvidenceConfidence;
+  candidateSources?: string[];
+  provider?: string;
+  latencyMs?: number;
+}
+
 export interface OrchestrationVerdictHighlight {
   label: string;
   value: string;
@@ -203,6 +249,7 @@ export interface OrchestrationSnapshot {
   triage?: OrchestrationTriage;
   customerContext?: OrchestrationCustomerContext;
   knowledgeGuidance?: OrchestrationKnowledgeGuidance;
+  partsLogistics?: OrchestrationPartsLogistics;
   orchestratorVerdict?: OrchestrationVerdict;
   events: OrchestrationEvent[];
   updatedAt?: string;
@@ -580,7 +627,9 @@ function sanitizeKnowledgeAnswer(
     guidanceConfidence: isConfidence(record.guidanceConfidence)
       ? record.guidanceConfidence
       : undefined,
-    recommendedActions: sanitizeActionRecommendations(record.recommendedActions),
+    recommendedActions: sanitizeActionRecommendations(
+      record.recommendedActions
+    ),
     suggestedParts: sanitizeParts(record.suggestedParts),
     safetyFlags: sanitizeSafetyFlags(record.safetyFlags),
     sources,
@@ -617,6 +666,123 @@ function sanitizeKnowledgeGuidance(
       : undefined,
     status,
     answer: sanitizeKnowledgeAnswer(record.answer)
+  };
+}
+
+function sanitizeEtaSegments(
+  value: unknown
+): OrchestrationEtaSegment[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const out: OrchestrationEtaSegment[] = [];
+  for (const raw of value) {
+    if (out.length >= 6) break;
+    if (!raw || typeof raw !== "object") continue;
+    const record = raw as Record<string, unknown>;
+    const segment = str(record.segment, 40);
+    if (!segment) continue;
+    const hoursMin =
+      typeof record.hoursMin === "number" && record.hoursMin >= 0
+        ? Math.round(record.hoursMin)
+        : 0;
+    const hoursMax =
+      typeof record.hoursMax === "number" && record.hoursMax >= 0
+        ? Math.round(record.hoursMax)
+        : 0;
+    out.push({
+      segment,
+      hoursMin,
+      hoursMax,
+      description: str(record.description, 80)
+    });
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+function sanitizePartPlan(value: unknown): OrchestrationPartPlan | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  const partNumber = str(record.partNumber, 60);
+  if (!partNumber) return undefined;
+  return {
+    partNumber,
+    partName: str(record.partName, 120),
+    requestedQuantity:
+      typeof record.requestedQuantity === "number" &&
+      record.requestedQuantity >= 0
+        ? Math.round(record.requestedQuantity)
+        : 1,
+    compatibility: str(record.compatibility, 24) ?? "unknown",
+    compatibilityEvidence: str(record.compatibilityEvidence, 240) ?? "",
+    availability: str(record.availability, 24) ?? "unknown",
+    quantityOnHand:
+      typeof record.quantityOnHand === "number" && record.quantityOnHand >= 0
+        ? Math.round(record.quantityOnHand)
+        : undefined,
+    fulfillmentWarehouseReference: str(
+      record.fulfillmentWarehouseReference,
+      40
+    ),
+    fulfillmentWarehouseName: str(record.fulfillmentWarehouseName, 120),
+    fulfillmentWarehouseRegion: str(record.fulfillmentWarehouseRegion, 40),
+    sourceWarehouseReference: str(record.sourceWarehouseReference, 40),
+    sourceWarehouseName: str(record.sourceWarehouseName, 120),
+    transferRequired: record.transferRequired === true,
+    exceptionType: str(record.exceptionType, 40) ?? "none",
+    reservationStatus: str(record.reservationStatus, 40) ?? "none",
+    estimatedArrivalWindow: str(record.estimatedArrivalWindow, 80),
+    etaSegments: sanitizeEtaSegments(record.etaSegments),
+    confidence: isConfidence(record.confidence) ? record.confidence : "low",
+    requiredApproval: record.requiredApproval === true,
+    approvalReason: str(record.approvalReason, 40),
+    rationale: str(record.rationale, 280) ?? ""
+  };
+}
+
+function sanitizePartsLogistics(
+  value: unknown
+): OrchestrationPartsLogistics | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  const status =
+    record.status === "PLANNED" ||
+    record.status === "PARTIAL" ||
+    record.status === "UNAVAILABLE" ||
+    record.status === "SKIPPED"
+      ? record.status
+      : undefined;
+  const partPlans = Array.isArray(record.partPlans)
+    ? record.partPlans
+        .map((item) => sanitizePartPlan(item))
+        .filter((item): item is OrchestrationPartPlan => Boolean(item))
+        .slice(0, 12)
+    : undefined;
+  return {
+    eligible: record.eligible === true,
+    eligibilityReason: str(record.eligibilityReason, 240),
+    degraded: record.degraded === true,
+    degradedSources: Array.isArray(record.degradedSources)
+      ? record.degradedSources
+          .map((item) => str(item, 40))
+          .filter((item): item is string => Boolean(item))
+          .slice(0, 12)
+      : undefined,
+    status,
+    partPlans,
+    fulfillmentReadiness: str(record.fulfillmentReadiness, 24),
+    fulfillmentConfidence: isConfidence(record.fulfillmentConfidence)
+      ? record.fulfillmentConfidence
+      : undefined,
+    candidateSources: Array.isArray(record.candidateSources)
+      ? record.candidateSources
+          .map((item) => str(item, 24))
+          .filter((item): item is string => Boolean(item))
+          .slice(0, 6)
+      : undefined,
+    provider: str(record.provider, 60),
+    latencyMs:
+      typeof record.latencyMs === "number" && record.latencyMs >= 0
+        ? Math.round(record.latencyMs)
+        : undefined
   };
 }
 
@@ -729,6 +895,7 @@ export function sanitizeSnapshot(value: unknown): OrchestrationSnapshot | null {
     triage: sanitizeTriage(record.triage),
     customerContext: sanitizeCustomerContext(record.customerContext),
     knowledgeGuidance: sanitizeKnowledgeGuidance(record.knowledgeGuidance),
+    partsLogistics: sanitizePartsLogistics(record.partsLogistics),
     orchestratorVerdict: sanitizeVerdict(record.orchestratorVerdict),
     events: sanitizeEvents(record.events),
     updatedAt: str(record.updatedAt, 40)

@@ -6,6 +6,7 @@ import type {
 } from "./case-triage-lifecycle";
 import type { CustomerContextChannel } from "./customer-context";
 import type { KnowledgeGuidanceChannel } from "./knowledge-guidance";
+import type { PartsLogisticsChannel } from "./parts-logistics";
 import type { OrchestratorVerdict } from "./orchestrator-verdict";
 
 /**
@@ -118,6 +119,12 @@ export interface CaseTriageWorkflowSnapshot {
    * RAG disabled.
    */
   knowledgeGuidance?: KnowledgeGuidanceChannel;
+  /**
+   * Node 4 (parts & logistics) output. Self-contained and sanitized so
+   * the read-only UI can render the fulfillment plan and ETA windows.
+   * Absent until Node 4 runs; present-but-skipped when ineligible.
+   */
+  partsLogistics?: PartsLogisticsChannel;
   /**
    * Final Verdict — observability-only synthesis after Nodes 1-3.
    * Generated for the operator console from the typed channels; never

@@ -13,6 +13,7 @@ import { LlmProviderError } from "../llm/interfaces/llm-provider";
 import { TelemetryService } from "../observability/telemetry.service";
 import { SalesforceCaseGateway } from "../salesforce/salesforce-case.gateway";
 import { SalesforceCustomerGateway } from "../salesforce/salesforce-customer.gateway";
+import { SalesforceInventoryGateway } from "../salesforce/salesforce-inventory.gateway";
 import { SalesforceGatewayError } from "../salesforce/salesforce-gateway.error";
 import { SupportTriageService } from "../agents/support-triage.service";
 import { CustomerHistorySynthesisService } from "../agents/customer-history.service";
@@ -52,6 +53,11 @@ import type {
 } from "./dto/knowledge-guidance";
 import { deriveGuidanceConfidence } from "./knowledge-confidence";
 import { KnowledgeGuidanceExtractor } from "./knowledge-guidance-extractor.service";
+import { PartsLogisticsPlannerService } from "./parts-logistics-planner.service";
+import type {
+  PartsLogisticsChannel,
+  PartsLogisticsEligibilityResult
+} from "./dto/parts-logistics";
 import type { SalesforceCaseContext } from "./dto/salesforce-case-context";
 import type { TriagePriorityDto } from "../agents/dto/triage-case.dto";
 import type {
@@ -102,7 +108,9 @@ export class CaseTriageOrchestratorService {
     private readonly store: OrchestrationStatusStore,
     private readonly telemetry: TelemetryService,
     private readonly config: AppConfigService,
-    private readonly knowledgeExtractor: KnowledgeGuidanceExtractor
+    private readonly knowledgeExtractor: KnowledgeGuidanceExtractor,
+    private readonly inventoryGateway: SalesforceInventoryGateway,
+    private readonly partsPlanner: PartsLogisticsPlannerService
   ) {
     this.graph = buildCaseTriageGraph({
       readContext: (caseId) => this.gateway.readCaseContext(caseId),
@@ -117,7 +125,26 @@ export class CaseTriageOrchestratorService {
       isKnowledgeEligible: (context, triagePriority, customerContext) =>
         this.isKnowledgeEligible(context, triagePriority, customerContext),
       retrieveKnowledge: (workflowId, queryInput, tenantId, principalSubject) =>
-        this.retrieveKnowledge(workflowId, queryInput, tenantId, principalSubject),
+        this.retrieveKnowledge(
+          workflowId,
+          queryInput,
+          tenantId,
+          principalSubject
+        ),
+      isPartsLogisticsEligible: (context, triagePriority) =>
+        this.isPartsLogisticsEligible(context, triagePriority),
+      planPartsLogistics: (
+        workflowId,
+        context,
+        knowledgeGuidance,
+        triagePriority
+      ) =>
+        this.planPartsLogistics(
+          workflowId,
+          context,
+          knowledgeGuidance,
+          triagePriority
+        ),
       emitRunning: (workflowId, summary, details, node, trace) =>
         this.store.appendEvent(
           workflowId,
@@ -272,6 +299,7 @@ export class CaseTriageOrchestratorService {
         triage: result.triage,
         customerContext: result.customerContext,
         knowledgeGuidance: result.knowledgeGuidance,
+        partsLogistics: result.partsLogistics,
         orchestratorVerdict: CaseTriageOrchestratorService.buildVerdict(
           result,
           "waiting_approval"
@@ -305,6 +333,7 @@ export class CaseTriageOrchestratorService {
         triage: result.triage,
         customerContext: result.customerContext,
         knowledgeGuidance: result.knowledgeGuidance,
+        partsLogistics: result.partsLogistics,
         approvalRequired: result.approvalRequired,
         approvalDecision: result.approvalDecision,
         orchestratorVerdict: CaseTriageOrchestratorService.buildVerdict(
@@ -330,6 +359,7 @@ export class CaseTriageOrchestratorService {
       triage: result.triage,
       customerContext: result.customerContext,
       knowledgeGuidance: result.knowledgeGuidance,
+      partsLogistics: result.partsLogistics,
       writeBackApplied: Boolean(result.writeBackApplied),
       approvalRequired: result.approvalRequired,
       approvalDecision: result.approvalDecision,
@@ -602,7 +632,8 @@ export class CaseTriageOrchestratorService {
       approvalDecision: result.approvalDecision,
       triage: result.triage,
       customerContext: result.customerContext,
-      knowledgeGuidance: result.knowledgeGuidance
+      knowledgeGuidance: result.knowledgeGuidance,
+      partsLogistics: result.partsLogistics
     });
   }
 
@@ -939,7 +970,10 @@ export class CaseTriageOrchestratorService {
     // Both eligibility requirements passed.
     return {
       eligible: true,
-      reason: "namespace=" + (this.config.orchestrator.knowledge.namespace || this.config.rag.defaultNamespace)
+      reason:
+        "namespace=" +
+        (this.config.orchestrator.knowledge.namespace ||
+          this.config.rag.defaultNamespace)
     };
   }
 
@@ -1133,6 +1167,95 @@ export class CaseTriageOrchestratorService {
           ? "ok"
           : "skipped",
       outcome: error ? "error" : "success"
+    });
+  }
+
+  /**
+   * Node 4 eligibility — pure, config-driven, no Salesforce access.
+   * Gates the inventory reads + planner. Requires the feature flag and
+   * an installed asset (the compatibility + fulfillment anchor).
+   */
+  private isPartsLogisticsEligible(
+    context: SalesforceCaseContext,
+    _triagePriority: TriagePriorityDto | undefined
+  ): PartsLogisticsEligibilityResult {
+    if (!this.config.orchestrator.partsLogistics.enabled) {
+      return {
+        eligible: false,
+        reason: "Parts logistics disabled by config"
+      };
+    }
+    if (!context.assetId && !context.assetProductCode) {
+      return {
+        eligible: false,
+        reason: "Case has no installed asset; parts logistics skipped"
+      };
+    }
+    return { eligible: true, reason: "Parts logistics enabled" };
+  }
+
+  /**
+   * Node 4 plan seam. Collects part candidates (knowledge first, case
+   * text fallback), reads live `ProductItem` stock keyed on ProductCode
+   * + ExternalReference, then runs the deterministic
+   * fulfillment-location-first planner. Inventory failures degrade the
+   * plan (never throw, never block the graph — §7.4 / B7).
+   */
+  private async planPartsLogistics(
+    workflowId: string,
+    context: SalesforceCaseContext,
+    knowledgeGuidance: KnowledgeGuidanceChannel | undefined,
+    triagePriority: TriagePriorityDto | undefined
+  ): Promise<PartsLogisticsChannel> {
+    const startedAt = Date.now();
+    const candidates = this.partsPlanner.collectCandidates(
+      context,
+      knowledgeGuidance
+    );
+    if (candidates.codes.length === 0) {
+      const channel: PartsLogisticsChannel = {
+        eligible: true,
+        degraded: false,
+        status: "SKIPPED",
+        fulfillmentReadiness: "unknown",
+        candidateSources: candidates.sources,
+        provider: "deterministic",
+        partPlans: []
+      };
+      this.logPartsTelemetry(workflowId, channel, startedAt);
+      return channel;
+    }
+
+    const inventory = await this.inventoryGateway.readStockForParts(
+      candidates.codes
+    );
+    const channel = this.partsPlanner.plan({
+      context,
+      candidates,
+      inventory,
+      triagePriority
+    });
+    channel.latencyMs = Date.now() - startedAt;
+    this.logPartsTelemetry(workflowId, channel, startedAt);
+    return channel;
+  }
+
+  private logPartsTelemetry(
+    workflowId: string,
+    channel: PartsLogisticsChannel,
+    startedAt: number
+  ): void {
+    this.telemetry.recordAgentWorkflow({
+      operation: "orchestrator.parts_logistics",
+      useCase: "agentforce_parts_logistics",
+      requestId: workflowId,
+      latencyMs: Date.now() - startedAt,
+      healthStatus: channel.degraded
+        ? "degraded"
+        : channel.eligible
+          ? "ok"
+          : "skipped",
+      outcome: "success"
     });
   }
 }

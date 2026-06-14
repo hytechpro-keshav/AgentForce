@@ -2,7 +2,10 @@ import { MemorySaver } from "@langchain/langgraph";
 
 import { buildCaseTriageGraph } from "./case-triage.graph";
 import type { CaseTriageGraphDeps } from "./case-triage.graph";
-import { CUSTOMER_HISTORY_NODE_ID } from "./dto/case-triage-lifecycle";
+import {
+  CUSTOMER_HISTORY_NODE_ID,
+  PARTS_LOGISTICS_NODE_ID
+} from "./dto/case-triage-lifecycle";
 import type {
   CustomerContextSynthesis,
   CustomerHistoryReadResult
@@ -131,11 +134,20 @@ function buildDeps(overrides: Partial<CaseTriageGraphDeps> = {}): DepsHarness {
     isCustomerHistoryEligible: isEligible,
     readCustomerContext,
     synthesizeCustomerHistory: synthesize,
-    isKnowledgeEligible: jest.fn().mockReturnValue({ eligible: false, reason: "disabled_by_test" }),
+    isKnowledgeEligible: jest
+      .fn()
+      .mockReturnValue({ eligible: false, reason: "disabled_by_test" }),
     retrieveKnowledge: jest.fn().mockResolvedValue({
       eligible: false,
       degraded: false,
       status: undefined
+    } as any),
+    isPartsLogisticsEligible: jest
+      .fn()
+      .mockReturnValue({ eligible: false, reason: "disabled_by_test" }),
+    planPartsLogistics: jest.fn().mockResolvedValue({
+      eligible: false,
+      degraded: false
     } as any),
     emitRunning,
     checkpointer: new MemorySaver(),
@@ -212,12 +224,10 @@ describe("case-triage graph — Node 2 customer history", () => {
   });
 
   it("skips Node 2 reads and synthesis when the case is ineligible", async () => {
-    const isEligible = jest
-      .fn()
-      .mockReturnValue({
-        eligible: false,
-        reason: "priority=low below threshold"
-      });
+    const isEligible = jest.fn().mockReturnValue({
+      eligible: false,
+      reason: "priority=low below threshold"
+    });
     const h = buildDeps({ isCustomerHistoryEligible: isEligible });
 
     const result = await invoke(h.deps);
@@ -257,5 +267,70 @@ describe("case-triage graph — Node 2 customer history", () => {
       "warranty",
       "erp"
     ]);
+  });
+});
+
+describe("case-triage graph — Node 4 parts & logistics", () => {
+  it("runs after knowledge, writes only partsLogistics, and never interrupts", async () => {
+    const planPartsLogistics = jest.fn().mockResolvedValue({
+      eligible: true,
+      degraded: false,
+      status: "PARTIAL",
+      fulfillmentReadiness: "partial",
+      partPlans: [
+        {
+          partNumber: "SP-BATT-15X",
+          requestedQuantity: 1,
+          compatibility: "confirmed",
+          compatibilityEvidence: "match",
+          availability: "unavailable",
+          exceptionType: "inter_warehouse_transfer",
+          reservationStatus: "planned",
+          transferRequired: true,
+          confidence: "high",
+          requiredApproval: false,
+          rationale: "transfer planned"
+        }
+      ]
+    });
+    const h = buildDeps({
+      isPartsLogisticsEligible: jest
+        .fn()
+        .mockReturnValue({ eligible: true, reason: "enabled" }),
+      planPartsLogistics
+    });
+
+    const result = await invoke(h.deps);
+
+    // Node 4 ran once and the graph continued to write-back (non-blocking).
+    expect(planPartsLogistics).toHaveBeenCalledTimes(1);
+    expect(result.partsLogistics?.status).toBe("PARTIAL");
+    expect(result.writeBackApplied).toBe(true);
+
+    // It wrote ONLY its own channel; upstream channels are untouched.
+    expect(result.triage).toBeDefined();
+    expect(result.customerContext?.eligible).toBe(true);
+
+    // Every Node 4 progress line is tagged with the parts-logistics node.
+    const node4Events = h.emitRunning.mock.calls.filter(
+      (call) => call[3] === PARTS_LOGISTICS_NODE_ID
+    );
+    expect(node4Events.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("skips Node 4 cleanly when ineligible", async () => {
+    const planPartsLogistics = jest.fn();
+    const h = buildDeps({
+      isPartsLogisticsEligible: jest
+        .fn()
+        .mockReturnValue({ eligible: false, reason: "disabled" }),
+      planPartsLogistics
+    });
+
+    const result = await invoke(h.deps);
+
+    expect(planPartsLogistics).not.toHaveBeenCalled();
+    expect(result.partsLogistics?.eligible).toBe(false);
+    expect(result.writeBackApplied).toBe(true);
   });
 });

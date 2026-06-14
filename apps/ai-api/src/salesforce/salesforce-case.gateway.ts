@@ -16,6 +16,19 @@ const CASE_FIELDS =
   "Id,CaseNumber,Subject,Description,Priority,Status,Origin,AccountId";
 
 /**
+ * Node 4 (parts & logistics) extension fields. Read separately and
+ * best-effort so an org that has not deployed them — or an OAuth
+ * run-as user that lacks FLS on them — degrades Node 4 only and never
+ * breaks the core Case read that Node 1 depends on.
+ */
+const CASE_LOGISTICS_SOQL_FIELDS =
+  "AssetId, Asset.Product2.ProductCode, Asset.SerialNumber, " +
+  "Service_Ship_To_City__c, Service_Ship_To_State__c, Service_Ship_To_Country__c";
+
+/** Salesforce 15- or 18-char record id. Guards against SOQL injection. */
+const SF_ID_PATTERN = /^[a-zA-Z0-9]{15}(?:[a-zA-Z0-9]{3})?$/;
+
+/**
  * Outbound Salesforce gateway: reads Case context and applies the
  * gated triage write-back. This is the single seam where the
  * orchestrator touches Salesforce as data source and action executor.
@@ -41,7 +54,50 @@ export class SalesforceCaseGateway {
     const response = await this.authedRequest("GET", path);
     this.assertOk(response, "read");
     const json = await readJsonObject(response);
-    return SalesforceCaseGateway.mapCase(caseId, json);
+    const context = SalesforceCaseGateway.mapCase(caseId, json);
+    // Layer the Node 4 asset + ship-to fields on top, best-effort. A
+    // failure here (fields not deployed, FLS missing) only degrades
+    // parts logistics; the core triage context is already complete.
+    const logistics = await this.readCaseLogisticsContext(caseId);
+    return { ...context, ...logistics };
+  }
+
+  /**
+   * Best-effort read of the Node 4 extension fields (installed Asset +
+   * service ship-to). Returns an empty object — never throws — when the
+   * org lacks the fields or the run-as user lacks FLS, so the core Case
+   * read stays bulletproof.
+   */
+  private async readCaseLogisticsContext(
+    caseId: string
+  ): Promise<Partial<SalesforceCaseContext>> {
+    if (!SF_ID_PATTERN.test(caseId)) {
+      return {};
+    }
+    try {
+      const soql = `SELECT ${CASE_LOGISTICS_SOQL_FIELDS} FROM Case WHERE Id = '${caseId}' LIMIT 1`;
+      const path = `/services/data/v${this.apiVersion()}/query?q=${encodeURIComponent(
+        soql
+      )}`;
+      const response = await this.authedRequest("GET", path);
+      if (response.status < 200 || response.status >= 300) {
+        this.logger.warn(
+          `Case logistics fields read degraded (status=${response.status}).`
+        );
+        return {};
+      }
+      const json = await readJsonObject(response);
+      const records = json["records"];
+      const row = Array.isArray(records)
+        ? (records[0] as Record<string, unknown> | undefined)
+        : undefined;
+      return SalesforceCaseGateway.mapLogistics(row);
+    } catch {
+      this.logger.warn(
+        "Case logistics fields read degraded; continuing without Node 4 context."
+      );
+      return {};
+    }
   }
 
   async applyWriteBack(
@@ -183,6 +239,36 @@ export class SalesforceCaseGateway {
         str("Priority")
       ),
       accountId: str("AccountId")
+    };
+  }
+
+  /**
+   * Maps a Case SOQL row of Node 4 extension fields into the context
+   * shape. Tolerant of missing relationships (no Asset, no ship-to).
+   */
+  private static mapLogistics(
+    row: Record<string, unknown> | undefined
+  ): Partial<SalesforceCaseContext> {
+    if (!row) {
+      return {};
+    }
+    const str = (value: unknown): string | undefined =>
+      typeof value === "string" && value.length > 0 ? value : undefined;
+    const asset =
+      row["Asset"] && typeof row["Asset"] === "object"
+        ? (row["Asset"] as Record<string, unknown>)
+        : undefined;
+    const product2 =
+      asset && asset["Product2"] && typeof asset["Product2"] === "object"
+        ? (asset["Product2"] as Record<string, unknown>)
+        : undefined;
+    return {
+      assetId: str(row["AssetId"]),
+      assetProductCode: str(product2?.["ProductCode"]),
+      assetSerialNumber: str(asset?.["SerialNumber"]),
+      serviceShipToCity: str(row["Service_Ship_To_City__c"]),
+      serviceShipToState: str(row["Service_Ship_To_State__c"]),
+      serviceShipToCountry: str(row["Service_Ship_To_Country__c"])
     };
   }
 
