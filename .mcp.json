@@ -1,5 +1,10 @@
 {
   "mcpServers": {
+    "codetrellis": {
+      "command": "codetrellis",
+      "args": ["mcp", "."],
+      "env": {}
+    },
     "salesforce": {
       "command": "npx",
       "args": [
@@ -10,7 +15,33 @@
         "--toolsets",
         "data,metadata,users,testing,code-analysis",
         "--dynamic-tools"
-      ]
+      ],
+      "env": {}
+    },
+    "perplexity": {
+      "command": "npx",
+      "args": ["-yq", "@perplexity-ai/mcp-server"],
+      "env": {}
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp@latest"],
+      "env": {}
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"],
+      "env": {}
+    },
+    "firecrawl": {
+      "command": "npx",
+      "args": ["-y", "firecrawl-mcp"],
+      "env": {}
+    },
+    "glif": {
+      "command": "npx",
+      "args": ["-y", "@glifxyz/glif-mcp-server@latest"],
+      "env": {}
     }
   }
 }

@@ -3,10 +3,7 @@
     "codetrellis": {
       "type": "stdio",
       "command": "codetrellis",
-      "args": [
-        "mcp",
-        "${workspaceFolder}"
-      ],
+      "args": ["mcp", "${workspaceFolder}"],
       "env": {}
     },
     "salesforce": {
@@ -22,6 +19,42 @@
         "--dynamic-tools"
       ],
       "env": {}
+    },
+    "perplexity": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-yq", "@perplexity-ai/mcp-server"],
+      "env": {
+        "PERPLEXITY_API_KEY": "${env:PERPLEXITY_API_KEY}"
+      }
+    },
+    "chrome-devtools": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp@latest"],
+      "env": {}
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"],
+      "env": {}
+    },
+    "firecrawl": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "firecrawl-mcp"],
+      "env": {
+        "FIRECRAWL_API_KEY": "${env:FIRECRAWL_API_KEY}"
+      }
+    },
+    "glif": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@glifxyz/glif-mcp-server@latest"],
+      "env": {
+        "GLIF_API_TOKEN": "${env:GLIF_API_TOKEN}"
+      }
     }
   }
 }
