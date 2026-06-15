@@ -124,6 +124,23 @@ public with sharing class AgentforcePartsFulfillmentService {
       }
     }
 
+    // Header-level idempotency: reuse an existing ProductRequest for this
+    // workflow + destination so a retry never creates a duplicate header,
+    // even if a prior line insert was gated/failed.
+    Map<Id, Id> existingRequestByDestination = new Map<Id, Id>();
+    for (ProductRequest headerRow : [
+      SELECT Id, DestinationLocationId
+      FROM ProductRequest
+      WHERE Orchestrator_Workflow_Id__c = :request.workflowId
+    ]) {
+      if (headerRow.DestinationLocationId != null) {
+        existingRequestByDestination.put(
+          headerRow.DestinationLocationId,
+          headerRow.Id
+        );
+      }
+    }
+
     // ---- Stage inserts ----
     List<ProductTransfer> transfersToInsert = new List<ProductTransfer>();
     List<Integer> transferItemIndex = new List<Integer>();
@@ -214,7 +231,10 @@ public with sharing class AgentforcePartsFulfillmentService {
           );
           continue;
         }
-        if (!requestByDestination.containsKey(destinationId)) {
+        if (
+          !requestByDestination.containsKey(destinationId) &&
+          !existingRequestByDestination.containsKey(destinationId)
+        ) {
           ProductRequest header = new ProductRequest();
           header.CaseId = request.caseId;
           header.DestinationLocationId = destinationId;
@@ -263,19 +283,24 @@ public with sharing class AgentforcePartsFulfillmentService {
       }
     }
 
-    // ---- Insert backorder headers, then lines ----
-    if (!requestByDestination.isEmpty()) {
-      List<ProductRequest> headers = new List<ProductRequest>(
-        requestByDestination.values()
+    // ---- Insert backorder headers (new only), then lines ----
+    if (!backorders.isEmpty()) {
+      // Seed with reused headers; insert only the genuinely new ones.
+      Map<Id, Id> requestIdByDestination = new Map<Id, Id>(
+        existingRequestByDestination
       );
-      Database.SaveResult[] headerResults = Database.insert(headers, false);
-      Map<Id, Id> requestIdByDestination = new Map<Id, Id>();
-      for (Integer h = 0; h < headerResults.size(); h++) {
-        if (headerResults[h].isSuccess()) {
-          requestIdByDestination.put(
-            headers[h].DestinationLocationId,
-            headers[h].Id
-          );
+      if (!requestByDestination.isEmpty()) {
+        List<ProductRequest> headers = new List<ProductRequest>(
+          requestByDestination.values()
+        );
+        Database.SaveResult[] headerResults = Database.insert(headers, false);
+        for (Integer h = 0; h < headerResults.size(); h++) {
+          if (headerResults[h].isSuccess()) {
+            requestIdByDestination.put(
+              headers[h].DestinationLocationId,
+              headers[h].Id
+            );
+          }
         }
       }
 
