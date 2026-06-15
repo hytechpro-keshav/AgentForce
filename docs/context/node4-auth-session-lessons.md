@@ -96,6 +96,14 @@ sf project deploy start --target-org AgentForce \
 Then assign to the OAuth Run As user:
 
 ```bash
+./scripts/sf/node4-4c-deploy.sh AgentForce chaudhary.keshav4u@gmail.com
+```
+
+This deploys Apex + Flow + fulfillment perm set, assigns Field Service Standard PSL, and assigns `Agentforce_Parts_Fulfillment_Writes` to the run-as user.
+
+For read/plan only (Node 4a):
+
+```bash
 sf org assign permset --target-org AgentForce \
   --name Agentforce_Parts_Logistics_Node4 \
   --on-behalf-of chaudhary.keshav4u@gmail.com

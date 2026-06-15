@@ -16,6 +16,8 @@
 #   • RAG_ENABLED=true on Railway
 #   • A real Salesforce Case ID with an installed asset (laptop issue description)
 #   • OAuth Connected App Run As user has Agentforce_Parts_Logistics_Node4
+#   • For ASSERT_PARTS_WRITES=1: run-as also needs Agentforce_Parts_Fulfillment_Writes
+#     + Field Service Standard PSL (see scripts/sf/node4-4c-deploy.sh)
 #
 # Required env vars:
 #   RAILWAY_SERVICE       — Railway service name (default: ai-api)
@@ -157,6 +159,7 @@ deadline=$(( $(date +%s) + POLL_TIMEOUT_SECS ))
 terminal_statuses=("done" "failed" "rejected")
 final_status=""
 snapshot=""
+resume_attempted=0
 
 while true; do
   now=$(date +%s)
@@ -171,6 +174,20 @@ while true; do
   status=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field status)
 
   printf "  [%ds remaining] status=%s\n" "$(( deadline - now ))" "${status}"
+
+  if [[ "${status}" == "waiting_approval" && "${resume_attempted}" == "0" ]]; then
+    echo "  Workflow paused for approval — auto-resuming with approved..."
+    resume_response=$(curl -sS -X POST \
+      "${AI_API_BASE_URL}/orchestrator/case-triage/${workflow_id}/resume" \
+      -H "authorization: Bearer ${AGENTFORCE_TOKEN}" \
+      -H "content-type: application/json" \
+      -d "{\"decision\":\"approved\",\"idempotencyKey\":\"smoke-${workflow_id}\"}")
+    resume_status=$(echo "${resume_response}" | node "${PARSE_SNAPSHOT}" --field status 2>/dev/null || echo "unknown")
+    echo "  Resume status: ${resume_status}"
+    resume_attempted=1
+    sleep 3
+    continue
+  fi
 
   for t in "${terminal_statuses[@]}"; do
     if [[ "${status}" == "${t}" ]]; then

@@ -3,7 +3,7 @@
 > **Document type:** Implementation plan for Node 4 sub-phases **4b (KB warehouse cross-check)** and **4c (gated Salesforce fulfillment writes after approval)**.
 > **Branch:** `IMP-NODE-4`. **Builds on:** shipped Phase **4a** (read/plan slice — `partsLogistics` channel, `SalesforceInventoryGateway`, fulfillment-location-first planner, multi-segment ETA, graph `parts` node, verdict rollup, React stage, smoke).
 > **Companion:** [`node-4-parts-logistics-phase-plan.md`](./node-4-parts-logistics-phase-plan.md) (§6.5–§7.6 ETA/exception model, §7.5 approval matrix, §8.5 Apex responsibilities, §12.C 4c acceptance).
-> **Status note:** the companion's §0.1 phase matrix still lists 4a as "Not started" — that is **stale**. 4a is shipped on `IMP-NODE-4`. This doc covers the work after 4a.
+> **Status note:** Phases **4a**, **4b**, and **4c** are shipped on `AgentForce` (2026-06-15 live proof). See companion phase plan §0.1.
 
 ## Decisions (locked 2026-06-15)
 
@@ -131,6 +131,19 @@ kbCrossCheck?: {
 
 `npm run ai-api:test` · `npm run ai-api:typecheck` · `npm run ai-api:build` · `npm run react-chat:typecheck` · `npm run prettier:verify` · `sf project deploy validate` (changed metadata, dry-run) · `sf apex run test` (CI / post-ops-fix). Update companion §0.1 status matrix + §13 roadmap; complete `new-node-phase-completion-checklist.md` for the new surfaces.
 
-## Ops follow-up (deferred — live org)
+## Ops follow-up (Phase 4c live — 2026-06-15)
 
-After ops fixes the ai-api→Salesforce OAuth run-as and assigns the expanded `Agentforce_Parts_Logistics_Node4` perm set: targeted `sf project deploy start`, restart ai-api, then live fulfillment smoke with `SF_CASE_ID=500g500000YpQMnAAN`. See [`node4-auth-session-lessons.md`](../context/node4-auth-session-lessons.md).
+**Completed:**
+
+- Live deploy via `./scripts/sf/node4-4c-deploy.sh AgentForce chaudhary.keshav4u@gmail.com`
+- Field Service Standard PSL + `Agentforce_Parts_Fulfillment_Writes` assigned to OAuth run-as user
+- Railway `AI_API_ORCHESTRATOR_PARTS_WRITES_ENABLED=true` + ai-api redeployed
+- Live smoke: `ASSERT_PARTS_WRITES=1 SF_CASE_ID=500g500000YpQMnAAN` — **PASSED** (workflow `wf-2ffe979b-8f1e-423a-aed9-8966fceab8a3`, `ProductTransfer` created)
+
+**Still manual / optional:**
+
+- `Case_Default_Service_Ship_To` Flow + Case layout related lists (companion §0.7)
+- `Create_Parts_Fulfillment` genAiFunction (deferred — NestJS→Apex REST is the production path)
+- Remove `Agentforce_Parts_Logistics_Node4` from `integration@00dg5000005qpuneaa.com` if still assigned (see auth lessons)
+
+See [`node4-auth-session-lessons.md`](../context/node4-auth-session-lessons.md) for OAuth troubleshooting.

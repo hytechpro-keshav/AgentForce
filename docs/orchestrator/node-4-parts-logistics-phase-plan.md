@@ -2,7 +2,7 @@
 
 > **Document type:** Phase 4 implementation plan — Salesforce preparation, exception handling, ETA model, and AI orchestrator contracts.
 > **Audience:** Salesforce Architects · AI Architects · Platform Engineers · Service Operations.
-> **Status:** **Phase 4-Pre SHIPPED** on org `AgentForce` (2026-06-12). **Phase 4a (AI orchestrator)** not started — read §0 before coding.
+> **Status:** **Phases 4-Pre through 4c SHIPPED** on org `AgentForce` (2026-06-15 live proof). See §0.1 and [`node-4-parts-4b-4c-plan.md`](./node-4-parts-4b-4c-plan.md).
 > **Companions:** [`case-triage-orchestrator-flow.md`](./case-triage-orchestrator-flow.md) · [`node-3-knowledge-base-agent.md`](./node-3-knowledge-base-agent.md) · seed data [`data/products-and-location-data.json`](../../data/products-and-location-data.json) · skill [`.agents/skills/salesforce-node4-parts-prep/SKILL.md`](../../.agents/skills/salesforce-node4-parts-prep/SKILL.md)
 
 **Program invariants (unchanged):**
@@ -15,16 +15,16 @@
 
 ## 0. Session context — what is already done (read this first)
 
-> **For new LLM sessions:** Phase 4-Pre Salesforce prep was executed on org alias **`AgentForce`**. Do not re-plan metadata from scratch — extend what ships below. Phase 4a AI code (`partsLogistics` graph node, inventory gateway) is **not implemented yet**.
+> **For new LLM sessions:** Phases **4-Pre**, **4a**, **4b**, and **4c** are shipped on org **`AgentForce`**. Do not re-plan from scratch — extend what ships below.
 
 ### 0.1 Phase status matrix
 
-| Phase                                | Status                          | Notes                                                                                                                                                                                                                                |
-| ------------------------------------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **4-Pre** Salesforce metadata + data | **Done** on `AgentForce`        | Validated 2026-06-12 via `./scripts/sf/node4-pre-validation.sh`                                                                                                                                                                      |
-| **4a** AI orchestrator read/plan     | **Done** on `IMP-NODE-4`        | `partsLogistics` channel, inventory gateway, planner, graph node, verdict, UI, smoke shipped                                                                                                                                         |
-| **4b** KB warehouse cross-check      | **Done** on `IMP-NODE-4`        | Audit-only alignment; see [`node-4-parts-4b-4c-plan.md`](./node-4-parts-4b-4c-plan.md)                                                                                                                                               |
-| **4c** Gated ProductRequest writes   | **Code done; deploy ops-gated** | Apex `AgentforcePartsFulfillmentService` + REST + Flow + NestJS gateway shipped; `deploy validate` green (7/7) on `Agent`. Live writes need a Field Service PSL + `Agentforce_Parts_Fulfillment_Writes` perm set on the run-as user. |
+| Phase                                | Status                                | Notes                                                                                                                         |
+| ------------------------------------ | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **4-Pre** Salesforce metadata + data | **Done** on `AgentForce`              | Validated 2026-06-12 via `./scripts/sf/node4-pre-validation.sh`                                                               |
+| **4a** AI orchestrator read/plan     | **Done** on `IMP-NODE-4`              | `partsLogistics` channel, inventory gateway, planner, graph node, verdict, UI, smoke shipped                                  |
+| **4b** KB warehouse cross-check      | **Done** on `IMP-NODE-4`              | Audit-only alignment; see [`node-4-parts-4b-4c-plan.md`](./node-4-parts-4b-4c-plan.md)                                        |
+| **4c** Gated ProductRequest writes   | **Done** on `AgentForce` (2026-06-15) | Live `ProductTransfer` proof workflow `wf-2ffe979b-8f1e-423a-aed9-8966fceab8a3`; deploy via `./scripts/sf/node4-4c-deploy.sh` |
 
 ### 0.2 Repo artifacts added (canonical paths)
 
