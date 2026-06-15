@@ -560,4 +560,77 @@ describe("OrchestrationPanel", () => {
       )
     ).toBeInTheDocument();
   });
+
+  it("renders Node 4 KB cross-check, fulfillment writes, and per-part write status", () => {
+    render(
+      <OrchestrationPanel
+        snapshot={snapshot({
+          node: "parts_logistics",
+          events: [
+            ...snapshot().events,
+            {
+              node: "parts_logistics",
+              status: "done",
+              sequence: 5,
+              occurredAt: "t5",
+              safeSummary: "Parts logistics planned."
+            }
+          ],
+          partsLogistics: {
+            eligible: true,
+            degraded: false,
+            status: "PLANNED",
+            fulfillmentReadiness: "ready_with_transfer",
+            fulfillmentConfidence: "high",
+            kbCrossCheck: {
+              status: "ALIGNED",
+              alignedCount: 1,
+              divergentCount: 0,
+              undocumentedCount: 0
+            },
+            writeOutcome: {
+              applied: true,
+              degraded: false,
+              createdCount: 1,
+              idempotentSkipCount: 0
+            },
+            partPlans: [
+              {
+                partNumber: "SP-DISP-15X-FHD",
+                requestedQuantity: 1,
+                compatibility: "confirmed",
+                compatibilityEvidence: "Asset match",
+                availability: "transfer_required",
+                exceptionType: "transfer_required",
+                transferRequired: true,
+                sourceWarehouseReference: "WH-EAST-01",
+                fulfillmentWarehouseReference: "WH-WEST-02",
+                reservationStatus: "transfer_pending",
+                fulfillmentRecordType: "ProductTransfer",
+                fulfillmentRecordId: "0a9000000000001",
+                confidence: "high",
+                requiredApproval: true,
+                approvalReason: "transfer_required",
+                rationale: "Cross-region transfer required.",
+                kbWarehouseAlignment: "aligned"
+              }
+            ]
+          }
+        })}
+      />
+    );
+
+    const summary = screen.getByTestId("parts-logistics-summary");
+    expect(
+      within(summary).getByText("KB warehouse cross-check")
+    ).toBeInTheDocument();
+    expect(within(summary).getByText("ALIGNED")).toBeInTheDocument();
+    expect(within(summary).getByText("Fulfillment writes")).toBeInTheDocument();
+    expect(within(summary).getByText("1 created")).toBeInTheDocument();
+    expect(
+      within(summary).getByText(/transfer pending · ProductTransfer/i)
+    ).toBeInTheDocument();
+    expect(within(summary).getByText(/KB aligned/i)).toBeInTheDocument();
+    expect(screen.getByText(/Completed stages: 2\/4/)).toBeInTheDocument();
+  });
 });

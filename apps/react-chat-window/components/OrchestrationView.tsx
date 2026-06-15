@@ -1469,7 +1469,7 @@ export function OrchestrationPanel({
           <SummaryCard
             label="Current stage"
             value={currentStageSummary(snapshot)}
-            supporting={`Completed stages: ${completedStages(snapshot)}/3`}
+            supporting={`Completed stages: ${completedStages(snapshot)}/4`}
           />
           <SummaryCard
             label="Workflow id"
