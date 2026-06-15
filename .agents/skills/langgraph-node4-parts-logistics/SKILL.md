@@ -147,3 +147,13 @@ Return:
 - validation commands run and outcomes
 - residual gaps intentionally left for 4b/4c
 - exact next step (4b KB cross-check or 4c gated writes)
+
+## Phase completion (required before "done")
+
+Follow **`docs/orchestrator/new-node-phase-completion-checklist.md`**, especially:
+
+- Final Verdict rollup in `orchestrator-verdict.synthesizer.ts` (headline, summary, steps, highlights)
+- `orchestrator-verdict.synthesizer.spec.ts` Node 4 fixtures
+- Smoke assertions in `scripts/smoke/all-3-nodes-deployed.sh`
+
+If verdict only shows a single highlight (e.g. `Parts fulfillment: partial`), the phase is **not** complete. See `docs/orchestrator/node4-verdict-gap-analysis.md`.

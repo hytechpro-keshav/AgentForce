@@ -176,17 +176,18 @@ npm run react-chat:typecheck
 
 ## Acceptance criteria (must satisfy §12.B)
 
-| #   | Requirement                                                          |
-| --- | -------------------------------------------------------------------- |
-| B1  | After knowledge; non-interrupting                                    |
-| B2  | Writes only `partsLogistics`                                         |
-| B3  | ProductCode + ExternalReference keys                                 |
-| B4  | Austin battery → Scenario A when local stock                         |
-| B5  | FRA→AUS cross-region → `inter_warehouse_transfer`, multi-segment ETA |
-| B6  | OOS → backorder, blocked, no throw                                   |
-| B7  | SF failure → degraded, continues                                     |
-| B8  | Fulfillment WH before stock check                                    |
-| B9  | No remote `available` without `transferRequired: true`               |
+| #   | Requirement                                                                                                                                   |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| B1  | After knowledge; non-interrupting                                                                                                             |
+| B2  | Writes only `partsLogistics`                                                                                                                  |
+| B3  | ProductCode + ExternalReference keys                                                                                                          |
+| B4  | Austin battery → Scenario A when local stock                                                                                                  |
+| B5  | FRA→AUS cross-region → `inter_warehouse_transfer`, multi-segment ETA                                                                          |
+| B6  | OOS → backorder, blocked, no throw                                                                                                            |
+| B7  | SF failure → degraded, continues                                                                                                              |
+| B8  | Fulfillment WH before stock check                                                                                                             |
+| B9  | No remote `available` without `transferRequired: true`                                                                                        |
+| B10 | Final Verdict rollup includes Node 4 in headline, summary, steps, highlights (see `docs/orchestrator/new-node-phase-completion-checklist.md`) |
 
 Exercise demo matrix §14 where org data supports it.
 

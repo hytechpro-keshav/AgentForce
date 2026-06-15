@@ -27,3 +27,16 @@ applyTo:
 - For the first slice UI, prefer extending `apps/react-chat-window` with a focused orchestration progress view that renders live node status plus the sanitized triage result.
 - Add focused tests for DTO validation, orchestration state transitions, auth failures, idempotency, telemetry no-op safety, approval resume behavior, and the Node 1 E2E path against a real Salesforce-connected environment when available.
 - Keep docs aligned with the implemented slice and treat the working code plus boundary contracts as the reference for later nodes.
+
+## New node / phase completion checklist (required)
+
+When adding or extending any orchestrator node (new graph step + typed channel), follow **`docs/orchestrator/new-node-phase-completion-checklist.md`** end to end before marking the phase done.
+
+Minimum cross-cutting items easy to miss:
+
+1. **Final Verdict rollup** — update `orchestrator-verdict.synthesizer.ts` for `headline`, `summary`, `recommendedSteps`, and `highlights` (not only `basis` or one highlight). Add `orchestrator-verdict.synthesizer.spec.ts` fixtures for the new channel.
+2. **React console** — `NODE_META`, stage summary panel, and `orchestration/page.tsx` subtitle for all active nodes.
+3. **Smoke** — extend `scripts/smoke/all-3-nodes-deployed.sh` (or successor) with assertions for the new node.
+4. **DTO comments** — `orchestrator-verdict.ts` and flow docs must list all active nodes (avoid stale "Nodes 1–3" copy).
+
+Verdict gap analysis prompts (reuse for any node): `.github/prompts/analyze-node4-verdict-gap.prompt.md`, `.github/prompts/implement-node4-verdict-rollup.prompt.md`. Node 4 postmortem: `docs/orchestrator/node4-verdict-gap-analysis.md`.

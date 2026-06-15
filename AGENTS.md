@@ -60,6 +60,7 @@ This workspace is the canonical monorepo for a production-target hybrid AI archi
 - From `aquivalabs/my-org-butler`: Agentforce metadata structure, agent eval strategy, scratch org setup scripts, sample data, deployment fixups, and multi-turn REST tests.
 - From `getsentry/warden`: scoped agents/skills, strict configuration schemas, YAML evals with `given` / `should_find` / `should_not_find`, LLM judge separation, and AI telemetry discipline.
 - From `getsentry/sentry`: package ownership, clear module boundaries, CODEOWNERS-style thinking, extensive fixtures, and tests that encode edge cases and corrupt-state behavior.
+- Orchestrator node phases: complete `docs/orchestrator/new-node-phase-completion-checklist.md` before marking done — typed channel + graph node is insufficient without Final Verdict rollup (`headline`, `summary`, `recommendedSteps`, `highlights`), React stage UI, and smoke assertions.
 
 ## Cursor IDE Configuration
 

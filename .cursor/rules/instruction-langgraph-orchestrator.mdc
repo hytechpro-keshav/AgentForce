@@ -9,6 +9,10 @@ alwaysApply: false
 Read and follow `.github/instructions/langgraph-orchestrator.instructions.md` before editing matching files.
 
 Also read `docs/orchestrator/case-triage-orchestrator-flow.md`.
+
+**New node / phase:** complete `docs/orchestrator/new-node-phase-completion-checklist.md` before marking any orchestrator phase done. Do not ship a typed channel without Final Verdict rollup (headline, summary, steps, highlights), React stage UI, and smoke assertions.
+
 Invoke skill `.agents/skills/langgraph-case-triage-slice/SKILL.md` for the walking skeleton.
 Use `.github/agents/case-triage-slice-implementer.agent.md` and `.github/prompts/implement-case-triage-slice.prompt.md` for slice work.
 For Node 4 Parts & Logistics (Phase 4a), invoke `.agents/skills/langgraph-node4-parts-logistics/SKILL.md` and use `.github/agents/node4-parts-logistics-implementer.agent.md` with `.github/prompts/implement-node4-parts-logistics.prompt.md`.
+Verdict gap prompts: `.github/prompts/analyze-node4-verdict-gap.prompt.md`, `.github/prompts/implement-node4-verdict-rollup.prompt.md`.
