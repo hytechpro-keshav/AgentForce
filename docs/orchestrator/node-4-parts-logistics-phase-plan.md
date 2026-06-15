@@ -19,12 +19,12 @@
 
 ### 0.1 Phase status matrix
 
-| Phase                                | Status                   | Notes                                                                             |
-| ------------------------------------ | ------------------------ | --------------------------------------------------------------------------------- |
-| **4-Pre** Salesforce metadata + data | **Done** on `AgentForce` | Validated 2026-06-12 via `./scripts/sf/node4-pre-validation.sh`                   |
-| **4a** AI orchestrator read/plan     | **Not started**          | No `partsLogistics` channel; implement §6.5–§7.6 fulfillment-location-first model |
-| **4b** KB warehouse cross-check      | Not started              | —                                                                                 |
-| **4c** Gated ProductRequest writes   | Not started              | Apex stub `AgentforcePartsFulfillmentService` not created                         |
+| Phase                                | Status                          | Notes                                                                                                                                                                                                                                |
+| ------------------------------------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **4-Pre** Salesforce metadata + data | **Done** on `AgentForce`        | Validated 2026-06-12 via `./scripts/sf/node4-pre-validation.sh`                                                                                                                                                                      |
+| **4a** AI orchestrator read/plan     | **Done** on `IMP-NODE-4`        | `partsLogistics` channel, inventory gateway, planner, graph node, verdict, UI, smoke shipped                                                                                                                                         |
+| **4b** KB warehouse cross-check      | **Done** on `IMP-NODE-4`        | Audit-only alignment; see [`node-4-parts-4b-4c-plan.md`](./node-4-parts-4b-4c-plan.md)                                                                                                                                               |
+| **4c** Gated ProductRequest writes   | **Code done; deploy ops-gated** | Apex `AgentforcePartsFulfillmentService` + REST + Flow + NestJS gateway shipped; `deploy validate` green (7/7) on `Agent`. Live writes need a Field Service PSL + `Agentforce_Parts_Fulfillment_Writes` perm set on the run-as user. |
 
 ### 0.2 Repo artifacts added (canonical paths)
 
