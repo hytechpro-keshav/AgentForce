@@ -1049,6 +1049,9 @@ export interface PartsLogisticsChannel {
 **Case creation runbook (seed scripts + copy-paste commands):**
 [`docs/testing/node4-orchestrator-case-scenarios.md`](../testing/node4-orchestrator-case-scenarios.md)
 
+**Post-merge production proof (2026-06-15):**
+[`docs/testing/node4-parts-logistics-release-proof.md`](../testing/node4-parts-logistics-release-proof.md)
+
 | Case type                     | Parts                                   | Expected Node 4 outcome                                                        |
 | ----------------------------- | --------------------------------------- | ------------------------------------------------------------------------------ |
 | Battery not charging (Austin) | SP-BATT-15X, SP-CHG-65W                 | Fulfillment WH WH-AUS-001; Scenario A if stock local; SP-CHG-65W at WH-JCY-003 |
