@@ -126,7 +126,7 @@ export interface CaseTriageWorkflowSnapshot {
    */
   partsLogistics?: PartsLogisticsChannel;
   /**
-   * Final Verdict — observability-only synthesis after Nodes 1-3.
+   * Final Verdict — observability-only synthesis after Nodes 1-4.
    * Generated for the operator console from the typed channels; never
    * parsed by downstream nodes. Absent until the workflow settles.
    */

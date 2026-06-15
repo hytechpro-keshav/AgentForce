@@ -1,6 +1,7 @@
 import { synthesizeOrchestratorVerdict } from "./orchestrator-verdict.synthesizer";
 import type { CustomerContextChannel } from "./dto/customer-context";
 import type { KnowledgeGuidanceChannel } from "./dto/knowledge-guidance";
+import type { PartsLogisticsChannel } from "./dto/parts-logistics";
 import type { SanitizedTriageResult } from "./dto/orchestration-status-event";
 
 const triage: SanitizedTriageResult = {
@@ -90,6 +91,32 @@ const knowledgeAnswered: KnowledgeGuidanceChannel = {
       { sourceId: "kb-2", title: "Adapter diagnostics" }
     ]
   }
+};
+
+const partsLogisticsPartialTransfer: PartsLogisticsChannel = {
+  eligible: true,
+  degraded: false,
+  status: "PARTIAL",
+  fulfillmentReadiness: "partial",
+  partPlans: [
+    {
+      partNumber: "SP-DISP-15X-FHD",
+      requestedQuantity: 1,
+      compatibility: "confirmed",
+      compatibilityEvidence: "product code match",
+      availability: "unavailable",
+      exceptionType: "inter_warehouse_transfer",
+      transferRequired: true,
+      fulfillmentWarehouseReference: "WH-AUS-001",
+      sourceWarehouseReference: "WH-SJO-002",
+      requiredApproval: false,
+      approvalReason: "none",
+      estimatedDispatchHoursMax: 41,
+      reservationStatus: "planned",
+      confidence: "medium",
+      rationale: "Display panel replacement; transfer from SJO to AUS."
+    }
+  ]
 };
 
 describe("synthesizeOrchestratorVerdict", () => {
@@ -203,5 +230,258 @@ describe("synthesizeOrchestratorVerdict", () => {
     });
     const serialized = JSON.stringify(verdict);
     expect(serialized).not.toContain("Replace the battery if diagnostics fail.");
+  });
+
+  it("rolls Node 4 partial transfer into headline, summary, steps, and highlights", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "done",
+      writeBackApplied: true,
+      triage,
+      customerContext: customerContext(),
+      knowledgeGuidance: knowledgeAnswered,
+      partsLogistics: partsLogisticsPartialTransfer
+    });
+
+    expect(verdict.headline).toContain("parts transfer required");
+    expect(verdict.summary).toContain("SP-DISP-15X-FHD");
+    expect(verdict.summary).toContain("WH-SJO-002");
+    expect(verdict.summary).toContain("WH-AUS-001");
+    expect(verdict.recommendedSteps.join(" ")).toContain(
+      "Initiate inter-warehouse transfer for SP-DISP-15X-FHD"
+    );
+    expect(verdict.highlights.map((h) => h.label)).toEqual(
+      expect.arrayContaining(["Parts fulfillment", "Primary part"])
+    );
+    expect(verdict.basis).toContain("partsLogistics");
+  });
+
+  it("surfaces ready fulfillment with dispatch step", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "done",
+      writeBackApplied: false,
+      triage,
+      partsLogistics: {
+        eligible: true,
+        degraded: false,
+        status: "PLANNED",
+        fulfillmentReadiness: "ready",
+        partPlans: [
+          {
+            partNumber: "SP-BATT-15X",
+            requestedQuantity: 1,
+            compatibility: "confirmed",
+            compatibilityEvidence: "product code match",
+            availability: "available",
+            exceptionType: "none",
+            transferRequired: false,
+            fulfillmentWarehouseReference: "WH-AUS-001",
+            requiredApproval: false,
+            reservationStatus: "planned",
+            confidence: "high",
+            rationale: "Battery in stock at fulfillment WH."
+          }
+        ]
+      }
+    });
+
+    expect(verdict.headline).toContain("parts available");
+    expect(verdict.summary).toContain(
+      "Parts plan: SP-BATT-15X is available at WH-AUS-001."
+    );
+    expect(verdict.recommendedSteps).toContain(
+      "Dispatch SP-BATT-15X from WH-AUS-001."
+    );
+  });
+
+  it("surfaces blocked catalog_gap with catalog review step", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "done",
+      writeBackApplied: false,
+      triage,
+      partsLogistics: {
+        eligible: true,
+        degraded: false,
+        status: "UNAVAILABLE",
+        fulfillmentReadiness: "blocked",
+        partPlans: [
+          {
+            partNumber: "SP-UNKNOWN",
+            requestedQuantity: 1,
+            compatibility: "unknown",
+            compatibilityEvidence: "no catalog match",
+            availability: "unavailable",
+            exceptionType: "catalog_gap",
+            transferRequired: false,
+            requiredApproval: false,
+            reservationStatus: "none",
+            confidence: "low",
+            rationale: "Part not found in catalog."
+          }
+        ]
+      }
+    });
+
+    expect(verdict.headline).toContain("parts fulfillment blocked");
+    expect(verdict.summary).toContain("catalog_gap");
+    expect(verdict.recommendedSteps).toContain(
+      "Review catalog gap for requested part; manual sourcing required."
+    );
+  });
+
+  it("mentions degraded inventory without stock claims", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "done",
+      writeBackApplied: false,
+      triage,
+      partsLogistics: {
+        eligible: true,
+        degraded: true,
+        degradedSources: ["salesforce_inventory"],
+        fulfillmentReadiness: "unknown",
+        partPlans: [
+          {
+            partNumber: "SP-DISP-15X-FHD",
+            requestedQuantity: 1,
+            compatibility: "confirmed",
+            compatibilityEvidence: "product code match",
+            availability: "unknown",
+            exceptionType: "none",
+            transferRequired: false,
+            requiredApproval: false,
+            reservationStatus: "none",
+            confidence: "low",
+            rationale: "Inventory read failed."
+          }
+        ]
+      }
+    });
+
+    expect(verdict.headline).toContain("parts inventory degraded");
+    expect(verdict.summary).toContain("degraded mode");
+    expect(verdict.summary).not.toContain("available at");
+    expect(verdict.recommendedSteps.join(" ")).not.toContain("SP-DISP-15X-FHD");
+  });
+
+  it("skips parts detail when eligible is false", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "done",
+      writeBackApplied: false,
+      triage,
+      partsLogistics: {
+        eligible: false,
+        degraded: false,
+        eligibilityReason: "Parts logistics disabled by config"
+      }
+    });
+
+    expect(verdict.headline).not.toContain("parts");
+    expect(verdict.summary).toContain("not eligible");
+    expect(verdict.summary).not.toMatch(/SP-/);
+    expect(verdict.recommendedSteps.join(" ")).not.toMatch(/SP-/);
+    expect(
+      verdict.highlights.find((h) => h.label === "Primary part")
+    ).toBeUndefined();
+  });
+
+  it("adds approval step and highlight when required", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "done",
+      writeBackApplied: false,
+      triage,
+      partsLogistics: {
+        eligible: true,
+        degraded: false,
+        status: "PARTIAL",
+        fulfillmentReadiness: "partial",
+        partPlans: [
+          {
+            partNumber: "SP-DISP-15X-FHD",
+            requestedQuantity: 1,
+            compatibility: "confirmed",
+            compatibilityEvidence: "product code match",
+            availability: "unavailable",
+            exceptionType: "inter_warehouse_transfer",
+            transferRequired: true,
+            fulfillmentWarehouseReference: "WH-AUS-001",
+            sourceWarehouseReference: "WH-SJO-002",
+            requiredApproval: true,
+            approvalReason: "cross_region_transfer",
+            reservationStatus: "planned",
+            confidence: "medium",
+            rationale: "Cross-region transfer requires approval."
+          }
+        ]
+      }
+    });
+
+    expect(verdict.recommendedSteps).toContain(
+      "Approve parts action: SP-DISP-15X-FHD (cross_region_transfer)."
+    );
+    expect(
+      verdict.highlights.find((h) => h.label === "Parts approvals")?.value
+    ).toBe("1 required");
+  });
+
+  it("appends +N more when multiple part plans exist", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "done",
+      writeBackApplied: false,
+      triage,
+      partsLogistics: {
+        eligible: true,
+        degraded: false,
+        status: "PARTIAL",
+        fulfillmentReadiness: "partial",
+        partPlans: [
+          {
+            partNumber: "SP-DISP-15X-FHD",
+            requestedQuantity: 1,
+            compatibility: "confirmed",
+            compatibilityEvidence: "product code match",
+            availability: "unavailable",
+            exceptionType: "inter_warehouse_transfer",
+            transferRequired: true,
+            fulfillmentWarehouseReference: "WH-AUS-001",
+            sourceWarehouseReference: "WH-SJO-002",
+            estimatedDispatchHoursMax: 41,
+            requiredApproval: false,
+            reservationStatus: "planned",
+            confidence: "medium",
+            rationale: "Display panel transfer."
+          },
+          {
+            partNumber: "SP-BATT-15X",
+            requestedQuantity: 1,
+            compatibility: "confirmed",
+            compatibilityEvidence: "product code match",
+            availability: "available",
+            exceptionType: "none",
+            transferRequired: false,
+            fulfillmentWarehouseReference: "WH-AUS-001",
+            requiredApproval: false,
+            reservationStatus: "planned",
+            confidence: "high",
+            rationale: "Battery in stock."
+          }
+        ]
+      }
+    });
+
+    expect(verdict.summary).toContain("(+1 more)");
+    expect(
+      verdict.recommendedSteps.filter((s) => s.includes("SP-")).length
+    ).toBe(1);
+  });
+
+  it("does not embed forbidden PII patterns in parts rollup", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "done",
+      writeBackApplied: true,
+      triage,
+      partsLogistics: partsLogisticsPartialTransfer
+    });
+    const serialized = JSON.stringify(verdict);
+    expect(serialized).not.toMatch(/001[a-zA-Z0-9]{12,18}/);
+    expect(serialized).not.toContain("Display panel replacement; transfer from SJO to AUS.");
   });
 });

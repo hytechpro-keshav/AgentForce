@@ -1,10 +1,10 @@
 /**
  * Final Verdict — the orchestrator's human-readable synthesis after
- * Nodes 1-3 complete.
+ * Nodes 1-4 complete.
  *
  * This channel is **observability-only**. It is generated for the
  * read-only operator console from the already-sanitized typed channels
- * (`triage`, `customerContext`, `knowledgeGuidance`). Downstream nodes
+ * (`triage`, `customerContext`, `knowledgeGuidance`, `partsLogistics`). Downstream nodes
  * MUST NOT parse it — machines consume the typed channels, humans read
  * the verdict. It carries no raw Case text, prompts, chain-of-thought,
  * account ids, or customer names: only values already present in the

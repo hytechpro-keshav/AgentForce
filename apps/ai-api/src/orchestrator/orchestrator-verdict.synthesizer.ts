@@ -3,6 +3,10 @@ import type {
   OrchestratorVerdictHighlight,
   OrchestratorVerdictInput
 } from "./dto/orchestrator-verdict";
+import type {
+  PartLogisticsPlan,
+  PartsLogisticsChannel
+} from "./dto/parts-logistics";
 
 /**
  * Deterministically synthesizes the Final Verdict from the sanitized
@@ -34,15 +38,22 @@ export function synthesizeOrchestratorVerdict(
     (knowledge.answer?.sources?.length ?? 0) > 0;
   const sourceCount = knowledge?.answer?.sources?.length ?? 0;
 
-  const headline = buildHeadline(input, priority, risk, knowledgeAnswered);
-  const summary = buildSummary(input, priority, risk, knowledge);
+  const headline = buildHeadline(
+    input,
+    priority,
+    risk,
+    knowledgeAnswered,
+    parts
+  );
+  const summary = buildSummary(input, priority, risk, knowledge, parts);
   const recommendedSteps = buildSteps(
     input,
     triage?.suggestedNextStep,
     knowledgeAnswered,
     sourceCount,
     knowledge?.answer?.sources,
-    knowledge?.answer?.recommendedActions
+    knowledge?.answer?.recommendedActions,
+    parts
   );
   const highlights = buildHighlights(input, priority, risk, knowledge);
 
@@ -59,10 +70,11 @@ export function synthesizeOrchestratorVerdict(
 }
 
 function buildHeadline(
-  input: OrchestratorVerdictInput,
+  _input: OrchestratorVerdictInput,
   priority: string | undefined,
   risk: string | undefined,
-  knowledgeAnswered: boolean
+  knowledgeAnswered: boolean,
+  parts: PartsLogisticsChannel | undefined
 ): string {
   const priorityLabel = priority
     ? `${capitalize(priority)} priority case`
@@ -74,25 +86,51 @@ function buildHeadline(
   if (knowledgeAnswered) {
     clauses.push("knowledge guidance available");
   }
+  const partsClause = buildPartsHeadlineClause(parts);
+  if (partsClause) {
+    clauses.push(partsClause);
+  }
   return clauses.join(" · ");
+}
+
+function buildPartsHeadlineClause(
+  parts: PartsLogisticsChannel | undefined
+): string | undefined {
+  if (!parts || parts.eligible === false) {
+    return undefined;
+  }
+  if (parts.degraded) {
+    return "parts inventory degraded";
+  }
+  switch (parts.fulfillmentReadiness) {
+    case "ready":
+      return "parts available";
+    case "partial":
+      return "parts transfer required";
+    case "blocked":
+      return "parts fulfillment blocked";
+    default:
+      return undefined;
+  }
 }
 
 function buildSummary(
   input: OrchestratorVerdictInput,
   priority: string | undefined,
   risk: string | undefined,
-  knowledge: OrchestratorVerdictInput["knowledgeGuidance"]
+  knowledge: OrchestratorVerdictInput["knowledgeGuidance"],
+  partsLogistics: PartsLogisticsChannel | undefined
 ): string {
-  const parts: string[] = [];
+  const triageParts: string[] = [];
   if (priority) {
-    parts.push(`Triage recommends ${priority} priority`);
+    triageParts.push(`Triage recommends ${priority} priority`);
   } else {
-    parts.push("Triage completed");
+    triageParts.push("Triage completed");
   }
   if (risk) {
-    parts.push(`with ${risk} business risk`);
+    triageParts.push(`with ${risk} business risk`);
   }
-  let sentence = parts.join(" ") + ".";
+  let sentence = triageParts.join(" ") + ".";
 
   if (knowledge) {
     if (knowledge.status === "ANSWERED") {
@@ -106,8 +144,71 @@ function buildSummary(
     }
   }
 
+  const partsSentence = buildPartsSummarySentence(partsLogistics);
+  if (partsSentence) {
+    sentence += ` ${partsSentence}`;
+  }
+
   sentence += " " + outcomeSentence(input);
   return sentence.trim();
+}
+
+function buildPartsSummarySentence(
+  parts: PartsLogisticsChannel | undefined
+): string | undefined {
+  if (!parts) {
+    return undefined;
+  }
+  if (parts.eligible === false) {
+    return "Parts logistics was not eligible for this case.";
+  }
+  if (parts.degraded) {
+    return "Parts logistics ran in degraded mode; inventory reads were incomplete.";
+  }
+
+  const primary = parts.partPlans?.[0];
+  const moreSuffix =
+    (parts.partPlans?.length ?? 0) > 1
+      ? ` (+${(parts.partPlans?.length ?? 0) - 1} more)`
+      : "";
+
+  if (!primary) {
+    return undefined;
+  }
+
+  if (
+    parts.fulfillmentReadiness === "partial" &&
+    primary.transferRequired &&
+    primary.sourceWarehouseReference &&
+    primary.fulfillmentWarehouseReference
+  ) {
+    const eta = formatPartsEta(primary);
+    const etaClause = eta ? ` (ETA up to ${eta})` : "";
+    return `Parts plan: ${primary.partNumber} requires inter-warehouse transfer from ${primary.sourceWarehouseReference} to ${primary.fulfillmentWarehouseReference}${etaClause}.${moreSuffix}`;
+  }
+
+  if (
+    parts.fulfillmentReadiness === "ready" &&
+    primary.fulfillmentWarehouseReference
+  ) {
+    return `Parts plan: ${primary.partNumber} is available at ${primary.fulfillmentWarehouseReference}.${moreSuffix}`;
+  }
+
+  if (parts.fulfillmentReadiness === "blocked") {
+    return `Parts fulfillment blocked for ${primary.partNumber} (${primary.exceptionType}).${moreSuffix}`;
+  }
+
+  return undefined;
+}
+
+function formatPartsEta(plan: PartLogisticsPlan): string | undefined {
+  if (plan.estimatedArrivalWindow) {
+    return plan.estimatedArrivalWindow;
+  }
+  if (plan.estimatedDispatchHoursMax !== undefined) {
+    return `${plan.estimatedDispatchHoursMax}h`;
+  }
+  return undefined;
 }
 
 function outcomeSentence(input: OrchestratorVerdictInput): string {
@@ -131,42 +232,122 @@ function buildSteps(
   knowledgeAnswered: boolean,
   sourceCount: number,
   sources: { title: string }[] | undefined,
-  recommendedActions: { rationale: string }[] | undefined
+  recommendedActions: { rationale: string }[] | undefined,
+  partsLogistics: PartsLogisticsChannel | undefined
 ): string[] {
-  const steps: string[] = [];
+  const coreSteps: string[] = [];
+  const genericSteps: string[] = [];
+
   if (suggestedNextStep && suggestedNextStep.trim()) {
-    steps.push(suggestedNextStep.trim());
+    coreSteps.push(suggestedNextStep.trim());
   }
   // Prefer typed recommended actions over a generic "review sources"
   // line — machines and humans both benefit from the structured rationale.
   if (recommendedActions && recommendedActions.length > 0) {
     for (const action of recommendedActions.slice(0, 3)) {
       if (action.rationale && action.rationale.trim()) {
-        steps.push(action.rationale.trim());
+        coreSteps.push(action.rationale.trim());
       }
     }
   } else if (knowledgeAnswered) {
     const topTitle = sources?.[0]?.title;
-    steps.push(
+    genericSteps.push(
       topTitle
         ? `Review ${sourceCount} knowledge source(s), starting with "${topTitle}".`
         : `Review ${sourceCount} matching knowledge source(s).`
     );
   }
+
+  const partsSteps = buildPartsSteps(partsLogistics);
+  coreSteps.push(...partsSteps);
+
   if (input.customerContext?.package?.repeatIncident.value.repeat) {
-    steps.push(
+    genericSteps.push(
       "Account shows repeat incidents — consider a proactive follow-up."
     );
   }
   if (input.status === "waiting_approval") {
-    steps.push("Approve or reject the write-back via email / Salesforce.");
+    genericSteps.push("Approve or reject the write-back via email / Salesforce.");
   } else if (input.status === "done" && input.writeBackApplied) {
-    steps.push("Confirm the Case priority reflects the applied write-back.");
+    genericSteps.push(
+      "Confirm the Case priority reflects the applied write-back."
+    );
   }
+
+  const steps = [...coreSteps, ...genericSteps];
   if (steps.length === 0) {
     steps.push("Review the triage output and proceed per standard handling.");
   }
+  return trimStepsToBudget(steps);
+}
+
+function buildPartsSteps(
+  parts: PartsLogisticsChannel | undefined
+): string[] {
+  if (!parts || parts.eligible === false || parts.degraded) {
+    return [];
+  }
+
+  const primary = parts.partPlans?.[0];
+  if (!primary) {
+    return [];
+  }
+
+  const steps: string[] = [];
+
+  if (primary.requiredApproval) {
+    steps.push(
+      `Approve parts action: ${primary.partNumber} (${primary.approvalReason ?? "approval required"}).`
+    );
+  }
+
+  if (
+    primary.transferRequired &&
+    primary.sourceWarehouseReference &&
+    primary.fulfillmentWarehouseReference
+  ) {
+    steps.push(
+      `Initiate inter-warehouse transfer for ${primary.partNumber} from ${primary.sourceWarehouseReference} to ${primary.fulfillmentWarehouseReference}.`
+    );
+  } else if (primary.availability === "available" && primary.fulfillmentWarehouseReference) {
+    steps.push(
+      `Dispatch ${primary.partNumber} from ${primary.fulfillmentWarehouseReference}.`
+    );
+  } else if (primary.exceptionType === "backorder") {
+    steps.push(`Create backorder request for ${primary.partNumber}.`);
+  } else if (primary.exceptionType === "catalog_gap") {
+    steps.push(
+      "Review catalog gap for requested part; manual sourcing required."
+    );
+  }
+
   return steps;
+}
+
+/** Keep triage + knowledge + parts steps; drop lowest-priority generic steps first. */
+function trimStepsToBudget(steps: string[]): string[] {
+  const maxSteps = 6;
+  if (steps.length <= maxSteps) {
+    return steps;
+  }
+  const genericPatterns = [
+    /^Review \d+ (matching )?knowledge source/,
+    /^Account shows repeat incidents/,
+    /^Confirm the Case priority reflects/,
+    /^Approve or reject the write-back/
+  ];
+  const trimmed = [...steps];
+  while (trimmed.length > maxSteps) {
+    const dropIndex = trimmed.findIndex((step) =>
+      genericPatterns.some((pattern) => pattern.test(step))
+    );
+    if (dropIndex === -1) {
+      trimmed.pop();
+    } else {
+      trimmed.splice(dropIndex, 1);
+    }
+  }
+  return trimmed;
 }
 
 function buildHighlights(
@@ -224,6 +405,35 @@ function buildHighlights(
         parts.fulfillmentReadiness ??
         (parts.degraded ? "Degraded" : (parts.status ?? "n/a"))
     });
+    const primary = parts.partPlans?.[0];
+    if (primary) {
+      highlights.push({
+        label: "Primary part",
+        value: primary.partNumber
+      });
+      if (primary.fulfillmentWarehouseReference) {
+        highlights.push({
+          label: "Fulfillment WH",
+          value: primary.fulfillmentWarehouseReference
+        });
+      }
+      if (
+        primary.transferRequired &&
+        primary.sourceWarehouseReference &&
+        primary.fulfillmentWarehouseReference
+      ) {
+        highlights.push({
+          label: "Transfer",
+          value: `Yes (${primary.sourceWarehouseReference} → ${primary.fulfillmentWarehouseReference})`
+        });
+      } else {
+        highlights.push({ label: "Transfer", value: "No" });
+      }
+      const eta = formatPartsEta(primary);
+      if (eta) {
+        highlights.push({ label: "Parts ETA", value: eta });
+      }
+    }
     const approvals = (parts.partPlans ?? []).filter(
       (p) => p.requiredApproval
     ).length;

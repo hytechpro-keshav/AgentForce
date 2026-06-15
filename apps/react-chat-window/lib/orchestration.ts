@@ -207,7 +207,7 @@ export interface OrchestrationVerdictHighlight {
 
 /**
  * Final Verdict — observability-only operator narrative synthesized
- * after Nodes 1-3. Display-only; never a machine contract.
+ * after Nodes 1-4. Display-only; never a machine contract.
  */
 export interface OrchestrationVerdict {
   headline: string;
