@@ -310,6 +310,12 @@ export interface OrchestratorKnowledgeConfig {
 export interface OrchestratorPartsLogisticsConfig {
   /** Feature flag: enables Node 4 parts & logistics planning. */
   enabled: boolean;
+  /**
+   * Phase 4c: enables the gated Salesforce fulfillment writes
+   * (ProductTransfer / ProductRequest) in the post-approval write-back.
+   * Off by default — reads/planning work without it.
+   */
+  writesEnabled: boolean;
 }
 
 export interface OrchestratorConfig {
@@ -1858,6 +1864,11 @@ export class AppConfigService {
         env.AI_API_ORCHESTRATOR_PARTS_ENABLED,
         false,
         "AI_API_ORCHESTRATOR_PARTS_ENABLED"
+      ),
+      writesEnabled: AppConfigService.parseBooleanFlag(
+        env.AI_API_ORCHESTRATOR_PARTS_WRITES_ENABLED,
+        false,
+        "AI_API_ORCHESTRATOR_PARTS_WRITES_ENABLED"
       )
     };
   }

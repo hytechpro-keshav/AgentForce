@@ -14,6 +14,7 @@ import { TelemetryService } from "../observability/telemetry.service";
 import { SalesforceCaseGateway } from "../salesforce/salesforce-case.gateway";
 import { SalesforceCustomerGateway } from "../salesforce/salesforce-customer.gateway";
 import { SalesforceInventoryGateway } from "../salesforce/salesforce-inventory.gateway";
+import { SalesforceFulfillmentGateway } from "../salesforce/salesforce-fulfillment.gateway";
 import { SalesforceGatewayError } from "../salesforce/salesforce-gateway.error";
 import { SupportTriageService } from "../agents/support-triage.service";
 import { CustomerHistorySynthesisService } from "../agents/customer-history.service";
@@ -55,9 +56,16 @@ import { deriveGuidanceConfidence } from "./knowledge-confidence";
 import { KnowledgeGuidanceExtractor } from "./knowledge-guidance-extractor.service";
 import { PartsLogisticsPlannerService } from "./parts-logistics-planner.service";
 import type {
+  PartLogisticsPlan,
   PartsLogisticsChannel,
-  PartsLogisticsEligibilityResult
+  PartsLogisticsEligibilityResult,
+  PartsWriteOutcome
 } from "./dto/parts-logistics";
+import type {
+  PartsFulfillmentCommand,
+  PartsFulfillmentItemCommand,
+  PartsFulfillmentResult
+} from "./dto/parts-fulfillment";
 import type { SalesforceCaseContext } from "./dto/salesforce-case-context";
 import type { TriagePriorityDto } from "../agents/dto/triage-case.dto";
 import type {
@@ -110,13 +118,17 @@ export class CaseTriageOrchestratorService {
     private readonly config: AppConfigService,
     private readonly knowledgeExtractor: KnowledgeGuidanceExtractor,
     private readonly inventoryGateway: SalesforceInventoryGateway,
-    private readonly partsPlanner: PartsLogisticsPlannerService
+    private readonly partsPlanner: PartsLogisticsPlannerService,
+    private readonly fulfillmentGateway: SalesforceFulfillmentGateway
   ) {
     this.graph = buildCaseTriageGraph({
       readContext: (caseId) => this.gateway.readCaseContext(caseId),
       runTriage: (input) => this.runTriage(input),
       applyWriteBack: (triage, caseId) => this.applyWriteBack(triage, caseId),
-      requiresApproval: (triage) => this.requiresApproval(triage),
+      requiresApproval: (triage, partsLogistics) =>
+        this.requiresApproval(triage, partsLogistics),
+      applyPartsFulfillment: (workflowId, caseId, partsLogistics) =>
+        this.applyPartsFulfillment(workflowId, caseId, partsLogistics),
       isCustomerHistoryEligible: (context, triagePriority) =>
         this.isCustomerHistoryEligible(context, triagePriority),
       readCustomerContext: (scope) => this.readCustomerContext(scope),
@@ -478,7 +490,19 @@ export class CaseTriageOrchestratorService {
     });
   }
 
-  private requiresApproval(triage: SanitizedTriageResult): boolean {
+  private requiresApproval(
+    triage: SanitizedTriageResult,
+    partsLogistics: PartsLogisticsChannel | undefined
+  ): boolean {
+    // Any part plan that flags approval (cross-region transfer, backorder,
+    // high-value, expedite — §7.5) pauses the single v1 gate, even when
+    // triage policy alone would auto-approve.
+    const partsNeedApproval = (partsLogistics?.partPlans ?? []).some(
+      (plan) => plan.requiredApproval
+    );
+    if (partsNeedApproval) {
+      return true;
+    }
     switch (this.config.orchestrator.triageApprovalMode) {
       case "always":
         return true;
@@ -491,6 +515,100 @@ export class CaseTriageOrchestratorService {
       default:
         return false;
     }
+  }
+
+  /**
+   * Node 4 — Phase 4c gated fulfillment writes. Runs only in the
+   * post-approval write-back. For each approved transfer/backorder plan
+   * it asks the Apex executor (via {@link SalesforceFulfillmentGateway})
+   * to create the `ProductTransfer` / `ProductRequest` record, then folds
+   * the reservation transitions + record ids back into a cloned channel.
+   * Config-gated (`partsLogistics.writesEnabled`) and degrade-safe — a
+   * write failure leaves the plans `planned` and never throws.
+   */
+  private async applyPartsFulfillment(
+    workflowId: string,
+    caseId: string,
+    partsLogistics: PartsLogisticsChannel | undefined
+  ): Promise<PartsLogisticsChannel | undefined> {
+    if (
+      !this.config.orchestrator.partsLogistics.writesEnabled ||
+      !partsLogistics ||
+      partsLogistics.degraded ||
+      !partsLogistics.partPlans?.length
+    ) {
+      return undefined;
+    }
+
+    const writablePlans = partsLogistics.partPlans.filter((plan) =>
+      CaseTriageOrchestratorService.isWritablePlan(plan)
+    );
+    if (writablePlans.length === 0) {
+      return undefined;
+    }
+
+    const command: PartsFulfillmentCommand = {
+      workflowId,
+      caseId,
+      items: writablePlans.map(
+        (plan): PartsFulfillmentItemCommand => ({
+          partNumber: plan.partNumber,
+          quantity: plan.requestedQuantity,
+          exceptionType:
+            plan.exceptionType === "inter_warehouse_transfer"
+              ? "inter_warehouse_transfer"
+              : "backorder",
+          fulfillmentWarehouseReference: plan.fulfillmentWarehouseReference,
+          sourceWarehouseReference: plan.sourceWarehouseReference,
+          approvalReason: plan.approvalReason
+        })
+      )
+    };
+
+    const result = await this.fulfillmentGateway.applyFulfillment(command);
+    return CaseTriageOrchestratorService.mergeFulfillmentResult(
+      partsLogistics,
+      result
+    );
+  }
+
+  /** Plans that produce a Salesforce fulfillment record in Phase 4c. */
+  private static isWritablePlan(plan: PartLogisticsPlan): boolean {
+    return (
+      plan.exceptionType === "inter_warehouse_transfer" ||
+      plan.exceptionType === "backorder"
+    );
+  }
+
+  /** Folds the executor result back into a cloned, sanitized channel. */
+  private static mergeFulfillmentResult(
+    channel: PartsLogisticsChannel,
+    result: PartsFulfillmentResult
+  ): PartsLogisticsChannel {
+    const byPart = new Map(result.items.map((item) => [item.partNumber, item]));
+    const partPlans = (channel.partPlans ?? []).map((plan) => {
+      const outcome = byPart.get(plan.partNumber);
+      if (!outcome) {
+        return plan;
+      }
+      return {
+        ...plan,
+        reservationStatus: outcome.reservationStatus,
+        fulfillmentRecordType: outcome.recordType,
+        fulfillmentRecordId: outcome.recordId
+      };
+    });
+    const createdCount = result.items.filter((item) => item.created).length;
+    const idempotentSkipCount = result.items.filter(
+      (item) => item.idempotentSkip
+    ).length;
+    const writeOutcome: PartsWriteOutcome = {
+      applied: result.applied,
+      degraded: result.degraded,
+      createdCount,
+      idempotentSkipCount
+    };
+    return { ...channel, partPlans, writeOutcome };
   }
 
   /**

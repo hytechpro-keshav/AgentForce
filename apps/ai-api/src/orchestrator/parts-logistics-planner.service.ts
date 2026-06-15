@@ -13,6 +13,7 @@ import type {
 } from "./dto/parts-logistics";
 import type { EvidenceConfidence } from "./dto/customer-context";
 import type { SalesforceCaseContext } from "./dto/salesforce-case-context";
+import { crossCheckKbWarehouses } from "./parts-kb-crosscheck";
 import {
   DESTINATION_PROCESSING_HOURS,
   REPLENISHMENT_HOURS_MAX,
@@ -120,6 +121,13 @@ export class PartsLogisticsPlannerService {
         fulfillmentReadiness: "unknown",
         fulfillmentConfidence: "low",
         candidateSources: candidates.sources,
+        // Cross-check is meaningless without a real inventory read.
+        kbCrossCheck: {
+          status: "SKIPPED",
+          alignedCount: 0,
+          divergentCount: 0,
+          undocumentedCount: 0
+        },
         provider: "deterministic",
         partPlans: candidates.codes.map((code) =>
           this.unknownPlan(code, fulfillmentRef, region)
@@ -127,7 +135,7 @@ export class PartsLogisticsPlannerService {
       };
     }
 
-    const partPlans = candidates.codes.map((code) =>
+    const rawPartPlans = candidates.codes.map((code) =>
       this.planPart(
         code,
         context,
@@ -137,6 +145,11 @@ export class PartsLogisticsPlannerService {
         triagePriority
       )
     );
+
+    // Phase 4b — audit-only KB warehouse cross-check. Annotates the plans
+    // but never changes readiness/availability/ETA computed above.
+    const { annotated: partPlans, summary: kbCrossCheck } =
+      crossCheckKbWarehouses(rawPartPlans);
 
     const fulfillmentReadiness =
       PartsLogisticsPlannerService.aggregateReadiness(partPlans);
@@ -152,6 +165,7 @@ export class PartsLogisticsPlannerService {
       fulfillmentReadiness,
       fulfillmentConfidence,
       candidateSources: candidates.sources,
+      kbCrossCheck,
       provider: "deterministic"
     };
   }

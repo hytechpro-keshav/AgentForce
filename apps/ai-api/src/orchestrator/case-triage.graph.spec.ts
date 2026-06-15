@@ -1,4 +1,4 @@
-import { MemorySaver } from "@langchain/langgraph";
+import { Command, MemorySaver } from "@langchain/langgraph";
 
 import { buildCaseTriageGraph } from "./case-triage.graph";
 import type { CaseTriageGraphDeps } from "./case-triage.graph";
@@ -131,6 +131,7 @@ function buildDeps(overrides: Partial<CaseTriageGraphDeps> = {}): DepsHarness {
     runTriage,
     applyWriteBack,
     requiresApproval: () => false,
+    applyPartsFulfillment: jest.fn().mockResolvedValue(undefined),
     isCustomerHistoryEligible: isEligible,
     readCustomerContext,
     synthesizeCustomerHistory: synthesize,
@@ -332,5 +333,104 @@ describe("case-triage graph — Node 4 parts & logistics", () => {
     expect(planPartsLogistics).not.toHaveBeenCalled();
     expect(result.partsLogistics?.eligible).toBe(false);
     expect(result.writeBackApplied).toBe(true);
+  });
+
+  it("4c: applies parts fulfillment in the write-back and merges the channel", async () => {
+    const plannedChannel = {
+      eligible: true,
+      degraded: false,
+      status: "PARTIAL",
+      fulfillmentReadiness: "partial",
+      partPlans: [
+        {
+          partNumber: "SP-BATT-15X",
+          requestedQuantity: 1,
+          exceptionType: "inter_warehouse_transfer",
+          reservationStatus: "planned",
+          requiredApproval: false
+        }
+      ]
+    };
+    const appliedChannel = {
+      ...plannedChannel,
+      partPlans: [
+        {
+          ...plannedChannel.partPlans[0],
+          reservationStatus: "transfer_pending",
+          fulfillmentRecordType: "ProductTransfer",
+          fulfillmentRecordId: "0a9000000000001"
+        }
+      ],
+      writeOutcome: {
+        applied: true,
+        degraded: false,
+        createdCount: 1,
+        idempotentSkipCount: 0
+      }
+    };
+    const applyPartsFulfillment = jest
+      .fn()
+      .mockResolvedValue(appliedChannel as any);
+    const h = buildDeps({
+      isPartsLogisticsEligible: jest
+        .fn()
+        .mockReturnValue({ eligible: true, reason: "enabled" }),
+      planPartsLogistics: jest.fn().mockResolvedValue(plannedChannel as any),
+      applyPartsFulfillment
+    });
+
+    const result = await invoke(h.deps);
+
+    expect(applyPartsFulfillment).toHaveBeenCalledTimes(1);
+    expect(result.writeBackApplied).toBe(true);
+    expect(result.partsLogistics?.writeOutcome?.applied).toBe(true);
+    expect(result.partsLogistics?.partPlans?.[0].reservationStatus).toBe(
+      "transfer_pending"
+    );
+  });
+
+  it("4c: does not apply parts fulfillment when the gate is rejected", async () => {
+    const applyPartsFulfillment = jest.fn().mockResolvedValue(undefined);
+    const h = buildDeps({
+      requiresApproval: () => true,
+      isPartsLogisticsEligible: jest
+        .fn()
+        .mockReturnValue({ eligible: true, reason: "enabled" }),
+      planPartsLogistics: jest.fn().mockResolvedValue({
+        eligible: true,
+        degraded: false,
+        partPlans: [
+          {
+            partNumber: "SP-BATT-15X",
+            requestedQuantity: 1,
+            exceptionType: "backorder",
+            reservationStatus: "planned",
+            requiredApproval: true
+          }
+        ]
+      } as any),
+      applyPartsFulfillment
+    });
+
+    const graph = buildCaseTriageGraph(h.deps);
+    const config = { configurable: { thread_id: "wf-reject-4c" } };
+    await graph.invoke(
+      {
+        workflowId: "wf-reject-4c",
+        caseId: "500000000000001",
+        principalSubject: "orchestrator",
+        approvalRequired: false,
+        writeBackApplied: false,
+        status: "running"
+      },
+      config
+    );
+    const result = (await graph.invoke(
+      new Command({ resume: "rejected" }),
+      config
+    )) as any;
+
+    expect(applyPartsFulfillment).not.toHaveBeenCalled();
+    expect(result.status).toBe("rejected");
   });
 });

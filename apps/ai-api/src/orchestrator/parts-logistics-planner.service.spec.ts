@@ -349,6 +349,80 @@ describe("PartsLogisticsPlannerService", () => {
       );
     });
 
+    it("4b: aligns the cross-check when the fulfillment WH is KB-documented", () => {
+      // SP-BATT-15X is documented at all four WHs incl. WH-AUS-001.
+      const channel = planner.plan({
+        context: context(),
+        candidates,
+        inventory: {
+          source: "soql",
+          degraded: false,
+          rows: [row({ warehouseReference: "WH-AUS-001", quantityOnHand: 25 })]
+        }
+      });
+      const plan = channel.partPlans![0];
+      expect(plan.fulfillmentWarehouseReference).toBe("WH-AUS-001");
+      expect(plan.kbWarehouseAlignment).toBe("aligned");
+      expect(plan.kbDocumentedWarehouses).toContain("WH-AUS-001");
+      expect(channel.kbCrossCheck).toEqual({
+        status: "ALIGNED",
+        alignedCount: 1,
+        divergentCount: 0,
+        undocumentedCount: 0
+      });
+      // Audit-only: readiness still reflects local stock.
+      expect(channel.fulfillmentReadiness).toBe("ready");
+    });
+
+    it("4b: flags divergence when the chosen WH is not KB-documented", () => {
+      // SP-TPAD-15X is documented only at WH-SJO-002; Austin Case fulfills
+      // from WH-AUS-001 -> divergent (but does not change planning).
+      const channel = planner.plan({
+        context: context(),
+        candidates: { codes: ["SP-TPAD-15X"], sources: ["knowledge"] },
+        inventory: {
+          source: "soql",
+          degraded: false,
+          rows: [
+            row({
+              productCode: "SP-TPAD-15X",
+              compatibleProductCode: "AV-LP-15X-PRO",
+              warehouseReference: "WH-AUS-001",
+              quantityOnHand: 12
+            })
+          ]
+        }
+      });
+      const plan = channel.partPlans![0];
+      expect(plan.kbWarehouseAlignment).toBe("divergent");
+      expect(plan.kbDocumentedWarehouses).toEqual(["WH-SJO-002"]);
+      expect(channel.kbCrossCheck?.status).toBe("DIVERGENT");
+      expect(channel.kbCrossCheck?.divergentCount).toBe(1);
+      // Audit-only: availability is still 'available' at the chosen WH.
+      expect(plan.availability).toBe("available");
+    });
+
+    it("4b: marks an undocumented part as unknown alignment", () => {
+      const channel = planner.plan({
+        context: context(),
+        candidates: { codes: ["SP-TEST-OOS"], sources: ["manual"] },
+        inventory: { source: "soql", degraded: false, rows: [] }
+      });
+      const plan = channel.partPlans![0];
+      expect(plan.kbWarehouseAlignment).toBe("unknown");
+      expect(plan.kbDocumentedWarehouses).toEqual([]);
+      expect(channel.kbCrossCheck?.status).toBe("UNDOCUMENTED");
+    });
+
+    it("4b: skips the cross-check on a degraded inventory read", () => {
+      const channel = planner.plan({
+        context: context(),
+        candidates,
+        inventory: { source: "none", degraded: true, rows: [] }
+      });
+      expect(channel.kbCrossCheck?.status).toBe("SKIPPED");
+    });
+
     it("never surfaces the asset serial number in the channel", () => {
       const channel = planner.plan({
         context: context({ assetSerialNumber: "SN-PRO15X-2026-0041A" }),

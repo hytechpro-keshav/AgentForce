@@ -5,6 +5,7 @@ import type { CustomerHistorySynthesisService } from "../agents/customer-history
 import type { SalesforceCaseGateway } from "../salesforce/salesforce-case.gateway";
 import type { SalesforceCustomerGateway } from "../salesforce/salesforce-customer.gateway";
 import type { SalesforceInventoryGateway } from "../salesforce/salesforce-inventory.gateway";
+import type { SalesforceFulfillmentGateway } from "../salesforce/salesforce-fulfillment.gateway";
 import { SalesforceGatewayError } from "../salesforce/salesforce-gateway.error";
 import { CaseTriageOrchestratorService } from "./case-triage-orchestrator.service";
 import { PartsLogisticsPlannerService } from "./parts-logistics-planner.service";
@@ -83,12 +84,17 @@ interface Harness {
   synthesize: jest.Mock;
   readCustomerBundle: jest.Mock;
   recordAgentWorkflow: jest.Mock;
+  applyFulfillment: jest.Mock;
 }
 
 function buildHarness(
   approvalMode: TriageApprovalMode = "auto",
   contextOverrides: Partial<SalesforceCaseContext> = {},
-  writeBackOverrides: { enabled?: boolean; uiBaseUrl?: string } = {}
+  writeBackOverrides: { enabled?: boolean; uiBaseUrl?: string } = {},
+  partsOverrides: { enabled?: boolean; writesEnabled?: boolean } = {},
+  fulfillmentOverrides: {
+    applyFulfillment?: jest.Mock;
+  } = {}
 ): Harness {
   const readCaseContext = jest
     .fn()
@@ -148,7 +154,10 @@ function buildHarness(
         scoreThreshold: 0.65,
         extractionEnabled: false
       },
-      partsLogistics: { enabled: false }
+      partsLogistics: {
+        enabled: partsOverrides.enabled ?? false,
+        writesEnabled: partsOverrides.writesEnabled ?? false
+      }
     },
     rag: {
       enabled: false,
@@ -188,6 +197,13 @@ function buildHarness(
       .mockResolvedValue({ source: "none", rows: [], degraded: false })
   } as unknown as SalesforceInventoryGateway;
   const partsPlanner = new PartsLogisticsPlannerService();
+  const applyFulfillment =
+    fulfillmentOverrides.applyFulfillment ??
+    jest.fn().mockResolvedValue({ applied: false, degraded: false, items: [] });
+  const fulfillmentGateway = {
+    isConfigured: () => true,
+    applyFulfillment
+  } as unknown as SalesforceFulfillmentGateway;
 
   const service = new CaseTriageOrchestratorService(
     gateway,
@@ -203,7 +219,8 @@ function buildHarness(
     config,
     { extract: jest.fn().mockResolvedValue(emptyExtraction()) } as any,
     inventoryGateway,
-    partsPlanner
+    partsPlanner,
+    fulfillmentGateway
   );
 
   return {
@@ -216,7 +233,8 @@ function buildHarness(
     triage,
     synthesize,
     readCustomerBundle,
-    recordAgentWorkflow
+    recordAgentWorkflow,
+    applyFulfillment
   };
 }
 
@@ -539,7 +557,13 @@ describe("CaseTriageOrchestratorService", () => {
           .fn()
           .mockResolvedValue({ source: "none", rows: [], degraded: false })
       } as unknown as SalesforceInventoryGateway,
-      new PartsLogisticsPlannerService()
+      new PartsLogisticsPlannerService(),
+      {
+        isConfigured: () => true,
+        applyFulfillment: jest
+          .fn()
+          .mockResolvedValue({ applied: false, degraded: false, items: [] })
+      } as unknown as SalesforceFulfillmentGateway
     );
 
     const resolved =
@@ -625,6 +649,86 @@ describe("CaseTriageOrchestratorService", () => {
       const snapshot = await h.service.getSnapshot(accepted.workflowId);
       expect(snapshot.status).toBe("done");
       expect(snapshot.writeBackApplied).toBe(true);
+    });
+  });
+
+  describe("Phase 4c gated fulfillment writes", () => {
+    it("applies fulfillment after approval and merges the write outcome", async () => {
+      const applyFulfillment = jest.fn().mockResolvedValue({
+        applied: true,
+        degraded: false,
+        items: [
+          {
+            partNumber: "SP-BATT-15X",
+            created: true,
+            idempotentSkip: false,
+            recordType: "ProductRequest",
+            recordId: "0a8000000000001",
+            reservationStatus: "backorder_requested"
+          }
+        ]
+      });
+      // Empty inventory -> backorder -> requiredApproval -> gate interrupts.
+      const h = buildHarness(
+        "auto",
+        {
+          subject: "Please order SP-BATT-15X",
+          assetProductCode: "AV-LP-15X-PRO",
+          serviceShipToCountry: "US"
+        },
+        {},
+        { enabled: true, writesEnabled: true },
+        { applyFulfillment }
+      );
+
+      const accepted = await h.service.trigger({ caseId: "500000000000001" });
+      await waitFor(
+        async () =>
+          (await statusOf(h.service, accepted.workflowId)) ===
+          "waiting_approval"
+      );
+
+      const resumed = await h.service.resume(accepted.workflowId, {
+        decision: "approved",
+        idempotencyKey: "approve-4c-1"
+      });
+
+      expect(applyFulfillment).toHaveBeenCalledTimes(1);
+      expect(resumed.status).toBe("done");
+      expect(resumed.partsLogistics?.writeOutcome?.applied).toBe(true);
+      const battery = resumed.partsLogistics?.partPlans?.find(
+        (p) => p.partNumber === "SP-BATT-15X"
+      );
+      expect(battery?.reservationStatus).toBe("backorder_requested");
+      expect(battery?.fulfillmentRecordType).toBe("ProductRequest");
+    });
+
+    it("does not call the fulfillment gateway when writes are disabled", async () => {
+      const applyFulfillment = jest.fn();
+      const h = buildHarness(
+        "auto",
+        {
+          subject: "Please order SP-BATT-15X",
+          assetProductCode: "AV-LP-15X-PRO",
+          serviceShipToCountry: "US"
+        },
+        {},
+        { enabled: true, writesEnabled: false },
+        { applyFulfillment }
+      );
+
+      const accepted = await h.service.trigger({ caseId: "500000000000001" });
+      await waitFor(
+        async () =>
+          (await statusOf(h.service, accepted.workflowId)) ===
+          "waiting_approval"
+      );
+      await h.service.resume(accepted.workflowId, {
+        decision: "approved",
+        idempotencyKey: "approve-4c-2"
+      });
+
+      expect(applyFulfillment).not.toHaveBeenCalled();
     });
   });
 });

@@ -948,6 +948,29 @@ function PartsLogisticsSummary({
             supporting="Resolved at the Node 6 approval gate"
           />
         ) : null}
+        {partsLogistics.kbCrossCheck &&
+        partsLogistics.kbCrossCheck.status !== "SKIPPED" ? (
+          <FindingCard
+            label="KB warehouse cross-check"
+            value={partsLogistics.kbCrossCheck.status}
+            supporting={`Aligned ${partsLogistics.kbCrossCheck.alignedCount} · Divergent ${partsLogistics.kbCrossCheck.divergentCount} · Undocumented ${partsLogistics.kbCrossCheck.undocumentedCount}`}
+          />
+        ) : null}
+        {partsLogistics.writeOutcome?.applied ? (
+          <FindingCard
+            label="Fulfillment writes"
+            value={
+              partsLogistics.writeOutcome.degraded
+                ? "Degraded"
+                : `${partsLogistics.writeOutcome.createdCount} created`
+            }
+            supporting={
+              partsLogistics.writeOutcome.idempotentSkipCount > 0
+                ? `${partsLogistics.writeOutcome.idempotentSkipCount} reused (idempotent)`
+                : "Created after approval"
+            }
+          />
+        ) : null}
       </dl>
 
       {plans.length > 0 ? (
@@ -983,15 +1006,37 @@ function PartsLogisticsSummary({
                           ? `Fulfillment WH: ${plan.fulfillmentWarehouseReference}`
                           : ""}
                     </p>
+                    {plan.fulfillmentRecordType &&
+                    plan.reservationStatus &&
+                    plan.reservationStatus !== "planned" &&
+                    plan.reservationStatus !== "none" ? (
+                      <p className="mt-1 text-xs font-medium text-emerald-700">
+                        {`${plan.reservationStatus.replace(/_/g, " ")} · ${plan.fulfillmentRecordType}`}
+                      </p>
+                    ) : null}
                   </div>
-                  {plan.requiredApproval ? (
-                    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                      <AlertTriangle className="h-3 w-3" aria-hidden />
-                      {plan.approvalReason && plan.approvalReason !== "none"
-                        ? plan.approvalReason.replace(/_/g, " ")
-                        : "approval"}
-                    </span>
-                  ) : null}
+                  <div className="flex flex-col items-end gap-1">
+                    {plan.requiredApproval ? (
+                      <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                        <AlertTriangle className="h-3 w-3" aria-hidden />
+                        {plan.approvalReason && plan.approvalReason !== "none"
+                          ? plan.approvalReason.replace(/_/g, " ")
+                          : "approval"}
+                      </span>
+                    ) : null}
+                    {plan.kbWarehouseAlignment &&
+                    plan.kbWarehouseAlignment !== "unknown" ? (
+                      <span
+                        className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${
+                          plan.kbWarehouseAlignment === "divergent"
+                            ? "bg-rose-100 text-rose-800"
+                            : "bg-emerald-100 text-emerald-800"
+                        }`}
+                      >
+                        {`KB ${plan.kbWarehouseAlignment}`}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
                 {plan.rationale ? (
                   <p className="mt-2 text-xs text-muted-foreground">

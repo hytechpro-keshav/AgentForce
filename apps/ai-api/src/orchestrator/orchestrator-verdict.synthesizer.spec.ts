@@ -120,6 +120,76 @@ const partsLogisticsPartialTransfer: PartsLogisticsChannel = {
 };
 
 describe("synthesizeOrchestratorVerdict", () => {
+  it("4b: surfaces a KB-alignment highlight and divergence note", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "done",
+      writeBackApplied: true,
+      triage,
+      partsLogistics: {
+        ...partsLogisticsPartialTransfer,
+        kbCrossCheck: {
+          status: "DIVERGENT",
+          alignedCount: 1,
+          divergentCount: 1,
+          undocumentedCount: 0
+        }
+      }
+    });
+    const kb = verdict.highlights.find((h) => h.label === "KB alignment");
+    expect(kb?.value).toBe("aligned 1 / divergent 1");
+    expect(verdict.summary).toContain("KB warehouse cross-check flagged 1");
+  });
+
+  it("4c: reflects applied fulfillment writes in steps and highlights", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "done",
+      writeBackApplied: true,
+      triage,
+      partsLogistics: {
+        ...partsLogisticsPartialTransfer,
+        partPlans: [
+          {
+            ...partsLogisticsPartialTransfer.partPlans![0],
+            reservationStatus: "transfer_pending",
+            fulfillmentRecordType: "ProductTransfer",
+            fulfillmentRecordId: "0a9000000000001"
+          }
+        ],
+        writeOutcome: {
+          applied: true,
+          degraded: false,
+          createdCount: 1,
+          idempotentSkipCount: 0
+        }
+      }
+    });
+    expect(verdict.recommendedSteps.join(" ")).toContain(
+      "Inter-warehouse transfer initiated"
+    );
+    const writes = verdict.highlights.find((h) => h.label === "Parts writes");
+    expect(writes?.value).toBe("1 created");
+  });
+
+  it("4b: omits the KB-alignment highlight when the cross-check was skipped", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "done",
+      writeBackApplied: true,
+      triage,
+      partsLogistics: {
+        ...partsLogisticsPartialTransfer,
+        kbCrossCheck: {
+          status: "SKIPPED",
+          alignedCount: 0,
+          divergentCount: 0,
+          undocumentedCount: 0
+        }
+      }
+    });
+    expect(
+      verdict.highlights.find((h) => h.label === "KB alignment")
+    ).toBeUndefined();
+  });
+
   it("builds a headline, summary, steps, and highlights from typed channels", () => {
     const verdict = synthesizeOrchestratorVerdict({
       status: "done",

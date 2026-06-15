@@ -149,6 +149,11 @@ function buildSummary(
     sentence += ` ${partsSentence}`;
   }
 
+  const divergent = partsLogistics?.kbCrossCheck?.divergentCount ?? 0;
+  if (divergent > 0) {
+    sentence += ` KB warehouse cross-check flagged ${divergent} divergent routing(s).`;
+  }
+
   sentence += " " + outcomeSentence(input);
   return sentence.trim();
 }
@@ -306,15 +311,22 @@ function buildPartsSteps(
     primary.sourceWarehouseReference &&
     primary.fulfillmentWarehouseReference
   ) {
+    // Past tense once the gated write created the transfer (4c).
     steps.push(
-      `Initiate inter-warehouse transfer for ${primary.partNumber} from ${primary.sourceWarehouseReference} to ${primary.fulfillmentWarehouseReference}.`
+      primary.reservationStatus === "transfer_pending"
+        ? `Inter-warehouse transfer initiated for ${primary.partNumber} (${primary.sourceWarehouseReference} → ${primary.fulfillmentWarehouseReference}); track to fulfillment WH.`
+        : `Initiate inter-warehouse transfer for ${primary.partNumber} from ${primary.sourceWarehouseReference} to ${primary.fulfillmentWarehouseReference}.`
     );
   } else if (primary.availability === "available" && primary.fulfillmentWarehouseReference) {
     steps.push(
       `Dispatch ${primary.partNumber} from ${primary.fulfillmentWarehouseReference}.`
     );
   } else if (primary.exceptionType === "backorder") {
-    steps.push(`Create backorder request for ${primary.partNumber}.`);
+    steps.push(
+      primary.reservationStatus === "backorder_requested"
+        ? `Backorder requested for ${primary.partNumber}; track replenishment to fulfillment WH.`
+        : `Create backorder request for ${primary.partNumber}.`
+    );
   } else if (primary.exceptionType === "catalog_gap") {
     steps.push(
       "Review catalog gap for requested part; manual sourcing required."
@@ -441,6 +453,25 @@ function buildHighlights(
       highlights.push({
         label: "Parts approvals",
         value: `${approvals} required`
+      });
+    }
+    if (parts.kbCrossCheck && parts.kbCrossCheck.status !== "SKIPPED") {
+      const cc = parts.kbCrossCheck;
+      highlights.push({
+        label: "KB alignment",
+        value:
+          cc.status === "UNDOCUMENTED"
+            ? "Undocumented"
+            : `aligned ${cc.alignedCount} / divergent ${cc.divergentCount}`
+      });
+    }
+    if (parts.writeOutcome?.applied) {
+      const wo = parts.writeOutcome;
+      highlights.push({
+        label: "Parts writes",
+        value: wo.degraded
+          ? "Degraded"
+          : `${wo.createdCount} created${wo.idempotentSkipCount > 0 ? `, ${wo.idempotentSkipCount} reused` : ""}`
       });
     }
   }

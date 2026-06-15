@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <apiVersion>66.0</apiVersion>
+    <description
+  >Phase 4c (E2): notifies the inventory coordinator on the related Case when an AI-orchestrated ProductRequest (backorder) is created.</description>
+    <environments>Default</environments>
+    <formulas>
+        <name>NotificationBody</name>
+        <dataType>String</dataType>
+        <expression
+    >&quot;Parts backorder requested — ProductRequest &quot; &amp; {!$Record.ProductRequestNumber} &amp; &quot; created by the AI parts orchestrator. Inventory coordinator review required.&quot;</expression>
+    </formulas>
+    <interviewLabel
+  >Case Parts Backorder Notification {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>Case Parts Backorder Notification</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <recordCreates>
+        <name>Post_Backorder_Chatter_Note</name>
+        <label>Post Backorder Chatter Note</label>
+        <locationX>176</locationX>
+        <locationY>134</locationY>
+        <inputAssignments>
+            <field>Body</field>
+            <value>
+                <elementReference>NotificationBody</elementReference>
+            </value>
+        </inputAssignments>
+        <inputAssignments>
+            <field>ParentId</field>
+            <value>
+                <elementReference>$Record.CaseId</elementReference>
+            </value>
+        </inputAssignments>
+        <object>FeedItem</object>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </recordCreates>
+    <start>
+        <locationX>50</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference>Post_Backorder_Chatter_Note</targetReference>
+        </connector>
+        <filterLogic>and</filterLogic>
+        <filters>
+            <field>CaseId</field>
+            <operator>IsNull</operator>
+            <value>
+                <booleanValue>false</booleanValue>
+            </value>
+        </filters>
+        <object>ProductRequest</object>
+        <recordTriggerType>Create</recordTriggerType>
+        <triggerType>RecordAfterSave</triggerType>
+    </start>
+    <status>Active</status>
+</Flow>

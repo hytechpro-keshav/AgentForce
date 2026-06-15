@@ -100,7 +100,28 @@ export interface CaseTriageGraphDeps {
   readContext(caseId: string): Promise<SalesforceCaseContext>;
   runTriage(input: CaseTriageTriageInput): Promise<SanitizedTriageResult>;
   applyWriteBack(triage: SanitizedTriageResult, caseId: string): Promise<void>;
-  requiresApproval(triage: SanitizedTriageResult): boolean;
+  /**
+   * Approval gate policy. True when triage policy requires approval OR
+   * any part plan flags `requiredApproval` (cross-region transfer,
+   * backorder, high-value, expedite — §7.5). One gate covers triage +
+   * parts in v1 (interim until Node 6).
+   */
+  requiresApproval(
+    triage: SanitizedTriageResult,
+    partsLogistics: PartsLogisticsChannel | undefined
+  ): boolean;
+  /**
+   * Node 4 — Phase 4c gated fulfillment writes, applied ONLY in the
+   * post-approval write-back. Creates `ProductTransfer` / `ProductRequest`
+   * for approved transfer/backorder plans (config-gated, idempotent).
+   * Returns an updated channel reflecting reservation transitions, or
+   * `undefined` to leave the channel unchanged. Never throws.
+   */
+  applyPartsFulfillment(
+    workflowId: string,
+    caseId: string,
+    partsLogistics: PartsLogisticsChannel | undefined
+  ): Promise<PartsLogisticsChannel | undefined>;
   /**
    * Node 2 — cheap, config-driven eligibility check. Pure over Case
    * criteria plus the optional triage hint; runs before any read.
@@ -514,7 +535,7 @@ export function buildCaseTriageGraph(deps: CaseTriageGraphDeps) {
     })
     .addNode("gate", (state) => {
       const triage = state.triage!;
-      if (!deps.requiresApproval(triage)) {
+      if (!deps.requiresApproval(triage, state.partsLogistics)) {
         return {
           approvalRequired: false,
           approvalDecision: "approved" as ApprovalDecision
@@ -535,9 +556,18 @@ export function buildCaseTriageGraph(deps: CaseTriageGraphDeps) {
     })
     .addNode("writeBack", async (state) => {
       await deps.applyWriteBack(state.triage!, state.caseId);
+      // Phase 4c — apply gated parts fulfillment writes alongside the
+      // triage write-back, now that approval has cleared. Config-gated
+      // and degrade-safe; returns an updated channel or undefined.
+      const updatedParts = await deps.applyPartsFulfillment(
+        state.workflowId,
+        state.caseId,
+        state.partsLogistics
+      );
       return {
         writeBackApplied: true,
-        status: "done" as NodeLifecycleStatus
+        status: "done" as NodeLifecycleStatus,
+        ...(updatedParts ? { partsLogistics: updatedParts } : {})
       };
     })
     .addNode("rejected", () => {
@@ -1794,6 +1824,12 @@ function buildPartsPlanDetails(
   if (approvals > 0) {
     details.push({ label: "Approvals needed", value: String(approvals) });
   }
+  if (channel.kbCrossCheck && channel.kbCrossCheck.status !== "SKIPPED") {
+    details.push({
+      label: "KB cross-check",
+      value: channel.kbCrossCheck.status
+    });
+  }
   return details;
 }
 
@@ -1816,7 +1852,9 @@ function buildPartsPlanTrace(
           transferRequired: p.transferRequired ?? false,
           etaWindow: p.estimatedArrivalWindow ?? null,
           requiredApproval: p.requiredApproval,
-          approvalReason: p.approvalReason ?? "none"
+          approvalReason: p.approvalReason ?? "none",
+          kbWarehouseAlignment: p.kbWarehouseAlignment ?? null,
+          kbDocumentedWarehouses: p.kbDocumentedWarehouses ?? []
         }))
       },
       {
@@ -1826,7 +1864,15 @@ function buildPartsPlanTrace(
           status: channel.status ?? null,
           fulfillmentReadiness: channel.fulfillmentReadiness ?? null,
           fulfillmentConfidence: channel.fulfillmentConfidence ?? null,
-          candidateSources: channel.candidateSources ?? []
+          candidateSources: channel.candidateSources ?? [],
+          kbCrossCheck: channel.kbCrossCheck
+            ? {
+                status: channel.kbCrossCheck.status,
+                alignedCount: channel.kbCrossCheck.alignedCount,
+                divergentCount: channel.kbCrossCheck.divergentCount,
+                undocumentedCount: channel.kbCrossCheck.undocumentedCount
+              }
+            : null
         }
       }
     ]

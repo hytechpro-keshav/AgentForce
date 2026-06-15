@@ -184,6 +184,25 @@ export interface OrchestrationPartPlan {
   requiredApproval: boolean;
   approvalReason?: string;
   rationale: string;
+  kbWarehouseAlignment?: string;
+  kbDocumentedWarehouses?: string[];
+  kbCrossCheckNote?: string;
+  fulfillmentRecordType?: string;
+  fulfillmentRecordId?: string;
+}
+
+export interface OrchestrationPartsKbCrossCheck {
+  status: string;
+  alignedCount: number;
+  divergentCount: number;
+  undocumentedCount: number;
+}
+
+export interface OrchestrationPartsWriteOutcome {
+  applied: boolean;
+  degraded: boolean;
+  createdCount: number;
+  idempotentSkipCount: number;
 }
 
 export interface OrchestrationPartsLogistics {
@@ -196,6 +215,8 @@ export interface OrchestrationPartsLogistics {
   fulfillmentReadiness?: string;
   fulfillmentConfidence?: OrchestrationEvidenceConfidence;
   candidateSources?: string[];
+  kbCrossCheck?: OrchestrationPartsKbCrossCheck;
+  writeOutcome?: OrchestrationPartsWriteOutcome;
   provider?: string;
   latencyMs?: number;
 }
@@ -734,7 +755,49 @@ function sanitizePartPlan(value: unknown): OrchestrationPartPlan | undefined {
     confidence: isConfidence(record.confidence) ? record.confidence : "low",
     requiredApproval: record.requiredApproval === true,
     approvalReason: str(record.approvalReason, 40),
-    rationale: str(record.rationale, 280) ?? ""
+    rationale: str(record.rationale, 280) ?? "",
+    kbWarehouseAlignment: str(record.kbWarehouseAlignment, 24),
+    kbDocumentedWarehouses: Array.isArray(record.kbDocumentedWarehouses)
+      ? record.kbDocumentedWarehouses
+          .map((item) => str(item, 40))
+          .filter((item): item is string => Boolean(item))
+          .slice(0, 8)
+      : undefined,
+    kbCrossCheckNote: str(record.kbCrossCheckNote, 240),
+    fulfillmentRecordType: str(record.fulfillmentRecordType, 40),
+    fulfillmentRecordId: str(record.fulfillmentRecordId, 24)
+  };
+}
+
+function sanitizePartsWriteOutcome(
+  value: unknown
+): OrchestrationPartsWriteOutcome | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  const count = (v: unknown): number =>
+    typeof v === "number" && v >= 0 ? Math.round(v) : 0;
+  return {
+    applied: record.applied === true,
+    degraded: record.degraded === true,
+    createdCount: count(record.createdCount),
+    idempotentSkipCount: count(record.idempotentSkipCount)
+  };
+}
+
+function sanitizeKbCrossCheck(
+  value: unknown
+): OrchestrationPartsKbCrossCheck | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  const status = str(record.status, 24);
+  if (!status) return undefined;
+  const count = (v: unknown): number =>
+    typeof v === "number" && v >= 0 ? Math.round(v) : 0;
+  return {
+    status,
+    alignedCount: count(record.alignedCount),
+    divergentCount: count(record.divergentCount),
+    undocumentedCount: count(record.undocumentedCount)
   };
 }
 
@@ -778,6 +841,8 @@ function sanitizePartsLogistics(
           .filter((item): item is string => Boolean(item))
           .slice(0, 6)
       : undefined,
+    kbCrossCheck: sanitizeKbCrossCheck(record.kbCrossCheck),
+    writeOutcome: sanitizePartsWriteOutcome(record.writeOutcome),
     provider: str(record.provider, 60),
     latencyMs:
       typeof record.latencyMs === "number" && record.latencyMs >= 0

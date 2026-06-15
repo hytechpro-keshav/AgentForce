@@ -43,6 +43,10 @@ INGEST_CORPUS="${INGEST_CORPUS:-0}"
 POLL_TIMEOUT_SECS="${POLL_TIMEOUT_SECS:-120}"
 JWT_TTL_SECONDS="${JWT_TTL_SECONDS:-3600}"
 ASSERT_PARTS_ELIGIBLE="${ASSERT_PARTS_ELIGIBLE:-1}"
+# Phase 4c gated-write assertion. Off by default — only meaningful once
+# the workflow is approved AND AI_API_ORCHESTRATOR_PARTS_WRITES_ENABLED=true
+# with the expanded perm set assigned to the run-as user.
+ASSERT_PARTS_WRITES="${ASSERT_PARTS_WRITES:-0}"
 
 : "${SF_CASE_ID:?Set SF_CASE_ID to a Salesforce Case record ID for the triage test.}"
 
@@ -202,6 +206,8 @@ parts_degraded=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field partsLogi
 parts_readiness=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field partsLogistics.fulfillmentReadiness)
 parts_plan_count=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field partsLogistics.partPlans.length)
 parts_eligibility_reason=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field partsLogistics.eligibilityReason)
+parts_kb_crosscheck=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field partsLogistics.kbCrossCheck.status)
+parts_write_applied=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field partsLogistics.writeOutcome.applied)
 
 errors=0
 
@@ -215,6 +221,7 @@ echo "  Parts status:            ${parts_status}"
 echo "  Parts degraded:          ${parts_degraded}"
 echo "  Parts readiness:         ${parts_readiness}"
 echo "  Parts plan count:        ${parts_plan_count}"
+echo "  Parts KB cross-check:    ${parts_kb_crosscheck}"
 if [[ "${parts_eligible}" != "true" ]]; then
   echo "  Parts eligibility reason: ${parts_eligibility_reason}"
 fi
@@ -252,8 +259,24 @@ if [[ "${ASSERT_PARTS_ELIGIBLE}" == "1" ]]; then
   [[ "${parts_degraded}" == "false" ]] || {
     echo "  WARN: Parts logistics degraded — inventory reads or transit rules may be unavailable"
   }
+  # Phase 4b — KB warehouse cross-check (audit-only). Absent only when degraded.
+  if [[ "${parts_degraded}" == "false" ]]; then
+    [[ "${parts_kb_crosscheck}" == "ALIGNED" || "${parts_kb_crosscheck}" == "DIVERGENT" || "${parts_kb_crosscheck}" == "UNDOCUMENTED" ]] || {
+      echo "  FAIL: Unexpected parts KB cross-check status: ${parts_kb_crosscheck}" >&2
+      (( errors++ ))
+    }
+  fi
 else
   echo "  Node 4 assertions skipped (ASSERT_PARTS_ELIGIBLE=${ASSERT_PARTS_ELIGIBLE})"
+fi
+
+# Phase 4c — gated fulfillment writes (only when explicitly asserted).
+if [[ "${ASSERT_PARTS_WRITES}" == "1" ]]; then
+  echo "  Parts writes applied:    ${parts_write_applied}"
+  [[ "${parts_write_applied}" == "true" ]] || {
+    echo "  FAIL: Expected parts fulfillment writes applied (check PARTS_WRITES_ENABLED, approval, perm set, Apex REST)" >&2
+    (( errors++ ))
+  }
 fi
 
 if (( errors > 0 )); then
