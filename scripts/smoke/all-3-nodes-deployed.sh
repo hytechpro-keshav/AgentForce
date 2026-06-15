@@ -1,17 +1,21 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# all-3-nodes-deployed.sh — End-to-end test for all 3 orchestrator nodes on
-# Railway (Node 1 Triage, Node 2 Customer History, Node 3 Knowledge Base)
+# all-3-nodes-deployed.sh — End-to-end test for all 4 orchestrator nodes on
+# Railway (Node 1 Triage, Node 2 Customer History, Node 3 Knowledge Base,
+# Node 4 Parts & Logistics)
 #
 # Tests the full LangGraph case-triage workflow with the laptop KB corpus:
-#   START → readContext → runTriage (N1) → customerHistory (N2) → knowledge (N3) → gate → writeBack
+#   START → readContext → runTriage (N1) → customerHistory (N2) → knowledge (N3)
+#         → partsLogistics (N4) → gate → writeBack
 #
 # Prerequisites:
 #   • Railway deployment is healthy
 #   • Laptop KB corpus is ingested (or set INGEST_CORPUS=1 to ingest)
 #   • AI_API_ORCHESTRATOR_KNOWLEDGE_ENABLED=true on Railway
+#   • AI_API_ORCHESTRATOR_PARTS_ENABLED=true on Railway
 #   • RAG_ENABLED=true on Railway
-#   • A real Salesforce Case ID with an asset (laptop issue description)
+#   • A real Salesforce Case ID with an installed asset (laptop issue description)
+#   • OAuth Connected App Run As user has Agentforce_Parts_Logistics_Node4
 #
 # Required env vars:
 #   RAILWAY_SERVICE       — Railway service name (default: ai-api)
@@ -22,12 +26,14 @@
 #   AI_API_BASE_URL       — defaults to Railway deployed URL
 #   INGEST_CORPUS         — set to 1 to re-ingest the laptop KB before testing
 #   POLL_TIMEOUT_SECS     — workflow poll timeout (default: 120)
+#   ASSERT_PARTS_ELIGIBLE — set to 0 to skip Node 4 eligibility assertion (default: 1)
 # ==============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 MINT_JWT="${REPO_ROOT}/scripts/smoke/phase4-mint-jwt.mjs"
+PARSE_SNAPSHOT="${REPO_ROOT}/scripts/smoke/parse-orchestrator-snapshot.mjs"
 
 AI_API_BASE_URL="${AI_API_BASE_URL:-https://ai-api-production-03f5.up.railway.app}"
 RAILWAY_SERVICE="${RAILWAY_SERVICE:-ai-api}"
@@ -36,6 +42,7 @@ CORPUS_PATH="${CORPUS_PATH:-${REPO_ROOT}/apps/ai-api/data/knowledge/kb-laptop-co
 INGEST_CORPUS="${INGEST_CORPUS:-0}"
 POLL_TIMEOUT_SECS="${POLL_TIMEOUT_SECS:-120}"
 JWT_TTL_SECONDS="${JWT_TTL_SECONDS:-3600}"
+ASSERT_PARTS_ELIGIBLE="${ASSERT_PARTS_ELIGIBLE:-1}"
 
 : "${SF_CASE_ID:?Set SF_CASE_ID to a Salesforce Case record ID for the triage test.}"
 
@@ -121,7 +128,7 @@ echo "  Sources retrieved: ${source_count}"
 echo "${rag_response}" | jq -r '.sources[] | "    • \(.sourceId): \(.title)"' 2>/dev/null | head -5
 
 # ---------------------------------------------------------------------------
-# 4. Trigger orchestrator case-triage (all 3 nodes)
+# 4. Trigger orchestrator case-triage (all 4 nodes)
 # ---------------------------------------------------------------------------
 echo ""
 echo "=== [4] Triggering orchestrator for Case ${SF_CASE_ID} ==="
@@ -145,6 +152,7 @@ echo "=== [5] Polling workflow ${workflow_id} (timeout: ${POLL_TIMEOUT_SECS}s) =
 deadline=$(( $(date +%s) + POLL_TIMEOUT_SECS ))
 terminal_statuses=("done" "failed" "rejected")
 final_status=""
+snapshot=""
 
 while true; do
   now=$(date +%s)
@@ -156,7 +164,7 @@ while true; do
   snapshot=$(curl -sS \
     -H "authorization: Bearer ${AGENTFORCE_TOKEN}" \
     "${AI_API_BASE_URL}/orchestrator/case-triage/${workflow_id}")
-  status=$(echo "${snapshot}" | jq -r '.status // "unknown"')
+  status=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field status)
 
   printf "  [%ds remaining] status=%s\n" "$(( deadline - now ))" "${status}"
 
@@ -170,20 +178,13 @@ while true; do
   sleep 5
 done
 
+# ---------------------------------------------------------------------------
+# 6. Final workflow snapshot (safe parse — orchestrator text may contain
+#    control characters that break jq)
+# ---------------------------------------------------------------------------
 echo ""
 echo "=== [6] Final workflow snapshot ==="
-echo "${snapshot}" | jq '{
-  workflowId: .workflowId,
-  status: .status,
-  triage: .triage,
-  customerContext: (if .customerContext then { eligible: .customerContext.eligible, degraded: .customerContext.degraded } else null end),
-  knowledgeGuidance: (if .knowledgeGuidance then {
-    eligible: .knowledgeGuidance.eligible,
-    status: .knowledgeGuidance.status,
-    degraded: .knowledgeGuidance.degraded,
-    sourceCount: (if .knowledgeGuidance.answer then (.knowledgeGuidance.answer.sources | length) else 0 end)
-  } else null end)
-}'
+echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --summary
 
 # ---------------------------------------------------------------------------
 # 7. Assertions
@@ -191,38 +192,79 @@ echo "${snapshot}" | jq '{
 echo ""
 echo "=== [7] Assertions ==="
 
-knowledge_status=$(echo "${snapshot}" | jq -r '.knowledgeGuidance.status // "absent"')
-knowledge_eligible=$(echo "${snapshot}" | jq -r '.knowledgeGuidance.eligible // false')
-# Use an explicit conditional: jq's `//` treats a real `false` as absent and
-# would wrongly report a healthy (degraded=false) channel as degraded.
-knowledge_degraded=$(echo "${snapshot}" | jq -r 'if (.knowledgeGuidance.degraded == true) then "true" else "false" end')
-triage_priority=$(echo "${snapshot}" | jq -r '.triage.recommendedPriority // "absent"')
+knowledge_status=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field knowledgeGuidance.status)
+knowledge_eligible=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field knowledgeGuidance.eligible)
+knowledge_degraded=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field knowledgeGuidance.degraded)
+triage_priority=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field triage.recommendedPriority)
+parts_eligible=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field partsLogistics.eligible)
+parts_status=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field partsLogistics.status)
+parts_degraded=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field partsLogistics.degraded)
+parts_readiness=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field partsLogistics.fulfillmentReadiness)
+parts_plan_count=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field partsLogistics.partPlans.length)
+parts_eligibility_reason=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field partsLogistics.eligibilityReason)
 
 errors=0
 
-echo "  Workflow status:       ${final_status}"
-echo "  Triage priority:       ${triage_priority}"
-echo "  Knowledge eligible:    ${knowledge_eligible}"
-echo "  Knowledge status:      ${knowledge_status}"
-echo "  Knowledge degraded:    ${knowledge_degraded}"
+echo "  Workflow status:         ${final_status}"
+echo "  Triage priority:         ${triage_priority}"
+echo "  Knowledge eligible:      ${knowledge_eligible}"
+echo "  Knowledge status:        ${knowledge_status}"
+echo "  Knowledge degraded:      ${knowledge_degraded}"
+echo "  Parts eligible:          ${parts_eligible}"
+echo "  Parts status:            ${parts_status}"
+echo "  Parts degraded:          ${parts_degraded}"
+echo "  Parts readiness:         ${parts_readiness}"
+echo "  Parts plan count:        ${parts_plan_count}"
+if [[ "${parts_eligible}" != "true" ]]; then
+  echo "  Parts eligibility reason: ${parts_eligibility_reason}"
+fi
 
 [[ "${final_status}" == "done" ]] || { echo "  FAIL: Expected status=done, got ${final_status}" >&2; (( errors++ )); }
-[[ "${triage_priority}" != "absent" ]] || { echo "  FAIL: Triage priority absent (Node 1 failed?)" >&2; (( errors++ )); }
-[[ "${knowledge_eligible}" == "true" ]] || { echo "  FAIL: Knowledge not eligible (check KNOWLEDGE_ENABLED + RAG_ENABLED)" >&2; (( errors++ )); }
-[[ "${knowledge_degraded}" == "false" ]] || { echo "  WARN: Knowledge degraded — RAG or vector DB may be unavailable"; }
+[[ "${triage_priority}" != "absent" && "${triage_priority}" != "null" ]] || {
+  echo "  FAIL: Triage priority absent (Node 1 failed?)" >&2
+  (( errors++ ))
+}
+[[ "${knowledge_eligible}" == "true" ]] || {
+  echo "  FAIL: Knowledge not eligible (check KNOWLEDGE_ENABLED + RAG_ENABLED)" >&2
+  (( errors++ ))
+}
+[[ "${knowledge_degraded}" == "false" ]] || {
+  echo "  WARN: Knowledge degraded — RAG or vector DB may be unavailable"
+}
 [[ "${knowledge_status}" == "ANSWERED" || "${knowledge_status}" == "NO_SOURCE" ]] || {
   echo "  FAIL: Unexpected knowledge status: ${knowledge_status}" >&2
   (( errors++ ))
 }
 
+if [[ "${ASSERT_PARTS_ELIGIBLE}" == "1" ]]; then
+  [[ "${parts_eligible}" == "true" ]] || {
+    echo "  FAIL: Parts logistics not eligible (check PARTS_ENABLED, OAuth Run As user, perm set, Case asset)" >&2
+    (( errors++ ))
+  }
+  [[ "${parts_status}" == "PLANNED" || "${parts_status}" == "PARTIAL" || "${parts_status}" == "UNAVAILABLE" ]] || {
+    echo "  FAIL: Unexpected parts status: ${parts_status}" >&2
+    (( errors++ ))
+  }
+  [[ "${parts_plan_count}" =~ ^[1-9][0-9]*$ ]] || {
+    echo "  FAIL: Expected at least one part plan when eligible=true, got ${parts_plan_count}" >&2
+    (( errors++ ))
+  }
+  [[ "${parts_degraded}" == "false" ]] || {
+    echo "  WARN: Parts logistics degraded — inventory reads or transit rules may be unavailable"
+  }
+else
+  echo "  Node 4 assertions skipped (ASSERT_PARTS_ELIGIBLE=${ASSERT_PARTS_ELIGIBLE})"
+fi
+
 if (( errors > 0 )); then
   echo ""
-  echo "All-3-nodes test FAILED with ${errors} error(s)." >&2
+  echo "All-nodes test FAILED with ${errors} error(s)." >&2
   exit 1
 fi
 
 echo ""
-echo "=== All 3 nodes PASSED ==="
-echo "  Node 1 (Triage):          priority=${triage_priority}"
-echo "  Node 2 (Customer History): eligible=${knowledge_eligible}"
-echo "  Node 3 (Knowledge Base):  status=${knowledge_status}"
+echo "=== All 4 nodes PASSED ==="
+echo "  Node 1 (Triage):            priority=${triage_priority}"
+echo "  Node 2 (Customer History):  eligible=${knowledge_eligible}"
+echo "  Node 3 (Knowledge Base):    status=${knowledge_status}"
+echo "  Node 4 (Parts & Logistics): status=${parts_status}, readiness=${parts_readiness}, plans=${parts_plan_count}"
