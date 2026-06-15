@@ -13,16 +13,12 @@ import { SalesforceGatewayError } from "./salesforce-gateway.error";
 import { fetchWithTimeout, readJsonObject } from "./salesforce-http.util";
 
 const CASE_FIELDS =
-  "Id,CaseNumber,Subject,Description,Priority,Status,Origin,AccountId";
+  "Id,CaseNumber,Subject,Description,Priority,Status,Origin,AccountId," +
+  "AssetId,Asset.Product2.ProductCode";
 
-/**
- * Node 4 (parts & logistics) extension fields. Read separately and
- * best-effort so an org that has not deployed them — or an OAuth
- * run-as user that lacks FLS on them — degrades Node 4 only and never
- * breaks the core Case read that Node 1 depends on.
- */
-const CASE_LOGISTICS_SOQL_FIELDS =
-  "AssetId, Asset.Product2.ProductCode, Asset.SerialNumber, " +
+const CASE_ASSET_SOQL_FIELDS = "AssetId, Asset.Product2.ProductCode";
+
+const CASE_SHIP_TO_SOQL_FIELDS =
   "Service_Ship_To_City__c, Service_Ship_To_State__c, Service_Ship_To_Country__c";
 
 /** Salesforce 15- or 18-char record id. Guards against SOQL injection. */
@@ -55,34 +51,72 @@ export class SalesforceCaseGateway {
     this.assertOk(response, "read");
     const json = await readJsonObject(response);
     const context = SalesforceCaseGateway.mapCase(caseId, json);
-    // Layer the Node 4 asset + ship-to fields on top, best-effort. A
-    // failure here (fields not deployed, FLS missing) only degrades
-    // parts logistics; the core triage context is already complete.
-    const logistics = await this.readCaseLogisticsContext(caseId);
-    return { ...context, ...logistics };
+    // Ship-to custom fields stay on a best-effort SOQL read. Asset +
+    // product code come from the primary REST read above (same auth
+    // path as triage) with an SOQL fallback when the REST relationship
+    // is absent.
+    const logistics = await this.readCaseLogisticsContext(caseId, context);
+    return SalesforceCaseGateway.mergeDefined(context, logistics);
+  }
+
+  /** Merge partial updates without letting explicit `undefined` clobber values. */
+  private static mergeDefined(
+    base: SalesforceCaseContext,
+    patch: Partial<SalesforceCaseContext>
+  ): SalesforceCaseContext {
+    const merged = { ...base };
+    for (const [key, value] of Object.entries(patch) as Array<
+      [keyof SalesforceCaseContext, SalesforceCaseContext[keyof SalesforceCaseContext]]
+    >) {
+      if (value !== undefined) {
+        (merged as Record<string, unknown>)[key as string] = value;
+      }
+    }
+    return merged;
   }
 
   /**
-   * Best-effort read of the Node 4 extension fields (installed Asset +
-   * service ship-to). Returns an empty object — never throws — when the
-   * org lacks the fields or the run-as user lacks FLS, so the core Case
-   * read stays bulletproof.
+   * Best-effort read of Node 4 ship-to fields, with SOQL asset fallback
+   * when the REST relationship was not returned. Never throws.
    */
   private async readCaseLogisticsContext(
-    caseId: string
+    caseId: string,
+    restContext: SalesforceCaseContext
   ): Promise<Partial<SalesforceCaseContext>> {
     if (!SF_ID_PATTERN.test(caseId)) {
       return {};
     }
+    const shipTo = await this.queryCaseLogisticsFields(
+      caseId,
+      CASE_SHIP_TO_SOQL_FIELDS,
+      "ship-to"
+    );
+    const needsAssetFallback =
+      !restContext.assetId && !restContext.assetProductCode;
+    const asset = needsAssetFallback
+      ? await this.queryCaseLogisticsFields(
+          caseId,
+          CASE_ASSET_SOQL_FIELDS,
+          "asset"
+        )
+      : {};
+    return { ...asset, ...shipTo };
+  }
+
+  private async queryCaseLogisticsFields(
+    caseId: string,
+    fields: string,
+    label: "asset" | "ship-to"
+  ): Promise<Partial<SalesforceCaseContext>> {
     try {
-      const soql = `SELECT ${CASE_LOGISTICS_SOQL_FIELDS} FROM Case WHERE Id = '${caseId}' LIMIT 1`;
+      const soql = `SELECT ${fields} FROM Case WHERE Id = '${caseId}' LIMIT 1`;
       const path = `/services/data/v${this.apiVersion()}/query?q=${encodeURIComponent(
         soql
       )}`;
       const response = await this.authedRequest("GET", path);
       if (response.status < 200 || response.status >= 300) {
         this.logger.warn(
-          `Case logistics fields read degraded (status=${response.status}).`
+          `Case ${label} fields read degraded (status=${response.status}).`
         );
         return {};
       }
@@ -94,7 +128,7 @@ export class SalesforceCaseGateway {
       return SalesforceCaseGateway.mapLogistics(row);
     } catch {
       this.logger.warn(
-        "Case logistics fields read degraded; continuing without Node 4 context."
+        `Case ${label} fields read degraded; continuing without Node 4 ${label} context.`
       );
       return {};
     }
@@ -228,6 +262,15 @@ export class SalesforceCaseGateway {
   ): SalesforceCaseContext {
     const str = (key: string): string | undefined =>
       typeof json[key] === "string" ? (json[key] as string) : undefined;
+    const asset =
+      json["Asset"] && typeof json["Asset"] === "object"
+        ? (json["Asset"] as Record<string, unknown>)
+        : undefined;
+    const product2 =
+      asset?.["Product2"] && typeof asset["Product2"] === "object"
+        ? (asset["Product2"] as Record<string, unknown>)
+        : undefined;
+    const productCode = product2?.["ProductCode"];
     return {
       caseId: str("Id") ?? caseId,
       caseNumber: str("CaseNumber"),
@@ -238,7 +281,12 @@ export class SalesforceCaseGateway {
       reportedPriority: SalesforceCaseGateway.fromSalesforcePriority(
         str("Priority")
       ),
-      accountId: str("AccountId")
+      accountId: str("AccountId"),
+      assetId: str("AssetId"),
+      assetProductCode:
+        typeof productCode === "string" && productCode.length > 0
+          ? productCode
+          : undefined
     };
   }
 

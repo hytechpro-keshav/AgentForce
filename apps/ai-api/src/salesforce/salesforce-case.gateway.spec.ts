@@ -57,28 +57,48 @@ describe("SalesforceCaseGateway", () => {
 
   it("reads and maps a Case, sending a bearer token to the REST API", async () => {
     const h = buildHarness();
-    h.fetchMock.mockResolvedValueOnce(
-      jsonResponse({
-        Id: "500000000000001",
-        CaseNumber: "00004242",
-        Subject: "Outage",
-        Description: "No service",
-        Priority: "High",
-        Status: "New",
-        Origin: "Web",
-        AccountId: "001000000000001"
-      })
-    );
+    h.fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse({
+          Id: "500000000000001",
+          CaseNumber: "00004242",
+          Subject: "Outage",
+          Description: "No service",
+          Priority: "High",
+          Status: "New",
+          Origin: "Web",
+          AccountId: "001000000000001",
+          AssetId: "02i000000000001",
+          Asset: {
+            Product2: { ProductCode: "AV-LP-15X-PRO" }
+          }
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          records: [
+            {
+              Service_Ship_To_City__c: "Austin",
+              Service_Ship_To_State__c: "TX",
+              Service_Ship_To_Country__c: "US"
+            }
+          ]
+        })
+      );
 
     const context = await h.gateway.readCaseContext("500000000000001");
 
     expect(context.reportedPriority).toBe("high");
     expect(context.caseNumber).toBe("00004242");
+    expect(context.assetId).toBe("02i000000000001");
+    expect(context.assetProductCode).toBe("AV-LP-15X-PRO");
+    expect(context.serviceShipToCity).toBe("Austin");
     const [url, init] = h.fetchMock.mock.calls[0];
     expect(url).toContain(
       `${INSTANCE_URL}/services/data/v60.0/sobjects/Case/500000000000001`
     );
     expect(url).toContain("fields=");
+    expect(url).toContain("AssetId");
     expect((init as RequestInit).method).toBe("GET");
     expect((init as RequestInit).headers).toMatchObject({
       authorization: `Bearer ${ACCESS_TOKEN}`
@@ -87,14 +107,16 @@ describe("SalesforceCaseGateway", () => {
 
   it("maps Salesforce Medium priority to normal", async () => {
     const h = buildHarness();
-    h.fetchMock.mockResolvedValueOnce(
-      jsonResponse({
-        Id: "500000000000001",
-        Subject: "x",
-        Description: "y",
-        Priority: "Medium"
-      })
-    );
+    h.fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse({
+          Id: "500000000000001",
+          Subject: "x",
+          Description: "y",
+          Priority: "Medium"
+        })
+      )
+      .mockResolvedValueOnce(jsonResponse({ records: [] }));
     const context = await h.gateway.readCaseContext("500000000000001");
     expect(context.reportedPriority).toBe("normal");
   });
