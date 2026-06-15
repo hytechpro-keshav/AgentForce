@@ -148,3 +148,5 @@ kbCrossCheck?: {
 - Remove `Agentforce_Parts_Logistics_Node4` from `integration@00dg5000005qpuneaa.com` if still assigned (see auth lessons)
 
 See [`node4-auth-session-lessons.md`](../context/node4-auth-session-lessons.md) for OAuth troubleshooting.
+
+**Case creation for each scenario:** [`docs/testing/node4-orchestrator-case-scenarios.md`](../testing/node4-orchestrator-case-scenarios.md)

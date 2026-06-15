@@ -1046,6 +1046,9 @@ export interface PartsLogisticsChannel {
 
 ## 14. Demo scenario matrix (regression)
 
+**Case creation runbook (seed scripts + copy-paste commands):**
+[`docs/testing/node4-orchestrator-case-scenarios.md`](../testing/node4-orchestrator-case-scenarios.md)
+
 | Case type                     | Parts                                   | Expected Node 4 outcome                                                        |
 | ----------------------------- | --------------------------------------- | ------------------------------------------------------------------------------ |
 | Battery not charging (Austin) | SP-BATT-15X, SP-CHG-65W                 | Fulfillment WH WH-AUS-001; Scenario A if stock local; SP-CHG-65W at WH-JCY-003 |
@@ -1063,7 +1066,8 @@ export interface PartsLogisticsChannel {
 - **Phase 4 skill:** [`.agents/skills/salesforce-node4-parts-prep/SKILL.md`](../../.agents/skills/salesforce-node4-parts-prep/SKILL.md)
 - **Deploy manifest:** [`manifest/node4-pre-package.xml`](../../manifest/node4-pre-package.xml)
 - **Transit rules JSON:** [`data/warehouse-transit-rules.json`](../../data/warehouse-transit-rules.json)
-- **Scripts:** [`scripts/sf/node4-pre-deploy.sh`](../../scripts/sf/node4-pre-deploy.sh), [`node4-pre-backfill.sh`](../../scripts/sf/node4-pre-backfill.sh), [`node4-pre-validation.sh`](../../scripts/sf/node4-pre-validation.sh)
+- **Scripts:** [`scripts/sf/node4-pre-deploy.sh`](../../scripts/sf/node4-pre-deploy.sh), [`node4-pre-backfill.sh`](../../scripts/sf/node4-pre-backfill.sh), [`node4-pre-validation.sh`](../../scripts/sf/node4-pre-validation.sh), [`node4-seed-scenario-a-local.sh`](../../scripts/sf/node4-seed-scenario-a-local.sh), [`node4-seed-oos-sku.sh`](../../scripts/sf/node4-seed-oos-sku.sh)
+- **Case scenarios:** [`docs/testing/node4-orchestrator-case-scenarios.md`](../testing/node4-orchestrator-case-scenarios.md)
 - Repo seed: [`data/products-and-location-data.json`](../../data/products-and-location-data.json)
 - KB corpus: [`apps/ai-api/data/knowledge/kb-laptop-corpus.json`](../../apps/ai-api/data/knowledge/kb-laptop-corpus.json)
 - Node 3 contract: [`apps/ai-api/src/orchestrator/dto/knowledge-guidance.ts`](../../apps/ai-api/src/orchestrator/dto/knowledge-guidance.ts)
