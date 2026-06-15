@@ -139,6 +139,7 @@ kbCrossCheck?: {
 - Field Service Standard PSL + `Agentforce_Parts_Fulfillment_Writes` assigned to OAuth run-as user
 - Railway `AI_API_ORCHESTRATOR_PARTS_WRITES_ENABLED=true` + ai-api redeployed
 - Live smoke: `ASSERT_PARTS_WRITES=1 SF_CASE_ID=500g500000YpQMnAAN` — **PASSED** (workflow `wf-2ffe979b-8f1e-423a-aed9-8966fceab8a3`, `ProductTransfer` created)
+- Backorder smoke: `ASSERT_PARTS_WRITES=1 SF_CASE_ID=500g500000aBTErAAO` — **PASSED** (workflow `wf-51bdbc50-aa07-4eed-bb5f-ec40fddccac9`, `ProductRequest` created for `SP-TEST-OOS`; seed via `./scripts/sf/node4-seed-oos-sku.sh`)
 
 **Still manual / optional:**
 

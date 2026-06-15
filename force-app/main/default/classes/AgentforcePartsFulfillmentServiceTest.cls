@@ -284,7 +284,7 @@ private class AgentforcePartsFulfillmentServiceTest {
     AgentforcePartsFulfillmentRest.post();
     Test.stopTest();
 
-    System.assertEquals(502, RestContext.response.statusCode);
+    System.assertEquals(200, RestContext.response.statusCode);
     Map<String, Object> parsed = (Map<String, Object>) JSON.deserializeUntyped(
       RestContext.response.responseBody.toString()
     );

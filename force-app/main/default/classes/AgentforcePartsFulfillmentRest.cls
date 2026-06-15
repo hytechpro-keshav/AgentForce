@@ -36,7 +36,9 @@ global with sharing class AgentforcePartsFulfillmentRest {
       return;
     }
 
-    res.statusCode = result != null && result.degraded == true ? 502 : 200;
+    // Salesforce RestResponse does not support HTTP 502 — always return 200
+    // and encode degradation in the JSON body for NestJS to interpret.
+    res.statusCode = 200;
     res.responseBody = Blob.valueOf(JSON.serialize(result));
   }
 

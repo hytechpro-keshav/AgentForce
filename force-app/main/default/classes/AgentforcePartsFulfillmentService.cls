@@ -324,7 +324,7 @@ public with sharing class AgentforcePartsFulfillmentService {
         if (
           Schema.sObjectType.ProductRequestLineItem.fields.Backorder_Reason__c.isCreateable()
         ) {
-          line.Backorder_Reason__c = 'Network shortage';
+          line.Backorder_Reason__c = 'Out of Stock';
         }
         linesToInsert.add(line);
         lineItemIndex.add(stage.itemIndex);
