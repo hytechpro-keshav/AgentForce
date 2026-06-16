@@ -97,14 +97,17 @@ extraction producer, and every consumer ship together.
 - Reserve future channel namespaces (design only, no behavior yet):
   `partsLogistics`, `scheduling`, `guardrail`, `resolutionDraft`, `insights`.
 
-### Composite Node 6 guardrail (design now, implement later)
+### Composite Node 6 guardrail (PLANNED — 2026-06-16)
+
+> **Phase plan:** [`docs/orchestrator/node-6-guardrail-phase-plan.md`](./node-6-guardrail-phase-plan.md)
 
 - Replace the prototype triage-only `gate` (`interrupt` in `case-triage.graph.ts`)
-  with a composite guardrail evaluating structured outputs from `triage`,
-  `customerContext`, `knowledgeGuidance` (+ future parts/scheduling).
-- Outcomes: `autoApprove | requireHumanApproval | reject | escalate`. Provide
-  decision matrix, confidence model, risk scoring, and migration path from the
-  current gate. Node 6 stays the **only** interrupting node.
+  with `evaluateGuardrail` — composite policy over all five typed channels
+  (`triage`, `customerContext`, `knowledgeGuidance`, `partsLogistics`, `scheduling`).
+- Outcomes: `autoApprove | requireHumanApproval | reject | escalate`. Decision matrix
+  (12 scenarios), risk scoring model (0–100), and migration path documented in phase plan §3.5–§3.6.
+- Node 6 remains the **only** interrupting node. Shipping Node 6 unblocks 5c
+  `ServiceAppointment` writes. Next: `/implement-node6-guardrail` (6a slice).
 
 ### Conditional routing keyed on typed fields only
 

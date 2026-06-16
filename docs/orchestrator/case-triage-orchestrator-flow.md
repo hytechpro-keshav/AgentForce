@@ -403,3 +403,5 @@ START → readContext → runTriage → customerHistory → knowledge → parts 
 | 5 Scheduling        | **`schedule`**    | **`scheduling`**    | LangGraph node name ≠ channel (same pattern as `parts` / `partsLogistics`) |
 
 **Final Verdict** rolls up Nodes 1–5 deterministically after the graph settles. Node 5 is gated on `AI_API_ORCHESTRATOR_SCHEDULING_ENABLED` (default off). Phase plan: [`node-5-scheduling-phase-plan.md`](node-5-scheduling-phase-plan.md) §0.5.
+
+**Node 6 — Compliance & Guardrail:** planned (2026-06-16). Phase plan: [`node-6-guardrail-phase-plan.md`](node-6-guardrail-phase-plan.md). Replaces the prototype `gate` node with `evaluateGuardrail`; composite policy matrix over all five typed channels; outcomes: `autoApprove | requireHumanApproval | reject | escalate`. Node 6 ships → 5c `ServiceAppointment` writes unblocked.
