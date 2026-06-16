@@ -42,6 +42,13 @@ export interface ActionRecommendation {
   /** Safe, non-PII reason; never raw chunk text or chain-of-thought. */
   rationale: string;
   requiredApproval: boolean;
+  /**
+   * Optional typed repair-effort estimate (minutes) for this action.
+   * Node 5 cross-checks it against the `WorkType.EstimatedDuration` when
+   * sizing the service window (5b). Typed so downstream nodes never parse
+   * `safeSummary`; absent until an extraction step populates it.
+   */
+  estimatedEffortMinutes?: number;
 }
 
 /** A part suggested by knowledge guidance, by safe identifier only. */

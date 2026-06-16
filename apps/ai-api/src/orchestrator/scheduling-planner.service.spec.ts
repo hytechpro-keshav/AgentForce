@@ -52,6 +52,7 @@ function buildRead(
     technicians: [A1, A2],
     businessWindows: ALL_DAY_WINDOWS,
     busyIntervals: [],
+    candidatesApiUsed: false,
     degraded: false,
     ...overrides
   };
@@ -301,5 +302,167 @@ describe("SchedulingPlannerService", () => {
     expect(channel.partsReadinessSeen).toBe("unknown");
     expect(channel.schedulingReadiness).toBe("provisional");
     expect(channel.degraded).toBe(false); // scheduling's own read was fine
+  });
+
+  // ── Phase 5b refinements ────────────────────────────────────────────────
+
+  describe("5b — territory-local timezone", () => {
+    it("projects operating hours in the territory zone, not UTC", () => {
+      // No-parts repair → floor = now (08:00 UTC = 03:00 CDT on 2026-06-15).
+      // The 09:00 local operating-hours window is the earliest slot.
+      const channel = plan({
+        context: buildContext({
+          subject: "Laptop will not power on",
+          description: "Device is dead; no charge light on the AV-LP-15X-PRO."
+        }),
+        partsLogistics: { eligible: false, degraded: false },
+        read: buildRead({ timeZone: "America/Chicago" })
+      });
+
+      const window = channel.proposedWindow!;
+      expect(window.timeZone).toBe("America/Chicago");
+      // 09:00 CDT (UTC−5 in June) === 14:00 UTC.
+      expect(new Date(window.proposedStart!).getUTCHours()).toBe(14);
+      expect(window.displayWindow).toMatch(/^Today 09:00–\d{2}:\d{2} CDT/);
+      expect(window.slotSource).toBe("deterministic");
+    });
+
+    it("keeps UTC projection + label when no timezone is supplied (5a parity)", () => {
+      const channel = plan({
+        context: buildContext({
+          subject: "Laptop will not power on",
+          description: "Device is dead; no charge light."
+        }),
+        partsLogistics: { eligible: false, degraded: false }
+      });
+      const window = channel.proposedWindow!;
+      expect(window.timeZone).toBeUndefined();
+      expect(new Date(window.proposedStart!).getUTCHours()).toBe(9);
+      expect(window.displayWindow).toMatch(/UTC/);
+    });
+  });
+
+  describe("5b — appointment/absence collision within a business day", () => {
+    it("sweeps past a booked interval to the next free slot the same day", () => {
+      // A2 (Display) is booked 09:00–13:00 UTC; parts ready in 4h → floor
+      // 12:00 UTC. The earliest non-colliding 2h slot is 13:00–15:00.
+      const channel = plan({
+        context: buildContext({
+          subject: "Laptop screen cracked",
+          description: "Display panel cracked on the AV-LP-15X-PRO."
+        }),
+        partsLogistics: partsChannel("ready", "SP-DISP-15X-FHD", 4),
+        read: buildRead({
+          busyIntervals: [
+            {
+              startMs: Date.parse("2026-06-15T09:00:00.000Z"),
+              endMs: Date.parse("2026-06-15T13:00:00.000Z"),
+              resourceId: A2.resourceId
+            }
+          ]
+        })
+      });
+
+      expect(channel.recommendedResourceReference).toBe("SR-A2");
+      expect(channel.proposedWindow!.proposedStart).toBe(
+        "2026-06-15T13:00:00.000Z"
+      );
+    });
+  });
+
+  describe("5b — WorkType / KB duration cross-check", () => {
+    it("uses the live WorkType duration over the per-skill default", () => {
+      const channel = plan({
+        context: buildContext({
+          subject: "Laptop screen cracked",
+          description: "Display panel cracked."
+        }),
+        partsLogistics: partsChannel("ready", "SP-DISP-15X-FHD", 4),
+        // Display default is 120m; the org WorkType says 90m.
+        read: buildRead({ workTypeDurationMinutesBySkill: { Display: 90 } })
+      });
+      const window = channel.proposedWindow!;
+      expect(window.durationMinutes).toBe(90);
+      expect(window.durationSource).toBe("worktype");
+      const span =
+        Date.parse(window.proposedEnd!) - Date.parse(window.proposedStart!);
+      expect(span).toBe(90 * 60_000);
+    });
+
+    it("widens to a longer KB repair-effort hint and marks it reconciled", () => {
+      const channel = plan({
+        context: buildContext({
+          subject: "Laptop screen cracked",
+          description: "Display panel cracked."
+        }),
+        partsLogistics: partsChannel("ready", "SP-DISP-15X-FHD", 4),
+        read: buildRead({ workTypeDurationMinutesBySkill: { Display: 90 } }),
+        kbDurationMinutesHint: 150
+      });
+      expect(channel.proposedWindow!.durationMinutes).toBe(150);
+      expect(channel.proposedWindow!.durationSource).toBe("reconciled");
+    });
+
+    it("falls back to the per-skill default when no WorkType/KB is present", () => {
+      const channel = plan({
+        context: buildContext({
+          subject: "Laptop screen cracked",
+          description: "Display panel cracked."
+        }),
+        partsLogistics: partsChannel("ready", "SP-DISP-15X-FHD", 4)
+      });
+      expect(channel.proposedWindow!.durationMinutes).toBe(120);
+      expect(channel.proposedWindow!.durationSource).toBe("skill_default");
+    });
+  });
+
+  describe("5b — AppointmentCandidates API slot source", () => {
+    it("prefers a native-scheduler candidate slot when the API was used", () => {
+      const candidateStart = Date.parse("2026-06-16T15:00:00.000Z");
+      const channel = plan({
+        context: buildContext({
+          subject: "Laptop screen cracked",
+          description: "Display panel cracked."
+        }),
+        partsLogistics: partsChannel("ready", "SP-DISP-15X-FHD", 4),
+        read: buildRead({
+          candidatesApiUsed: true,
+          appointmentCandidates: [
+            {
+              resourceId: A2.resourceId,
+              startMs: candidateStart,
+              endMs: candidateStart + 120 * 60_000
+            }
+          ]
+        })
+      });
+      expect(channel.candidatesApiUsed).toBe(true);
+      expect(channel.proposedWindow!.slotSource).toBe("appointment_candidates");
+      expect(channel.proposedWindow!.proposedStart).toBe(
+        "2026-06-16T15:00:00.000Z"
+      );
+    });
+
+    it("falls back to the deterministic planner when the flag is off", () => {
+      const channel = plan({
+        context: buildContext({
+          subject: "Laptop screen cracked",
+          description: "Display panel cracked."
+        }),
+        partsLogistics: partsChannel("ready", "SP-DISP-15X-FHD", 4),
+        read: buildRead({
+          candidatesApiUsed: false,
+          appointmentCandidates: [
+            {
+              resourceId: A2.resourceId,
+              startMs: Date.parse("2026-06-16T15:00:00.000Z"),
+              endMs: Date.parse("2026-06-16T17:00:00.000Z")
+            }
+          ]
+        })
+      });
+      expect(channel.candidatesApiUsed).toBe(false);
+      expect(channel.proposedWindow!.slotSource).toBe("deterministic");
+    });
   });
 });

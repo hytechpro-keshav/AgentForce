@@ -46,6 +46,22 @@ export type EarliestStartBasis =
   | "sla_target"
   | "now";
 
+/**
+ * How the proposed slot was found (5b). The deterministic operating-hours
+ * planner is the v1 default; `appointment_candidates` marks a slot sourced
+ * from the Field Service AppointmentCandidates API behind its feature flag.
+ */
+export type SlotSource = "deterministic" | "appointment_candidates";
+
+/**
+ * Which source set the appointment duration (5b cross-check). `worktype` =
+ * Salesforce `WorkType.EstimatedDuration` (system of record); `kb` = a
+ * knowledge-guidance repair-effort hint; `skill_default` = the built-in
+ * per-skill estimate; `reconciled` = sources disagreed and the longer
+ * (safer) duration was taken.
+ */
+export type DurationSource = "worktype" | "kb" | "skill_default" | "reconciled";
+
 /** Why a proposed plan needs Node 6 approval (surfaced, not gated in 5a). */
 export type SchedulingApprovalReason =
   | "none"
@@ -90,6 +106,12 @@ export interface ProposedWindow {
   windowConfidence: EvidenceConfidence;
   /** True when the window is bounded below by parts ETA, not availability. */
   partsEtaConstrained: boolean;
+  /** IANA timezone the window wall-clock is expressed in (5b). */
+  timeZone?: string;
+  /** How the slot was found: deterministic planner vs native scheduler (5b). */
+  slotSource?: SlotSource;
+  /** Which source set `durationMinutes` (WorkType / KB / skill default) (5b). */
+  durationSource?: DurationSource;
 }
 
 /**
@@ -123,6 +145,13 @@ export interface SchedulingChannel {
   /** Surfaced for Node 6; 5a never gates the write-back on this. */
   requiredApproval: boolean;
   approvalReason?: SchedulingApprovalReason;
+
+  /**
+   * True when the Field Service AppointmentCandidates API supplied the
+   * proposed slot (5b feature flag). False/undefined → the deterministic
+   * operating-hours planner produced it.
+   */
+  candidatesApiUsed?: boolean;
 
   /** 5c — created ServiceAppointment after approval. Absent until write. */
   appointmentStatus?: "none" | "proposed" | "booked";

@@ -327,6 +327,12 @@ export interface OrchestratorPartsLogisticsConfig {
 export interface OrchestratorSchedulingConfig {
   /** Feature flag: enables Node 5 scheduling planning. */
   enabled: boolean;
+  /**
+   * Feature flag (5b): attempt the Field Service AppointmentCandidates API
+   * for slot selection, falling back to the deterministic planner. OFF by
+   * default — the native scheduler needs a draft ServiceAppointment (5c).
+   */
+  candidatesApiEnabled: boolean;
 }
 
 export interface OrchestratorConfig {
@@ -1894,6 +1900,11 @@ export class AppConfigService {
         env.AI_API_ORCHESTRATOR_SCHEDULING_ENABLED,
         false,
         "AI_API_ORCHESTRATOR_SCHEDULING_ENABLED"
+      ),
+      candidatesApiEnabled: AppConfigService.parseBooleanFlag(
+        env.AI_API_ORCHESTRATOR_SCHEDULING_CANDIDATES_API_ENABLED,
+        false,
+        "AI_API_ORCHESTRATOR_SCHEDULING_CANDIDATES_API_ENABLED"
       )
     };
   }

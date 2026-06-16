@@ -57,7 +57,12 @@ import { deriveGuidanceConfidence } from "./knowledge-confidence";
 import { KnowledgeGuidanceExtractor } from "./knowledge-guidance-extractor.service";
 import { PartsLogisticsPlannerService } from "./parts-logistics-planner.service";
 import { SchedulingPlannerService } from "./scheduling-planner.service";
-import { regionForShipTo, territoryForRegion } from "./scheduling-rules";
+import {
+  kbDurationHintMinutes,
+  regionForShipTo,
+  requiredSkillsForCase,
+  territoryForRegion
+} from "./scheduling-rules";
 import type {
   PartLogisticsPlan,
   PartsLogisticsChannel,
@@ -173,14 +178,16 @@ export class CaseTriageOrchestratorService {
         context,
         partsLogistics,
         customerContext,
-        triagePriority
+        triagePriority,
+        knowledgeGuidance
       ) =>
         this.planScheduling(
           workflowId,
           context,
           partsLogistics,
           customerContext,
-          triagePriority
+          triagePriority,
+          knowledgeGuidance
         ),
       emitRunning: (workflowId, summary, details, node, trace) =>
         this.store.appendEvent(
@@ -337,7 +344,7 @@ export class CaseTriageOrchestratorService {
         customerContext: result.customerContext,
         knowledgeGuidance: result.knowledgeGuidance,
         partsLogistics: result.partsLogistics,
-      scheduling: result.scheduling,
+        scheduling: result.scheduling,
         orchestratorVerdict: CaseTriageOrchestratorService.buildVerdict(
           result,
           "waiting_approval"
@@ -372,7 +379,7 @@ export class CaseTriageOrchestratorService {
         customerContext: result.customerContext,
         knowledgeGuidance: result.knowledgeGuidance,
         partsLogistics: result.partsLogistics,
-      scheduling: result.scheduling,
+        scheduling: result.scheduling,
         approvalRequired: result.approvalRequired,
         approvalDecision: result.approvalDecision,
         orchestratorVerdict: CaseTriageOrchestratorService.buildVerdict(
@@ -1438,7 +1445,8 @@ export class CaseTriageOrchestratorService {
     context: SalesforceCaseContext,
     partsLogistics: PartsLogisticsChannel | undefined,
     customerContext: CustomerContextChannel | undefined,
-    triagePriority: TriagePriorityDto | undefined
+    triagePriority: TriagePriorityDto | undefined,
+    knowledgeGuidance: KnowledgeGuidanceChannel | undefined
   ): Promise<SchedulingChannel> {
     const startedAt = Date.now();
     const now = new Date();
@@ -1450,10 +1458,23 @@ export class CaseTriageOrchestratorService {
       now.getTime() + 21 * 24 * 60 * 60 * 1000
     ).toISOString();
 
+    // 5b: target the WorkType-duration + candidate reads at the Case's
+    // required skills, and read a typed repair-effort hint from knowledge.
+    const requiredSkills = requiredSkillsForCase({
+      partNumbers: (partsLogistics?.partPlans ?? []).map((p) => p.partNumber),
+      caseText: `${context.subject ?? ""} ${context.description ?? ""}`
+    });
+    const kbDurationMinutesHint = kbDurationHintMinutes(
+      knowledgeGuidance?.answer?.recommendedActions
+    );
+
     const read = await this.schedulingGateway.readSchedulingContext({
       territoryName,
       windowStartIso,
-      windowEndIso
+      windowEndIso,
+      requiredSkills,
+      candidatesApiEnabled:
+        this.config.orchestrator.scheduling.candidatesApiEnabled
     });
     const channel = this.schedulingPlanner.plan({
       context,
@@ -1461,6 +1482,7 @@ export class CaseTriageOrchestratorService {
       customerContext,
       triagePriority,
       read,
+      kbDurationMinutesHint,
       now
     });
     channel.latencyMs = Date.now() - startedAt;

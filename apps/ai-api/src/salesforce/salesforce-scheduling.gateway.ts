@@ -38,14 +38,39 @@ export interface SchedulingTechnicianRow {
   skills: Array<{ label: string; level: number }>;
 }
 
+/** A native-scheduler candidate slot from the AppointmentCandidates API (5b). */
+export interface AppointmentCandidateSlot {
+  /** Internal Salesforce resource id this slot belongs to, when scoped. */
+  resourceId?: string;
+  startMs: number;
+  endMs: number;
+}
+
 export interface SchedulingReadResult {
   /** Read source: "soql" when live, "none" when not configured/empty. */
   source: "soql" | "none";
   technicians: SchedulingTechnicianRow[];
-  /** Territory operating-hours windows (weekly, UTC v1). */
+  /** Territory operating-hours windows (weekly). */
   businessWindows: BusinessWindow[];
-  /** Per-resource busy intervals from `ResourceAbsence`. */
+  /**
+   * Territory-local IANA timezone from `OperatingHours.TimeZone` (5b). The
+   * planner projects operating hours in this zone; UTC when absent.
+   */
+  timeZone?: string;
+  /**
+   * Per-resource busy intervals — `ResourceAbsence` AND existing
+   * `ServiceAppointment` bookings in the window (5b collision detection).
+   */
   busyIntervals: Array<BusyInterval & { resourceId?: string }>;
+  /**
+   * `WorkType.EstimatedDuration` (minutes) keyed by required skill label
+   * (5b duration cross-check). Empty when the WorkType read is unavailable.
+   */
+  workTypeDurationMinutesBySkill?: Record<string, number>;
+  /** Native-scheduler slots when the AppointmentCandidates API was used (5b). */
+  appointmentCandidates?: AppointmentCandidateSlot[];
+  /** True when the AppointmentCandidates API produced `appointmentCandidates`. */
+  candidatesApiUsed: boolean;
   /** True when the critical technician read could not complete. */
   degraded: boolean;
 }
@@ -55,6 +80,10 @@ export interface SchedulingReadInput {
   /** Look-ahead window for busy intervals (ISO). */
   windowStartIso: string;
   windowEndIso: string;
+  /** Required skills (5b) — targets WorkType duration + candidate lookups. */
+  requiredSkills?: string[];
+  /** When true, attempt the FSL AppointmentCandidates API (5b, default off). */
+  candidatesApiEnabled?: boolean;
 }
 
 /**
@@ -84,11 +113,12 @@ export class SalesforceSchedulingGateway {
 
   /**
    * Reads the technicians (with territory membership + skills) for the
-   * target territory, the territory operating-hours windows, and per-
-   * resource absences. The technician read is critical — its failure
-   * degrades the whole result. Operating-hours and absence reads are
-   * best-effort: a miss leaves those signals empty without degrading the
-   * technician ranking.
+   * target territory, the territory operating-hours windows + timezone,
+   * per-resource absences AND existing appointments (collision detection),
+   * WorkType durations, and — behind its feature flag — native scheduler
+   * candidates. The technician read is critical: its failure degrades the
+   * whole result. Every availability/refinement read is best-effort: a miss
+   * leaves that signal empty without degrading the technician ranking.
    */
   async readSchedulingContext(
     input: SchedulingReadInput
@@ -108,19 +138,38 @@ export class SalesforceSchedulingGateway {
       return this.emptyResult("none", true);
     }
 
-    // Availability signals are best-effort — a miss must not degrade the
-    // ranked-candidate result, only soften the proposed window.
-    const businessWindows = await this.readBusinessWindowsSafe(territory);
-    const busyIntervals = await this.readAbsencesSafe(
+    // Availability + refinement signals are best-effort — a miss must not
+    // degrade the ranked-candidate result, only soften the proposed window.
+    const { windows: businessWindows, timeZone } =
+      await this.readBusinessWindowsSafe(territory);
+    const absences = await this.readAbsencesSafe(
       input.windowStartIso,
       input.windowEndIso
     );
+    const appointments = await this.readAppointmentsSafe(
+      technicians,
+      input.windowStartIso,
+      input.windowEndIso
+    );
+    const workTypeDurationMinutesBySkill =
+      await this.readWorkTypeDurationsSafe();
+    const candidates = await this.readAppointmentCandidatesSafe({
+      enabled: input.candidatesApiEnabled === true,
+      technicians,
+      windowStartIso: input.windowStartIso,
+      windowEndIso: input.windowEndIso
+    });
 
     return {
       source: "soql",
       technicians,
       businessWindows,
-      busyIntervals,
+      timeZone,
+      // Absences + booked appointments are both blocking intervals.
+      busyIntervals: [...absences, ...appointments],
+      workTypeDurationMinutesBySkill,
+      appointmentCandidates: candidates.candidates,
+      candidatesApiUsed: candidates.used,
       degraded: false
     };
   }
@@ -152,16 +201,20 @@ export class SalesforceSchedulingGateway {
 
   private async readBusinessWindowsSafe(
     territory: string
-  ): Promise<BusinessWindow[]> {
+  ): Promise<{ windows: BusinessWindow[]; timeZone?: string }> {
     try {
       const quoted = SalesforceSchedulingGateway.soqlString(territory);
       const soql =
-        "SELECT Id, (SELECT DayOfWeek, StartTime, EndTime, Type FROM TimeSlots) " +
+        "SELECT Id, TimeZone, " +
+        "(SELECT DayOfWeek, StartTime, EndTime, Type FROM TimeSlots) " +
         "FROM OperatingHours WHERE Id IN " +
         `(SELECT OperatingHoursId FROM ServiceTerritory WHERE Name = ${quoted})`;
       const records = await this.runQuery(soql);
       const windows: BusinessWindow[] = [];
+      let timeZone: string | undefined;
       for (const oh of records) {
+        // First non-empty OperatingHours.TimeZone governs the territory.
+        timeZone = timeZone ?? SalesforceSchedulingGateway.str(oh, "TimeZone");
         const timeSlots = SalesforceSchedulingGateway.childRecords(
           oh,
           "TimeSlots"
@@ -173,11 +226,135 @@ export class SalesforceSchedulingGateway {
           }
         }
       }
-      return windows;
+      return { windows, timeZone };
     } catch {
       this.logger.warn("Scheduling operating-hours read unavailable.");
+      return { windows: [] };
+    }
+  }
+
+  /**
+   * Existing `ServiceAppointment` bookings for the candidate technicians in
+   * the look-ahead window (5b collision detection). Reads via
+   * `AssignedResource` so each interval is attributed to its resource;
+   * terminal appointments (canceled/completed) do not block. Best-effort —
+   * a miss returns no intervals rather than degrading the plan.
+   */
+  private async readAppointmentsSafe(
+    technicians: SchedulingTechnicianRow[],
+    windowStartIso: string,
+    windowEndIso: string
+  ): Promise<Array<BusyInterval & { resourceId?: string }>> {
+    const resourceIds = technicians.map((t) => t.resourceId).filter(Boolean);
+    const start = SalesforceSchedulingGateway.soqlDateTime(windowStartIso);
+    const end = SalesforceSchedulingGateway.soqlDateTime(windowEndIso);
+    if (resourceIds.length === 0 || !start || !end) {
       return [];
     }
+    try {
+      const idList = resourceIds
+        .map((id) => SalesforceSchedulingGateway.soqlString(id))
+        .join(", ");
+      const soql =
+        "SELECT ServiceResourceId, ServiceAppointment.SchedStartTime, " +
+        "ServiceAppointment.SchedEndTime, ServiceAppointment.Status " +
+        "FROM AssignedResource " +
+        `WHERE ServiceResourceId IN (${idList}) ` +
+        `AND ServiceAppointment.SchedStartTime <= ${end} ` +
+        `AND ServiceAppointment.SchedEndTime >= ${start}`;
+      const records = await this.runQuery(soql);
+      const intervals: Array<BusyInterval & { resourceId?: string }> = [];
+      for (const row of records) {
+        const appt = SalesforceSchedulingGateway.parentRecord(
+          row,
+          "ServiceAppointment"
+        );
+        const status = SalesforceSchedulingGateway.str(appt, "Status");
+        if (SalesforceSchedulingGateway.isTerminalAppointment(status)) {
+          continue;
+        }
+        const startMs = SalesforceSchedulingGateway.isoToMs(
+          SalesforceSchedulingGateway.str(appt, "SchedStartTime")
+        );
+        const endMs = SalesforceSchedulingGateway.isoToMs(
+          SalesforceSchedulingGateway.str(appt, "SchedEndTime")
+        );
+        if (startMs === undefined || endMs === undefined || endMs <= startMs) {
+          continue;
+        }
+        intervals.push({
+          startMs,
+          endMs,
+          resourceId: SalesforceSchedulingGateway.str(row, "ServiceResourceId")
+        });
+      }
+      return intervals;
+    } catch {
+      this.logger.warn("Scheduling appointment read unavailable.");
+      return [];
+    }
+  }
+
+  /**
+   * Laptop `WorkType.EstimatedDuration` keyed by required skill label (5b
+   * duration cross-check). The WorkType name maps to a specialist skill
+   * (the 5-Pre seed names — "Laptop Battery Replacement" → Battery/Power,
+   * etc.); the generic onsite repair maps to the base laptop skill.
+   * Best-effort — a miss returns an empty map and the planner falls back to
+   * its per-skill defaults.
+   */
+  private async readWorkTypeDurationsSafe(): Promise<Record<string, number>> {
+    try {
+      const soql =
+        "SELECT Name, EstimatedDuration, DurationType FROM WorkType " +
+        "WHERE Name LIKE '%Laptop%'";
+      const records = await this.runQuery(soql);
+      const bySkill: Record<string, number> = {};
+      for (const row of records) {
+        const name = SalesforceSchedulingGateway.str(row, "Name");
+        if (!name) {
+          continue;
+        }
+        const minutes = SalesforceSchedulingGateway.workTypeMinutes(row);
+        if (minutes === undefined) {
+          continue;
+        }
+        const skill = SalesforceSchedulingGateway.workTypeSkillFor(name);
+        // Keep the longest duration seen for a skill (most conservative).
+        bySkill[skill] = Math.max(bySkill[skill] ?? 0, minutes);
+      }
+      return bySkill;
+    } catch {
+      this.logger.warn("Scheduling WorkType read unavailable.");
+      return {};
+    }
+  }
+
+  /**
+   * Native Field Service AppointmentCandidates seam (5b), gated by
+   * `AI_API_ORCHESTRATOR_SCHEDULING_CANDIDATES_API_ENABLED`. The REST API
+   * requires a draft `ServiceAppointment` + scheduling policy (managed
+   * package) that the read/plan slice does not create — so even when the
+   * flag is on this returns `used: false` and the deterministic planner
+   * stays the source of truth. The seam exists so 5c can light up the
+   * native scheduler without a planner rewrite. Never throws.
+   */
+  private async readAppointmentCandidatesSafe(args: {
+    enabled: boolean;
+    technicians: SchedulingTechnicianRow[];
+    windowStartIso: string;
+    windowEndIso: string;
+  }): Promise<{ used: boolean; candidates: AppointmentCandidateSlot[] }> {
+    if (!args.enabled) {
+      return { used: false, candidates: [] };
+    }
+    // Flag on but no draft ServiceAppointment to anchor the request: the
+    // honest 5b outcome is to fall back to the deterministic planner.
+    this.logger.warn(
+      "AppointmentCandidates API requested but requires a draft " +
+        "ServiceAppointment (Phase 5c); using deterministic planner."
+    );
+    return { used: false, candidates: [] };
   }
 
   private async readAbsencesSafe(
@@ -296,6 +473,8 @@ export class SalesforceSchedulingGateway {
       technicians: [],
       businessWindows: [],
       busyIntervals: [],
+      workTypeDurationMinutesBySkill: {},
+      candidatesApiUsed: false,
       degraded
     };
   }
@@ -420,6 +599,65 @@ export class SalesforceSchedulingGateway {
     return Array.isArray(records)
       ? (records as Array<Record<string, unknown>>)
       : [];
+  }
+
+  /** Nested parent record from a relationship field (e.g. ServiceAppointment). */
+  private static parentRecord(
+    row: Record<string, unknown>,
+    relationship: string
+  ): Record<string, unknown> | undefined {
+    const value = row[relationship];
+    return value && typeof value === "object"
+      ? (value as Record<string, unknown>)
+      : undefined;
+  }
+
+  /** Appointment statuses that do not block a technician's availability. */
+  private static isTerminalAppointment(status: string | undefined): boolean {
+    if (!status) {
+      return false;
+    }
+    const normalized = status.trim().toLowerCase();
+    return (
+      normalized === "canceled" ||
+      normalized === "cancelled" ||
+      normalized === "completed" ||
+      normalized === "cannot complete"
+    );
+  }
+
+  /** WorkType.EstimatedDuration normalized to minutes by DurationType. */
+  private static workTypeMinutes(
+    row: Record<string, unknown>
+  ): number | undefined {
+    const value = row["EstimatedDuration"];
+    if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+      return undefined;
+    }
+    const durationType = (
+      SalesforceSchedulingGateway.str(row, "DurationType") ?? "Minutes"
+    ).toLowerCase();
+    return durationType.startsWith("hour")
+      ? Math.round(value * 60)
+      : Math.round(value);
+  }
+
+  /** Map a laptop WorkType name to its specialist skill (5-Pre seed names). */
+  private static workTypeSkillFor(name: string): string {
+    const lower = name.toLowerCase();
+    if (/batter|power|charg/.test(lower)) {
+      return "Battery/Power";
+    }
+    if (/display|screen|lcd|panel/.test(lower)) {
+      return "Display";
+    }
+    if (/motherboard|mainboard|logic board/.test(lower)) {
+      return "Motherboard";
+    }
+    if (/thermal|cooling|fan|overheat/.test(lower)) {
+      return "Thermal/Cooling";
+    }
+    return "Laptop Hardware";
   }
 
   /** Parses a Salesforce Time field (string "HH:mm:ss…" or ms number). */

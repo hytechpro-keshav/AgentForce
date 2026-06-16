@@ -9,23 +9,32 @@ import type { CustomerContextChannel } from "./dto/customer-context";
 import type { PartsLogisticsChannel } from "./dto/parts-logistics";
 import type { SalesforceCaseContext } from "./dto/salesforce-case-context";
 import type {
+  DurationSource,
   EarliestStartBasis,
   ProposedWindow,
   SchedulingApprovalReason,
   SchedulingChannel,
   SchedulingReadiness,
+  SlotSource,
   TechnicianCandidate
 } from "./dto/scheduling";
+import type { AppointmentCandidateSlot } from "../salesforce/salesforce-scheduling.gateway";
 import { findEarliestSlot } from "./scheduling-availability";
 import {
   RANK_WEIGHTS,
   TERRITORY_FIT_SCORE,
   durationMinutesForSkills,
+  reconcileDuration,
   regionForShipTo,
   requiredSkillsForCase,
   slaResponseHours,
   territoryForRegion
 } from "./scheduling-rules";
+import {
+  hhmmInZone,
+  tzAbbreviation,
+  utcMsToZonedParts
+} from "./scheduling-timezone";
 
 const MS_PER_HOUR = 3_600_000;
 const DAY_NAMES = [
@@ -47,6 +56,8 @@ export interface SchedulingPlanInput {
   customerContext?: CustomerContextChannel;
   triagePriority?: string;
   read: SchedulingReadResult;
+  /** Optional typed KB repair-effort hint (minutes) for the duration cross-check (5b). */
+  kbDurationMinutesHint?: number;
   /** Injected clock so the planner is deterministic and unit-testable. */
   now: Date;
 }
@@ -55,6 +66,7 @@ type PartsReadinessSeen = NonNullable<SchedulingChannel["partsReadinessSeen"]>;
 
 interface RankedCandidate extends TechnicianCandidate {
   earliestSlotMs?: number;
+  earliestSlotSource?: SlotSource;
 }
 
 /**
@@ -106,7 +118,18 @@ export class SchedulingPlannerService {
       partNumbers: (partsLogistics?.partPlans ?? []).map((p) => p.partNumber),
       caseText: `${context.subject ?? ""} ${context.description ?? ""}`
     });
-    const durationMinutes = durationMinutesForSkills(requiredSkills);
+
+    // 5b duration cross-check: reconcile the per-skill default against the
+    // live WorkType.EstimatedDuration and any typed KB repair-effort hint.
+    const duration = reconcileDuration({
+      skillDerivedMinutes: durationMinutesForSkills(requiredSkills),
+      workTypeMinutes: SchedulingPlannerService.workTypeMinutesFor(
+        requiredSkills,
+        read.workTypeDurationMinutesBySkill
+      ),
+      kbMinutes: input.kbDurationMinutesHint
+    });
+    const durationMinutes = duration.minutes;
 
     // Parts-ETA floor: the visit cannot start before the slowest required
     // part can physically arrive (§3.5). `estimatedDispatchHoursMax` is the
@@ -128,7 +151,11 @@ export class SchedulingPlannerService {
       durationMinutes,
       floorMs,
       businessWindows: read.businessWindows,
-      busyIntervals: read.busyIntervals
+      busyIntervals: read.busyIntervals,
+      timeZone: read.timeZone,
+      appointmentCandidates: read.candidatesApiUsed
+        ? read.appointmentCandidates
+        : undefined
     });
 
     // B7 — no eligible technician in the target territory.
@@ -168,8 +195,10 @@ export class SchedulingPlannerService {
           partsEtaFloorMs,
           partsEtaConstrained,
           durationMinutes,
+          durationSource: duration.source,
           readiness,
-          degradedWindows: read.businessWindows.length === 0
+          degradedWindows: read.businessWindows.length === 0,
+          timeZone: read.timeZone
         });
 
     const slaHours = slaResponseHours(
@@ -201,6 +230,7 @@ export class SchedulingPlannerService {
       partsReadinessSeen,
       requiredApproval: approval.requiredApproval,
       approvalReason: approval.reason,
+      candidatesApiUsed: read.candidatesApiUsed,
       appointmentStatus: blocked ? "none" : "proposed",
       confidence,
       provider: "deterministic"
@@ -215,6 +245,8 @@ export class SchedulingPlannerService {
     floorMs: number;
     businessWindows: SchedulingReadResult["businessWindows"];
     busyIntervals: SchedulingReadResult["busyIntervals"];
+    timeZone?: string;
+    appointmentCandidates?: AppointmentCandidateSlot[];
   }): RankedCandidate[] {
     const ranked = args.technicians
       .filter((tech) => tech.isActive)
@@ -249,6 +281,8 @@ export class SchedulingPlannerService {
       floorMs: number;
       businessWindows: SchedulingReadResult["businessWindows"];
       busyIntervals: SchedulingReadResult["busyIntervals"];
+      timeZone?: string;
+      appointmentCandidates?: AppointmentCandidateSlot[];
     }
   ): RankedCandidate | undefined {
     const membership = tech.territories.find(
@@ -281,13 +315,14 @@ export class SchedulingPlannerService {
         ? levelSum / (args.requiredSkills.length * 10)
         : 0;
 
-    const slot = findEarliestSlot({
+    const slot = SchedulingPlannerService.earliestSlotFor({
+      resourceId: tech.resourceId,
+      floorMs: args.floorMs,
+      durationMinutes: args.durationMinutes,
       businessWindows: args.businessWindows,
-      busyIntervals: args.busyIntervals.filter(
-        (b) => !b.resourceId || b.resourceId === tech.resourceId
-      ),
-      earliestStartMs: args.floorMs,
-      durationMinutes: args.durationMinutes
+      busyIntervals: args.busyIntervals,
+      timeZone: args.timeZone,
+      appointmentCandidates: args.appointmentCandidates
     });
     const availabilityScore = slot
       ? SchedulingPlannerService.clamp01(
@@ -317,6 +352,7 @@ export class SchedulingPlannerService {
         ? new Date(slot.startMs).toISOString()
         : undefined,
       earliestSlotMs: slot?.startMs,
+      earliestSlotSource: slot?.source,
       rationale: SchedulingPlannerService.candidateRationale({
         matchedSkills,
         missingSkills,
@@ -327,6 +363,87 @@ export class SchedulingPlannerService {
     };
   }
 
+  /**
+   * Earliest fitting slot for a resource, preferring the native scheduler's
+   * AppointmentCandidates when the API was used (5b) and otherwise falling
+   * back to the deterministic operating-hours projection. The returned
+   * `source` flows to `proposedWindow.slotSource` for explainability.
+   */
+  private static earliestSlotFor(args: {
+    resourceId: string;
+    floorMs: number;
+    durationMinutes: number;
+    businessWindows: SchedulingReadResult["businessWindows"];
+    busyIntervals: SchedulingReadResult["busyIntervals"];
+    timeZone?: string;
+    appointmentCandidates?: AppointmentCandidateSlot[];
+  }): { startMs: number; endMs: number; source: SlotSource } | undefined {
+    const busy = args.busyIntervals.filter(
+      (b) => !b.resourceId || b.resourceId === args.resourceId
+    );
+    if (args.appointmentCandidates && args.appointmentCandidates.length > 0) {
+      const apiSlot = SchedulingPlannerService.earliestApiCandidate(
+        args.appointmentCandidates,
+        args.resourceId,
+        args.floorMs,
+        busy
+      );
+      if (apiSlot) {
+        return { ...apiSlot, source: "appointment_candidates" };
+      }
+    }
+    const slot = findEarliestSlot({
+      businessWindows: args.businessWindows,
+      busyIntervals: busy,
+      earliestStartMs: args.floorMs,
+      durationMinutes: args.durationMinutes,
+      timeZone: args.timeZone
+    });
+    return slot
+      ? { startMs: slot.startMs, endMs: slot.endMs, source: "deterministic" }
+      : undefined;
+  }
+
+  /** Earliest native-scheduler candidate ≥ floor that does not collide. */
+  private static earliestApiCandidate(
+    candidates: AppointmentCandidateSlot[],
+    resourceId: string,
+    floorMs: number,
+    busy: SchedulingReadResult["busyIntervals"]
+  ): { startMs: number; endMs: number } | undefined {
+    const eligible = candidates
+      .filter((c) => !c.resourceId || c.resourceId === resourceId)
+      .filter((c) => c.startMs >= floorMs && c.endMs > c.startMs)
+      .filter(
+        (c) => !busy.some((b) => b.startMs < c.endMs && b.endMs > c.startMs)
+      )
+      .sort((a, b) => a.startMs - b.startMs);
+    const first = eligible[0];
+    return first ? { startMs: first.startMs, endMs: first.endMs } : undefined;
+  }
+
+  /**
+   * Largest live WorkType.EstimatedDuration (minutes) among the Case's
+   * required skills (5b cross-check). `undefined` when the WorkType read was
+   * unavailable so the reconciler falls back to the per-skill default.
+   */
+  private static workTypeMinutesFor(
+    requiredSkills: string[],
+    bySkill: Record<string, number> | undefined
+  ): number | undefined {
+    if (!bySkill) {
+      return undefined;
+    }
+    let max: number | undefined;
+    for (const skill of requiredSkills) {
+      const minutes = bySkill[skill];
+      if (typeof minutes === "number" && minutes > 0) {
+        max = max === undefined ? minutes : Math.max(max, minutes);
+      }
+    }
+    return max;
+  }
+
   private static buildWindow(args: {
     top: RankedCandidate;
     floorMs: number;
@@ -334,8 +451,10 @@ export class SchedulingPlannerService {
     partsEtaFloorMs?: number;
     partsEtaConstrained: boolean;
     durationMinutes: number;
+    durationSource: DurationSource;
     readiness: SchedulingReadiness;
     degradedWindows: boolean;
+    timeZone?: string;
   }): ProposedWindow | undefined {
     const startMs = args.top.earliestSlotMs;
     if (startMs === undefined) {
@@ -344,7 +463,10 @@ export class SchedulingPlannerService {
         earliestStart: new Date(args.floorMs).toISOString(),
         earliestStartBasis: args.partsEtaConstrained ? "parts_eta" : "now",
         windowConfidence: "low",
-        partsEtaConstrained: args.partsEtaConstrained
+        partsEtaConstrained: args.partsEtaConstrained,
+        durationMinutes: args.durationMinutes,
+        durationSource: args.durationSource,
+        timeZone: args.timeZone
       };
     }
     const endMs = startMs + args.durationMinutes * 60_000;
@@ -363,14 +485,18 @@ export class SchedulingPlannerService {
         startMs,
         endMs,
         args.nowMs,
-        args.partsEtaConstrained
+        args.partsEtaConstrained,
+        args.timeZone
       ),
       durationMinutes: args.durationMinutes,
+      durationSource: args.durationSource,
       windowConfidence: SchedulingPlannerService.windowConfidence(
         args.readiness,
         args.degradedWindows
       ),
-      partsEtaConstrained: args.partsEtaConstrained
+      partsEtaConstrained: args.partsEtaConstrained,
+      timeZone: args.timeZone,
+      slotSource: args.top.earliestSlotSource ?? "deterministic"
     };
   }
 
@@ -519,23 +645,37 @@ export class SchedulingPlannerService {
     startMs: number,
     endMs: number,
     nowMs: number,
-    partsEtaConstrained: boolean
+    partsEtaConstrained: boolean,
+    timeZone: string | undefined
   ): string {
-    const dayLabel = SchedulingPlannerService.relativeDay(startMs, nowMs);
-    const range = `${hhmm(startMs)}–${hhmm(endMs)} UTC`;
+    const dayLabel = SchedulingPlannerService.relativeDay(
+      startMs,
+      nowMs,
+      timeZone
+    );
+    // Render the wall clock in the territory-local zone (UTC when absent).
+    const range = `${hhmmInZone(timeZone, startMs)}–${hhmmInZone(
+      timeZone,
+      endMs
+    )} ${tzAbbreviation(timeZone, startMs)}`;
     return `${dayLabel} ${range}${
       partsEtaConstrained ? " (after parts arrive)" : ""
     }`;
   }
 
-  private static relativeDay(startMs: number, nowMs: number): string {
-    const dayMs = 24 * 60 * 60_000;
-    const startDay = Math.floor(startMs / dayMs);
-    const nowDay = Math.floor(nowMs / dayMs);
-    const diff = startDay - nowDay;
+  private static relativeDay(
+    startMs: number,
+    nowMs: number,
+    timeZone: string | undefined
+  ): string {
+    const start = utcMsToZonedParts(timeZone, startMs);
+    const now = utcMsToZonedParts(timeZone, nowMs);
+    const startDay = Date.UTC(start.year, start.month - 1, start.day);
+    const nowDay = Date.UTC(now.year, now.month - 1, now.day);
+    const diff = Math.round((startDay - nowDay) / (24 * 60 * 60_000));
     if (diff <= 0) return "Today";
     if (diff === 1) return "Tomorrow";
-    return DAY_NAMES[new Date(startMs).getUTCDay()];
+    return DAY_NAMES[start.weekday];
   }
 
   private static candidateRationale(args: {
@@ -577,11 +717,4 @@ export class SchedulingPlannerService {
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
-}
-
-function hhmm(ms: number): string {
-  const date = new Date(ms);
-  const h = String(date.getUTCHours()).padStart(2, "0");
-  const m = String(date.getUTCMinutes()).padStart(2, "0");
-  return `${h}:${m}`;
 }

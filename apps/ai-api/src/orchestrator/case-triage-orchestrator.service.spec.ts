@@ -160,7 +160,7 @@ function buildHarness(
         enabled: partsOverrides.enabled ?? false,
         writesEnabled: partsOverrides.writesEnabled ?? false
       },
-      scheduling: { enabled: false }
+      scheduling: { enabled: false, candidatesApiEnabled: false }
     },
     rag: {
       enabled: false,
@@ -559,7 +559,7 @@ describe("CaseTriageOrchestratorService", () => {
             extractionEnabled: false
           },
           partsLogistics: { enabled: false },
-          scheduling: { enabled: false }
+          scheduling: { enabled: false, candidatesApiEnabled: false }
         },
         rag: {
           enabled: false,

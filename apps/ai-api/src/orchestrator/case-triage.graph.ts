@@ -205,7 +205,8 @@ export interface CaseTriageGraphDeps {
     context: SalesforceCaseContext,
     partsLogistics: PartsLogisticsChannel | undefined,
     customerContext: CustomerContextChannel | undefined,
-    triagePriority: TriagePriorityDto | undefined
+    triagePriority: TriagePriorityDto | undefined,
+    knowledgeGuidance: KnowledgeGuidanceChannel | undefined
   ): Promise<SchedulingChannel>;
   /**
    * Emits a sanitized `running` progress line into the read model.
@@ -610,7 +611,8 @@ export function buildCaseTriageGraph(deps: CaseTriageGraphDeps) {
         state.context!,
         state.partsLogistics,
         state.customerContext,
-        triagePriority
+        triagePriority,
+        state.knowledgeGuidance
       );
 
       if (scheduling.degraded) {
@@ -622,8 +624,7 @@ export function buildCaseTriageGraph(deps: CaseTriageGraphDeps) {
             {
               label: "Sources",
               value:
-                (scheduling.degradedSources ?? []).join(", ") ||
-                "field_service"
+                (scheduling.degradedSources ?? []).join(", ") || "field_service"
             }
           ],
           SCHEDULING_NODE_ID,
@@ -2105,7 +2106,8 @@ function buildSchedulingReadTrace(
             system: "Salesforce",
             object: "ServiceResource",
             action: "readSchedulingContext",
-            fields: "Territory membership + ServiceResourceSkill + OperatingHours"
+            fields:
+              "Territory membership + ServiceResourceSkill + OperatingHours"
           }
         ]
       }
@@ -2217,8 +2219,7 @@ function buildSchedulingPlanTrace(
                 earliestStartBasis: channel.proposedWindow.earliestStartBasis,
                 proposedStart: channel.proposedWindow.proposedStart ?? null,
                 proposedEnd: channel.proposedWindow.proposedEnd ?? null,
-                partsEtaConstrained:
-                  channel.proposedWindow.partsEtaConstrained,
+                partsEtaConstrained: channel.proposedWindow.partsEtaConstrained,
                 windowConfidence: channel.proposedWindow.windowConfidence
               }
             : null,

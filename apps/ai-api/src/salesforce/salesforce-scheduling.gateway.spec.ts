@@ -67,6 +67,7 @@ const OPERATING_HOURS_RECORDS = {
   records: [
     {
       Id: "0Oh000000000001",
+      TimeZone: "America/Chicago",
       TimeSlots: {
         records: [
           {
@@ -97,11 +98,93 @@ const ABSENCE_RECORDS = {
   ]
 };
 
+const APPOINTMENT_RECORDS = {
+  records: [
+    {
+      ServiceResourceId: "0Hn000000000A1",
+      ServiceAppointment: {
+        SchedStartTime: "2026-06-19T09:00:00.000Z",
+        SchedEndTime: "2026-06-19T11:00:00.000Z",
+        Status: "Scheduled"
+      }
+    },
+    {
+      // Terminal appointment — must NOT block availability.
+      ServiceResourceId: "0Hn000000000A2",
+      ServiceAppointment: {
+        SchedStartTime: "2026-06-20T09:00:00.000Z",
+        SchedEndTime: "2026-06-20T11:00:00.000Z",
+        Status: "Completed"
+      }
+    }
+  ]
+};
+
+const WORKTYPE_RECORDS = {
+  records: [
+    {
+      Name: "Laptop Battery Replacement",
+      EstimatedDuration: 1,
+      DurationType: "Hours"
+    },
+    {
+      Name: "Laptop Onsite Repair",
+      EstimatedDuration: 120,
+      DurationType: "Minutes"
+    }
+  ]
+};
+
 const READ_INPUT = {
   territoryName: "North America",
   windowStartIso: "2026-06-15T00:00:00.000Z",
   windowEndIso: "2026-07-06T00:00:00.000Z"
 };
+
+/**
+ * Dispatches each SOQL read by a distinctive substring so tests are robust
+ * to read ordering. Pass overrides to fail/replace a specific read.
+ */
+function installDispatcher(
+  h: Harness,
+  overrides: Partial<{
+    tech: Response;
+    operatingHours: Response;
+    absence: Response;
+    appointment: Response;
+    workType: Response;
+  }> = {}
+): void {
+  h.fetchMock.mockImplementation((url: string) => {
+    const soql = decodeURIComponent(url);
+    if (soql.includes("ResourceType = 'T'")) {
+      return Promise.resolve(
+        overrides.tech ?? jsonResponse(TECHNICIAN_RECORDS)
+      );
+    }
+    if (soql.includes("FROM OperatingHours")) {
+      return Promise.resolve(
+        overrides.operatingHours ?? jsonResponse(OPERATING_HOURS_RECORDS)
+      );
+    }
+    if (soql.includes("FROM ResourceAbsence")) {
+      return Promise.resolve(
+        overrides.absence ?? jsonResponse(ABSENCE_RECORDS)
+      );
+    }
+    if (soql.includes("FROM AssignedResource")) {
+      return Promise.resolve(
+        overrides.appointment ?? jsonResponse({ records: [] })
+      );
+    }
+    if (soql.includes("FROM WorkType")) {
+      return Promise.resolve(
+        overrides.workType ?? jsonResponse({ records: [] })
+      );
+    }
+    return Promise.resolve(jsonResponse({ records: [] }));
+  });
+}
 
 describe("SalesforceSchedulingGateway", () => {
   const originalFetch = global.fetch;
@@ -112,10 +195,7 @@ describe("SalesforceSchedulingGateway", () => {
 
   it("reads technicians by territory (incl. Secondary), skills, and operating hours", async () => {
     const h = buildHarness();
-    h.fetchMock
-      .mockResolvedValueOnce(jsonResponse(TECHNICIAN_RECORDS))
-      .mockResolvedValueOnce(jsonResponse(OPERATING_HOURS_RECORDS))
-      .mockResolvedValueOnce(jsonResponse(ABSENCE_RECORDS));
+    installDispatcher(h);
 
     const result = await h.gateway.readSchedulingContext(READ_INPUT);
 
@@ -144,16 +224,18 @@ describe("SalesforceSchedulingGateway", () => {
     expect(result.businessWindows).toEqual([
       { dayOfWeek: 1, openMinutes: 540, closeMinutes: 1020 }
     ]);
+    // 5b — territory-local timezone surfaced from OperatingHours.TimeZone.
+    expect(result.timeZone).toBe("America/Chicago");
     expect(result.busyIntervals).toHaveLength(1);
     expect(result.busyIntervals[0].resourceId).toBe("0Hn000000000A1");
   });
 
   it("never leaks a full technician name (sanitizes at the boundary)", async () => {
     const h = buildHarness();
-    h.fetchMock
-      .mockResolvedValueOnce(jsonResponse(TECHNICIAN_RECORDS))
-      .mockResolvedValueOnce(jsonResponse({ records: [] }))
-      .mockResolvedValueOnce(jsonResponse({ records: [] }));
+    installDispatcher(h, {
+      operatingHours: jsonResponse({ records: [] }),
+      absence: jsonResponse({ records: [] })
+    });
 
     const result = await h.gateway.readSchedulingContext(READ_INPUT);
 
@@ -170,6 +252,7 @@ describe("SalesforceSchedulingGateway", () => {
 
     expect(result.degraded).toBe(true);
     expect(result.technicians).toEqual([]);
+    expect(result.candidatesApiUsed).toBe(false);
     // It does not proceed to the availability reads once the critical
     // technician read fails.
     expect(h.fetchMock).toHaveBeenCalledTimes(1);
@@ -177,16 +260,71 @@ describe("SalesforceSchedulingGateway", () => {
 
   it("keeps the ranked candidates when only the operating-hours read fails", async () => {
     const h = buildHarness();
-    h.fetchMock
-      .mockResolvedValueOnce(jsonResponse(TECHNICIAN_RECORDS))
-      .mockResolvedValueOnce(jsonResponse({ message: "boom" }, 500))
-      .mockResolvedValueOnce(jsonResponse({ records: [] }));
+    installDispatcher(h, {
+      operatingHours: jsonResponse({ message: "boom" }, 500),
+      absence: jsonResponse({ records: [] })
+    });
 
     const result = await h.gateway.readSchedulingContext(READ_INPUT);
 
     expect(result.degraded).toBe(false);
     expect(result.technicians).toHaveLength(1);
     expect(result.businessWindows).toEqual([]);
+    expect(result.timeZone).toBeUndefined();
+  });
+
+  it("merges existing ServiceAppointments into busy intervals (excludes terminal)", async () => {
+    const h = buildHarness();
+    installDispatcher(h, {
+      absence: jsonResponse({ records: [] }),
+      appointment: jsonResponse(APPOINTMENT_RECORDS)
+    });
+
+    const result = await h.gateway.readSchedulingContext(READ_INPUT);
+
+    // The scheduled appointment blocks; the completed one is excluded.
+    expect(result.busyIntervals).toHaveLength(1);
+    expect(result.busyIntervals[0]).toMatchObject({
+      resourceId: "0Hn000000000A1",
+      startMs: Date.parse("2026-06-19T09:00:00.000Z"),
+      endMs: Date.parse("2026-06-19T11:00:00.000Z")
+    });
+  });
+
+  it("builds a WorkType duration map keyed by required skill", async () => {
+    const h = buildHarness();
+    installDispatcher(h, { workType: jsonResponse(WORKTYPE_RECORDS) });
+
+    const result = await h.gateway.readSchedulingContext(READ_INPUT);
+
+    expect(result.workTypeDurationMinutesBySkill).toEqual({
+      "Battery/Power": 60, // 1 hour → 60 minutes
+      "Laptop Hardware": 120
+    });
+  });
+
+  it("does not use the AppointmentCandidates API when the flag is off", async () => {
+    const h = buildHarness();
+    installDispatcher(h);
+
+    const result = await h.gateway.readSchedulingContext(READ_INPUT);
+
+    expect(result.candidatesApiUsed).toBe(false);
+    expect(result.appointmentCandidates ?? []).toEqual([]);
+  });
+
+  it("keeps the deterministic fallback even when the candidates flag is on", async () => {
+    const h = buildHarness();
+    installDispatcher(h);
+
+    const result = await h.gateway.readSchedulingContext({
+      ...READ_INPUT,
+      candidatesApiEnabled: true
+    });
+
+    // 5b: the native scheduler needs a draft ServiceAppointment (5c), so the
+    // flag-on read still falls back to deterministic planning.
+    expect(result.candidatesApiUsed).toBe(false);
   });
 
   it("returns an empty, non-degraded result for a blank territory", async () => {
@@ -197,6 +335,7 @@ describe("SalesforceSchedulingGateway", () => {
     });
     expect(result.source).toBe("none");
     expect(result.degraded).toBe(false);
+    expect(result.candidatesApiUsed).toBe(false);
     expect(h.fetchMock).not.toHaveBeenCalled();
   });
 });

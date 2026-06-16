@@ -2,8 +2,8 @@
 
 > **Document type:** Phase 5 planning + implementation-readiness report — Field Service readiness, parts-ETA gating, `scheduling` channel contract, planner/gateway/graph design, verdict rollup, UI, and test plan.
 > **Audience:** AI Architects · Salesforce Architects · Platform Engineers · Service Operations.
-> **Status:** **5-Pre + 5a + Railway E2E SHIPPED** (2026-06-16). Production flag `AI_API_ORCHESTRATOR_SCHEDULING_ENABLED=true`; smoke `ASSERT_SCHEDULING=1` green. See §0.1, §0.5, and [`node5-field-service-prep-lessons.md`](../context/node5-field-service-prep-lessons.md).
-> **Next:** 5b planner refinements (optional) · 5c gated `ServiceAppointment` writes (post Node 6) · 5d re-orchestration reconcile.
+> **Status:** **5-Pre + 5a + Railway E2E + 5b SHIPPED** (2026-06-16). Production flag `AI_API_ORCHESTRATOR_SCHEDULING_ENABLED=true`; smoke `ASSERT_SCHEDULING=1` green. 5b planner refinements (territory-local TZ, appointment collision, WorkType/KB duration cross-check, AppointmentCandidates seam) shipped — see §0.6. See §0.1, §0.5, §0.6, and [`node5-field-service-prep-lessons.md`](../context/node5-field-service-prep-lessons.md).
+> **Next:** 5c gated `ServiceAppointment` writes (post Node 6) · 5d re-orchestration reconcile.
 > **Companions:** [`case-triage-orchestrator-flow.md`](./case-triage-orchestrator-flow.md) · [`node-4-parts-logistics-phase-plan.md`](./node-4-parts-logistics-phase-plan.md) · [`new-node-phase-completion-checklist.md`](./new-node-phase-completion-checklist.md) · [`service-operations-operating-system.md`](../agents/service-operations-operating-system.md)
 
 **Program invariants (unchanged):**
@@ -82,24 +82,49 @@
 | Scheduling        | `PROVISIONAL` / `provisional` · technician **SR-A2** · window Thursday 09:00–11:00 UTC (after parts) |
 | UI                | `https://react-chat-window-production.up.railway.app/orchestration?caseId=500g500000YpQMnAAN`        |
 
+### 0.6 Phase 5b shipped state (2026-06-16) — planner refinements, no SF writes
+
+Four deterministic-planner refinements, all additive and degrade-safe. No graph-shape change (still `parts → schedule → gate`, non-interrupting, sole writer). No Salesforce writes (`appointmentStatus` still stops at `proposed`).
+
+| Refinement                     | What shipped                                                                                                                                                                                                                                                                                                               |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Territory-local timezone**   | `scheduling-timezone.ts` (pure `Intl`-based wall-clock↔UTC, DST-correct, UTC fallback). `findEarliestSlot` now projects operating hours in `OperatingHours.TimeZone`; the gateway reads that field. `displayWindow` renders local time + zone label (e.g. `PDT`). No zone → exact 5a UTC behavior.                         |
+| **Appointment collision**      | Gateway reads existing `ServiceAppointment` (via `AssignedResource`, terminal statuses excluded) and merges them with `ResourceAbsence` into per-resource `busyIntervals`; the planner sweep already skips them.                                                                                                           |
+| **WorkType / KB duration**     | Gateway reads laptop `WorkType.EstimatedDuration` keyed by skill; planner `reconcileDuration()` cross-checks it against the per-skill default and an optional typed KB repair-effort hint (`ActionRecommendation.estimatedEffortMinutes`); `proposedWindow.durationSource` records the winner.                             |
+| **AppointmentCandidates seam** | Flag `AI_API_ORCHESTRATOR_SCHEDULING_CANDIDATES_API_ENABLED` (default off) + gateway seam + planner slot-source selection (`proposedWindow.slotSource`). The native scheduler needs a draft `ServiceAppointment` (5c), so the flag-on read still returns `candidatesApiUsed:false` and the deterministic planner stays v1. |
+
+**New additive channel fields:** `ProposedWindow.timeZone | slotSource | durationSource`; `SchedulingChannel.candidatesApiUsed`. **New config:** `OrchestratorSchedulingConfig.candidatesApiEnabled`.
+
+**Files:** `scheduling-timezone.ts` (new) · `scheduling-availability.ts` · `scheduling-rules.ts` · `scheduling-planner.service.ts` · `salesforce-scheduling.gateway.ts` · `dto/scheduling.ts` · `dto/knowledge-guidance.ts` · `app-config.service.ts` · `case-triage.graph.ts` (deps `planScheduling` gains `knowledgeGuidance`) · `case-triage-orchestrator.service.ts`. **Specs:** `scheduling-timezone.spec.ts`, `scheduling-availability.spec.ts`, `scheduling-rules.spec.ts` (new) + planner/gateway/orchestrator specs. **Tests:** ai-api **406** passed (was 367); typecheck + prettier clean.
+
+**Live planner proof (org `AgentForce`, Case `500g500000YpQMnAAN` / 00001050 — display repair):** live reads — NA `OperatingHours.TimeZone = America/Los_Angeles`, WorkTypes (Onsite Repair 2h / Battery 1h), A1/A2 NA-Secondary skills. Real planner output:
+
+| Parts state                      | Outcome                                                                                                                                   |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Parts skipped                    | `schedulable` · **SR-A2** · **"Today 09:00–11:00 PDT"** (16:00 UTC) · `durationSource: worktype` (120m) · `timeZone: America/Los_Angeles` |
+| Display transfer (~41h)          | `provisional` · SR-A2 · **"Thursday 09:00–11:00 PDT (after parts arrive)"** · `partsEtaConstrained: true`                                 |
+| Same-day booking 09:00–10:00 PDT | `schedulable` · SR-A2 · swept to **"Today 10:00–12:00 PDT"** (collision detection)                                                        |
+
+5b is still point-in-time (§3.7) — fresh parts read at write time is 5c, event reconcile is 5d.
+
 ### 0.2 Phase breakdown
 
-| Phase     | Scope                                                                                                                                                                                                        | Exit criteria                                                                                       |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| **5-Pre** | Salesforce: align Field Service data to the laptop service domain, seed **Skills + ServiceResourceSkill**, multi-region territories, operating hours, FLS perm set for AI API run-as user, validation script | **Done** — `node5-pre-validation.sh AgentForce` (§0.4)                                              |
-| **5a**    | AI read/plan: `scheduling` DTO, `SalesforceSchedulingGateway`, deterministic `scheduling-planner.service`, graph node `schedule` after `parts`, verdict rollup, React stage card, smoke. **No SF writes.**   | **Done** — B1–B11 via tests; live planner proof Case `500g500000YpQMnAAN` (§0.5)                    |
-| **5b**    | Optional: appointment-duration hints from KB/WorkType, multi-day window refinement, territory travel modeling                                                                                                | —                                                                                                   |
-| **5c**    | Gated `ServiceAppointment` create after Node 6 approval (mirror Node 4 Phase 4c write-back)                                                                                                                  | Acceptance C1–C4 (§14.3)                                                                            |
-| **5d**    | **Re-orchestration:** event-driven `parts → scheduling` reconcile when fulfillment status changes; Stop-AI guard respected. See [`re-orchestration-backlog.md`](./re-orchestration-backlog.md).              | Reconcile API + SF Flow triggers; deferred/provisional → schedulable without manual full re-trigger |
+| Phase     | Scope                                                                                                                                                                                                                                  | Exit criteria                                                                                                                               |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **5-Pre** | Salesforce: align Field Service data to the laptop service domain, seed **Skills + ServiceResourceSkill**, multi-region territories, operating hours, FLS perm set for AI API run-as user, validation script                           | **Done** — `node5-pre-validation.sh AgentForce` (§0.4)                                                                                      |
+| **5a**    | AI read/plan: `scheduling` DTO, `SalesforceSchedulingGateway`, deterministic `scheduling-planner.service`, graph node `schedule` after `parts`, verdict rollup, React stage card, smoke. **No SF writes.**                             | **Done** — B1–B11 via tests; live planner proof Case `500g500000YpQMnAAN` (§0.5)                                                            |
+| **5b**    | Planner refinements (no SF writes): territory-local timezone for operating hours, `ServiceAppointment` collision detection, WorkType/KB duration cross-check, AppointmentCandidates API seam behind a flag with deterministic fallback | **Done** (2026-06-16) — planner/availability/rules/gateway specs; live planner proof Case `500g500000YpQMnAAN` in Pacific local time (§0.6) |
+| **5c**    | Gated `ServiceAppointment` create after Node 6 approval (mirror Node 4 Phase 4c write-back)                                                                                                                                            | Acceptance C1–C4 (§14.3)                                                                                                                    |
+| **5d**    | **Re-orchestration:** event-driven `parts → scheduling` reconcile when fulfillment status changes; Stop-AI guard respected. See [`re-orchestration-backlog.md`](./re-orchestration-backlog.md).                                        | Reconcile API + SF Flow triggers; deferred/provisional → schedulable without manual full re-trigger                                         |
 
 ### 0.3 Recommended execution order
 
 1. ~~Run **5-Pre**~~ **Done** (2026-06-16).
 2. ~~Run **5a** orchestrator slice~~ **Done** (2026-06-16).
 3. **Deploy to Railway:** `AI_API_ORCHESTRATOR_SCHEDULING_ENABLED=true`, restart `ai-api`, smoke `ASSERT_SCHEDULING=1 SF_CASE_ID=500g500000YpQMnAAN`.
-4. Defer **5c** writes until Node 6 lands (§13 R5).
-5. Plan **5d** re-orchestration with [`re-orchestration-backlog.md`](./re-orchestration-backlog.md).
-6. Optional **5b:** territory-local TZ, appointment collision check, `AppointmentCandidates` API.
+4. ~~Optional **5b:** territory-local TZ, appointment collision check, WorkType/KB duration cross-check, `AppointmentCandidates` seam~~ **Done** (2026-06-16, §0.6).
+5. Defer **5c** writes until Node 6 lands (§13 R5).
+6. Plan **5d** re-orchestration with [`re-orchestration-backlog.md`](./re-orchestration-backlog.md).
 
 ---
 

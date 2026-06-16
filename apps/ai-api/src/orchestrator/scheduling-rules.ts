@@ -12,6 +12,7 @@
  * the Field Service `AppointmentCandidates` API (§8.4 / R2).
  */
 
+import type { DurationSource } from "./dto/scheduling";
 import {
   destinationRegionForCountry,
   type WarehouseRegion
@@ -27,6 +28,21 @@ const REGION_TERRITORY: Record<WarehouseRegion, string> = {
   "North America": "North America",
   Europe: "Europe"
 };
+
+/**
+ * Territory-local IANA timezone per fulfillment region (5b). The gateway
+ * prefers the live `OperatingHours.TimeZone`; this is the fallback when the
+ * operating-hours read is missing or omits a zone. North America aligns to
+ * Austin (Central); Europe aligns to the Frankfurt warehouse hub.
+ */
+const REGION_TIME_ZONE: Record<WarehouseRegion, string> = {
+  "North America": "America/Chicago",
+  Europe: "Europe/Berlin"
+};
+
+/** Minimum / maximum sane appointment duration — guards bad source data. */
+const MIN_DURATION_MINUTES = 15;
+const MAX_DURATION_MINUTES = 480;
 
 /**
  * Part-code prefix → specialist skill. The base laptop skill is always
@@ -102,6 +118,11 @@ export function territoryForRegion(region: WarehouseRegion): string {
   return REGION_TERRITORY[region] ?? REGION_TERRITORY["North America"];
 }
 
+/** Territory-local IANA timezone fallback for a region (5b). */
+export function timeZoneForRegion(region: WarehouseRegion): string {
+  return REGION_TIME_ZONE[region] ?? REGION_TIME_ZONE["North America"];
+}
+
 /**
  * Required skills for a Case: always the base laptop skill, plus a
  * specialist skill derived from the planned part codes (preferred) or the
@@ -140,6 +161,81 @@ export function durationMinutesForSkills(requiredSkills: string[]): number {
     }
   }
   return DEFAULT_DURATION_MINUTES;
+}
+
+/**
+ * Cross-checks the appointment duration across its three sources (5b) and
+ * returns the minutes to plan plus which source won, for verdict
+ * explainability:
+ *
+ * - `WorkType.EstimatedDuration` (the Salesforce system of record) wins
+ *   when present.
+ * - A knowledge-guidance repair-effort hint that is materially LONGER than
+ *   the WorkType widens the window — under-booking a repair is worse than a
+ *   slightly long slot — and is reported as `reconciled`.
+ * - With no WorkType, the longer of the KB hint and the per-skill default
+ *   governs.
+ * - With neither, the per-skill default (`skill_default`) governs.
+ *
+ * All inputs are sanity-clamped to [15, 480] minutes so a bad WorkType or
+ * KB value can never produce an absurd window.
+ */
+export function reconcileDuration(input: {
+  skillDerivedMinutes: number;
+  workTypeMinutes?: number;
+  kbMinutes?: number;
+}): { minutes: number; source: DurationSource } {
+  const skill = clampDuration(input.skillDerivedMinutes);
+  const workType = saneDuration(input.workTypeMinutes);
+  const kb = saneDuration(input.kbMinutes);
+
+  if (workType !== undefined) {
+    if (kb !== undefined && kb > workType) {
+      return { minutes: kb, source: "reconciled" };
+    }
+    return { minutes: workType, source: "worktype" };
+  }
+  if (kb !== undefined) {
+    return kb >= skill
+      ? { minutes: kb, source: "kb" }
+      : { minutes: skill, source: "reconciled" };
+  }
+  return { minutes: skill, source: "skill_default" };
+}
+
+/**
+ * Largest typed repair-effort hint (minutes) across knowledge actions, or
+ * `undefined` when none carry one. Reads the typed `estimatedEffortMinutes`
+ * only — never parses `safeSummary` (DTO contract).
+ */
+export function kbDurationHintMinutes(
+  actions: Array<{ estimatedEffortMinutes?: number }> | undefined
+): number | undefined {
+  if (!actions?.length) {
+    return undefined;
+  }
+  let max: number | undefined;
+  for (const action of actions) {
+    const value = action.estimatedEffortMinutes;
+    if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+      max = max === undefined ? value : Math.max(max, value);
+    }
+  }
+  return max;
+}
+
+function saneDuration(value: number | undefined): number | undefined {
+  if (value === undefined || !Number.isFinite(value) || value <= 0) {
+    return undefined;
+  }
+  return clampDuration(value);
+}
+
+function clampDuration(value: number): number {
+  return Math.min(
+    MAX_DURATION_MINUTES,
+    Math.max(MIN_DURATION_MINUTES, Math.round(value))
+  );
 }
 
 /** Soft SLA response target in hours from SLA class + triage priority. */
