@@ -2,8 +2,8 @@
 
 > **Document type:** Phase 5 planning + implementation-readiness report — Field Service readiness, parts-ETA gating, `scheduling` channel contract, planner/gateway/graph design, verdict rollup, UI, and test plan.
 > **Audience:** AI Architects · Salesforce Architects · Platform Engineers · Service Operations.
-> **Status:** **5-Pre SHIPPED** on org `AgentForce` (2026-06-16). **5a not implemented.** See §0.1 and [`node5-field-service-prep-lessons.md`](../context/node5-field-service-prep-lessons.md).
-> **Next:** `/implement-node5-scheduling` for the 5a orchestrator slice.
+> **Status:** **5-Pre + 5a + Railway E2E SHIPPED** (2026-06-16). Production flag `AI_API_ORCHESTRATOR_SCHEDULING_ENABLED=true`; smoke `ASSERT_SCHEDULING=1` green. See §0.1, §0.5, and [`node5-field-service-prep-lessons.md`](../context/node5-field-service-prep-lessons.md).
+> **Next:** 5b planner refinements (optional) · 5c gated `ServiceAppointment` writes (post Node 6) · 5d re-orchestration reconcile.
 > **Companions:** [`case-triage-orchestrator-flow.md`](./case-triage-orchestrator-flow.md) · [`node-4-parts-logistics-phase-plan.md`](./node-4-parts-logistics-phase-plan.md) · [`new-node-phase-completion-checklist.md`](./new-node-phase-completion-checklist.md) · [`service-operations-operating-system.md`](../agents/service-operations-operating-system.md)
 
 **Program invariants (unchanged):**
@@ -18,14 +18,14 @@
 
 ### 0.1 What is shipped vs. what this plan adds
 
-| Layer                                                  | State today                                                                                                                  | Source of truth                                       |
-| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| Nodes 1–4 (triage, customer history, knowledge, parts) | **Shipped**; graph `START → readContext → runTriage → customerHistory → knowledge → parts → gate → writeBack/rejected → END` | `apps/ai-api/src/orchestrator/case-triage.graph.ts`   |
-| `partsLogistics` channel + multi-segment ETA           | **Shipped** (4a/4b/4c)                                                                                                       | `apps/ai-api/src/orchestrator/dto/parts-logistics.ts` |
-| Single approval gate covers triage + parts             | **Shipped** (`requiresApproval(triage, partsLogistics)`)                                                                     | graph `gate` node                                     |
-| `scheduling` channel                                   | **Reserved namespace only** (design)                                                                                         | `service-workflow-remediation-backlog.md`             |
-| **5-Pre** Field Service seed + FLS on `AgentForce`     | **Done** (2026-06-16) — skills, NA territory, laptop WorkTypes, `Agentforce_Scheduling_Node5` on Run As                      | §0.4; `node5-pre-validation.sh`                       |
-| Node 5 graph node / planner / gateway / UI / verdict   | **None**                                                                                                                     | — 5a scope                                            |
+| Layer                                                  | State today                                                                                                                                             | Source of truth                                                                          |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Nodes 1–4 (triage, customer history, knowledge, parts) | **Shipped**                                                                                                                                             | `apps/ai-api/src/orchestrator/case-triage.graph.ts`                                      |
+| **`scheduling` channel + Node 5 graph**                | **Shipped (5a)** — graph node `schedule` writes channel `scheduling`; non-interrupting; flag `AI_API_ORCHESTRATOR_SCHEDULING_ENABLED` (default `false`) | `dto/scheduling.ts`, `scheduling-planner.service.ts`, `salesforce-scheduling.gateway.ts` |
+| Single approval gate covers triage + parts             | **Shipped** (`requiresApproval(triage, partsLogistics)`) — scheduling does **not** gate in 5a                                                           | graph `gate` node                                                                        |
+| **5-Pre** Field Service seed + FLS on `AgentForce`     | **Done** (2026-06-16)                                                                                                                                   | §0.4; `node5-pre-validation.sh`                                                          |
+| **5a** orchestrator + UI + verdict + smoke             | **Done** (2026-06-16) — 367 ai-api tests, 49 react-chat tests; live planner proof Case `500g500000YpQMnAAN`                                             | §0.5                                                                                     |
+| Railway production scheduling flag + E2E smoke         | **Done** (2026-06-16) — `AI_API_ORCHESTRATOR_SCHEDULING_ENABLED=true`; workflow `wf-d53cb708-91a1-4ff7-a2c5-cf3504d7125f`                               | §0.5                                                                                     |
 
 ### 0.4 Phase 5-Pre shipped state (2026-06-16, org `AgentForce`)
 
@@ -43,14 +43,51 @@
 
 **Territory membership:** A1/A2 are **Primary** in `Abypro`, **Secondary (`S`)** in **North America** (FSL one-Primary rule). 5a planner/gateway **must include Secondary memberships** — see §8.3.
 
-**Lessons:** [`node5-field-service-prep-lessons.md`](../context/node5-field-service-prep-lessons.md) — Skill-as-metadata, territory overlap, Run As alias.
+**Lessons:** [`node5-field-service-prep-lessons.md`](../context/node5-field-service-prep-lessons.md) — Skill-as-metadata, territory overlap, Run As alias, LangGraph `schedule` node vs `scheduling` channel.
+
+### 0.5 Phase 5a shipped state (2026-06-16)
+
+| Artifact    | Path / result                                                                                                      |
+| ----------- | ------------------------------------------------------------------------------------------------------------------ |
+| DTO         | `apps/ai-api/src/orchestrator/dto/scheduling.ts` — `SchedulingChannel`                                             |
+| Gateway     | `apps/ai-api/src/salesforce/salesforce-scheduling.gateway.ts` — sanitizes names at boundary                        |
+| Planner     | `apps/ai-api/src/orchestrator/scheduling-planner.service.ts` + `scheduling-rules.ts`, `scheduling-availability.ts` |
+| Graph       | `schedule` node in `case-triage.graph.ts` — `parts → schedule → gate` (node name ≠ channel; see lessons)           |
+| Lifecycle   | `SCHEDULING_NODE_ID = "scheduling"` in `case-triage-lifecycle.ts`                                                  |
+| Config      | `AI_API_ORCHESTRATOR_SCHEDULING_ENABLED` (default `false`)                                                         |
+| Verdict     | four-surface rollup in `orchestrator-verdict.synthesizer.ts`                                                       |
+| UI          | `OrchestrationView.tsx` Node 5 card; `lib/orchestration.ts` sanitizer                                              |
+| Persistence | `scheduling` JSONB column on workflow snapshot                                                                     |
+| Smoke       | `scripts/smoke/all-3-nodes-deployed.sh` — `ASSERT_SCHEDULING=1` when flag on Railway                               |
+| Tests       | ai-api **367** passed; react-chat **49** passed; typecheck clean                                                   |
+
+**Live planner proof (org `AgentForce`, Case `500g500000YpQMnAAN` / 00001050 — display repair, Austin):**
+
+| Parts state             | Outcome                                                                      |
+| ----------------------- | ---------------------------------------------------------------------------- |
+| Parts skipped           | `schedulable` · **SR-A2** rank 1 (Display skill) · window today              |
+| Display transfer (~41h) | `provisional` · SR-A2 · window after parts ETA · `partsEtaConstrained: true` |
+
+**Re-orchestration:** 5a is point-in-time (§3.7). UI/verdict do not imply live scheduling after `done`.
+
+**Railway E2E proof (2026-06-16):**
+
+| Item              | Value                                                                                                |
+| ----------------- | ---------------------------------------------------------------------------------------------------- |
+| Script            | `scripts/deploy/railway-node5-scheduling-e2e.sh`                                                     |
+| ai-api deploy     | `b00fe4d9-288b-4935-a5ce-197bd9cf8c3e`                                                               |
+| react-chat deploy | `3e9251ce-d78d-44a9-96a7-7d6b405abca2`                                                               |
+| Smoke workflow    | `wf-d53cb708-91a1-4ff7-a2c5-cf3504d7125f`                                                            |
+| Case              | `500g500000YpQMnAAN` (00001050)                                                                      |
+| Scheduling        | `PROVISIONAL` / `provisional` · technician **SR-A2** · window Thursday 09:00–11:00 UTC (after parts) |
+| UI                | `https://react-chat-window-production.up.railway.app/orchestration?caseId=500g500000YpQMnAAN`        |
 
 ### 0.2 Phase breakdown
 
 | Phase     | Scope                                                                                                                                                                                                        | Exit criteria                                                                                       |
 | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
 | **5-Pre** | Salesforce: align Field Service data to the laptop service domain, seed **Skills + ServiceResourceSkill**, multi-region territories, operating hours, FLS perm set for AI API run-as user, validation script | **Done** — `node5-pre-validation.sh AgentForce` (§0.4)                                              |
-| **5a**    | AI read/plan: `scheduling` DTO, `SalesforceSchedulingGateway`, deterministic `scheduling-planner.service`, graph node after `parts`, verdict rollup, React stage card, smoke. **No SF writes.**              | Acceptance B1–B11 (§14.2) green; live proof Case produces a ranked technician + window              |
+| **5a**    | AI read/plan: `scheduling` DTO, `SalesforceSchedulingGateway`, deterministic `scheduling-planner.service`, graph node `schedule` after `parts`, verdict rollup, React stage card, smoke. **No SF writes.**   | **Done** — B1–B11 via tests; live planner proof Case `500g500000YpQMnAAN` (§0.5)                    |
 | **5b**    | Optional: appointment-duration hints from KB/WorkType, multi-day window refinement, territory travel modeling                                                                                                | —                                                                                                   |
 | **5c**    | Gated `ServiceAppointment` create after Node 6 approval (mirror Node 4 Phase 4c write-back)                                                                                                                  | Acceptance C1–C4 (§14.3)                                                                            |
 | **5d**    | **Re-orchestration:** event-driven `parts → scheduling` reconcile when fulfillment status changes; Stop-AI guard respected. See [`re-orchestration-backlog.md`](./re-orchestration-backlog.md).              | Reconcile API + SF Flow triggers; deferred/provisional → schedulable without manual full re-trigger |
@@ -58,11 +95,11 @@
 ### 0.3 Recommended execution order
 
 1. ~~Run **5-Pre**~~ **Done** (2026-06-16).
-2. Approve scheduling contract §7, gating §3.5, re-orchestration §3.7.
-3. Run **5a** orchestrator slice (§8–§11) behind `AI_API_ORCHESTRATOR_SCHEDULING_ENABLED=false`, enable in staging.
-4. Live proof on a laptop Case that already passes Node 4 (§14.4).
-5. Defer **5c** writes until Node 6 lands (§13 R5).
-6. Plan **5d** with [`re-orchestration-backlog.md`](./re-orchestration-backlog.md).
+2. ~~Run **5a** orchestrator slice~~ **Done** (2026-06-16).
+3. **Deploy to Railway:** `AI_API_ORCHESTRATOR_SCHEDULING_ENABLED=true`, restart `ai-api`, smoke `ASSERT_SCHEDULING=1 SF_CASE_ID=500g500000YpQMnAAN`.
+4. Defer **5c** writes until Node 6 lands (§13 R5).
+5. Plan **5d** re-orchestration with [`re-orchestration-backlog.md`](./re-orchestration-backlog.md).
+6. Optional **5b:** territory-local TZ, appointment collision check, `AppointmentCandidates` API.
 
 ---
 
@@ -441,7 +478,8 @@ Add `SCHEDULING_NODE_ID` to `OrchestratorNodeId` in `dto/case-triage-lifecycle.t
 - Add `SCHEDULING_NODE_ID` + `scheduling` channel annotation to `CaseTriageState`.
 - Add deps to `CaseTriageGraphDeps`: `isSchedulingEligible(context, triagePriority, partsLogistics)` and `planScheduling(workflowId, context, partsLogistics, customerContext, triagePriority)` (degrade-safe, never throws).
 - Add `.addNode("scheduling", …)` mirroring the `parts` node (eligibility skip → `emitRunning` read/plan/write status lines with `SCHEDULING_NODE_ID`).
-- Replace edge `parts → gate` with `parts → scheduling` and `scheduling → gate`.
+- Replace edge `parts → gate` with `parts → schedule` and `schedule → gate`.
+- **LangGraph naming:** graph node **`schedule`** (not `scheduling`) — node name must not collide with channel key `scheduling`. Status/lifecycle id remains `SCHEDULING_NODE_ID = "scheduling"`.
 - `case-triage-orchestrator.service.ts`: pass `scheduling` into `buildVerdict()` input.
 
 ### 8.3 Gateway reads (SOQL shapes)

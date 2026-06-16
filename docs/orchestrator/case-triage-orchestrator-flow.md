@@ -270,16 +270,15 @@ sequenceDiagram
 
 ---
 
-## 7. Implemented Node 1 slice (walking skeleton)
+## 7. Implemented orchestrator slice (Nodes 1–5)
 
-> This section reflects the **shipped** thin vertical slice. Nodes 2–8 remain
-> conceptual (sections 1–6 above). The slice uses the real
+> Section 8 below is the current **full graph** through Node 5. Nodes 6–8 remain conceptual (sections 1–6).
+> The slice uses the real
 > `@langchain/langgraph` runtime (`StateGraph` + `interrupt` + `MemorySaver`
 > checkpointer) and reuses the existing support-triage seam via `ModelRouter`.
 
-**Graph:** `START → readContext → runTriage → gate ─approved→ writeBack → END`
-with `gate ─rejected→ rejected → END`. `gate` calls `interrupt(...)` only when the
-approval policy requires it; resume is idempotent.
+**Graph (Node 1 original walking skeleton):** `START → readContext → runTriage → gate ─approved→ writeBack → END`
+with `gate ─rejected→ rejected → END`. **Current graph through Node 5:** see §8. `gate` calls `interrupt(...)` only when the approval policy requires it; resume is idempotent.
 
 **Four boundary contracts** (`apps/ai-api/src/orchestrator/dto/`):
 
@@ -382,3 +381,25 @@ store, and service specs simulate a restart (a fresh store over the same
 repository still resolves the Case) and assert the deterministic latest-by-Case
 ordering; the React `lib/orchestration` and `OrchestrationView` specs cover the
 sanitized per-step `details`.
+
+---
+
+## 8. Implemented graph through Node 5 (2026-06-16)
+
+> Nodes 6–8 remain conceptual (sections 1–6). The **shipped** LangGraph path:
+
+```
+START → readContext → runTriage → customerHistory → knowledge → parts → schedule → gate
+                                                                          ├─ approved → writeBack → END
+                                                                          └─ rejected → rejected → END
+```
+
+| Node                | Graph step        | Channel key         | Notes                                                                      |
+| ------------------- | ----------------- | ------------------- | -------------------------------------------------------------------------- |
+| 1 Triage            | `runTriage`       | `triage`            | ModelRouter via support-triage seam                                        |
+| 2 Customer history  | `customerHistory` | `customerContext`   | Non-interrupting                                                           |
+| 3 Knowledge         | `knowledge`       | `knowledgeGuidance` | RAG + optional extraction                                                  |
+| 4 Parts & logistics | `parts`           | `partsLogistics`    | Inventory gateway; optional 4c writes after gate                           |
+| 5 Scheduling        | **`schedule`**    | **`scheduling`**    | LangGraph node name ≠ channel (same pattern as `parts` / `partsLogistics`) |
+
+**Final Verdict** rolls up Nodes 1–5 deterministically after the graph settles. Node 5 is gated on `AI_API_ORCHESTRATOR_SCHEDULING_ENABLED` (default off). Phase plan: [`node-5-scheduling-phase-plan.md`](node-5-scheduling-phase-plan.md) §0.5.

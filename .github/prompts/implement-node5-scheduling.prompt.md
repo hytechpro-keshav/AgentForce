@@ -120,8 +120,10 @@ Implement per §8.4:
 ### C. Graph wiring
 
 ```
-… → parts → scheduling → gate → …
+… → parts → schedule → gate → …
 ```
+
+- Graph node id: **`schedule`** (LangGraph forbids node name == channel name `scheduling`)
 
 - Node 5 is **non-interrupting** — never `interrupt()`
 - Writes **only** `scheduling` channel
