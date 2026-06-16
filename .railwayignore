@@ -1,0 +1,21 @@
+# Shrink Railway code snapshots for ai-api deploys from the monorepo root.
+# Nixpacks still installs deps via package.json; local node_modules is not needed.
+
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+coverage/
+**/.jest-cache/
+.sf/
+.sfdx/
+.localdevserver/
+.codetrellis/
+.git/
+
+# Unrelated app roots (ai-api build only needs apps/ai-api + packages + root package files)
+force-app/
+apps/react-chat-window/
+apps/openwebui/
+manifest/
+scripts/sf/

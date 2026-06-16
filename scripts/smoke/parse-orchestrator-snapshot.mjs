@@ -69,6 +69,28 @@ if (mode === "--summary") {
             sourceWarehouseReference: plan.sourceWarehouseReference
           }))
         }
+      : null,
+    scheduling: snapshot.scheduling
+      ? {
+          eligible: snapshot.scheduling.eligible,
+          status: snapshot.scheduling.status,
+          schedulingReadiness: snapshot.scheduling.schedulingReadiness,
+          degraded: snapshot.scheduling.degraded,
+          recommendedResourceReference:
+            snapshot.scheduling.recommendedResourceReference,
+          proposedWindow: snapshot.scheduling.proposedWindow
+            ? {
+                displayWindow: snapshot.scheduling.proposedWindow.displayWindow,
+                timeZone: snapshot.scheduling.proposedWindow.timeZone,
+                slotSource: snapshot.scheduling.proposedWindow.slotSource,
+                durationSource:
+                  snapshot.scheduling.proposedWindow.durationSource,
+                partsEtaConstrained:
+                  snapshot.scheduling.proposedWindow.partsEtaConstrained
+              }
+            : null,
+          candidatesApiUsed: snapshot.scheduling.candidatesApiUsed
+        }
       : null
   };
   console.log(JSON.stringify(summary, null, 2));

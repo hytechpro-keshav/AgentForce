@@ -50,7 +50,7 @@ echo "=== [4] 5-Pre validation (local SF CLI) ==="
 
 echo ""
 echo "=== [5] Orchestrator smoke (Nodes 1–5, ASSERT_SCHEDULING=1) ==="
-ASSERT_SCHEDULING=1 SF_CASE_ID="${SF_CASE_ID}" \
+ASSERT_SCHEDULING=1 ASSERT_SCHEDULING_5B=1 SF_CASE_ID="${SF_CASE_ID}" \
   "${REPO_ROOT}/scripts/smoke/all-3-nodes-deployed.sh"
 
 echo ""

@@ -34,6 +34,8 @@
 #   ASSERT_PARTS_ELIGIBLE — set to 0 to skip Node 4 eligibility assertion (default: 1)
 #   ASSERT_SCHEDULING     — set to 1 to assert Node 5 scheduling (default: 0;
 #                           requires the scheduling flag enabled on Railway)
+#   ASSERT_SCHEDULING_5B  — set to 1 with ASSERT_SCHEDULING=1 to assert 5b fields
+#                           (territory-local TZ, durationSource, slotSource, PDT window)
 # ==============================================================================
 set -euo pipefail
 
@@ -240,6 +242,11 @@ scheduling_readiness=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field sch
 scheduling_degraded=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field scheduling.degraded)
 scheduling_technician=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field scheduling.recommendedResourceReference)
 scheduling_window=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field scheduling.proposedWindow.displayWindow)
+scheduling_timezone=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field scheduling.proposedWindow.timeZone)
+scheduling_slot_source=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field scheduling.proposedWindow.slotSource)
+scheduling_duration_source=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field scheduling.proposedWindow.durationSource)
+scheduling_parts_eta=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field scheduling.proposedWindow.partsEtaConstrained)
+scheduling_candidates_api=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field scheduling.candidatesApiUsed)
 
 errors=0
 
@@ -337,6 +344,46 @@ if [[ "${ASSERT_SCHEDULING}" == "1" ]]; then
       (( errors++ ))
     }
   fi
+
+  # Phase 5b — territory-local TZ, duration cross-check, deterministic slot source.
+  if [[ "${ASSERT_SCHEDULING_5B:-0}" == "1" ]]; then
+    echo "  Scheduling timeZone:       ${scheduling_timezone}"
+    echo "  Scheduling slotSource:     ${scheduling_slot_source}"
+    echo "  Scheduling durationSource: ${scheduling_duration_source}"
+    echo "  Scheduling partsEtaConstr: ${scheduling_parts_eta}"
+    echo "  Scheduling candidatesApi:  ${scheduling_candidates_api}"
+    [[ "${scheduling_timezone}" == "America/Los_Angeles" ]] || {
+      echo "  FAIL: Expected timeZone=America/Los_Angeles (live NA OperatingHours), got ${scheduling_timezone}" >&2
+      (( errors++ ))
+    }
+    [[ "${scheduling_window}" == *"PDT"* || "${scheduling_window}" == *"PST"* ]] || {
+      echo "  FAIL: Expected Pacific local label in displayWindow (PDT/PST), got: ${scheduling_window}" >&2
+      (( errors++ ))
+    }
+    [[ "${scheduling_slot_source}" == "deterministic" ]] || {
+      echo "  FAIL: Expected slotSource=deterministic, got ${scheduling_slot_source}" >&2
+      (( errors++ ))
+    }
+    [[ "${scheduling_duration_source}" == "worktype" || "${scheduling_duration_source}" == "kb" || "${scheduling_duration_source}" == "default" ]] || {
+      echo "  FAIL: Unexpected durationSource: ${scheduling_duration_source}" >&2
+      (( errors++ ))
+    }
+    [[ "${scheduling_candidates_api}" == "false" || "${scheduling_candidates_api}" == "null" ]] || {
+      echo "  FAIL: Expected candidatesApiUsed=false (5c seam off), got ${scheduling_candidates_api}" >&2
+      (( errors++ ))
+    }
+    # Display-repair demo Case with PARTIAL parts should be parts-ETA constrained.
+    if [[ "${parts_status}" == "PARTIAL" && "${scheduling_status}" == "PROVISIONAL" ]]; then
+      [[ "${scheduling_parts_eta}" == "true" ]] || {
+        echo "  FAIL: Expected partsEtaConstrained=true for PARTIAL+PROVISIONAL, got ${scheduling_parts_eta}" >&2
+        (( errors++ ))
+      }
+      [[ "${scheduling_technician}" == "SR-A2" ]] || {
+        echo "  FAIL: Expected SR-A2 (Display skill) for demo Case, got ${scheduling_technician}" >&2
+        (( errors++ ))
+      }
+    fi
+  fi
 fi
 
 if (( errors > 0 )); then
@@ -352,5 +399,5 @@ echo "  Node 2 (Customer History):  eligible=${knowledge_eligible}"
 echo "  Node 3 (Knowledge Base):    status=${knowledge_status}"
 echo "  Node 4 (Parts & Logistics): status=${parts_status}, readiness=${parts_readiness}, plans=${parts_plan_count}"
 if [[ "${ASSERT_SCHEDULING}" == "1" ]]; then
-  echo "  Node 5 (Scheduling):        status=${scheduling_status}, readiness=${scheduling_readiness}, technician=${scheduling_technician}"
+  echo "  Node 5 (Scheduling):        status=${scheduling_status}, readiness=${scheduling_readiness}, technician=${scheduling_technician}, window=${scheduling_window}"
 fi
