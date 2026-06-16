@@ -86,6 +86,7 @@ These subagents run in isolated context with specialized system prompts. Invoke 
 | `case-triage-slice-implementer`     | Node 1 case triage slice implementation                                 |
 | `node4-parts-logistics-implementer` | Phase 4a Node 4 Parts & Logistics implementation                        |
 | `node5-scheduling-planner`          | Node 5 Scheduling planning before implementation                        |
+| `node5-scheduling-implementer`      | Phase 5a Node 5 Scheduling implementation                               |
 | `new-org-tenant-onboarding`         | New org/tenant onboarding workflow                                      |
 
 ---
@@ -103,6 +104,7 @@ These subagents run in isolated context with specialized system prompts. Invoke 
 | `/implement-node4-parts-logistics`      | Implement Phase 4a Node 4 Parts & Logistics orchestrator slice |
 | `/plan-node5-scheduling`                | Plan Node 5 Scheduling: architecture, SF readiness, phase plan |
 | `/node5-pre-salesforce-prep`            | 5-Pre: Skills, NA territory, laptop WorkTypes, Run As FLS      |
+| `/implement-node5-scheduling`           | Implement Phase 5a Node 5 Scheduling orchestrator slice        |
 | `/onboard-new-org-tenant`               | Run new org/tenant onboarding workflow                         |
 | `/generate-production-runbook`          | Generate a production runbook                                  |
 | `/service-workflow-architecture-review` | Architecture review of service workflows                       |

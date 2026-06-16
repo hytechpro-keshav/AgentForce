@@ -264,4 +264,4 @@ Optional follow-on artifacts (only if analysis warrants):
 4. Recommended phase breakdown (5-Pre, 5a, …) with exit criteria
 5. Top risks and blockers for live proof
 6. Path to `docs/orchestrator/node-5-scheduling-phase-plan.md` with section pointers
-7. Exact next step: run `/implement-node5-scheduling` after phase plan approval (implementation prompt to be added separately)
+7. Exact next step: run `/implement-node5-scheduling` for the 5a slice

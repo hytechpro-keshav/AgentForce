@@ -7,7 +7,7 @@ Use this checklist whenever you add or extend an orchestrator **node** (graph st
 - Analysis: `.github/prompts/analyze-node4-verdict-gap.prompt.md` (pattern applies to any node)
 - Implementation: `.github/prompts/implement-node4-verdict-rollup.prompt.md`
 
-**Lesson doc:** `docs/context/node4-auth-session-lessons.md` (Salesforce OAuth); `docs/orchestrator/node4-verdict-gap-analysis.md` (verdict debt).
+**Lesson docs:** `docs/context/node4-auth-session-lessons.md` (Salesforce OAuth); `docs/context/node5-field-service-prep-lessons.md` (5-Pre Field Service gotchas); `docs/orchestrator/node4-verdict-gap-analysis.md` (verdict debt).
 
 **Re-orchestration (mandatory):** read `docs/orchestrator/re-orchestration-backlog.md` before any node work. Document stale-data behavior, reconcile scope, Stop AI guard, and write-time fresh reads in the phase plan §0.
 

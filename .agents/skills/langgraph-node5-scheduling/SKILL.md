@@ -52,11 +52,11 @@ If `docs/orchestrator/node-5-scheduling-phase-plan.md` does not exist or §0 say
 - Agent: `.github/agents/node5-scheduling-planner.agent.md`
 - Claude command: `.claude/commands/plan-node5-scheduling.md`
 
-## Implementation harness (after phase plan)
+## Implementation harness (after phase plan + 5-Pre)
 
-- Mirror Node 4: typed DTO, Salesforce gateway, deterministic planner, graph node, verdict rollup, React card, smoke
-- Proposed paths (confirm in phase plan): `dto/scheduling.ts`, `salesforce-scheduling.gateway.ts`, `scheduling-planner.service.ts`
-- Feature flag pattern: `AI_API_ORCHESTRATOR_SCHEDULING_ENABLED`
+- Prompt: `.github/prompts/implement-node5-scheduling.prompt.md`
+- Agent: `.github/agents/node5-scheduling-implementer.agent.md`
+- Claude command: `.claude/commands/implement-node5-scheduling.md`
 
 ## Related skills
 

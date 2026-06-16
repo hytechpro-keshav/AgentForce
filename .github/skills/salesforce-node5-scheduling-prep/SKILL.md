@@ -58,12 +58,20 @@ See [`docs/context/node4-auth-session-lessons.md`](../../../docs/context/node4-a
 - `.github/prompts/node5-pre-salesforce-prep.prompt.md`
 - `.claude/commands/node5-pre-salesforce-prep.md`
 
-## Scripts (create if missing)
+## Deploy sequence
 
 ```bash
 ./scripts/sf/node5-pre-deploy.sh AgentForce chaudhary.keshav4u@gmail.com
 ./scripts/sf/node5-pre-validation.sh AgentForce
 ```
+
+## Field Service deploy gotchas (read before re-seeding)
+
+See [`docs/context/node5-field-service-prep-lessons.md`](../../../docs/context/node5-field-service-prep-lessons.md):
+
+1. **`Skill` is metadata** — deploy `force-app/main/default/skills/*.skill-meta.xml` first; Apex seed resolves Ids (do not `insert Skill` in Apex).
+2. **One Primary territory per resource** — NA membership is **Secondary (`S`)** when A1/A2 are Primary in `Abypro`. 5a planner must query Secondary memberships.
+3. **Restart `ai-api`** after perm set assignment (OAuth token cache).
 
 ## Do NOT use for
 

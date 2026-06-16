@@ -2,8 +2,8 @@
 
 > **Document type:** Phase 5 planning + implementation-readiness report — Field Service readiness, parts-ETA gating, `scheduling` channel contract, planner/gateway/graph design, verdict rollup, UI, and test plan.
 > **Audience:** AI Architects · Salesforce Architects · Platform Engineers · Service Operations.
-> **Status:** **PLANNING — not implemented.** Node 5 is not shipped. The `scheduling` channel namespace is reserved (design-only) in `service-workflow-remediation-backlog.md`. Produce this plan; then run `/implement-node5-scheduling` (prompt to be added).
-> **Mode:** Plan and research only. No graph node, gateway, DTO, or Salesforce metadata was created in this pass.
+> **Status:** **5-Pre SHIPPED** on org `AgentForce` (2026-06-16). **5a not implemented.** See §0.1 and [`node5-field-service-prep-lessons.md`](../context/node5-field-service-prep-lessons.md).
+> **Next:** `/implement-node5-scheduling` for the 5a orchestrator slice.
 > **Companions:** [`case-triage-orchestrator-flow.md`](./case-triage-orchestrator-flow.md) · [`node-4-parts-logistics-phase-plan.md`](./node-4-parts-logistics-phase-plan.md) · [`new-node-phase-completion-checklist.md`](./new-node-phase-completion-checklist.md) · [`service-operations-operating-system.md`](../agents/service-operations-operating-system.md)
 
 **Program invariants (unchanged):**
@@ -24,27 +24,45 @@
 | `partsLogistics` channel + multi-segment ETA           | **Shipped** (4a/4b/4c)                                                                                                       | `apps/ai-api/src/orchestrator/dto/parts-logistics.ts` |
 | Single approval gate covers triage + parts             | **Shipped** (`requiresApproval(triage, partsLogistics)`)                                                                     | graph `gate` node                                     |
 | `scheduling` channel                                   | **Reserved namespace only** (design)                                                                                         | `service-workflow-remediation-backlog.md`             |
-| Field Service objects in org `Agent`                   | **Enabled, minimal demo data** (see §2)                                                                                      | live audit 2026-06-16                                 |
-| Node 5 graph node / planner / gateway / UI / verdict   | **None**                                                                                                                     | — this plan                                           |
+| **5-Pre** Field Service seed + FLS on `AgentForce`     | **Done** (2026-06-16) — skills, NA territory, laptop WorkTypes, `Agentforce_Scheduling_Node5` on Run As                      | §0.4; `node5-pre-validation.sh`                       |
+| Node 5 graph node / planner / gateway / UI / verdict   | **None**                                                                                                                     | — 5a scope                                            |
 
-### 0.2 Phase breakdown (proposed)
+### 0.4 Phase 5-Pre shipped state (2026-06-16, org `AgentForce`)
 
-| Phase     | Scope                                                                                                                                                                                                                                         | Exit criteria                                                                                       |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| **5-Pre** | Salesforce: align Field Service data to the laptop service domain, seed **Skills + ServiceResourceSkill**, multi-region territories, operating hours, AppointmentCandidates readiness, FLS perm set for AI API run-as user, validation script | `node5-pre-validation.sh Agent` passes (§6.6)                                                       |
-| **5a**    | AI read/plan: `scheduling` DTO, `SalesforceSchedulingGateway`, deterministic `scheduling-planner.service`, graph node after `parts`, verdict rollup, React stage card, smoke. **No SF writes.**                                               | Acceptance B1–B11 (§14.2) green; live proof Case produces a ranked technician + window              |
-| **5b**    | Optional: appointment-duration hints from KB/WorkType, multi-day window refinement, territory travel modeling                                                                                                                                 | —                                                                                                   |
-| **5c**    | Gated `ServiceAppointment` create after Node 6 approval (mirror Node 4 Phase 4c write-back)                                                                                                                                                   | Acceptance C1–C4 (§14.3)                                                                            |
-| **5d**    | **Re-orchestration:** event-driven `parts → scheduling` reconcile when fulfillment status changes; Stop-AI guard respected. See [`re-orchestration-backlog.md`](./re-orchestration-backlog.md).                                               | Reconcile API + SF Flow triggers; deferred/provisional → schedulable without manual full re-trigger |
+| Artifact          | Path / result                                                           |
+| ----------------- | ----------------------------------------------------------------------- |
+| Skills (metadata) | `force-app/main/default/skills/*.skill-meta.xml` — 5 laptop skills      |
+| Perm set          | `Agentforce_Scheduling_Node5.permissionset-meta.xml`                    |
+| Seed Apex         | `scripts/sf/apex/node5-pre-seed.apex`                                   |
+| Scripts           | `scripts/sf/node5-pre-{deploy,seed,validation}.sh`                      |
+| Manifest          | `manifest/node5-pre-package.xml`                                        |
+| Validation        | `./scripts/sf/node5-pre-validation.sh AgentForce` **PASSED**            |
+| Run As            | `chaudhary.keshav4u@gmail.com` — `Agentforce_Scheduling_Node5` assigned |
+
+**Seed counts:** Skill 5 · ServiceResourceSkill 8 · NA territory 1 · ServiceTerritoryMember 4 · Laptop WorkType 2 · SkillRequirement 2.
+
+**Territory membership:** A1/A2 are **Primary** in `Abypro`, **Secondary (`S`)** in **North America** (FSL one-Primary rule). 5a planner/gateway **must include Secondary memberships** — see §8.3.
+
+**Lessons:** [`node5-field-service-prep-lessons.md`](../context/node5-field-service-prep-lessons.md) — Skill-as-metadata, territory overlap, Run As alias.
+
+### 0.2 Phase breakdown
+
+| Phase     | Scope                                                                                                                                                                                                        | Exit criteria                                                                                       |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| **5-Pre** | Salesforce: align Field Service data to the laptop service domain, seed **Skills + ServiceResourceSkill**, multi-region territories, operating hours, FLS perm set for AI API run-as user, validation script | **Done** — `node5-pre-validation.sh AgentForce` (§0.4)                                              |
+| **5a**    | AI read/plan: `scheduling` DTO, `SalesforceSchedulingGateway`, deterministic `scheduling-planner.service`, graph node after `parts`, verdict rollup, React stage card, smoke. **No SF writes.**              | Acceptance B1–B11 (§14.2) green; live proof Case produces a ranked technician + window              |
+| **5b**    | Optional: appointment-duration hints from KB/WorkType, multi-day window refinement, territory travel modeling                                                                                                | —                                                                                                   |
+| **5c**    | Gated `ServiceAppointment` create after Node 6 approval (mirror Node 4 Phase 4c write-back)                                                                                                                  | Acceptance C1–C4 (§14.3)                                                                            |
+| **5d**    | **Re-orchestration:** event-driven `parts → scheduling` reconcile when fulfillment status changes; Stop-AI guard respected. See [`re-orchestration-backlog.md`](./re-orchestration-backlog.md).              | Reconcile API + SF Flow triggers; deferred/provisional → schedulable without manual full re-trigger |
 
 ### 0.3 Recommended execution order
 
-1. Approve this plan (`scheduling` contract §7, gating rules §3.5, phase split §0.2, re-orchestration §3.7).
-2. Run **5-Pre** Salesforce alignment + seed + perm set (§6, §12) → validate.
+1. ~~Run **5-Pre**~~ **Done** (2026-06-16).
+2. Approve scheduling contract §7, gating §3.5, re-orchestration §3.7.
 3. Run **5a** orchestrator slice (§8–§11) behind `AI_API_ORCHESTRATOR_SCHEDULING_ENABLED=false`, enable in staging.
 4. Live proof on a laptop Case that already passes Node 4 (§14.4).
-5. Defer **5c** writes until Node 6 (Compliance & Guardrail) lands — the shared gate must distinguish triage / parts / scheduling approvals before scheduling writes are safe (§13 R5).
-6. Plan **5d** re-orchestration with [`re-orchestration-backlog.md`](./re-orchestration-backlog.md) (Stop AI + parts→scheduling reconcile).
+5. Defer **5c** writes until Node 6 lands (§13 R5).
+6. Plan **5d** with [`re-orchestration-backlog.md`](./re-orchestration-backlog.md).
 
 ---
 
@@ -447,6 +465,8 @@ SELECT ResourceId, Start, End, Type FROM ResourceAbsence WHERE Start <= :windowE
 ```
 
 Keys: rank on `Skill.MasterLabel` + territory name; never expose `ServiceResource.Name` (full name) in status events — derive a sanitized `resourceReference`.
+
+**Territory membership (5-Pre reality):** A1/A2 are Primary in legacy `Abypro` and **Secondary (`S`)** in **North America**. Do **not** filter `TerritoryType = 'P'` only — include Secondary members when ship-to maps to NA. See [`node5-field-service-prep-lessons.md`](../context/node5-field-service-prep-lessons.md).
 
 ### 8.4 Deterministic planner algorithm (v1)
 

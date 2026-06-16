@@ -41,7 +41,8 @@ Minimum cross-cutting items easy to miss:
 
 Verdict gap analysis prompts (reuse for any node): `.github/prompts/analyze-node4-verdict-gap.prompt.md`, `.github/prompts/implement-node4-verdict-rollup.prompt.md`. Node 4 postmortem: `docs/orchestrator/node4-verdict-gap-analysis.md`.
 
-Node 5 Scheduling planning (before implementation): `.github/prompts/plan-node5-scheduling.prompt.md`, `.github/agents/node5-scheduling-planner.agent.md`, `.claude/commands/plan-node5-scheduling.md`. Output phase plan: `docs/orchestrator/node-5-scheduling-phase-plan.md`.
+Node 5 Scheduling planning: `.github/prompts/plan-node5-scheduling.prompt.md`, `.github/agents/node5-scheduling-planner.agent.md`.
+Node 5a implementation: `.github/prompts/implement-node5-scheduling.prompt.md`, `.github/agents/node5-scheduling-implementer.agent.md`, `.claude/commands/implement-node5-scheduling.md`.
 
 Node 5 Salesforce 5-Pre prep: `.github/prompts/node5-pre-salesforce-prep.prompt.md`, `.claude/commands/node5-pre-salesforce-prep.md`, skill `.agents/skills/salesforce-node5-scheduling-prep/SKILL.md`.
 
