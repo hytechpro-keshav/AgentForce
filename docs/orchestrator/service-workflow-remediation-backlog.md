@@ -111,6 +111,23 @@ extraction producer, and every consumer ship together.
 - Add eligibility-skip / branch routing that reads typed channel values, never
   prose. Mirror the Node 2/3 eligibility patterns.
 
+### Re-orchestration + Stop AI orchestration (design now, implement per phase)
+
+> **Source of truth:** [`docs/orchestrator/re-orchestration-backlog.md`](./re-orchestration-backlog.md)
+
+The orchestrator is **point-in-time per trigger**. Nodes 1–4 read Salesforce once per run; channel outputs go stale when Cases, inventory, transfers, or human actions change.
+
+| Priority | Item                                                      | Notes                                                                    |
+| -------- | --------------------------------------------------------- | ------------------------------------------------------------------------ |
+| P0       | **Stop AI orchestration** (UI button + API + Case flag)   | Operator manual takeover; block future auto-triggers                     |
+| P0       | **Flow trigger guard**                                    | `Case_Triage_Orchestrator_Handoff` respects `AI_Orchestration_Status__c` |
+| P1       | **Reconcile API**                                         | Partial re-run from `parts` (and later `parts → scheduling`)             |
+| P1       | **Fresh read at write time**                              | Parts 4c + scheduling 5c must re-read upstream before DML                |
+| P1       | **Event-driven reconcile (5d)**                           | Transfer complete → refresh parts + scheduling                           |
+| P2       | Trigger `correlationId` idempotency; durable checkpointer |
+
+Node 5 phase plan §3.7 splits: **5a** point-in-time, **5c** write-time fresh read, **5d** event reconcile.
+
 ## Carried over — operational items from the broader review
 
 These came out of the parallel Salesforce metadata review and the case-triage

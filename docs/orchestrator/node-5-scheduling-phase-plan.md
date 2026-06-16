@@ -29,20 +29,22 @@
 
 ### 0.2 Phase breakdown (proposed)
 
-| Phase     | Scope                                                                                                                                                                                                                                         | Exit criteria                                                                          |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| **5-Pre** | Salesforce: align Field Service data to the laptop service domain, seed **Skills + ServiceResourceSkill**, multi-region territories, operating hours, AppointmentCandidates readiness, FLS perm set for AI API run-as user, validation script | `node5-pre-validation.sh Agent` passes (§6.6)                                          |
-| **5a**    | AI read/plan: `scheduling` DTO, `SalesforceSchedulingGateway`, deterministic `scheduling-planner.service`, graph node after `parts`, verdict rollup, React stage card, smoke. **No SF writes.**                                               | Acceptance B1–B11 (§14.2) green; live proof Case produces a ranked technician + window |
-| **5b**    | Optional: appointment-duration hints from KB/WorkType, multi-day window refinement, territory travel modeling                                                                                                                                 | —                                                                                      |
-| **5c**    | Gated `ServiceAppointment` create after Node 6 approval (mirror Node 4 Phase 4c write-back)                                                                                                                                                   | Acceptance C1–C4 (§14.3)                                                               |
+| Phase     | Scope                                                                                                                                                                                                                                         | Exit criteria                                                                                       |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| **5-Pre** | Salesforce: align Field Service data to the laptop service domain, seed **Skills + ServiceResourceSkill**, multi-region territories, operating hours, AppointmentCandidates readiness, FLS perm set for AI API run-as user, validation script | `node5-pre-validation.sh Agent` passes (§6.6)                                                       |
+| **5a**    | AI read/plan: `scheduling` DTO, `SalesforceSchedulingGateway`, deterministic `scheduling-planner.service`, graph node after `parts`, verdict rollup, React stage card, smoke. **No SF writes.**                                               | Acceptance B1–B11 (§14.2) green; live proof Case produces a ranked technician + window              |
+| **5b**    | Optional: appointment-duration hints from KB/WorkType, multi-day window refinement, territory travel modeling                                                                                                                                 | —                                                                                                   |
+| **5c**    | Gated `ServiceAppointment` create after Node 6 approval (mirror Node 4 Phase 4c write-back)                                                                                                                                                   | Acceptance C1–C4 (§14.3)                                                                            |
+| **5d**    | **Re-orchestration:** event-driven `parts → scheduling` reconcile when fulfillment status changes; Stop-AI guard respected. See [`re-orchestration-backlog.md`](./re-orchestration-backlog.md).                                               | Reconcile API + SF Flow triggers; deferred/provisional → schedulable without manual full re-trigger |
 
 ### 0.3 Recommended execution order
 
-1. Approve this plan (`scheduling` contract §7, gating rules §3.5, phase split §0.2).
+1. Approve this plan (`scheduling` contract §7, gating rules §3.5, phase split §0.2, re-orchestration §3.7).
 2. Run **5-Pre** Salesforce alignment + seed + perm set (§6, §12) → validate.
 3. Run **5a** orchestrator slice (§8–§11) behind `AI_API_ORCHESTRATOR_SCHEDULING_ENABLED=false`, enable in staging.
 4. Live proof on a laptop Case that already passes Node 4 (§14.4).
 5. Defer **5c** writes until Node 6 (Compliance & Guardrail) lands — the shared gate must distinguish triage / parts / scheduling approvals before scheduling writes are safe (§13 R5).
+6. Plan **5d** re-orchestration with [`re-orchestration-backlog.md`](./re-orchestration-backlog.md) (Stop AI + parts→scheduling reconcile).
 
 ---
 
@@ -95,7 +97,30 @@ The orchestrator slice (5a) is a clean mirror of Node 4: typed channel (sole wri
 - **Proves:** Field Service is fully enabled; the scheduling data model (resource → territory member → operating hours/time slots → appointment → assigned resource) is present and exercised. No platform enablement work is needed.
 - **Does not prove:** (a) skill-based ranking — there is **no skill data at all**; (b) location-based ranking — one territory, no NA/EU split to match Node 4 routing; (c) domain fit — the seeded WorkTypes/technicians are appliance/AC demo, disconnected from the laptop catalog (`AV-LP-15X-PRO`, `SP-*`) and the Node 4 ship-to cities (Austin TX, FRA).
 
-### 2.3 Alignment with Node 4 (parts) domain
+### 2.4 OAuth Run As user — Node 4 FLS pattern (verified on org `AgentForce`)
+
+The planning audit flagged "AI API run-as user permissions ❌ Missing." **That is only true for Node 5 scheduling objects** — the Node 4 FLS pattern is **solved** and must be reused for 5-Pre.
+
+| Item                                            | Status on `AgentForce` (verified 2026-06-16)                                                                     |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Connected App **Run As** user                   | `chaudhary.keshav4u@gmail.com` (per [`node4-auth-session-lessons.md`](../context/node4-auth-session-lessons.md)) |
+| `Agentforce_Parts_Logistics_Node4` on Run As    | **Assigned**                                                                                                     |
+| `Agentforce_Parts_Fulfillment_Writes` on Run As | **Assigned**                                                                                                     |
+| `Agentforce_Scheduling_Node5` on Run As         | **Not deployed** — 5-Pre task                                                                                    |
+
+**Lesson (do not repeat):** Metadata deploy alone is insufficient. Assign the Node 5 perm set to the **same Run As user** Railway `ai-api` uses for client-credentials OAuth, then **restart ai-api** (token cache ~25 min). Do **not** use `integration@…` Analytics Cloud user as Run As for Field Service writes.
+
+```bash
+sf data query --target-org AgentForce --query \
+  "SELECT Assignee.Username, PermissionSet.Name FROM PermissionSetAssignment \
+   WHERE PermissionSet.Name IN ('Agentforce_Parts_Logistics_Node4','Agentforce_Parts_Fulfillment_Writes')"
+```
+
+**Org alias note:** CLI alias is **`AgentForce`** (same org as planning audit username `mohitchaudhary27…@agentforce.com`). Scripts defaulting to `Agent` should use `AgentForce` unless re-aliased.
+
+---
+
+### 2.5 Alignment with Node 4 (parts) domain
 
 Node 4 routes parts to fulfillment warehouses by Case ship-to region (NA: WH-AUS-001/WH-JCY-003/WH-SJO-002; EU: WH-FRA-004). Node 5 should rank technicians in the **same geography** so a part arriving at WH-AUS-001 is matched to a technician serving the Austin territory. Today the single `Abypro` territory has no mapping to those regions. 5-Pre must introduce territories that align to the Node 4 ship-to regions (at minimum a North America territory covering Austin TX, optionally a Europe territory) so parts-ETA gating and technician location agree.
 
@@ -162,24 +187,40 @@ Eligibility / skip and readiness rules driven by `partsLogistics`:
 
 The current single `gate` covers triage + parts. Node 5 in 5a is **read/plan only and proposes nothing that writes**, so it should **not** force approval by itself — but it should surface `requiredApproval`/`approvalReason` (e.g. `after_hours`, `sla_breach_risk`, `cross_territory`) for Node 6. Until Node 6 exists, extend `requiresApproval(triage, partsLogistics, scheduling?)` only if the team wants scheduling to gate the interim write-back; the **recommended default is NOT to gate on scheduling in 5a** (scheduling writes are 5c). Document this explicitly so the gate's meaning stays clear.
 
+### 3.7 Re-orchestration when parts readiness changes (mandatory design context)
+
+> **Companion:** [`re-orchestration-backlog.md`](./re-orchestration-backlog.md) — per-node stale matrix, Stop AI button, reconcile API backlog.
+
+The parts-ETA gating rule (§3.5) is evaluated **at orchestrator run time only** unless a later phase explicitly refreshes state.
+
+| Phase  | Re-orchestration behavior                                                                                                                                                                                                                                                                           |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **5a** | **Point-in-time gating only.** `schedulable`, `provisional`, and `deferred` honestly reflect `partsLogistics` **as of that run**. After `done`, the snapshot is historical — not a live scheduler. UI/verdict must not imply windows stay valid when inventory changes later.                       |
+| **5c** | **Mandatory fresh parts read** immediately before `ServiceAppointment` create. Re-apply `earliestStart = max(partsEtaFloor, technicianAvailability, now)`. Abort or degrade booking if parts are no longer ready vs. the stale channel. Mirror Node 4 §4c write-time safety.                        |
+| **5d** | **Event-driven reconcile:** Salesforce events (`ProductTransfer` complete, `ProductItem` qty increase, `Parts_Fulfillment_Status__c` change) → `POST …/reconcile` partial re-run **`parts → scheduling`** (fresh inventory + planner). Skip if Case `AI_Orchestration_Status__c = stopped_by_user`. |
+
+**Operator manual takeover:** When the rep clicks **Stop AI orchestration** (backlog RC-1), no future auto-triggers or reconcile jobs run for that Case until AI is explicitly resumed.
+
+**Node 4 today (shipped):** Inventory is read once per workflow; gate resume does **not** re-run `parts`. A new full trigger creates a new `workflowId`. Node 5 inherits this limitation until 5d.
+
 ---
 
 ## 4. Salesforce readiness audit — dependency classification
 
-| #   | Dependency                                                                                | Status                   | Evidence / action                                                                                                                        |
-| --- | ----------------------------------------------------------------------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| S1  | Field Service enabled; scheduling objects queryable                                       | **Available**            | All objects in §2.1 returned counts                                                                                                      |
-| S2  | Technician records (`ServiceResource`, active, User-backed)                               | **Available**            | 2 active, ResourceType `T`, `RelatedRecordId` set                                                                                        |
-| S3  | Territory + membership model                                                              | **Partial**              | 1 territory `Abypro`; needs NA/EU territories aligned to Node 4 regions (§2.3)                                                           |
-| S4  | Operating hours / availability calendar                                                   | **Partial**              | 2 `OperatingHours`, 25 `TimeSlot`; not mapped to laptop-domain territories                                                               |
-| S5  | **Skill taxonomy (`Skill`)**                                                              | **Missing**              | `Skill = 0` — must seed laptop service skills (§12.2)                                                                                    |
-| S6  | **Technician skills (`ServiceResourceSkill`)**                                            | **Missing**              | `ServiceResourceSkill = 0` — must assign skills to A1/A2 (§12.2)                                                                         |
-| S7  | Skill demand (`SkillRequirement` on WorkType/WorkOrder)                                   | **Missing**              | Unseeded; needed to gate technician by required skill                                                                                    |
-| S8  | WorkType duration for the laptop domain                                                   | **Partial**              | Only appliance WorkTypes exist; add laptop repair WorkTypes (§12.3)                                                                      |
-| S9  | Availability exceptions (`ResourceAbsence`)                                               | **Missing**              | Unseeded; optional for v1 but enables realistic availability                                                                             |
-| S10 | Case ↔ scheduling linkage (Case→WorkOrder→ServiceAppointment, or Case `AssetId`/ship-to)  | **Partial**              | Case ship-to + asset shipped in Node 4 4-Pre; WorkOrder↔Case link not verified for laptop Cases                                          |
-| S11 | FLS perm set for AI API OAuth run-as user on scheduling reads                             | **Missing**              | New `Agentforce_Scheduling_Node5` perm set (§12.4) — mirror Node 4 FLS lesson                                                            |
-| S12 | Salesforce Scheduling APIs (`AppointmentCandidates` / `getAppointmentSlots`) availability | **Partial / unverified** | Field Service managed-package REST/Apex; v1 should **not** depend on it — use deterministic planner over operating hours (§8.4 / §13 R2) |
+| #   | Dependency                                                                                | Status                        | Evidence / action                                                                                                                                                                                            |
+| --- | ----------------------------------------------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| S1  | Field Service enabled; scheduling objects queryable                                       | **Available**                 | All objects in §2.1 returned counts                                                                                                                                                                          |
+| S2  | Technician records (`ServiceResource`, active, User-backed)                               | **Available**                 | 2 active, ResourceType `T`, `RelatedRecordId` set                                                                                                                                                            |
+| S3  | Territory + membership model                                                              | **Partial**                   | 1 territory `Abypro`; needs NA/EU territories aligned to Node 4 regions (§2.3)                                                                                                                               |
+| S4  | Operating hours / availability calendar                                                   | **Partial**                   | 2 `OperatingHours`, 25 `TimeSlot`; not mapped to laptop-domain territories                                                                                                                                   |
+| S5  | **Skill taxonomy (`Skill`)**                                                              | **Missing**                   | `Skill = 0` — must seed laptop service skills (§12.2)                                                                                                                                                        |
+| S6  | **Technician skills (`ServiceResourceSkill`)**                                            | **Missing**                   | `ServiceResourceSkill = 0` — must assign skills to A1/A2 (§12.2)                                                                                                                                             |
+| S7  | Skill demand (`SkillRequirement` on WorkType/WorkOrder)                                   | **Missing**                   | Unseeded; needed to gate technician by required skill                                                                                                                                                        |
+| S8  | WorkType duration for the laptop domain                                                   | **Partial**                   | Only appliance WorkTypes exist; add laptop repair WorkTypes (§12.3)                                                                                                                                          |
+| S9  | Availability exceptions (`ResourceAbsence`)                                               | **Missing**                   | Unseeded; optional for v1 but enables realistic availability                                                                                                                                                 |
+| S10 | Case ↔ scheduling linkage (Case→WorkOrder→ServiceAppointment, or Case `AssetId`/ship-to)  | **Partial**                   | Case ship-to + asset shipped in Node 4 4-Pre; WorkOrder↔Case link not verified for laptop Cases                                                                                                              |
+| S11 | FLS perm set for AI API OAuth run-as user on **scheduling** objects                       | **Missing (Node 5-specific)** | **Pattern solved in Node 4** — see §2.4. New `Agentforce_Scheduling_Node5` perm set (§12.4) must be deployed **and assigned to the Connected App Run As user** (same as `Agentforce_Parts_Logistics_Node4`). |
+| S12 | Salesforce Scheduling APIs (`AppointmentCandidates` / `getAppointmentSlots`) availability | **Partial / unverified**      | Field Service managed-package REST/Apex; v1 should **not** depend on it — use deterministic planner over operating hours (§8.4 / §13 R2)                                                                     |
 
 **Overall verdict: PARTIAL.** No platform enablement blocker. The gating gaps are **skill data (S5–S7)** and **geography alignment (S3)**; both are 5-Pre seed-data tasks, plus the standard FLS perm-set step (S11).
 
@@ -196,7 +237,8 @@ The current single `gate` covers triage + parts. Node 5 in 5a is **read/plan onl
 | **`scheduling` channel is namespace-only**              | No typed contract, no graph node                                                             | Add `dto/scheduling.ts`, graph node, sole-writer state key                                      | 5a      |
 | **Verdict has no scheduling surface**                   | Operator can't see the proposed window in Final Verdict                                      | Add headline/summary/steps/highlights for scheduling (§10)                                      | 5a      |
 | **PII risk: technician names**                          | Full names in status events / verdict violate `security-observability`                       | Use resource code / initials in events; full name only in approval payload if required (§13 R3) | 5a      |
-| **No FLS for run-as user**                              | SOQL `INVALID_FIELD` / no rows at runtime (Node 4 lesson 0.6)                                | `Agentforce_Scheduling_Node5` perm set assigned to CLI **and** AI API user                      | 5-Pre   |
+| **No FLS for run-as user (scheduling objects)**         | SOQL `INVALID_FIELD` on scheduling reads at runtime                                          | Deploy `Agentforce_Scheduling_Node5` + assign to **OAuth Run As** — Node 4 pattern §2.4         | 5-Pre   |
+| **No re-orchestration when parts become ready**         | `deferred`/`provisional` snapshots stay stale; scheduling never updates                      | §3.7 + [`re-orchestration-backlog.md`](./re-orchestration-backlog.md) — 5d reconcile            | 5d      |
 | **Scheduling-API dependency risk**                      | `AppointmentCandidates` may be unavailable/slow/locked behind managed package                | v1 deterministic planner over `OperatingHours`/`TimeSlot`; API as later upgrade                 | 5a / 5b |
 | **Shared approval gate ambiguity**                      | Adding scheduling approval to one gate muddies triage/parts semantics                        | Keep 5a non-gating; defer scheduling writes + approval to Node 6 / 5c                           | 5c      |
 
@@ -512,6 +554,7 @@ The Salesforce `Scheduling_Agent` genAiPlannerBundle (`force-app/main/default/ge
 | R8  | **Parts-ETA floor wrong/missing** → window proposed before parts arrive                                                            | High     | `earliestStart = max(partsEtaFloor, …)`; `partsEtaConstrained` flag; verdict states the basis; unit tests for ready/partial/blocked         |
 | R9  | **Double-booking** — ignoring existing appointments/absences                                                                       | Low      | Query `ServiceAppointment`/`ResourceAbsence` in window; collision check in planner                                                          |
 | R10 | **Verdict gap repeat** — channel wired but not rolled into verdict                                                                 | Medium   | §10 four-surface update + spec fixtures; checklist review questions                                                                         |
+| R11 | **Stale scheduling after parts arrive** — 5a is point-in-time; no auto refresh when transfer completes                             | High     | §3.7: 5a honest `deferred`/`provisional`; 5c fresh parts read at write; 5d event-driven `parts → scheduling` reconcile; Stop AI guard       |
 
 ---
 

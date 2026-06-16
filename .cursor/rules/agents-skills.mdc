@@ -31,6 +31,7 @@ Read the relevant `SKILL.md` before specialized work. Available skills:
 | `new-org-tenant-onboarding` | Org and tenant onboarding |
 | `salesforce-case-create` | Create a realistic Salesforce Case for testing/demos |
 | `salesforce-node4-parts-prep` | Phase 4-Pre Node 4 inventory metadata deploy, backfill, validation |
+| `salesforce-node5-scheduling-prep` | Phase 5-Pre Node 5 Skills, NA territory, WorkTypes, Run As FLS |
 | `railway-quick-deploy` | Deploy current workspace changes to Railway |
 | `swarm` | Parallel fan-out workflows |
 

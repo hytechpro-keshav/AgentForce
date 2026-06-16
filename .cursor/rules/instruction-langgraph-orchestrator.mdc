@@ -16,4 +16,6 @@ Invoke skill `.agents/skills/langgraph-case-triage-slice/SKILL.md` for the walki
 Use `.github/agents/case-triage-slice-implementer.agent.md` and `.github/prompts/implement-case-triage-slice.prompt.md` for slice work.
 For Node 4 Parts & Logistics (Phase 4a), invoke `.agents/skills/langgraph-node4-parts-logistics/SKILL.md` and use `.github/agents/node4-parts-logistics-implementer.agent.md` with `.github/prompts/implement-node4-parts-logistics.prompt.md`.
 For Node 5 Scheduling planning (before coding), use `.github/agents/node5-scheduling-planner.agent.md` with `.github/prompts/plan-node5-scheduling.prompt.md` and `.claude/commands/plan-node5-scheduling.md`.
+For Node 5 Salesforce 5-Pre prep, use `.github/prompts/node5-pre-salesforce-prep.prompt.md` and `.claude/commands/node5-pre-salesforce-prep.md` with skill `.agents/skills/salesforce-node5-scheduling-prep/SKILL.md`.
+**Re-orchestration (mandatory):** read `docs/orchestrator/re-orchestration-backlog.md` before any node change.
 Verdict gap prompts: `.github/prompts/analyze-node4-verdict-gap.prompt.md`, `.github/prompts/implement-node4-verdict-rollup.prompt.md`.

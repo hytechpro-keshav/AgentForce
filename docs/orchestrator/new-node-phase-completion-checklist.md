@@ -9,6 +9,8 @@ Use this checklist whenever you add or extend an orchestrator **node** (graph st
 
 **Lesson doc:** `docs/context/node4-auth-session-lessons.md` (Salesforce OAuth); `docs/orchestrator/node4-verdict-gap-analysis.md` (verdict debt).
 
+**Re-orchestration (mandatory):** read `docs/orchestrator/re-orchestration-backlog.md` before any node work. Document stale-data behavior, reconcile scope, Stop AI guard, and write-time fresh reads in the phase plan §0.
+
 ---
 
 ## Backend — graph and channel
@@ -66,5 +68,14 @@ Ask explicitly:
 1. Does the **Final Verdict** mention this node's primary finding in headline **and** summary **and** at least one recommended step (when eligible)?
 2. Does the **orchestration console** show the node as a completed stage with detail below the verdict?
 3. Does the **smoke script** fail if this node is skipped or degraded unexpectedly?
+4. Is **re-orchestration** documented (stale triggers, reconcile scope, Stop AI, write-time fresh read) per [`re-orchestration-backlog.md`](./re-orchestration-backlog.md)?
 
 If any answer is no, the phase is not complete — even when the graph node and channel work in isolation.
+
+## Re-orchestration & manual takeover (do not skip)
+
+- [ ] Phase plan §0 states whether this phase is **point-in-time only** or includes reconcile (which nodes re-run).
+- [ ] Channel outputs do not imply live Salesforce truth after `done` without a reconcile path.
+- [ ] Gated Salesforce writes re-read upstream state at write time (parts 4c, scheduling 5c pattern).
+- [ ] Stop AI orchestration respected — no auto-trigger when Case `AI_Orchestration_Status__c = stopped_by_user` (backlog RC-1/RC-2; implement when UI ships).
+- [ ] Entry added or updated in [`re-orchestration-backlog.md`](./re-orchestration-backlog.md) for this node's stale matrix.

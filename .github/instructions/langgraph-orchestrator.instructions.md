@@ -42,3 +42,19 @@ Minimum cross-cutting items easy to miss:
 Verdict gap analysis prompts (reuse for any node): `.github/prompts/analyze-node4-verdict-gap.prompt.md`, `.github/prompts/implement-node4-verdict-rollup.prompt.md`. Node 4 postmortem: `docs/orchestrator/node4-verdict-gap-analysis.md`.
 
 Node 5 Scheduling planning (before implementation): `.github/prompts/plan-node5-scheduling.prompt.md`, `.github/agents/node5-scheduling-planner.agent.md`, `.claude/commands/plan-node5-scheduling.md`. Output phase plan: `docs/orchestrator/node-5-scheduling-phase-plan.md`.
+
+Node 5 Salesforce 5-Pre prep: `.github/prompts/node5-pre-salesforce-prep.prompt.md`, `.claude/commands/node5-pre-salesforce-prep.md`, skill `.agents/skills/salesforce-node5-scheduling-prep/SKILL.md`.
+
+## Re-orchestration (mandatory for every node change)
+
+The orchestrator is **point-in-time per trigger** unless a reconcile path is explicitly built. Cases, inventory, parts transfers, and technician availability change continuously.
+
+Before shipping or modifying any orchestrator node, channel, gateway, graph edge, Salesforce write, or UI surface:
+
+1. Read **`docs/orchestrator/re-orchestration-backlog.md`** and document which phase is point-in-time vs. reconcile-enabled.
+2. State what goes **stale** for your node and the minimum **reconcile scope** (e.g. `parts` only, `parts → scheduling`).
+3. Respect **Stop AI orchestration** — when `AI_Orchestration_Status__c = stopped_by_user`, no auto-triggers or reconcile (backlog RC-1/RC-2).
+4. **Write paths** (parts 4c, scheduling 5c) must include a **fresh upstream read** before Salesforce DML — never trust channel snapshots alone at write time.
+5. Do not mark a phase complete in the checklist without explicit re-orchestration decisions in the phase plan §0.
+
+See also `docs/orchestrator/node-5-scheduling-phase-plan.md` §3.7 for scheduling-specific 5a / 5c / 5d split.

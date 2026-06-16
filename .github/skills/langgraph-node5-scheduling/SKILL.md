@@ -62,8 +62,13 @@ If `docs/orchestrator/node-5-scheduling-phase-plan.md` does not exist or §0 say
 
 - `framework-selection`, `langgraph-fundamentals`, `langgraph-case-triage-slice`
 - `langgraph-node4-parts-logistics` — upstream channel
-- `salesforce-node4-parts-prep` — Field Service org baseline
+- `salesforce-node4-parts-prep` — Field Service org baseline + Run As FLS pattern
+- `salesforce-node5-scheduling-prep` — 5-Pre Salesforce seed + perm set
 - `new-org-tenant-onboarding` — OAuth run-as FLS / PSL
+
+## Re-orchestration (mandatory)
+
+Read `docs/orchestrator/re-orchestration-backlog.md` before any node implementation. Node 5: §3.7 in phase plan (5a point-in-time, 5c write-time fresh read, 5d event reconcile).
 
 ## Related instructions
 

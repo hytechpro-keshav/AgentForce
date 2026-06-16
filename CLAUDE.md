@@ -44,28 +44,29 @@ Keep skill files concise — steps and constraints only, no narration. A future 
 
 Read the relevant `SKILL.md` before doing specialized work in these domains:
 
-| Skill                             | When to use                                                                                             |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `langgraph-fundamentals`          | Any LangGraph StateGraph, nodes, edges, streaming                                                       |
-| `langgraph-human-in-the-loop`     | Approval pauses, HITL patterns                                                                          |
-| `langgraph-persistence`           | Checkpointers, state resume                                                                             |
-| `langgraph-case-triage-slice`     | Node 1 case triage orchestrator                                                                         |
-| `langgraph-node4-parts-logistics` | Phase 4a Node 4 Parts & Logistics — see also `docs/orchestrator/new-node-phase-completion-checklist.md` |
-| `langgraph-node5-scheduling`      | Node 5 Scheduling — plan via `/plan-node5-scheduling` before implementation                             |
-| `salesforce-node4-parts-prep`     | Phase 4-Pre Salesforce inventory metadata deploy and validation                                         |
-| `langchain-fundamentals`          | LangChain chains, runnables, callbacks                                                                  |
-| `langchain-rag`                   | RAG chains, retrievers, document loaders                                                                |
-| `langchain-middleware`            | Middleware patterns                                                                                     |
-| `langchain-dependencies`          | Package changes, version constraints                                                                    |
-| `deep-agents-core`                | Core deep agent patterns                                                                                |
-| `deep-agents-orchestration`       | Multi-agent orchestration                                                                               |
-| `deep-agents-memory`              | Agent memory systems                                                                                    |
-| `managed-deep-agents`             | Managed agent lifecycle                                                                                 |
-| `swarm`                           | Swarm coordination patterns                                                                             |
-| `framework-selection`             | Choosing the right framework                                                                            |
-| `salesforce-case-create`          | Salesforce Case creation from external systems                                                          |
-| `railway-quick-deploy`            | Railway deployment                                                                                      |
-| `new-org-tenant-onboarding`       | New org/tenant setup                                                                                    |
+| Skill                              | When to use                                                                                             |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `langgraph-fundamentals`           | Any LangGraph StateGraph, nodes, edges, streaming                                                       |
+| `langgraph-human-in-the-loop`      | Approval pauses, HITL patterns                                                                          |
+| `langgraph-persistence`            | Checkpointers, state resume                                                                             |
+| `langgraph-case-triage-slice`      | Node 1 case triage orchestrator                                                                         |
+| `langgraph-node4-parts-logistics`  | Phase 4a Node 4 Parts & Logistics — see also `docs/orchestrator/new-node-phase-completion-checklist.md` |
+| `langgraph-node5-scheduling`       | Node 5 Scheduling — plan via `/plan-node5-scheduling` before implementation                             |
+| `salesforce-node4-parts-prep`      | Phase 4-Pre Salesforce inventory metadata deploy and validation                                         |
+| `salesforce-node5-scheduling-prep` | Phase 5-Pre Skills, NA territory, laptop WorkTypes, Run As FLS                                          |
+| `langchain-fundamentals`           | LangChain chains, runnables, callbacks                                                                  |
+| `langchain-rag`                    | RAG chains, retrievers, document loaders                                                                |
+| `langchain-middleware`             | Middleware patterns                                                                                     |
+| `langchain-dependencies`           | Package changes, version constraints                                                                    |
+| `deep-agents-core`                 | Core deep agent patterns                                                                                |
+| `deep-agents-orchestration`        | Multi-agent orchestration                                                                               |
+| `deep-agents-memory`               | Agent memory systems                                                                                    |
+| `managed-deep-agents`              | Managed agent lifecycle                                                                                 |
+| `swarm`                            | Swarm coordination patterns                                                                             |
+| `framework-selection`              | Choosing the right framework                                                                            |
+| `salesforce-case-create`           | Salesforce Case creation from external systems                                                          |
+| `railway-quick-deploy`             | Railway deployment                                                                                      |
+| `new-org-tenant-onboarding`        | New org/tenant setup                                                                                    |
 
 ---
 
@@ -101,6 +102,7 @@ These subagents run in isolated context with specialized system prompts. Invoke 
 | `/implement-case-triage-slice`          | Implement the Node 1 case triage LangGraph slice               |
 | `/implement-node4-parts-logistics`      | Implement Phase 4a Node 4 Parts & Logistics orchestrator slice |
 | `/plan-node5-scheduling`                | Plan Node 5 Scheduling: architecture, SF readiness, phase plan |
+| `/node5-pre-salesforce-prep`            | 5-Pre: Skills, NA territory, laptop WorkTypes, Run As FLS      |
 | `/onboard-new-org-tenant`               | Run new org/tenant onboarding workflow                         |
 | `/generate-production-runbook`          | Generate a production runbook                                  |
 | `/service-workflow-architecture-review` | Architecture review of service workflows                       |

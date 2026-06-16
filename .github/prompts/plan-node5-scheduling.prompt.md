@@ -244,6 +244,7 @@ Optional follow-on artifacts (only if analysis warrants):
 ## Important instructions
 
 - **Do not start coding immediately.** Complete the investigation and phase plan first.
+- **Read `docs/orchestrator/re-orchestration-backlog.md`** — document point-in-time vs reconcile behavior (§3.7).
 - Validate assumptions against the **actual codebase** and **Salesforce org**.
 - Prefer evidence from the running implementation over documentation when discrepancies exist.
 - Reuse orchestrator patterns from Nodes 1–4 wherever possible.
