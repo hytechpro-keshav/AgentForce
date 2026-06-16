@@ -4,7 +4,8 @@ import { buildCaseTriageGraph } from "./case-triage.graph";
 import type { CaseTriageGraphDeps } from "./case-triage.graph";
 import {
   CUSTOMER_HISTORY_NODE_ID,
-  PARTS_LOGISTICS_NODE_ID
+  PARTS_LOGISTICS_NODE_ID,
+  SCHEDULING_NODE_ID
 } from "./dto/case-triage-lifecycle";
 import type {
   CustomerContextSynthesis,
@@ -149,6 +150,15 @@ function buildDeps(overrides: Partial<CaseTriageGraphDeps> = {}): DepsHarness {
     planPartsLogistics: jest.fn().mockResolvedValue({
       eligible: false,
       degraded: false
+    } as any),
+    isSchedulingEligible: jest
+      .fn()
+      .mockReturnValue({ eligible: false, reason: "disabled_by_test" }),
+    planScheduling: jest.fn().mockResolvedValue({
+      eligible: false,
+      degraded: false,
+      partsEtaConsidered: false,
+      requiredApproval: false
     } as any),
     emitRunning,
     checkpointer: new MemorySaver(),
@@ -432,5 +442,98 @@ describe("case-triage graph — Node 4 parts & logistics", () => {
 
     expect(applyPartsFulfillment).not.toHaveBeenCalled();
     expect(result.status).toBe("rejected");
+  });
+});
+
+describe("case-triage graph — Node 5 scheduling", () => {
+  const schedulableChannel = {
+    eligible: true,
+    degraded: false,
+    status: "PLANNED",
+    schedulingReadiness: "schedulable",
+    recommendedResourceReference: "SR-A1",
+    candidates: [
+      {
+        resourceReference: "SR-A1",
+        matchedSkills: ["Battery/Power"],
+        skillScore: 0.85,
+        availabilityScore: 1,
+        territoryFitScore: 0.7,
+        rankScore: 0.7,
+        rank: 1,
+        rationale: "best skill match"
+      }
+    ],
+    proposedWindow: {
+      earliestStart: "2026-06-16T12:00:00.000Z",
+      earliestStartBasis: "parts_eta",
+      proposedStart: "2026-06-16T13:00:00.000Z",
+      proposedEnd: "2026-06-16T15:00:00.000Z",
+      displayWindow: "Tomorrow 13:00–15:00 UTC",
+      windowConfidence: "high",
+      partsEtaConstrained: true
+    },
+    partsEtaConsidered: true,
+    partsReadinessSeen: "ready",
+    requiredApproval: false,
+    appointmentStatus: "proposed"
+  };
+
+  it("B1/B2: runs after parts, writes only scheduling, never interrupts", async () => {
+    const planScheduling = jest.fn().mockResolvedValue(schedulableChannel);
+    const planPartsLogistics = jest.fn().mockResolvedValue({
+      eligible: true,
+      degraded: false,
+      status: "PLANNED",
+      fulfillmentReadiness: "ready",
+      partPlans: []
+    });
+    const h = buildDeps({
+      isPartsLogisticsEligible: jest
+        .fn()
+        .mockReturnValue({ eligible: true, reason: "enabled" }),
+      planPartsLogistics,
+      isSchedulingEligible: jest
+        .fn()
+        .mockReturnValue({ eligible: true, reason: "enabled" }),
+      planScheduling
+    });
+
+    const result = await invoke(h.deps);
+
+    // Node 5 ran once and the graph continued to write-back (non-blocking).
+    expect(planScheduling).toHaveBeenCalledTimes(1);
+    // It received the upstream parts channel (gated on parts ETA).
+    expect(planScheduling.mock.calls[0][2]).toMatchObject({
+      fulfillmentReadiness: "ready"
+    });
+    expect(result.scheduling?.schedulingReadiness).toBe("schedulable");
+    expect(result.writeBackApplied).toBe(true);
+
+    // It wrote ONLY its own channel; upstream channels are untouched.
+    expect(result.triage).toBeDefined();
+    expect(result.partsLogistics?.status).toBe("PLANNED");
+
+    // Every Node 5 progress line is tagged with the scheduling node.
+    const node5Events = h.emitRunning.mock.calls.filter(
+      (call) => call[3] === SCHEDULING_NODE_ID
+    );
+    expect(node5Events.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("B11: skips Node 5 cleanly when ineligible (flag off)", async () => {
+    const planScheduling = jest.fn();
+    const h = buildDeps({
+      isSchedulingEligible: jest
+        .fn()
+        .mockReturnValue({ eligible: false, reason: "Scheduling disabled by config" }),
+      planScheduling
+    });
+
+    const result = await invoke(h.deps);
+
+    expect(planScheduling).not.toHaveBeenCalled();
+    expect(result.scheduling?.eligible).toBe(false);
+    expect(result.writeBackApplied).toBe(true);
   });
 });

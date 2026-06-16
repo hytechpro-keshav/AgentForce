@@ -41,6 +41,18 @@ Session context: Phase **5-Pre** completed on org **`AgentForce`** (CLI alias; s
 3. **Re-orchestration** — 5a remains point-in-time; see `docs/orchestrator/re-orchestration-backlog.md` §3.7.
 4. **Live proof** — use Node 4 laptop Cases (e.g. Austin battery/display scenarios in §14.4).
 
+## 5a implemented (2026-06-16) — gotchas discovered
+
+| Gotcha                                              | Wrong assumption                                                   | Actual behavior                                                                                                                                                                                                                                                  |
+| --------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **LangGraph node name == channel name collides**    | Name the graph node `"scheduling"` (same as the channel key)       | LangGraph forbids a node sharing a name with a state channel. Follow the existing convention: graph node `schedule` writes channel `scheduling` (node `parts` → `partsLogistics`). The status-event id `SCHEDULING_NODE_ID = "scheduling"` is separate and fine. |
+| **`basis` includes present-but-skipped channels**   | Assert a skipped scheduling channel is absent from verdict `basis` | Mirrors parts: `if (scheduling) basis.push("scheduling")` even when `eligible:false`. Assert the absence of scheduling _clauses_ in headline/summary/highlights instead.                                                                                         |
+| **Parts ETA floor uses dispatch hours, not an ISO** | Read `partsLogistics.estimatedArrivalAt`                           | The shipped parts channel has `estimatedDispatchHoursMax` (hours from now), not an ISO arrival. `partsEtaFloor = now + max(estimatedDispatchHoursMax)`.                                                                                                          |
+
+**Shipped (5a):** `dto/scheduling.ts`, `salesforce-scheduling.gateway.ts`, `scheduling-{rules,availability}.ts`, `scheduling-planner.service.ts`, `schedule` graph node, verdict four-surface rollup, React Node 5 card + sanitizer, `AI_API_ORCHESTRATOR_SCHEDULING_ENABLED` flag, `scheduling` jsonb persistence column, smoke `ASSERT_SCHEDULING`. ai-api 367 tests green; react-chat 49 green; both typecheck clean.
+
+**Live proof (Case `500g500000YpQMnAAN` / 00001050, display repair, Austin):** live FS read returns A1/A2 as NA Secondary with real skills; deterministic planner ranks **SR-A2** #1 (holds `Display` 8; A1 does not) and, with a 41h display transfer, defers the window to a business slot past the parts-ETA floor with `partsEtaConstrained: true` (matches demo matrix §14.4). **Not yet deployed to Railway** — enable `AI_API_ORCHESTRATOR_SCHEDULING_ENABLED=true` + restart `ai-api`, then run smoke with `ASSERT_SCHEDULING=1` for an end-to-end orchestrator proof.
+
 ## Related artifacts
 
 - `scripts/sf/node5-pre-{deploy,seed,validation}.sh`

@@ -252,6 +252,62 @@ describe("sanitizeSnapshot", () => {
     expect(plan.etaSegments).toHaveLength(1);
   });
 
+  it("sanitizes the Node 5 scheduling channel and drops stray name fields", () => {
+    const snapshot = sanitizeSnapshot({
+      workflowId: VALID_WORKFLOW_ID,
+      node: "scheduling",
+      status: "done",
+      approvalRequired: false,
+      writeBackApplied: true,
+      scheduling: {
+        eligible: true,
+        degraded: false,
+        status: "PLANNED",
+        schedulingReadiness: "schedulable",
+        recommendedResourceReference: "SR-A1",
+        candidates: [
+          {
+            resourceReference: "SR-A1",
+            // Defense in depth: a stray full name must NOT survive.
+            resourceName: "A1 Techinican",
+            territoryReference: "North America",
+            territoryMembership: "secondary",
+            matchedSkills: ["Laptop Hardware", "Battery/Power"],
+            skillScore: 0.85,
+            availabilityScore: 1,
+            territoryFitScore: 0.7,
+            rankScore: 0.7,
+            rank: 1,
+            rationale: "best skill match"
+          }
+        ],
+        proposedWindow: {
+          earliestStart: "2026-06-16T12:00:00.000Z",
+          earliestStartBasis: "parts_eta",
+          proposedStart: "2026-06-16T13:00:00.000Z",
+          proposedEnd: "2026-06-16T15:00:00.000Z",
+          displayWindow: "Tomorrow 13:00–15:00 UTC",
+          windowConfidence: "high",
+          partsEtaConstrained: true
+        },
+        partsEtaConsidered: true,
+        partsReadinessSeen: "ready",
+        requiredApproval: false,
+        appointmentStatus: "proposed"
+      },
+      events: []
+    });
+
+    const scheduling = snapshot!.scheduling;
+    expect(scheduling?.schedulingReadiness).toBe("schedulable");
+    expect(scheduling?.recommendedResourceReference).toBe("SR-A1");
+    expect(scheduling?.candidates).toHaveLength(1);
+    expect(scheduling?.candidates![0].resourceReference).toBe("SR-A1");
+    expect(scheduling?.proposedWindow?.partsEtaConstrained).toBe(true);
+    // The stray full name was stripped by the sanitizer.
+    expect(JSON.stringify(snapshot)).not.toContain("Techinican");
+  });
+
   it("never leaks a serial number injected into the parts channel", () => {
     const snapshot = sanitizeSnapshot({
       workflowId: VALID_WORKFLOW_ID,

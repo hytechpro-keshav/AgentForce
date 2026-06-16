@@ -1,14 +1,15 @@
 /**
  * Final Verdict — the orchestrator's human-readable synthesis after
- * Nodes 1-4 complete.
+ * Nodes 1-5 complete.
  *
  * This channel is **observability-only**. It is generated for the
  * read-only operator console from the already-sanitized typed channels
- * (`triage`, `customerContext`, `knowledgeGuidance`, `partsLogistics`). Downstream nodes
- * MUST NOT parse it — machines consume the typed channels, humans read
- * the verdict. It carries no raw Case text, prompts, chain-of-thought,
- * account ids, or customer names: only values already present in the
- * sanitized channels (priority, risk grade, warranty, source titles).
+ * (`triage`, `customerContext`, `knowledgeGuidance`, `partsLogistics`,
+ * `scheduling`). Downstream nodes MUST NOT parse it — machines consume the
+ * typed channels, humans read the verdict. It carries no raw Case text,
+ * prompts, chain-of-thought, account ids, customer names, or technician
+ * names: only values already present in the sanitized channels (priority,
+ * risk grade, warranty, source titles, sanitized technician references).
  */
 
 import type {
@@ -18,6 +19,7 @@ import type {
 import type { CustomerContextChannel } from "./customer-context";
 import type { KnowledgeGuidanceChannel } from "./knowledge-guidance";
 import type { PartsLogisticsChannel } from "./parts-logistics";
+import type { SchedulingChannel } from "./scheduling";
 import type { SanitizedTriageResult } from "./orchestration-status-event";
 
 /** A single labeled key fact surfaced in the verdict. */
@@ -61,4 +63,5 @@ export interface OrchestratorVerdictInput {
   customerContext?: CustomerContextChannel;
   knowledgeGuidance?: KnowledgeGuidanceChannel;
   partsLogistics?: PartsLogisticsChannel;
+  scheduling?: SchedulingChannel;
 }

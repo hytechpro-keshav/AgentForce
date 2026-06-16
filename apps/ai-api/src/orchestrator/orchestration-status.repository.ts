@@ -15,6 +15,7 @@ import type {
 import type { CustomerContextChannel } from "./dto/customer-context";
 import type { KnowledgeGuidanceChannel } from "./dto/knowledge-guidance";
 import type { PartsLogisticsChannel } from "./dto/parts-logistics";
+import type { SchedulingChannel } from "./dto/scheduling";
 import type {
   CaseTriageWorkflowSnapshot,
   OrchestrationStatusEvent,
@@ -106,6 +107,7 @@ interface OrchestrationWorkflowRow extends QueryResultRow {
   customer_context: unknown;
   knowledge_guidance: unknown;
   parts_logistics: unknown;
+  scheduling: unknown;
   events: unknown;
   created_at: Date | string;
   updated_at: Date | string;
@@ -177,11 +179,12 @@ export class PostgresOrchestrationStatusRepository
             customer_context,
             knowledge_guidance,
             parts_logistics,
+            scheduling,
             events,
             created_at,
             updated_at
           ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12::jsonb, $13::jsonb, $14::jsonb, $15, $16
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12::jsonb, $13::jsonb, $14::jsonb, $15::jsonb, $16, $17
           )
           ON CONFLICT (workflow_id) DO UPDATE SET
             case_id = EXCLUDED.case_id,
@@ -196,6 +199,7 @@ export class PostgresOrchestrationStatusRepository
             customer_context = EXCLUDED.customer_context,
             knowledge_guidance = EXCLUDED.knowledge_guidance,
             parts_logistics = EXCLUDED.parts_logistics,
+            scheduling = EXCLUDED.scheduling,
             events = EXCLUDED.events,
             created_at = EXCLUDED.created_at,
             updated_at = EXCLUDED.updated_at
@@ -220,6 +224,7 @@ export class PostgresOrchestrationStatusRepository
           snapshot.partsLogistics
             ? JSON.stringify(snapshot.partsLogistics)
             : null,
+          snapshot.scheduling ? JSON.stringify(snapshot.scheduling) : null,
           JSON.stringify(snapshot.events ?? []),
           snapshot.createdAt,
           snapshot.updatedAt
@@ -294,6 +299,7 @@ export class PostgresOrchestrationStatusRepository
           customer_context jsonb,
           knowledge_guidance jsonb,
           parts_logistics jsonb,
+          scheduling jsonb,
           events jsonb NOT NULL DEFAULT '[]'::jsonb,
           created_at timestamptz NOT NULL,
           updated_at timestamptz NOT NULL
@@ -306,6 +312,10 @@ export class PostgresOrchestrationStatusRepository
       await client.query(`
         ALTER TABLE ai_api_orchestration_workflows
         ADD COLUMN IF NOT EXISTS parts_logistics jsonb
+      `);
+      await client.query(`
+        ALTER TABLE ai_api_orchestration_workflows
+        ADD COLUMN IF NOT EXISTS scheduling jsonb
       `);
       await client.query(
         "CREATE INDEX IF NOT EXISTS ai_api_orchestration_workflows_case_idx ON ai_api_orchestration_workflows(case_id)"
@@ -347,6 +357,9 @@ export class PostgresOrchestrationStatusRepository
         ),
       partsLogistics: PostgresOrchestrationStatusRepository.parsePartsLogistics(
         row.parts_logistics
+      ),
+      scheduling: PostgresOrchestrationStatusRepository.parseScheduling(
+        row.scheduling
       ),
       createdAt: PostgresOrchestrationStatusRepository.toIso(row.created_at),
       updatedAt: PostgresOrchestrationStatusRepository.toIso(row.updated_at),
@@ -433,6 +446,22 @@ export class PostgresOrchestrationStatusRepository
       }
     }
     return value as PartsLogisticsChannel;
+  }
+
+  private static parseScheduling(
+    value: unknown
+  ): SchedulingChannel | undefined {
+    if (value === null || value === undefined) {
+      return undefined;
+    }
+    if (typeof value === "string") {
+      try {
+        return JSON.parse(value) as SchedulingChannel;
+      } catch {
+        return undefined;
+      }
+    }
+    return value as SchedulingChannel;
   }
 
   private static toIso(value: Date | string): string {

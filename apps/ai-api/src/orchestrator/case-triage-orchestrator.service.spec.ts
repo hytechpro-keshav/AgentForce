@@ -6,9 +6,11 @@ import type { SalesforceCaseGateway } from "../salesforce/salesforce-case.gatewa
 import type { SalesforceCustomerGateway } from "../salesforce/salesforce-customer.gateway";
 import type { SalesforceInventoryGateway } from "../salesforce/salesforce-inventory.gateway";
 import type { SalesforceFulfillmentGateway } from "../salesforce/salesforce-fulfillment.gateway";
+import type { SalesforceSchedulingGateway } from "../salesforce/salesforce-scheduling.gateway";
 import { SalesforceGatewayError } from "../salesforce/salesforce-gateway.error";
 import { CaseTriageOrchestratorService } from "./case-triage-orchestrator.service";
 import { PartsLogisticsPlannerService } from "./parts-logistics-planner.service";
+import { SchedulingPlannerService } from "./scheduling-planner.service";
 import { ExternalContextAdapterRegistry } from "./adapters/external-context.adapter";
 import {
   InMemoryOrchestrationStatusRepository,
@@ -157,7 +159,8 @@ function buildHarness(
       partsLogistics: {
         enabled: partsOverrides.enabled ?? false,
         writesEnabled: partsOverrides.writesEnabled ?? false
-      }
+      },
+      scheduling: { enabled: false }
     },
     rag: {
       enabled: false,
@@ -204,6 +207,17 @@ function buildHarness(
     isConfigured: () => true,
     applyFulfillment
   } as unknown as SalesforceFulfillmentGateway;
+  const schedulingGateway = {
+    isConfigured: () => true,
+    readSchedulingContext: jest.fn().mockResolvedValue({
+      source: "none",
+      technicians: [],
+      businessWindows: [],
+      busyIntervals: [],
+      degraded: false
+    })
+  } as unknown as SalesforceSchedulingGateway;
+  const schedulingPlanner = new SchedulingPlannerService();
 
   const service = new CaseTriageOrchestratorService(
     gateway,
@@ -220,7 +234,9 @@ function buildHarness(
     { extract: jest.fn().mockResolvedValue(emptyExtraction()) } as any,
     inventoryGateway,
     partsPlanner,
-    fulfillmentGateway
+    fulfillmentGateway,
+    schedulingGateway,
+    schedulingPlanner
   );
 
   return {
@@ -542,7 +558,8 @@ describe("CaseTriageOrchestratorService", () => {
             scoreThreshold: 0.65,
             extractionEnabled: false
           },
-          partsLogistics: { enabled: false }
+          partsLogistics: { enabled: false },
+          scheduling: { enabled: false }
         },
         rag: {
           enabled: false,
@@ -563,7 +580,18 @@ describe("CaseTriageOrchestratorService", () => {
         applyFulfillment: jest
           .fn()
           .mockResolvedValue({ applied: false, degraded: false, items: [] })
-      } as unknown as SalesforceFulfillmentGateway
+      } as unknown as SalesforceFulfillmentGateway,
+      {
+        isConfigured: () => true,
+        readSchedulingContext: jest.fn().mockResolvedValue({
+          source: "none",
+          technicians: [],
+          businessWindows: [],
+          busyIntervals: [],
+          degraded: false
+        })
+      } as unknown as SalesforceSchedulingGateway,
+      new SchedulingPlannerService()
     );
 
     const resolved =

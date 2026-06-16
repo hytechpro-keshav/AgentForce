@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # ==============================================================================
-# all-3-nodes-deployed.sh — End-to-end test for all 4 orchestrator nodes on
+# all-3-nodes-deployed.sh — End-to-end test for the orchestrator nodes on
 # Railway (Node 1 Triage, Node 2 Customer History, Node 3 Knowledge Base,
-# Node 4 Parts & Logistics)
+# Node 4 Parts & Logistics, Node 5 Scheduling)
 #
 # Tests the full LangGraph case-triage workflow with the laptop KB corpus:
 #   START → readContext → runTriage (N1) → customerHistory (N2) → knowledge (N3)
-#         → partsLogistics (N4) → gate → writeBack
+#         → partsLogistics (N4) → scheduling (N5) → gate → writeBack
 #
 # Prerequisites:
 #   • Railway deployment is healthy
@@ -14,6 +14,9 @@
 #   • AI_API_ORCHESTRATOR_KNOWLEDGE_ENABLED=true on Railway
 #   • AI_API_ORCHESTRATOR_PARTS_ENABLED=true on Railway
 #   • RAG_ENABLED=true on Railway
+#   • For ASSERT_SCHEDULING=1: AI_API_ORCHESTRATOR_SCHEDULING_ENABLED=true on
+#     Railway + OAuth Run As user has Agentforce_Scheduling_Node5 (see
+#     scripts/sf/node5-pre-validation.sh) + NA Field Service seed (5-Pre)
 #   • A real Salesforce Case ID with an installed asset (laptop issue description)
 #   • OAuth Connected App Run As user has Agentforce_Parts_Logistics_Node4
 #   • For ASSERT_PARTS_WRITES=1: run-as also needs Agentforce_Parts_Fulfillment_Writes
@@ -29,6 +32,8 @@
 #   INGEST_CORPUS         — set to 1 to re-ingest the laptop KB before testing
 #   POLL_TIMEOUT_SECS     — workflow poll timeout (default: 120)
 #   ASSERT_PARTS_ELIGIBLE — set to 0 to skip Node 4 eligibility assertion (default: 1)
+#   ASSERT_SCHEDULING     — set to 1 to assert Node 5 scheduling (default: 0;
+#                           requires the scheduling flag enabled on Railway)
 # ==============================================================================
 set -euo pipefail
 
@@ -49,6 +54,10 @@ ASSERT_PARTS_ELIGIBLE="${ASSERT_PARTS_ELIGIBLE:-1}"
 # the workflow is approved AND AI_API_ORCHESTRATOR_PARTS_WRITES_ENABLED=true
 # with the expanded perm set assigned to the run-as user.
 ASSERT_PARTS_WRITES="${ASSERT_PARTS_WRITES:-0}"
+# Node 5 scheduling assertion. Off by default — only meaningful once
+# AI_API_ORCHESTRATOR_SCHEDULING_ENABLED=true with the Agentforce_Scheduling_Node5
+# perm set assigned to the run-as user and the 5-Pre Field Service seed in place.
+ASSERT_SCHEDULING="${ASSERT_SCHEDULING:-0}"
 
 : "${SF_CASE_ID:?Set SF_CASE_ID to a Salesforce Case record ID for the triage test.}"
 
@@ -225,6 +234,12 @@ parts_plan_count=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field partsLo
 parts_eligibility_reason=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field partsLogistics.eligibilityReason)
 parts_kb_crosscheck=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field partsLogistics.kbCrossCheck.status)
 parts_write_applied=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field partsLogistics.writeOutcome.applied)
+scheduling_eligible=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field scheduling.eligible)
+scheduling_status=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field scheduling.status)
+scheduling_readiness=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field scheduling.schedulingReadiness)
+scheduling_degraded=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field scheduling.degraded)
+scheduling_technician=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field scheduling.recommendedResourceReference)
+scheduling_window=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field scheduling.proposedWindow.displayWindow)
 
 errors=0
 
@@ -296,6 +311,34 @@ if [[ "${ASSERT_PARTS_WRITES}" == "1" ]]; then
   }
 fi
 
+# Phase 5a — Node 5 scheduling (only when explicitly asserted).
+if [[ "${ASSERT_SCHEDULING}" == "1" ]]; then
+  echo "  Scheduling eligible:     ${scheduling_eligible}"
+  echo "  Scheduling status:       ${scheduling_status}"
+  echo "  Scheduling readiness:    ${scheduling_readiness}"
+  echo "  Scheduling degraded:     ${scheduling_degraded}"
+  echo "  Recommended technician:  ${scheduling_technician}"
+  echo "  Proposed window:         ${scheduling_window}"
+  [[ "${scheduling_eligible}" == "true" ]] || {
+    echo "  FAIL: Scheduling not eligible (check SCHEDULING_ENABLED, Run As perm set, 5-Pre seed)" >&2
+    (( errors++ ))
+  }
+  [[ "${scheduling_status}" == "PLANNED" || "${scheduling_status}" == "PROVISIONAL" || "${scheduling_status}" == "DEFERRED" || "${scheduling_status}" == "UNSCHEDULABLE" ]] || {
+    echo "  FAIL: Unexpected scheduling status: ${scheduling_status}" >&2
+    (( errors++ ))
+  }
+  [[ "${scheduling_degraded}" == "false" ]] || {
+    echo "  WARN: Scheduling degraded — Field Service reads may be unavailable"
+  }
+  # A non-degraded, schedulable/provisional plan must name a technician.
+  if [[ "${scheduling_degraded}" == "false" && ( "${scheduling_status}" == "PLANNED" || "${scheduling_status}" == "PROVISIONAL" ) ]]; then
+    [[ "${scheduling_technician}" != "absent" && "${scheduling_technician}" != "null" && -n "${scheduling_technician}" ]] || {
+      echo "  FAIL: Expected a recommended technician reference for status ${scheduling_status}" >&2
+      (( errors++ ))
+    }
+  fi
+fi
+
 if (( errors > 0 )); then
   echo ""
   echo "All-nodes test FAILED with ${errors} error(s)." >&2
@@ -303,8 +346,11 @@ if (( errors > 0 )); then
 fi
 
 echo ""
-echo "=== All 4 nodes PASSED ==="
+echo "=== Orchestrator nodes PASSED ==="
 echo "  Node 1 (Triage):            priority=${triage_priority}"
 echo "  Node 2 (Customer History):  eligible=${knowledge_eligible}"
 echo "  Node 3 (Knowledge Base):    status=${knowledge_status}"
 echo "  Node 4 (Parts & Logistics): status=${parts_status}, readiness=${parts_readiness}, plans=${parts_plan_count}"
+if [[ "${ASSERT_SCHEDULING}" == "1" ]]; then
+  echo "  Node 5 (Scheduling):        status=${scheduling_status}, readiness=${scheduling_readiness}, technician=${scheduling_technician}"
+fi

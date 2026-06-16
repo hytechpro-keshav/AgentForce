@@ -631,6 +631,82 @@ describe("OrchestrationPanel", () => {
       within(summary).getByText(/transfer pending · ProductTransfer/i)
     ).toBeInTheDocument();
     expect(within(summary).getByText(/KB aligned/i)).toBeInTheDocument();
-    expect(screen.getByText(/Completed stages: 2\/4/)).toBeInTheDocument();
+    expect(screen.getByText(/Completed stages: 2\/5/)).toBeInTheDocument();
+  });
+
+  it("renders the Node 5 scheduling card with a sanitized technician + window", () => {
+    render(
+      <OrchestrationPanel
+        snapshot={snapshot({
+          node: "scheduling",
+          events: [
+            {
+              node: "scheduling",
+              status: "running",
+              sequence: 1,
+              occurredAt: "t1",
+              safeSummary: "Scheduling schedulable: SR-A1 · Tomorrow 13:00–15:00 UTC."
+            }
+          ],
+          scheduling: {
+            eligible: true,
+            degraded: false,
+            status: "PLANNED",
+            schedulingReadiness: "schedulable",
+            recommendedResourceReference: "SR-A1",
+            candidates: [
+              {
+                resourceReference: "SR-A1",
+                territoryReference: "North America",
+                territoryMembership: "secondary",
+                matchedSkills: ["Laptop Hardware", "Battery/Power"],
+                skillScore: 0.85,
+                availabilityScore: 1,
+                territoryFitScore: 0.7,
+                rankScore: 0.7,
+                rank: 1,
+                earliestAvailableAt: "2026-06-16T13:00:00.000Z",
+                rationale: "matches Battery/Power; secondary member of North America."
+              }
+            ],
+            proposedWindow: {
+              earliestStart: "2026-06-16T12:00:00.000Z",
+              earliestStartBasis: "parts_eta",
+              proposedStart: "2026-06-16T13:00:00.000Z",
+              proposedEnd: "2026-06-16T15:00:00.000Z",
+              displayWindow: "Tomorrow 13:00–15:00 UTC (after parts arrive)",
+              durationMinutes: 120,
+              windowConfidence: "high",
+              partsEtaConstrained: true
+            },
+            partsEtaConsidered: true,
+            partsReadinessSeen: "ready",
+            requiredApproval: false,
+            appointmentStatus: "proposed",
+            confidence: "high"
+          }
+        })}
+      />
+    );
+
+    const summary = screen.getByTestId("scheduling-summary");
+    expect(within(summary).getByText("schedulable")).toBeInTheDocument();
+    expect(within(summary).getAllByText("SR-A1").length).toBeGreaterThan(0);
+    expect(
+      within(summary).getByText(/Tomorrow 13:00–15:00 UTC \(after parts arrive\)/)
+    ).toBeInTheDocument();
+    expect(
+      within(summary).getByText(/gated on parts ETA/)
+    ).toBeInTheDocument();
+    // Stage rail shows Node 5 and the count is out of five stages.
+    expect(
+      within(screen.getByTestId("stage-scheduling")).getByText(
+        /Node 5 · Scheduling/
+      )
+    ).toBeInTheDocument();
+    // The stage count is now out of five nodes.
+    expect(screen.getByText(/Completed stages: \d\/5/)).toBeInTheDocument();
+    // No full technician name ever reaches the DOM.
+    expect(screen.queryByText(/Techinican/)).toBeNull();
   });
 });

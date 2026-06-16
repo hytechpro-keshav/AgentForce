@@ -7,6 +7,7 @@ import type {
 import type { CustomerContextChannel } from "./customer-context";
 import type { KnowledgeGuidanceChannel } from "./knowledge-guidance";
 import type { PartsLogisticsChannel } from "./parts-logistics";
+import type { SchedulingChannel } from "./scheduling";
 import type { OrchestratorVerdict } from "./orchestrator-verdict";
 
 /**
@@ -126,7 +127,14 @@ export interface CaseTriageWorkflowSnapshot {
    */
   partsLogistics?: PartsLogisticsChannel;
   /**
-   * Final Verdict — observability-only synthesis after Nodes 1-4.
+   * Node 5 (scheduling) output. Self-contained and sanitized so the
+   * read-only UI can render the ranked technician reference and proposed
+   * service window. Absent until Node 5 runs; present-but-skipped when
+   * ineligible (scheduling disabled).
+   */
+  scheduling?: SchedulingChannel;
+  /**
+   * Final Verdict — observability-only synthesis after Nodes 1-5.
    * Generated for the operator console from the typed channels; never
    * parsed by downstream nodes. Absent until the workflow settles.
    */

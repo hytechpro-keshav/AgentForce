@@ -11,6 +11,7 @@ import { CaseTriageOrchestratorService } from "./case-triage-orchestrator.servic
 import { KnowledgeGuidanceExtractor } from "./knowledge-guidance-extractor.service";
 import { KnowledgeQueryBuilder } from "./knowledge-query.builder";
 import { PartsLogisticsPlannerService } from "./parts-logistics-planner.service";
+import { SchedulingPlannerService } from "./scheduling-planner.service";
 import {
   InMemoryOrchestrationStatusRepository,
   OrchestrationStatusRepository,
@@ -44,6 +45,7 @@ import { OrchestrationStatusStore } from "./orchestration-status.store";
     KnowledgeQueryBuilder,
     KnowledgeGuidanceExtractor,
     PartsLogisticsPlannerService,
+    SchedulingPlannerService,
     PostgresOrchestrationStatusRepository,
     {
       provide: OrchestrationStatusRepository,

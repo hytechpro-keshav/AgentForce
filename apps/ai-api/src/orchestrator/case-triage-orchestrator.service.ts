@@ -14,6 +14,7 @@ import { TelemetryService } from "../observability/telemetry.service";
 import { SalesforceCaseGateway } from "../salesforce/salesforce-case.gateway";
 import { SalesforceCustomerGateway } from "../salesforce/salesforce-customer.gateway";
 import { SalesforceInventoryGateway } from "../salesforce/salesforce-inventory.gateway";
+import { SalesforceSchedulingGateway } from "../salesforce/salesforce-scheduling.gateway";
 import { SalesforceFulfillmentGateway } from "../salesforce/salesforce-fulfillment.gateway";
 import { SalesforceGatewayError } from "../salesforce/salesforce-gateway.error";
 import { SupportTriageService } from "../agents/support-triage.service";
@@ -55,12 +56,18 @@ import type {
 import { deriveGuidanceConfidence } from "./knowledge-confidence";
 import { KnowledgeGuidanceExtractor } from "./knowledge-guidance-extractor.service";
 import { PartsLogisticsPlannerService } from "./parts-logistics-planner.service";
+import { SchedulingPlannerService } from "./scheduling-planner.service";
+import { regionForShipTo, territoryForRegion } from "./scheduling-rules";
 import type {
   PartLogisticsPlan,
   PartsLogisticsChannel,
   PartsLogisticsEligibilityResult,
   PartsWriteOutcome
 } from "./dto/parts-logistics";
+import type {
+  SchedulingChannel,
+  SchedulingEligibilityResult
+} from "./dto/scheduling";
 import type {
   PartsFulfillmentCommand,
   PartsFulfillmentItemCommand,
@@ -119,7 +126,9 @@ export class CaseTriageOrchestratorService {
     private readonly knowledgeExtractor: KnowledgeGuidanceExtractor,
     private readonly inventoryGateway: SalesforceInventoryGateway,
     private readonly partsPlanner: PartsLogisticsPlannerService,
-    private readonly fulfillmentGateway: SalesforceFulfillmentGateway
+    private readonly fulfillmentGateway: SalesforceFulfillmentGateway,
+    private readonly schedulingGateway: SalesforceSchedulingGateway,
+    private readonly schedulingPlanner: SchedulingPlannerService
   ) {
     this.graph = buildCaseTriageGraph({
       readContext: (caseId) => this.gateway.readCaseContext(caseId),
@@ -155,6 +164,22 @@ export class CaseTriageOrchestratorService {
           workflowId,
           context,
           knowledgeGuidance,
+          triagePriority
+        ),
+      isSchedulingEligible: (context, triagePriority, partsLogistics) =>
+        this.isSchedulingEligible(context, triagePriority, partsLogistics),
+      planScheduling: (
+        workflowId,
+        context,
+        partsLogistics,
+        customerContext,
+        triagePriority
+      ) =>
+        this.planScheduling(
+          workflowId,
+          context,
+          partsLogistics,
+          customerContext,
           triagePriority
         ),
       emitRunning: (workflowId, summary, details, node, trace) =>
@@ -312,6 +337,7 @@ export class CaseTriageOrchestratorService {
         customerContext: result.customerContext,
         knowledgeGuidance: result.knowledgeGuidance,
         partsLogistics: result.partsLogistics,
+      scheduling: result.scheduling,
         orchestratorVerdict: CaseTriageOrchestratorService.buildVerdict(
           result,
           "waiting_approval"
@@ -346,6 +372,7 @@ export class CaseTriageOrchestratorService {
         customerContext: result.customerContext,
         knowledgeGuidance: result.knowledgeGuidance,
         partsLogistics: result.partsLogistics,
+      scheduling: result.scheduling,
         approvalRequired: result.approvalRequired,
         approvalDecision: result.approvalDecision,
         orchestratorVerdict: CaseTriageOrchestratorService.buildVerdict(
@@ -372,6 +399,7 @@ export class CaseTriageOrchestratorService {
       customerContext: result.customerContext,
       knowledgeGuidance: result.knowledgeGuidance,
       partsLogistics: result.partsLogistics,
+      scheduling: result.scheduling,
       writeBackApplied: Boolean(result.writeBackApplied),
       approvalRequired: result.approvalRequired,
       approvalDecision: result.approvalDecision,
@@ -751,7 +779,8 @@ export class CaseTriageOrchestratorService {
       triage: result.triage,
       customerContext: result.customerContext,
       knowledgeGuidance: result.knowledgeGuidance,
-      partsLogistics: result.partsLogistics
+      partsLogistics: result.partsLogistics,
+      scheduling: result.scheduling
     });
   }
 
@@ -1366,6 +1395,87 @@ export class CaseTriageOrchestratorService {
     this.telemetry.recordAgentWorkflow({
       operation: "orchestrator.parts_logistics",
       useCase: "agentforce_parts_logistics",
+      requestId: workflowId,
+      latencyMs: Date.now() - startedAt,
+      healthStatus: channel.degraded
+        ? "degraded"
+        : channel.eligible
+          ? "ok"
+          : "skipped",
+      outcome: "success"
+    });
+  }
+
+  /**
+   * Node 5 eligibility — pure, config-driven, no Salesforce access. Gates
+   * the Field Service reads + planner on the feature flag only; the
+   * planner degrades gracefully when territory/skill data is thin, so the
+   * node never over-gates a serviceable Case (B11).
+   */
+  private isSchedulingEligible(
+    _context: SalesforceCaseContext,
+    _triagePriority: TriagePriorityDto | undefined,
+    _partsLogistics: PartsLogisticsChannel | undefined
+  ): SchedulingEligibilityResult {
+    if (!this.config.orchestrator.scheduling.enabled) {
+      return {
+        eligible: false,
+        reason: "Scheduling disabled by config"
+      };
+    }
+    return { eligible: true, reason: "Scheduling enabled" };
+  }
+
+  /**
+   * Node 5 plan seam. Derives the target territory from the Case ship-to
+   * region (Node 4 parity), reads Field Service technicians/skills/
+   * availability, and runs the deterministic, parts-ETA-gated planner.
+   * Field Service failures degrade the plan (never throw, never block the
+   * graph — §8.4 step 8 / B8).
+   */
+  private async planScheduling(
+    workflowId: string,
+    context: SalesforceCaseContext,
+    partsLogistics: PartsLogisticsChannel | undefined,
+    customerContext: CustomerContextChannel | undefined,
+    triagePriority: TriagePriorityDto | undefined
+  ): Promise<SchedulingChannel> {
+    const startedAt = Date.now();
+    const now = new Date();
+    const territoryName = territoryForRegion(
+      regionForShipTo(context.serviceShipToCountry)
+    );
+    const windowStartIso = now.toISOString();
+    const windowEndIso = new Date(
+      now.getTime() + 21 * 24 * 60 * 60 * 1000
+    ).toISOString();
+
+    const read = await this.schedulingGateway.readSchedulingContext({
+      territoryName,
+      windowStartIso,
+      windowEndIso
+    });
+    const channel = this.schedulingPlanner.plan({
+      context,
+      partsLogistics,
+      customerContext,
+      triagePriority,
+      read,
+      now
+    });
+    channel.latencyMs = Date.now() - startedAt;
+    this.logSchedulingTelemetry(workflowId, channel, startedAt);
+    return channel;
+  }
+
+  private logSchedulingTelemetry(
+    workflowId: string,
+    channel: SchedulingChannel,
+    startedAt: number
+  ): void {
+    this.telemetry.recordAgentWorkflow({
+      operation: "orchestrator.scheduling",
+      useCase: "agentforce_scheduling",
       requestId: workflowId,
       latencyMs: Date.now() - startedAt,
       healthStatus: channel.degraded

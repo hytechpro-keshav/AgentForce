@@ -23,7 +23,8 @@ export const ORCHESTRATION_NODE_IDS = [
   "triage",
   "customer_history",
   "knowledge",
-  "parts_logistics"
+  "parts_logistics",
+  "scheduling"
 ] as const;
 export type OrchestrationNodeId = (typeof ORCHESTRATION_NODE_IDS)[number];
 
@@ -221,6 +222,52 @@ export interface OrchestrationPartsLogistics {
   latencyMs?: number;
 }
 
+export interface OrchestrationTechnicianCandidate {
+  resourceReference: string;
+  territoryReference?: string;
+  territoryMembership?: string;
+  matchedSkills: string[];
+  missingSkills?: string[];
+  skillScore: number;
+  availabilityScore: number;
+  territoryFitScore: number;
+  rankScore: number;
+  rank: number;
+  earliestAvailableAt?: string;
+  rationale: string;
+}
+
+export interface OrchestrationProposedWindow {
+  earliestStart: string;
+  earliestStartBasis: string;
+  proposedStart?: string;
+  proposedEnd?: string;
+  displayWindow?: string;
+  durationMinutes?: number;
+  windowConfidence: string;
+  partsEtaConstrained: boolean;
+}
+
+export interface OrchestrationScheduling {
+  eligible: boolean;
+  eligibilityReason?: string;
+  degraded: boolean;
+  degradedSources?: string[];
+  status?: "PLANNED" | "PROVISIONAL" | "DEFERRED" | "UNSCHEDULABLE" | "SKIPPED";
+  schedulingReadiness?: string;
+  candidates?: OrchestrationTechnicianCandidate[];
+  recommendedResourceReference?: string;
+  proposedWindow?: OrchestrationProposedWindow;
+  partsEtaConsidered: boolean;
+  partsReadinessSeen?: string;
+  requiredApproval: boolean;
+  approvalReason?: string;
+  appointmentStatus?: string;
+  confidence?: OrchestrationEvidenceConfidence;
+  provider?: string;
+  latencyMs?: number;
+}
+
 export interface OrchestrationVerdictHighlight {
   label: string;
   value: string;
@@ -271,6 +318,7 @@ export interface OrchestrationSnapshot {
   customerContext?: OrchestrationCustomerContext;
   knowledgeGuidance?: OrchestrationKnowledgeGuidance;
   partsLogistics?: OrchestrationPartsLogistics;
+  scheduling?: OrchestrationScheduling;
   orchestratorVerdict?: OrchestrationVerdict;
   events: OrchestrationEvent[];
   updatedAt?: string;
@@ -851,6 +899,119 @@ function sanitizePartsLogistics(
   };
 }
 
+function num01(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.round(value * 1000) / 1000
+    : 0;
+}
+
+function sanitizeSchedulingCandidate(
+  value: unknown
+): OrchestrationTechnicianCandidate | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  // Defense in depth: only a sanitized, short reference is accepted —
+  // never a full technician name. Unknown fields are dropped entirely.
+  const resourceReference = str(record.resourceReference, 24);
+  if (!resourceReference) return undefined;
+  const skills = (input: unknown): string[] =>
+    Array.isArray(input)
+      ? input
+          .map((s) => str(s, 40))
+          .filter((s): s is string => Boolean(s))
+          .slice(0, 8)
+      : [];
+  return {
+    resourceReference,
+    territoryReference: str(record.territoryReference, 40),
+    territoryMembership: str(record.territoryMembership, 16),
+    matchedSkills: skills(record.matchedSkills),
+    missingSkills: Array.isArray(record.missingSkills)
+      ? skills(record.missingSkills)
+      : undefined,
+    skillScore: num01(record.skillScore),
+    availabilityScore: num01(record.availabilityScore),
+    territoryFitScore: num01(record.territoryFitScore),
+    rankScore: num01(record.rankScore),
+    rank:
+      typeof record.rank === "number" && record.rank >= 0
+        ? Math.round(record.rank)
+        : 0,
+    earliestAvailableAt: str(record.earliestAvailableAt, 40),
+    rationale: str(record.rationale, 280) ?? ""
+  };
+}
+
+function sanitizeProposedWindow(
+  value: unknown
+): OrchestrationProposedWindow | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  const earliestStart = str(record.earliestStart, 40);
+  if (!earliestStart) return undefined;
+  return {
+    earliestStart,
+    earliestStartBasis: str(record.earliestStartBasis, 40) ?? "now",
+    proposedStart: str(record.proposedStart, 40),
+    proposedEnd: str(record.proposedEnd, 40),
+    displayWindow: str(record.displayWindow, 120),
+    durationMinutes:
+      typeof record.durationMinutes === "number" && record.durationMinutes >= 0
+        ? Math.round(record.durationMinutes)
+        : undefined,
+    windowConfidence: str(record.windowConfidence, 16) ?? "low",
+    partsEtaConstrained: record.partsEtaConstrained === true
+  };
+}
+
+function sanitizeScheduling(
+  value: unknown
+): OrchestrationScheduling | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  const status =
+    record.status === "PLANNED" ||
+    record.status === "PROVISIONAL" ||
+    record.status === "DEFERRED" ||
+    record.status === "UNSCHEDULABLE" ||
+    record.status === "SKIPPED"
+      ? record.status
+      : undefined;
+  const candidates = Array.isArray(record.candidates)
+    ? record.candidates
+        .map((c) => sanitizeSchedulingCandidate(c))
+        .filter((c): c is OrchestrationTechnicianCandidate => Boolean(c))
+        .slice(0, 3)
+    : undefined;
+  return {
+    eligible: record.eligible === true,
+    eligibilityReason: str(record.eligibilityReason, 240),
+    degraded: record.degraded === true,
+    degradedSources: Array.isArray(record.degradedSources)
+      ? record.degradedSources
+          .map((item) => str(item, 40))
+          .filter((item): item is string => Boolean(item))
+          .slice(0, 12)
+      : undefined,
+    status,
+    schedulingReadiness: str(record.schedulingReadiness, 24),
+    candidates,
+    recommendedResourceReference: str(record.recommendedResourceReference, 24),
+    proposedWindow: sanitizeProposedWindow(record.proposedWindow),
+    partsEtaConsidered: record.partsEtaConsidered === true,
+    partsReadinessSeen: str(record.partsReadinessSeen, 24),
+    requiredApproval: record.requiredApproval === true,
+    approvalReason: str(record.approvalReason, 40),
+    appointmentStatus: str(record.appointmentStatus, 24),
+    confidence: isConfidence(record.confidence) ? record.confidence : undefined,
+    provider: str(record.provider, 60),
+    latencyMs:
+      typeof record.latencyMs === "number" && record.latencyMs >= 0
+        ? Math.round(record.latencyMs)
+        : undefined
+  };
+}
+
 function sanitizeVerdictHighlights(
   value: unknown
 ): OrchestrationVerdictHighlight[] {
@@ -961,6 +1122,7 @@ export function sanitizeSnapshot(value: unknown): OrchestrationSnapshot | null {
     customerContext: sanitizeCustomerContext(record.customerContext),
     knowledgeGuidance: sanitizeKnowledgeGuidance(record.knowledgeGuidance),
     partsLogistics: sanitizePartsLogistics(record.partsLogistics),
+    scheduling: sanitizeScheduling(record.scheduling),
     orchestratorVerdict: sanitizeVerdict(record.orchestratorVerdict),
     events: sanitizeEvents(record.events),
     updatedAt: str(record.updatedAt, 40)

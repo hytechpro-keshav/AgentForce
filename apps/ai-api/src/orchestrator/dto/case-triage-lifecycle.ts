@@ -33,11 +33,13 @@ export const TRIAGE_NODE_ID = "triage" as const;
 export const CUSTOMER_HISTORY_NODE_ID = "customer_history" as const;
 export const KNOWLEDGE_NODE_ID = "knowledge" as const;
 export const PARTS_LOGISTICS_NODE_ID = "parts_logistics" as const;
+export const SCHEDULING_NODE_ID = "scheduling" as const;
 export type OrchestratorNodeId =
   | typeof TRIAGE_NODE_ID
   | typeof CUSTOMER_HISTORY_NODE_ID
   | typeof KNOWLEDGE_NODE_ID
-  | typeof PARTS_LOGISTICS_NODE_ID;
+  | typeof PARTS_LOGISTICS_NODE_ID
+  | typeof SCHEDULING_NODE_ID;
 
 /**
  * The approval resolution that gates the triage write-back. The

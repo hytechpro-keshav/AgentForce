@@ -25,6 +25,7 @@ import {
   type OrchestrationExecutionTrace,
   type OrchestrationKnowledgeGuidance,
   type OrchestrationNodeId,
+  type OrchestrationScheduling,
   type OrchestrationSnapshot,
   type OrchestrationStateChange,
   type OrchestrationStatus,
@@ -69,6 +70,12 @@ const NODE_META: Record<
     shortLabel: "Parts & Logistics",
     description:
       "Selects the fulfillment warehouse from the Case ship-to, reads live inventory, and plans part availability and multi-segment ETA."
+  },
+  scheduling: {
+    label: "Node 5 · Scheduling",
+    shortLabel: "Scheduling",
+    description:
+      "Ranks technicians by skill, territory, and availability, and proposes the earliest service window after parts ETA."
   }
 };
 
@@ -212,6 +219,23 @@ function stageStatus(
     return displayEventStatus(snapshot, events.at(-1)!);
   }
 
+  if (node === "scheduling") {
+    if (snapshot.scheduling?.eligible === false) {
+      return "skipped";
+    }
+    if (snapshot.status === "failed" && snapshot.node === node) {
+      return "failed";
+    }
+    const events = nodeEvents(snapshot, node);
+    if (events.length === 0) {
+      return "pending";
+    }
+    if (snapshot.scheduling) {
+      return "done";
+    }
+    return displayEventStatus(snapshot, events.at(-1)!);
+  }
+
   if (node === "customer_history") {
     if (snapshot.customerContext?.eligible === false) {
       return "skipped";
@@ -264,6 +288,9 @@ function displayEventStatus(
 
 function displayNode(snapshot: OrchestrationSnapshot): OrchestrationNodeId {
   if (snapshot.status === "done") {
+    if (stageStatus(snapshot, "scheduling") !== "pending") {
+      return "scheduling";
+    }
     if (stageStatus(snapshot, "parts_logistics") !== "pending") {
       return "parts_logistics";
     }
@@ -308,7 +335,8 @@ function completedStages(snapshot: OrchestrationSnapshot): number {
       "triage",
       "customer_history",
       "knowledge",
-      "parts_logistics"
+      "parts_logistics",
+      "scheduling"
     ] as OrchestrationNodeId[]
   ).filter((node) => {
     const status = stageStatus(snapshot, node);
@@ -453,7 +481,8 @@ function StageRail({ snapshot }: { snapshot: OrchestrationSnapshot }) {
             "triage",
             "customer_history",
             "knowledge",
-            "parts_logistics"
+            "parts_logistics",
+            "scheduling"
           ] as OrchestrationNodeId[]
         ).map((node) => {
           const events = nodeEvents(snapshot, node);
@@ -1052,6 +1081,150 @@ function PartsLogisticsSummary({
   );
 }
 
+function SchedulingSummary({
+  scheduling
+}: {
+  scheduling?: OrchestrationScheduling;
+}) {
+  if (!scheduling) {
+    return null;
+  }
+
+  const candidates = scheduling.candidates ?? [];
+  const window = scheduling.proposedWindow;
+
+  return (
+    <section
+      className="space-y-3 rounded-xl border bg-card p-5 text-card-foreground shadow-sm"
+      data-testid="scheduling-summary"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Node 5 output
+          </p>
+          <h2 className="text-lg font-semibold">Scheduling</h2>
+        </div>
+        <StageBadge status={scheduling.eligible ? "done" : "skipped"} />
+      </div>
+
+      <p className="text-sm text-muted-foreground">
+        {scheduling.eligible
+          ? (scheduling.eligibilityReason ??
+            "Technician ranking and service-window planning executed for this workflow.")
+          : (scheduling.eligibilityReason ??
+            "Scheduling was skipped for this workflow.")}
+      </p>
+
+      <dl className="grid gap-3 md:grid-cols-2">
+        <FindingCard
+          label="Readiness"
+          value={
+            scheduling.schedulingReadiness ?? scheduling.status ?? "unknown"
+          }
+          supporting={
+            scheduling.degraded
+              ? `Degraded: ${scheduling.degradedSources?.join(", ") ?? "Yes"}`
+              : scheduling.confidence
+                ? `Confidence: ${scheduling.confidence}`
+                : undefined
+          }
+        />
+        <FindingCard
+          label="Recommended technician"
+          value={scheduling.recommendedResourceReference ?? "None"}
+          supporting={
+            candidates[0]?.matchedSkills?.length
+              ? `Skills: ${candidates[0].matchedSkills.join(", ")}`
+              : undefined
+          }
+        />
+        {window?.displayWindow ? (
+          <FindingCard
+            label="Proposed window"
+            value={window.displayWindow}
+            supporting={`Basis: ${window.earliestStartBasis}${
+              window.partsEtaConstrained ? " · gated on parts ETA" : ""
+            }`}
+          />
+        ) : null}
+        {scheduling.partsReadinessSeen ? (
+          <FindingCard
+            label="Parts readiness seen"
+            value={scheduling.partsReadinessSeen}
+            supporting={
+              scheduling.partsEtaConsidered
+                ? "Parts ETA considered in gating"
+                : "No parts dependency"
+            }
+          />
+        ) : null}
+        {scheduling.requiredApproval ? (
+          <FindingCard
+            label="Approval"
+            value={scheduling.approvalReason ?? "required"}
+            supporting="Surfaced for the Node 6 approval gate"
+          />
+        ) : null}
+      </dl>
+
+      {candidates.length > 0 ? (
+        <div
+          className="rounded-xl border bg-background p-4"
+          data-testid="scheduling-candidates"
+        >
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {`Ranked technicians (${candidates.length})`}
+          </p>
+          <ul className="mt-3 space-y-2">
+            {candidates.map((candidate) => (
+              <li
+                key={candidate.resourceReference}
+                className="rounded-lg border bg-card px-3 py-2"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      {`#${candidate.rank} · ${candidate.resourceReference}`}
+                      {candidate.territoryReference
+                        ? ` · ${candidate.territoryReference}`
+                        : ""}
+                      {candidate.territoryMembership
+                        ? ` (${candidate.territoryMembership})`
+                        : ""}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {candidate.matchedSkills.length > 0
+                        ? `Skills: ${candidate.matchedSkills.join(", ")}`
+                        : "No matched skills"}
+                      {candidate.earliestAvailableAt
+                        ? ` · Earliest ${candidate.earliestAvailableAt}`
+                        : ""}
+                    </p>
+                  </div>
+                  <span className="whitespace-nowrap rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                    {`rank ${candidate.rankScore}`}
+                  </span>
+                </div>
+                {candidate.rationale ? (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {candidate.rationale}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      <p className="rounded-md bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+        Point-in-time plan: readiness reflects parts availability as of this
+        run. Technician identity is a sanitized reference, never a full name.
+      </p>
+    </section>
+  );
+}
+
 function FindingCard({
   label,
   value,
@@ -1459,7 +1632,8 @@ export function OrchestrationPanel({
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               Read-only engineering view of Node 1 triage, Node 2 customer
-              context, and Node 3 knowledge guidance.
+              context, Node 3 knowledge guidance, Node 4 parts &amp; logistics,
+              and Node 5 scheduling.
             </p>
           </div>
           <StatusBadge status={snapshot.status} />
@@ -1469,7 +1643,7 @@ export function OrchestrationPanel({
           <SummaryCard
             label="Current stage"
             value={currentStageSummary(snapshot)}
-            supporting={`Completed stages: ${completedStages(snapshot)}/4`}
+            supporting={`Completed stages: ${completedStages(snapshot)}/5`}
           />
           <SummaryCard
             label="Workflow id"
@@ -1509,6 +1683,7 @@ export function OrchestrationPanel({
             knowledgeGuidance={snapshot.knowledgeGuidance}
           />
           <PartsLogisticsSummary partsLogistics={snapshot.partsLogistics} />
+          <SchedulingSummary scheduling={snapshot.scheduling} />
         </div>
       </div>
 

@@ -12,6 +12,7 @@ import {
   CUSTOMER_HISTORY_NODE_ID,
   KNOWLEDGE_NODE_ID,
   PARTS_LOGISTICS_NODE_ID,
+  SCHEDULING_NODE_ID,
   TRIAGE_NODE_ID,
   type ApprovalDecision,
   type NodeLifecycleStatus,
@@ -35,6 +36,10 @@ import type {
   PartsLogisticsChannel,
   PartsLogisticsEligibilityResult
 } from "./dto/parts-logistics";
+import type {
+  SchedulingChannel,
+  SchedulingEligibilityResult
+} from "./dto/scheduling";
 import type {
   OrchestrationExecutionTrace,
   OrchestrationEventDetail,
@@ -76,6 +81,8 @@ export const CaseTriageState = Annotation.Root({
   knowledgeGuidance: Annotation<KnowledgeGuidanceChannel | undefined>(),
   /** Node 4's own channel. Node 4 is the only writer. */
   partsLogistics: Annotation<PartsLogisticsChannel | undefined>(),
+  /** Node 5's own channel. Node 5 is the only writer. */
+  scheduling: Annotation<SchedulingChannel | undefined>(),
   approvalRequired: Annotation<boolean>(),
   approvalDecision: Annotation<ApprovalDecision | undefined>(),
   writeBackApplied: Annotation<boolean>(),
@@ -179,6 +186,27 @@ export interface CaseTriageGraphDeps {
     knowledgeGuidance: KnowledgeGuidanceChannel | undefined,
     triagePriority: TriagePriorityDto | undefined
   ): Promise<PartsLogisticsChannel>;
+  /**
+   * Node 5 — cheap, config-driven eligibility check. Confirms scheduling
+   * is enabled; runs before any Field Service read.
+   */
+  isSchedulingEligible(
+    context: SalesforceCaseContext,
+    triagePriority: TriagePriorityDto | undefined,
+    partsLogistics: PartsLogisticsChannel | undefined
+  ): SchedulingEligibilityResult;
+  /**
+   * Node 5 — reads Field Service signals and runs the deterministic,
+   * parts-ETA-gated scheduling planner. Must handle Field Service read
+   * failures gracefully (degraded flag, no throw).
+   */
+  planScheduling(
+    workflowId: string,
+    context: SalesforceCaseContext,
+    partsLogistics: PartsLogisticsChannel | undefined,
+    customerContext: CustomerContextChannel | undefined,
+    triagePriority: TriagePriorityDto | undefined
+  ): Promise<SchedulingChannel>;
   /**
    * Emits a sanitized `running` progress line into the read model.
    * `node` defaults to the triage node so existing call sites are
@@ -533,6 +561,94 @@ export function buildCaseTriageGraph(deps: CaseTriageGraphDeps) {
 
       return { partsLogistics: parts };
     })
+    .addNode("schedule", async (state) => {
+      // Node 5 is READ-ONLY to Salesforce and NON-interrupting. It reads
+      // the case asset + ship-to and the upstream parts readiness/ETA,
+      // checks eligibility, ranks technicians against live Field Service
+      // signals, and writes ONLY its own `scheduling` channel. The window
+      // is gated on parts ETA (§3.5); a Field Service read failure writes a
+      // degraded outcome and continues without blocking. Node 6 owns human
+      // approval — Node 5 never interrupts.
+      const triagePriority = state.triage?.recommendedPriority;
+      const eligibility = deps.isSchedulingEligible(
+        state.context!,
+        triagePriority,
+        state.partsLogistics
+      );
+      if (!eligibility.eligible) {
+        await deps.emitRunning(
+          state.workflowId,
+          "Scheduling skipped (not eligible).",
+          [
+            { label: "Eligible", value: "No" },
+            { label: "Reason", value: eligibility.reason }
+          ],
+          SCHEDULING_NODE_ID,
+          buildSchedulingEligibilitySkipTrace(state, eligibility)
+        );
+        return {
+          scheduling: {
+            eligible: false,
+            eligibilityReason: eligibility.reason,
+            degraded: false,
+            partsEtaConsidered: false,
+            requiredApproval: false
+          } satisfies SchedulingChannel
+        };
+      }
+
+      await deps.emitRunning(
+        state.workflowId,
+        "Ranking technicians and reading Field Service availability.",
+        buildSchedulingReadDetails(state),
+        SCHEDULING_NODE_ID,
+        buildSchedulingReadTrace(state)
+      );
+
+      const scheduling = await deps.planScheduling(
+        state.workflowId,
+        state.context!,
+        state.partsLogistics,
+        state.customerContext,
+        triagePriority
+      );
+
+      if (scheduling.degraded) {
+        await deps.emitRunning(
+          state.workflowId,
+          "Field Service temporarily unavailable (degraded mode).",
+          [
+            { label: "Degraded", value: "Yes" },
+            {
+              label: "Sources",
+              value:
+                (scheduling.degradedSources ?? []).join(", ") ||
+                "field_service"
+            }
+          ],
+          SCHEDULING_NODE_ID,
+          buildSchedulingDegradedTrace(scheduling)
+        );
+      } else {
+        await deps.emitRunning(
+          state.workflowId,
+          buildSchedulingPlanSummary(scheduling),
+          buildSchedulingPlanDetails(scheduling),
+          SCHEDULING_NODE_ID,
+          buildSchedulingPlanTrace(scheduling)
+        );
+      }
+
+      await deps.emitRunning(
+        state.workflowId,
+        "Writing scheduling plan to state.",
+        buildSchedulingWriteDetails(scheduling),
+        SCHEDULING_NODE_ID,
+        buildSchedulingWriteTrace(scheduling)
+      );
+
+      return { scheduling };
+    })
     .addNode("gate", (state) => {
       const triage = state.triage!;
       if (!deps.requiresApproval(triage, state.partsLogistics)) {
@@ -578,7 +694,8 @@ export function buildCaseTriageGraph(deps: CaseTriageGraphDeps) {
     .addEdge("runTriage", "customerHistory")
     .addEdge("customerHistory", "knowledge")
     .addEdge("knowledge", "parts")
-    .addEdge("parts", "gate")
+    .addEdge("parts", "schedule")
+    .addEdge("schedule", "gate")
     .addConditionalEdges(
       "gate",
       (state) =>
@@ -1912,6 +2029,241 @@ function buildPartsWriteTrace(
         key: "state_after",
         title: "State after step",
         data: { partsLogistics: after }
+      }
+    ]
+  };
+}
+
+// Node 5 (Scheduling) detail + trace builders. Every value is a safe,
+// non-PII fact: a sanitized technician reference (never a full name),
+// readiness, territory reference, ISO window, and the gating basis.
+
+function buildSchedulingEligibilitySkipTrace(
+  state: CaseTriageStateType,
+  eligibility: SchedulingEligibilityResult
+): OrchestrationExecutionTrace {
+  return {
+    stepKey: "scheduling_eligibility_skip",
+    sections: [
+      {
+        key: "eligibility",
+        title: "Eligibility check",
+        data: {
+          eligible: false,
+          reason: eligibility.reason,
+          partsReadiness: state.partsLogistics?.fulfillmentReadiness ?? "n/a"
+        }
+      }
+    ]
+  };
+}
+
+function buildSchedulingReadDetails(
+  state: CaseTriageStateType
+): OrchestrationEventDetail[] {
+  return [
+    {
+      label: "Ship-to",
+      value:
+        [state.context?.serviceShipToCity, state.context?.serviceShipToState]
+          .filter(Boolean)
+          .join(", ") || "unknown"
+    },
+    {
+      label: "Parts readiness",
+      value: state.partsLogistics?.fulfillmentReadiness ?? "n/a"
+    },
+    {
+      label: "Asset model",
+      value: state.context?.assetProductCode ?? "unknown"
+    }
+  ];
+}
+
+function buildSchedulingReadTrace(
+  state: CaseTriageStateType
+): OrchestrationExecutionTrace {
+  return {
+    stepKey: "scheduling_read",
+    sections: [
+      {
+        key: "inputs",
+        title: "Inputs",
+        data: {
+          shipToCountry: state.context?.serviceShipToCountry ?? "unknown",
+          shipToState: state.context?.serviceShipToState ?? "unknown",
+          assetProductCode: state.context?.assetProductCode ?? "unknown",
+          partsReadiness:
+            state.partsLogistics?.fulfillmentReadiness ?? "unknown"
+        }
+      },
+      {
+        key: "data_sources",
+        title: "Data sources queried",
+        data: [
+          {
+            system: "Salesforce",
+            object: "ServiceResource",
+            action: "readSchedulingContext",
+            fields: "Territory membership + ServiceResourceSkill + OperatingHours"
+          }
+        ]
+      }
+    ]
+  };
+}
+
+function buildSchedulingDegradedTrace(
+  channel: SchedulingChannel
+): OrchestrationExecutionTrace {
+  return {
+    stepKey: "scheduling_degraded",
+    sections: [
+      {
+        key: "degradation",
+        title: "Degradation info",
+        data: {
+          degraded: true,
+          degradedSources: channel.degradedSources ?? [
+            "salesforce_field_service"
+          ],
+          schedulingReadiness: channel.schedulingReadiness ?? "unknown"
+        }
+      }
+    ]
+  };
+}
+
+function buildSchedulingPlanSummary(channel: SchedulingChannel): string {
+  const readiness = channel.schedulingReadiness ?? "unknown";
+  const ref = channel.recommendedResourceReference;
+  const window = channel.proposedWindow?.displayWindow;
+  if (ref && window) {
+    return `Scheduling ${readiness}: ${ref} · ${window}.`;
+  }
+  if (ref) {
+    return `Scheduling ${readiness}: recommended ${ref}.`;
+  }
+  return `Scheduling ${readiness}.`;
+}
+
+function buildSchedulingPlanDetails(
+  channel: SchedulingChannel
+): OrchestrationEventDetail[] {
+  const details: OrchestrationEventDetail[] = [
+    { label: "Status", value: channel.status ?? "n/a" },
+    {
+      label: "Readiness",
+      value: channel.schedulingReadiness ?? "unknown"
+    },
+    {
+      label: "Candidates",
+      value: String(channel.candidates?.length ?? 0)
+    }
+  ];
+  if (channel.recommendedResourceReference) {
+    details.push({
+      label: "Technician",
+      value: channel.recommendedResourceReference
+    });
+  }
+  if (channel.proposedWindow?.displayWindow) {
+    details.push({
+      label: "Window",
+      value: channel.proposedWindow.displayWindow
+    });
+  }
+  if (channel.requiredApproval) {
+    details.push({
+      label: "Approval",
+      value: channel.approvalReason ?? "required"
+    });
+  }
+  return details;
+}
+
+function buildSchedulingPlanTrace(
+  channel: SchedulingChannel
+): OrchestrationExecutionTrace {
+  return {
+    stepKey: "scheduling_plan",
+    sections: [
+      {
+        key: "candidates",
+        title: "Ranked technicians",
+        data: (channel.candidates ?? []).map((c) => ({
+          resourceReference: c.resourceReference,
+          rank: c.rank,
+          rankScore: c.rankScore,
+          skillScore: c.skillScore,
+          availabilityScore: c.availabilityScore,
+          territoryFitScore: c.territoryFitScore,
+          matchedSkills: c.matchedSkills,
+          territory: c.territoryReference ?? null,
+          membership: c.territoryMembership ?? null,
+          earliestAvailableAt: c.earliestAvailableAt ?? null
+        }))
+      },
+      {
+        key: "outputs",
+        title: "Outputs",
+        data: {
+          schedulingReadiness: channel.schedulingReadiness ?? null,
+          recommendedResourceReference:
+            channel.recommendedResourceReference ?? null,
+          proposedWindow: channel.proposedWindow
+            ? {
+                earliestStart: channel.proposedWindow.earliestStart,
+                earliestStartBasis: channel.proposedWindow.earliestStartBasis,
+                proposedStart: channel.proposedWindow.proposedStart ?? null,
+                proposedEnd: channel.proposedWindow.proposedEnd ?? null,
+                partsEtaConstrained:
+                  channel.proposedWindow.partsEtaConstrained,
+                windowConfidence: channel.proposedWindow.windowConfidence
+              }
+            : null,
+          partsReadinessSeen: channel.partsReadinessSeen ?? null,
+          requiredApproval: channel.requiredApproval,
+          approvalReason: channel.approvalReason ?? "none"
+        }
+      }
+    ]
+  };
+}
+
+function buildSchedulingWriteDetails(
+  channel: SchedulingChannel
+): OrchestrationEventDetail[] {
+  return [
+    { label: "Eligible", value: channel.eligible ? "Yes" : "No" },
+    { label: "Status", value: channel.status ?? "skipped" },
+    { label: "Degraded", value: channel.degraded ? "Yes" : "No" }
+  ];
+}
+
+function buildSchedulingWriteTrace(
+  channel: SchedulingChannel
+): OrchestrationExecutionTrace {
+  const after = {
+    eligible: channel.eligible,
+    status: channel.status ?? null,
+    degraded: channel.degraded,
+    schedulingReadiness: channel.schedulingReadiness ?? null,
+    recommendedResourceReference: channel.recommendedResourceReference ?? null
+  };
+  return {
+    stepKey: "scheduling_write",
+    sections: [
+      { key: "channel", title: "Scheduling channel", data: after },
+      {
+        key: "state_changes",
+        title: "State changes",
+        data: [{ path: "scheduling", change: "added", after }]
+      },
+      {
+        key: "state_after",
+        title: "State after step",
+        data: { scheduling: after }
       }
     ]
   };

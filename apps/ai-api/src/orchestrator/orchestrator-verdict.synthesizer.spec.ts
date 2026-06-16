@@ -2,6 +2,7 @@ import { synthesizeOrchestratorVerdict } from "./orchestrator-verdict.synthesize
 import type { CustomerContextChannel } from "./dto/customer-context";
 import type { KnowledgeGuidanceChannel } from "./dto/knowledge-guidance";
 import type { PartsLogisticsChannel } from "./dto/parts-logistics";
+import type { SchedulingChannel } from "./dto/scheduling";
 import type { SanitizedTriageResult } from "./dto/orchestration-status-event";
 
 const triage: SanitizedTriageResult = {
@@ -553,5 +554,184 @@ describe("synthesizeOrchestratorVerdict", () => {
     const serialized = JSON.stringify(verdict);
     expect(serialized).not.toMatch(/001[a-zA-Z0-9]{12,18}/);
     expect(serialized).not.toContain("Display panel replacement; transfer from SJO to AUS.");
+  });
+
+  // Node 5 — scheduling rollup (§10). All four surfaces must reflect the
+  // scheduling channel; technician identity stays a sanitized reference.
+  function schedulingChannel(
+    overrides: Partial<SchedulingChannel> = {}
+  ): SchedulingChannel {
+    return {
+      eligible: true,
+      degraded: false,
+      status: "PLANNED",
+      schedulingReadiness: "schedulable",
+      recommendedResourceReference: "SR-A1",
+      candidates: [
+        {
+          resourceReference: "SR-A1",
+          territoryReference: "North America",
+          territoryMembership: "secondary",
+          matchedSkills: ["Laptop Hardware", "Battery/Power"],
+          skillScore: 0.85,
+          availabilityScore: 1,
+          territoryFitScore: 0.7,
+          rankScore: 0.7,
+          rank: 1,
+          rationale: "matches Battery/Power; secondary member of North America."
+        }
+      ],
+      proposedWindow: {
+        earliestStart: "2026-06-16T12:00:00.000Z",
+        earliestStartBasis: "parts_eta",
+        proposedStart: "2026-06-16T13:00:00.000Z",
+        proposedEnd: "2026-06-16T15:00:00.000Z",
+        displayWindow: "Tomorrow 13:00–15:00 UTC (after parts arrive)",
+        durationMinutes: 120,
+        windowConfidence: "high",
+        partsEtaConstrained: true
+      },
+      partsEtaConsidered: true,
+      partsReadinessSeen: "ready",
+      requiredApproval: false,
+      appointmentStatus: "proposed",
+      confidence: "high",
+      provider: "deterministic",
+      ...overrides
+    };
+  }
+
+  it("Node 5: rolls a schedulable plan into all four verdict surfaces", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "done",
+      writeBackApplied: true,
+      triage,
+      scheduling: schedulingChannel()
+    });
+
+    expect(verdict.headline).toContain("technician scheduled");
+    expect(verdict.summary).toContain("SR-A1");
+    expect(verdict.summary).toContain("Tomorrow 13:00–15:00");
+    expect(verdict.recommendedSteps.join(" ")).toContain(
+      "Confirm appointment for SR-A1"
+    );
+    expect(verdict.basis).toContain("scheduling");
+    const labels = verdict.highlights.map((h) => h.label);
+    expect(labels).toEqual(
+      expect.arrayContaining(["Scheduling", "Technician", "Proposed window"])
+    );
+    expect(
+      verdict.highlights.find((h) => h.label === "Technician")?.value
+    ).toBe("SR-A1");
+  });
+
+  it("Node 5: provisional plan reflects parts-ETA dependency", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "done",
+      writeBackApplied: true,
+      triage,
+      scheduling: schedulingChannel({
+        status: "PROVISIONAL",
+        schedulingReadiness: "provisional",
+        partsReadinessSeen: "partial"
+      })
+    });
+    expect(verdict.headline).toContain("scheduling provisional");
+    expect(verdict.recommendedSteps.join(" ")).toContain("parts ETA is met");
+  });
+
+  it("Node 5: deferred plan recommends scheduling after parts confirmed", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "done",
+      writeBackApplied: false,
+      triage,
+      scheduling: schedulingChannel({
+        status: "DEFERRED",
+        schedulingReadiness: "deferred",
+        partsReadinessSeen: "blocked",
+        proposedWindow: undefined,
+        requiredApproval: true,
+        approvalReason: "parts_not_ready",
+        appointmentStatus: "none"
+      })
+    });
+    expect(verdict.headline).toContain("scheduling deferred (parts)");
+    expect(verdict.recommendedSteps.join(" ")).toContain(
+      "Schedule after parts confirmed"
+    );
+  });
+
+  it("Node 5: unschedulable surfaces an assignment step", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "done",
+      writeBackApplied: false,
+      triage,
+      scheduling: schedulingChannel({
+        status: "UNSCHEDULABLE",
+        schedulingReadiness: "unschedulable",
+        recommendedResourceReference: undefined,
+        candidates: [],
+        proposedWindow: undefined,
+        appointmentStatus: undefined
+      })
+    });
+    expect(verdict.headline).toContain("no technician available");
+    expect(verdict.recommendedSteps.join(" ")).toContain(
+      "Assign a qualified technician"
+    );
+  });
+
+  it("Node 5: degraded scheduling read is surfaced without a window", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "done",
+      writeBackApplied: false,
+      triage,
+      scheduling: {
+        eligible: true,
+        degraded: true,
+        degradedSources: ["salesforce_field_service"],
+        schedulingReadiness: "unknown",
+        partsEtaConsidered: false,
+        requiredApproval: false
+      }
+    });
+    expect(verdict.headline).toContain("scheduling degraded");
+    expect(verdict.summary).toContain("degraded mode");
+    expect(
+      verdict.highlights.find((h) => h.label === "Scheduling")?.value
+    ).toBe("Degraded");
+  });
+
+  it("Node 5: a skipped scheduling channel adds no scheduling clause", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "done",
+      writeBackApplied: false,
+      triage,
+      scheduling: {
+        eligible: false,
+        degraded: false,
+        eligibilityReason: "Scheduling disabled by config",
+        partsEtaConsidered: false,
+        requiredApproval: false
+      }
+    });
+    expect(verdict.headline).not.toContain("technician");
+    expect(verdict.headline).not.toContain("scheduling");
+    expect(verdict.summary).not.toContain("Scheduling");
+    expect(
+      verdict.highlights.find((h) => h.label === "Scheduling")
+    ).toBeUndefined();
+  });
+
+  it("Node 5: never embeds a full technician name in the verdict", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "done",
+      writeBackApplied: true,
+      triage,
+      scheduling: schedulingChannel()
+    });
+    const serialized = JSON.stringify(verdict);
+    expect(serialized).not.toContain("Techinican");
+    expect(serialized).toContain("SR-A1");
   });
 });

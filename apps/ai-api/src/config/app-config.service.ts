@@ -318,6 +318,17 @@ export interface OrchestratorPartsLogisticsConfig {
   writesEnabled: boolean;
 }
 
+/**
+ * Node 5 (scheduling) configuration. Read/plan slice is OFF by default;
+ * when enabled, the non-interrupting node reads Field Service signals and
+ * proposes a parts-ETA-gated technician + service window. No Salesforce
+ * writes in Phase 5a (`ServiceAppointment` create is Phase 5c).
+ */
+export interface OrchestratorSchedulingConfig {
+  /** Feature flag: enables Node 5 scheduling planning. */
+  enabled: boolean;
+}
+
 export interface OrchestratorConfig {
   /**
    * Gate policy for the Node 1 triage write-back.
@@ -332,6 +343,7 @@ export interface OrchestratorConfig {
   customerHistory: OrchestratorCustomerHistoryConfig;
   knowledge: OrchestratorKnowledgeConfig;
   partsLogistics: OrchestratorPartsLogisticsConfig;
+  scheduling: OrchestratorSchedulingConfig;
 }
 
 export interface AppRuntimeConfig {
@@ -1852,7 +1864,8 @@ export class AppConfigService {
         AppConfigService.loadOrchestratorSalesforceWriteBack(env),
       customerHistory: AppConfigService.loadOrchestratorCustomerHistory(env),
       knowledge: AppConfigService.loadOrchestratorKnowledge(env),
-      partsLogistics: AppConfigService.loadOrchestratorPartsLogistics(env)
+      partsLogistics: AppConfigService.loadOrchestratorPartsLogistics(env),
+      scheduling: AppConfigService.loadOrchestratorScheduling(env)
     };
   }
 
@@ -1869,6 +1882,18 @@ export class AppConfigService {
         env.AI_API_ORCHESTRATOR_PARTS_WRITES_ENABLED,
         false,
         "AI_API_ORCHESTRATOR_PARTS_WRITES_ENABLED"
+      )
+    };
+  }
+
+  private static loadOrchestratorScheduling(
+    env: NodeJS.ProcessEnv
+  ): OrchestratorSchedulingConfig {
+    return {
+      enabled: AppConfigService.parseBooleanFlag(
+        env.AI_API_ORCHESTRATOR_SCHEDULING_ENABLED,
+        false,
+        "AI_API_ORCHESTRATOR_SCHEDULING_ENABLED"
       )
     };
   }

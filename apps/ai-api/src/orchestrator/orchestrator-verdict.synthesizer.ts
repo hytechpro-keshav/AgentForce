@@ -7,6 +7,7 @@ import type {
   PartLogisticsPlan,
   PartsLogisticsChannel
 } from "./dto/parts-logistics";
+import type { SchedulingChannel } from "./dto/scheduling";
 
 /**
  * Deterministically synthesizes the Final Verdict from the sanitized
@@ -24,12 +25,14 @@ export function synthesizeOrchestratorVerdict(
   const knowledge = input.knowledgeGuidance;
 
   const parts = input.partsLogistics;
+  const scheduling = input.scheduling;
 
   const basis: string[] = [];
   if (triage) basis.push("triage");
   if (pkg) basis.push("customerContext");
   if (knowledge) basis.push("knowledgeGuidance");
   if (parts) basis.push("partsLogistics");
+  if (scheduling) basis.push("scheduling");
 
   const priority = triage?.recommendedPriority;
   const risk = pkg?.businessRisk.value;
@@ -43,9 +46,10 @@ export function synthesizeOrchestratorVerdict(
     priority,
     risk,
     knowledgeAnswered,
-    parts
+    parts,
+    scheduling
   );
-  const summary = buildSummary(input, priority, risk, knowledge, parts);
+  const summary = buildSummary(input, priority, risk, knowledge, parts, scheduling);
   const recommendedSteps = buildSteps(
     input,
     triage?.suggestedNextStep,
@@ -53,7 +57,8 @@ export function synthesizeOrchestratorVerdict(
     sourceCount,
     knowledge?.answer?.sources,
     knowledge?.answer?.recommendedActions,
-    parts
+    parts,
+    scheduling
   );
   const highlights = buildHighlights(input, priority, risk, knowledge);
 
@@ -74,7 +79,8 @@ function buildHeadline(
   priority: string | undefined,
   risk: string | undefined,
   knowledgeAnswered: boolean,
-  parts: PartsLogisticsChannel | undefined
+  parts: PartsLogisticsChannel | undefined,
+  scheduling: SchedulingChannel | undefined
 ): string {
   const priorityLabel = priority
     ? `${capitalize(priority)} priority case`
@@ -90,7 +96,34 @@ function buildHeadline(
   if (partsClause) {
     clauses.push(partsClause);
   }
+  const schedulingClause = buildSchedulingHeadlineClause(scheduling);
+  if (schedulingClause) {
+    clauses.push(schedulingClause);
+  }
   return clauses.join(" · ");
+}
+
+function buildSchedulingHeadlineClause(
+  scheduling: SchedulingChannel | undefined
+): string | undefined {
+  if (!scheduling || scheduling.eligible === false) {
+    return undefined;
+  }
+  if (scheduling.degraded) {
+    return "scheduling degraded";
+  }
+  switch (scheduling.schedulingReadiness) {
+    case "schedulable":
+      return "technician scheduled";
+    case "provisional":
+      return "scheduling provisional";
+    case "deferred":
+      return "scheduling deferred (parts)";
+    case "unschedulable":
+      return "no technician available";
+    default:
+      return undefined;
+  }
 }
 
 function buildPartsHeadlineClause(
@@ -119,7 +152,8 @@ function buildSummary(
   priority: string | undefined,
   risk: string | undefined,
   knowledge: OrchestratorVerdictInput["knowledgeGuidance"],
-  partsLogistics: PartsLogisticsChannel | undefined
+  partsLogistics: PartsLogisticsChannel | undefined,
+  scheduling: SchedulingChannel | undefined
 ): string {
   const triageParts: string[] = [];
   if (priority) {
@@ -154,8 +188,46 @@ function buildSummary(
     sentence += ` KB warehouse cross-check flagged ${divergent} divergent routing(s).`;
   }
 
+  const schedulingSentence = buildSchedulingSummarySentence(scheduling);
+  if (schedulingSentence) {
+    sentence += ` ${schedulingSentence}`;
+  }
+
   sentence += " " + outcomeSentence(input);
   return sentence.trim();
+}
+
+function buildSchedulingSummarySentence(
+  scheduling: SchedulingChannel | undefined
+): string | undefined {
+  if (!scheduling || scheduling.eligible === false) {
+    return undefined;
+  }
+  if (scheduling.degraded) {
+    return "Scheduling ran in degraded mode; Field Service reads were incomplete.";
+  }
+  const ref = scheduling.recommendedResourceReference;
+  const window = scheduling.proposedWindow?.displayWindow;
+  switch (scheduling.schedulingReadiness) {
+    case "schedulable":
+      return ref && window
+        ? `Scheduling: ${ref} proposed for ${window}.`
+        : ref
+          ? `Scheduling: ${ref} proposed.`
+          : undefined;
+    case "provisional":
+      return ref && window
+        ? `Scheduling provisional: ${ref} proposed for ${window}, pending parts ETA.`
+        : `Scheduling is provisional pending parts ETA.`;
+    case "deferred":
+      return ref
+        ? `Scheduling deferred until parts are confirmed; ${ref} is the recommended technician.`
+        : "Scheduling deferred until parts are confirmed.";
+    case "unschedulable":
+      return "No qualified technician is currently available for this Case.";
+    default:
+      return undefined;
+  }
 }
 
 function buildPartsSummarySentence(
@@ -238,7 +310,8 @@ function buildSteps(
   sourceCount: number,
   sources: { title: string }[] | undefined,
   recommendedActions: { rationale: string }[] | undefined,
-  partsLogistics: PartsLogisticsChannel | undefined
+  partsLogistics: PartsLogisticsChannel | undefined,
+  scheduling: SchedulingChannel | undefined
 ): string[] {
   const coreSteps: string[] = [];
   const genericSteps: string[] = [];
@@ -265,6 +338,9 @@ function buildSteps(
 
   const partsSteps = buildPartsSteps(partsLogistics);
   coreSteps.push(...partsSteps);
+
+  const schedulingSteps = buildSchedulingSteps(scheduling);
+  coreSteps.push(...schedulingSteps);
 
   if (input.customerContext?.package?.repeatIncident.value.repeat) {
     genericSteps.push(
@@ -333,6 +409,62 @@ function buildPartsSteps(
     );
   }
 
+  return steps;
+}
+
+function buildSchedulingSteps(
+  scheduling: SchedulingChannel | undefined
+): string[] {
+  if (!scheduling || scheduling.eligible === false || scheduling.degraded) {
+    return [];
+  }
+  const steps: string[] = [];
+  const ref = scheduling.recommendedResourceReference;
+  const window = scheduling.proposedWindow?.displayWindow;
+
+  switch (scheduling.schedulingReadiness) {
+    case "schedulable":
+      if (ref && window) {
+        steps.push(`Confirm appointment for ${ref} on ${window}.`);
+      } else if (ref) {
+        steps.push(`Confirm appointment for ${ref}.`);
+      }
+      break;
+    case "provisional":
+      if (ref && window) {
+        steps.push(
+          `Hold provisional slot for ${ref} (${window}); confirm once parts ETA is met.`
+        );
+      } else {
+        steps.push("Confirm the service window once parts ETA is met.");
+      }
+      break;
+    case "deferred":
+      steps.push(
+        ref
+          ? `Schedule after parts confirmed; recommended technician ${ref}.`
+          : "Schedule after parts are confirmed."
+      );
+      break;
+    case "unschedulable":
+      steps.push(
+        "Assign a qualified technician — none currently available for this Case."
+      );
+      break;
+    default:
+      break;
+  }
+
+  if (
+    scheduling.requiredApproval &&
+    scheduling.approvalReason &&
+    scheduling.approvalReason !== "none" &&
+    scheduling.approvalReason !== "parts_not_ready"
+  ) {
+    steps.push(
+      `Route scheduling approval (${scheduling.approvalReason.replace(/_/g, " ")}).`
+    );
+  }
   return steps;
 }
 
@@ -475,6 +607,7 @@ function buildHighlights(
       });
     }
   }
+  buildSchedulingHighlights(input.scheduling, highlights);
   highlights.push({
     label: "Write-back",
     value:
@@ -487,6 +620,47 @@ function buildHighlights(
             : "Not applied"
   });
   return highlights;
+}
+
+/**
+ * Appends Node 5 scheduling highlights. Sanitized references only — never
+ * a full technician name. Kept compact to respect the 8-highlight cap.
+ */
+function buildSchedulingHighlights(
+  scheduling: SchedulingChannel | undefined,
+  highlights: OrchestratorVerdictHighlight[]
+): void {
+  if (!scheduling || scheduling.eligible === false) {
+    return;
+  }
+  highlights.push({
+    label: "Scheduling",
+    value: scheduling.degraded
+      ? "Degraded"
+      : (scheduling.schedulingReadiness ?? scheduling.status ?? "n/a")
+  });
+  if (scheduling.degraded) {
+    return;
+  }
+  if (scheduling.recommendedResourceReference) {
+    highlights.push({
+      label: "Technician",
+      value: scheduling.recommendedResourceReference
+    });
+  }
+  const window = scheduling.proposedWindow;
+  if (window?.displayWindow) {
+    highlights.push({ label: "Proposed window", value: window.displayWindow });
+  }
+  if (window?.earliestStartBasis) {
+    highlights.push({ label: "Window basis", value: window.earliestStartBasis });
+  }
+  if (scheduling.requiredApproval) {
+    highlights.push({
+      label: "Scheduling approval",
+      value: scheduling.approvalReason ?? "required"
+    });
+  }
 }
 
 function capitalize(value: string): string {
