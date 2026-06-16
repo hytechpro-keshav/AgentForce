@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Skill xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label>Thermal/Cooling</label>
+    <description
+  >Laptop thermal and cooling-system service (fans, heatsinks, paste). Node 5 scheduling skill taxonomy.</description>
+</Skill>

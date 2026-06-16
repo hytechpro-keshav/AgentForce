@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Skill xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label>Battery/Power</label>
+    <description
+  >Laptop battery and power-subsystem replacement and diagnostics. Node 5 scheduling skill taxonomy.</description>
+</Skill>
