@@ -21,6 +21,7 @@ These files are task-specific personas and templates shared with GitHub Copilot.
 | `code-review-orchestrator.agent.md` | Coordinating multi-area code reviews |
 | `case-triage-slice-implementer.agent.md` | Implementing the case triage walking skeleton |
 | `node4-parts-logistics-implementer.agent.md` | Implementing Phase 4a Node 4 Parts & Logistics |
+| `node5-scheduling-planner.agent.md` | Planning Node 5 Scheduling before implementation |
 | `new-org-tenant-onboarding.agent.md` | Onboarding a new org or tenant |
 
 ## Prompts (`.github/prompts/`)
@@ -34,6 +35,7 @@ These files are task-specific personas and templates shared with GitHub Copilot.
 | `review-ai-change.prompt.md` | Reviewing AI API changes |
 | `implement-case-triage-slice.prompt.md` | Implementing the case triage slice |
 | `implement-node4-parts-logistics.prompt.md` | Implementing Phase 4a Node 4 Parts & Logistics |
+| `plan-node5-scheduling.prompt.md` | Plan Node 5 Scheduling: architecture, SF readiness, phase plan |
 | `analyze-node4-verdict-gap.prompt.md` | Deep analysis: Node 4 under-represented in Final Verdict |
 | `implement-node4-verdict-rollup.prompt.md` | Implement Node 4 rollup in headline/summary/steps after analysis |
 | `service-workflow-architecture-review.prompt.md` | Review + remediate orchestrator contracts, Node 3 UI, and Final Verdict |
@@ -50,6 +52,7 @@ Pick the persona/prompt to read first based on the task:
 | Review orchestrator / Node 3 / Final Verdict | `.github/prompts/service-workflow-architecture-review.prompt.md` |
 | Implement case triage | `.github/agents/case-triage-slice-implementer.agent.md` + `.github/prompts/implement-case-triage-slice.prompt.md` |
 | Implement Node 4 parts logistics | `.github/agents/node4-parts-logistics-implementer.agent.md` + `.github/prompts/implement-node4-parts-logistics.prompt.md` |
+| Plan Node 5 scheduling | `.github/agents/node5-scheduling-planner.agent.md` + `.github/prompts/plan-node5-scheduling.prompt.md` |
 | Analyze / fix Node 4 Final Verdict gap | `.github/prompts/analyze-node4-verdict-gap.prompt.md` then `.github/prompts/implement-node4-verdict-rollup.prompt.md` |
 
 Do not duplicate content from these files into Cursor rules.

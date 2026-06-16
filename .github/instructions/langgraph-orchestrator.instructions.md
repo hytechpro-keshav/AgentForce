@@ -40,3 +40,5 @@ Minimum cross-cutting items easy to miss:
 4. **DTO comments** — `orchestrator-verdict.ts` and flow docs must list all active nodes (avoid stale "Nodes 1–3" copy).
 
 Verdict gap analysis prompts (reuse for any node): `.github/prompts/analyze-node4-verdict-gap.prompt.md`, `.github/prompts/implement-node4-verdict-rollup.prompt.md`. Node 4 postmortem: `docs/orchestrator/node4-verdict-gap-analysis.md`.
+
+Node 5 Scheduling planning (before implementation): `.github/prompts/plan-node5-scheduling.prompt.md`, `.github/agents/node5-scheduling-planner.agent.md`, `.claude/commands/plan-node5-scheduling.md`. Output phase plan: `docs/orchestrator/node-5-scheduling-phase-plan.md`.

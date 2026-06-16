@@ -51,6 +51,7 @@ Read the relevant `SKILL.md` before doing specialized work in these domains:
 | `langgraph-persistence`           | Checkpointers, state resume                                                                             |
 | `langgraph-case-triage-slice`     | Node 1 case triage orchestrator                                                                         |
 | `langgraph-node4-parts-logistics` | Phase 4a Node 4 Parts & Logistics — see also `docs/orchestrator/new-node-phase-completion-checklist.md` |
+| `langgraph-node5-scheduling`      | Node 5 Scheduling — plan via `/plan-node5-scheduling` before implementation                             |
 | `salesforce-node4-parts-prep`     | Phase 4-Pre Salesforce inventory metadata deploy and validation                                         |
 | `langchain-fundamentals`          | LangChain chains, runnables, callbacks                                                                  |
 | `langchain-rag`                   | RAG chains, retrievers, document loaders                                                                |
@@ -83,6 +84,7 @@ These subagents run in isolated context with specialized system prompts. Invoke 
 | `release-checker`                   | Release readiness, deployment gates                                     |
 | `case-triage-slice-implementer`     | Node 1 case triage slice implementation                                 |
 | `node4-parts-logistics-implementer` | Phase 4a Node 4 Parts & Logistics implementation                        |
+| `node5-scheduling-planner`          | Node 5 Scheduling planning before implementation                        |
 | `new-org-tenant-onboarding`         | New org/tenant onboarding workflow                                      |
 
 ---
@@ -98,6 +100,7 @@ These subagents run in isolated context with specialized system prompts. Invoke 
 | `/review-agentforce-metadata`           | Deep review of Agentforce metadata                             |
 | `/implement-case-triage-slice`          | Implement the Node 1 case triage LangGraph slice               |
 | `/implement-node4-parts-logistics`      | Implement Phase 4a Node 4 Parts & Logistics orchestrator slice |
+| `/plan-node5-scheduling`                | Plan Node 5 Scheduling: architecture, SF readiness, phase plan |
 | `/onboard-new-org-tenant`               | Run new org/tenant onboarding workflow                         |
 | `/generate-production-runbook`          | Generate a production runbook                                  |
 | `/service-workflow-architecture-review` | Architecture review of service workflows                       |
