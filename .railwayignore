@@ -15,7 +15,6 @@ coverage/
 
 # Unrelated app roots (ai-api build only needs apps/ai-api + packages + root package files)
 force-app/
-apps/react-chat-window/
 apps/openwebui/
 manifest/
 scripts/sf/

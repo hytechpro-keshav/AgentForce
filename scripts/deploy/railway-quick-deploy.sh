@@ -86,6 +86,15 @@ default_message() {
   fi
 }
 
+latest_deployment_id() {
+  local service="$1"
+  railway_cmd deployment list \
+    --service "${service}" \
+    --environment "${RAILWAY_ENVIRONMENT}" \
+    --json 2>/dev/null \
+    | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['id'])"
+}
+
 latest_deployment_status() {
   local service="$1"
   railway_cmd deployment list \
@@ -138,16 +147,64 @@ deploy_service() {
   local message="${2:-Deploy ${service} from workspace}"
 
   printf '\n=== Deploy %s (%s) ===\n' "${service}" "${RAILWAY_ENVIRONMENT}"
-  local up_output
+  local prior_id up_output up_status
+  prior_id="$(latest_deployment_id "${service}")"
+
+  # Monorepo: root railway.json is ai-api-only; .railwayignore excludes sibling apps
+  # from ai-api snapshots. Undo both temporarily for react-chat-window uploads.
+  local ignore_backup="" root_config_backup=""
+  if [[ "${service}" == "react-chat-window" ]]; then
+    if [[ -f "${REPO_ROOT}/.railwayignore" ]] \
+      && grep -q '^apps/react-chat-window/' "${REPO_ROOT}/.railwayignore"; then
+      ignore_backup="$(mktemp "${REPO_ROOT}/.railwayignore.bak.XXXXXX")"
+      grep -v '^apps/react-chat-window/' "${REPO_ROOT}/.railwayignore" >"${ignore_backup}"
+      cp "${ignore_backup}" "${REPO_ROOT}/.railwayignore"
+    fi
+    if [[ -f "${REPO_ROOT}/railway.json" ]]; then
+      root_config_backup="$(mktemp "${REPO_ROOT}/.railway.json.ai-api.bak.XXXXXX")"
+      mv "${REPO_ROOT}/railway.json" "${root_config_backup}"
+    fi
+  fi
+
+  set +e
   up_output="$(cd "${REPO_ROOT}" && railway_cmd up \
     --service "${service}" \
     --environment "${RAILWAY_ENVIRONMENT}" \
     --detach \
     -m "${message}" 2>&1)"
+  up_status=$?
+  set -e
+
+  if [[ -n "${ignore_backup}" ]]; then
+    mv "${ignore_backup}" "${REPO_ROOT}/.railwayignore"
+  fi
+  if [[ -n "${root_config_backup}" && -f "${root_config_backup}" ]]; then
+    mv "${root_config_backup}" "${REPO_ROOT}/railway.json"
+  fi
 
   printf '%s\n' "${up_output}"
 
-  wait_for_deployment "${service}"
+  if ((up_status != 0)); then
+    if [[ "${up_output}" == *"trial has expired"* ]]; then
+      printf 'FAIL: Railway trial expired — select a plan at https://railway.com/account/billing then retry.\n' >&2
+    else
+      printf 'FAIL: railway up exited %s\n' "${up_status}" >&2
+    fi
+    return 1
+  fi
+
+  if ! wait_for_deployment "${service}"; then
+    return 1
+  fi
+
+  local new_id
+  new_id="$(latest_deployment_id "${service}")"
+  if [[ "${new_id}" == "${prior_id}" ]]; then
+    printf 'FAIL: No new deployment created (still %s). Upload may have been rejected.\n' "${prior_id}" >&2
+    return 1
+  fi
+  printf '[%s] new deployment: %s\n' "${service}" "${new_id}"
+
   smoke_service "${service}"
 }
 

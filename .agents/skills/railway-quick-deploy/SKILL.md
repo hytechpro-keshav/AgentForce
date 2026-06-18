@@ -22,7 +22,9 @@ Also read [use-railway](../../../.claude/skills/use-railway/SKILL.md) for auth, 
 | ------------------- | -------------------------------------------------------------------- | ------------------ |
 | `ai-api`            | `apps/ai-api/**`, `packages/**`, root `railway.json`, `package.json` | `GET /health/live` |
 | `react-chat-window` | `apps/react-chat-window/**`                                          | `GET /`            |
-| `openwebui`         | `apps/openwebui/**`                                                  | service-specific   |
+
+**Monorepo note:** Root `railway.json` is ai-api-only. `.railwayignore` excludes `apps/react-chat-window/` from ai-api snapshots. The deploy script temporarily lifts both restrictions for `react-chat-window` uploads so Railway resolves `apps/react-chat-window/railway.json` (RAILPACK) instead of the root Nest manifest.
+| `openwebui` | `apps/openwebui/**` | service-specific |
 
 Production URLs (override with env if needed):
 

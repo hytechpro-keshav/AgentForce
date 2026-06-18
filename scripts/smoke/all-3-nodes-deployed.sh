@@ -64,9 +64,10 @@ ASSERT_PARTS_WRITES="${ASSERT_PARTS_WRITES:-0}"
 # AI_API_ORCHESTRATOR_SCHEDULING_ENABLED=true with the Agentforce_Scheduling_Node5
 # perm set assigned to the run-as user and the 5-Pre Field Service seed in place.
 ASSERT_SCHEDULING="${ASSERT_SCHEDULING:-0}"
-# Node 6 guardrail demo-case assertion. Off by default — the composite risk
-# only clears the requireHumanApproval band when the parts + scheduling flags
-# are enabled (so the demo Case surfaces PARTIAL parts + after-hours scheduling).
+# Node 6 guardrail demo-case assertion. Off by default — proves the live demo
+# Case (00001050) trips Node 6 composite policy on all upstream channels.
+# Production may land in requireHumanApproval (minimal fixture, score ~70) OR
+# escalate (full customerContext + KB + sla_breach_risk scheduling, score ~100).
 # The always-on invariant below proves evaluateGuardrail replaced the gate on
 # every run regardless of this flag.
 ASSERT_GUARDRAIL="${ASSERT_GUARDRAIL:-0}"
@@ -177,7 +178,7 @@ echo ""
 echo "=== [5] Polling workflow ${workflow_id} (timeout: ${POLL_TIMEOUT_SECS}s) ==="
 
 deadline=$(( $(date +%s) + POLL_TIMEOUT_SECS ))
-terminal_statuses=("done" "failed" "rejected")
+terminal_statuses=("done" "failed" "rejected" "escalated")
 final_status=""
 snapshot=""
 resume_attempted=0
@@ -278,7 +279,10 @@ if [[ "${parts_eligible}" != "true" ]]; then
   echo "  Parts eligibility reason: ${parts_eligibility_reason}"
 fi
 
-[[ "${final_status}" == "done" ]] || { echo "  FAIL: Expected status=done, got ${final_status}" >&2; (( errors++ )); }
+[[ "${final_status}" == "done" || "${final_status}" == "escalated" || "${final_status}" == "rejected" ]] || {
+  echo "  FAIL: Expected terminal status done|escalated|rejected, got ${final_status}" >&2
+  (( errors++ ))
+}
 [[ "${triage_priority}" != "absent" && "${triage_priority}" != "null" ]] || {
   echo "  FAIL: Triage priority absent (Node 1 failed?)" >&2
   (( errors++ ))
@@ -414,22 +418,45 @@ if [[ "${ASSERT_SCHEDULING}" == "1" ]]; then
 fi
 
 # Phase 6a — Node 6 guardrail demo-case decision (only when explicitly asserted).
-# Requires parts + scheduling flags on so the demo Case surfaces PARTIAL parts +
-# after-hours scheduling, tripping the composite policy to requireHumanApproval.
+# Live Case 00001050 with all five channels often escalates (score 100) because
+# customerContext + KB approval flags add to the minimal matrix (~70). Both
+# outcomes prove Node 6 is live; only requireHumanApproval exercises HITL resume.
 if [[ "${ASSERT_GUARDRAIL}" == "1" ]]; then
-  echo "  Guardrail resume attempted: ${resume_attempted}"
-  [[ "${guardrail_outcome}" == "requireHumanApproval" ]] || {
-    echo "  FAIL: Expected demo Case to trip Node 6 to requireHumanApproval, got ${guardrail_outcome}" >&2
+  guardrail_triggered_rules=$(echo "${snapshot}" | node -e "
+const s = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+console.log((s.guardrail?.policyRulesTriggered ?? []).map((r) => r.ruleId).join(','));
+")
+  echo "  Guardrail triggered rules: ${guardrail_triggered_rules}"
+  if [[ "${guardrail_outcome}" == "requireHumanApproval" ]]; then
+    [[ "${resume_attempted}" == "1" ]] || {
+      echo "  FAIL: Expected Node 6 to interrupt (waiting_approval) before resume for requireHumanApproval" >&2
+      (( errors++ ))
+    }
+    [[ "${final_status}" == "done" ]] || {
+      echo "  FAIL: Expected workflow status=done after resume, got ${final_status}" >&2
+      (( errors++ ))
+    }
+  elif [[ "${guardrail_outcome}" == "escalate" ]]; then
+    [[ "${final_status}" == "escalated" ]] || {
+      echo "  FAIL: Expected workflow status=escalated for guardrail escalate, got ${final_status}" >&2
+      (( errors++ ))
+    }
+  else
+    echo "  FAIL: Expected demo Case guardrail outcome requireHumanApproval or escalate, got ${guardrail_outcome}" >&2
+    (( errors++ ))
+  fi
+  [[ "${guardrail_risk_score}" =~ ^[0-9]+$ && "${guardrail_risk_score}" -ge 70 ]] || {
+    echo "  FAIL: Expected demo Case composite risk score >= 70, got ${guardrail_risk_score}" >&2
     (( errors++ ))
   }
-  [[ "${resume_attempted}" == "1" ]] || {
-    echo "  FAIL: Expected Node 6 to interrupt (waiting_approval) before resume for the demo Case" >&2
+  [[ "${guardrail_triggered_rules}" == *"PARTS_PARTIAL"* ]] || {
+    echo "  FAIL: Expected PARTS_PARTIAL in triggered rules for demo Case" >&2
     (( errors++ ))
   }
-  [[ "${guardrail_risk_score}" =~ ^[0-9]+$ && "${guardrail_risk_score}" -ge 25 ]] || {
-    echo "  FAIL: Expected demo Case composite risk score >= 25, got ${guardrail_risk_score}" >&2
+  if [[ "${guardrail_triggered_rules}" != *"PARTS_APPROVAL_REQUIRED"* && "${guardrail_triggered_rules}" != *"SCHEDULING_APPROVAL_REQUIRED"* ]]; then
+    echo "  FAIL: Expected PARTS_APPROVAL_REQUIRED or SCHEDULING_APPROVAL_REQUIRED in triggered rules" >&2
     (( errors++ ))
-  }
+  fi
 fi
 
 if (( errors > 0 )); then

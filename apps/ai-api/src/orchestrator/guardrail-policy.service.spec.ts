@@ -110,7 +110,7 @@ describe("GuardrailPolicyService", () => {
     expect(decision.autoApproveReason).toContain("no approval flags");
   });
 
-  it("#3 demo Case 00001050 → requireHumanApproval, high, score 70", () => {
+  it("#3 minimal demo fixture → requireHumanApproval, high, score 70", () => {
     const decision = service.evaluate(
       stateOf({
         triage: triage("high"),
@@ -136,6 +136,49 @@ describe("GuardrailPolicyService", () => {
     );
     expect(decision.channelBasis).toEqual(
       expect.arrayContaining(["triage", "partsLogistics", "scheduling"])
+    );
+  });
+
+  it("#3b production-like demo Case 00001050 (all channels) → escalate, critical, score 100", () => {
+    const decision = service.evaluate(
+      stateOf({
+        triage: triage("high"),
+        customerContext: customerContext({
+          businessRisk: "high",
+          strategic: true,
+          repeat: true
+        }),
+        knowledgeGuidance: {
+          eligible: true,
+          degraded: false,
+          status: "ANSWERED",
+          answer: {
+            recommendedActions: [{ requiredApproval: true }],
+            safetyFlags: []
+          }
+        },
+        partsLogistics: parts({ status: "PARTIAL", requiredApproval: false }),
+        scheduling: scheduling({
+          requiredApproval: true,
+          approvalReason: "sla_breach_risk",
+          schedulingReadiness: "provisional"
+        })
+      })
+    );
+    expect(decision.outcome).toBe("escalate");
+    expect(decision.riskLevel).toBe("critical");
+    expect(decision.riskScore).toBe(100);
+    expect(ruleIds(decision)).toEqual(
+      expect.arrayContaining([
+        "TRIAGE_HIGH",
+        "CUSTOMER_RISK_HIGH",
+        "STRATEGIC_ACCOUNT",
+        "REPEAT_INCIDENT",
+        "PARTS_PARTIAL",
+        "SCHEDULING_APPROVAL_REQUIRED",
+        "SCHEDULING_SLA_BREACH",
+        "KB_REQUIRED_APPROVAL"
+      ])
     );
   });
 

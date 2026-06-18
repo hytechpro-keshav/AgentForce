@@ -91,6 +91,16 @@ if (mode === "--summary") {
             : null,
           candidatesApiUsed: snapshot.scheduling.candidatesApiUsed
         }
+      : null,
+    guardrail: snapshot.guardrail
+      ? {
+          outcome: snapshot.guardrail.outcome,
+          riskScore: snapshot.guardrail.riskScore,
+          riskLevel: snapshot.guardrail.riskLevel,
+          triggeredRuleIds: (snapshot.guardrail.policyRulesTriggered ?? []).map(
+            (rule) => rule.ruleId
+          )
+        }
       : null
   };
   console.log(JSON.stringify(summary, null, 2));

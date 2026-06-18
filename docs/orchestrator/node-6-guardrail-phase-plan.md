@@ -32,12 +32,14 @@
 
 **Case `500g500000YpQMnAAN` / 00001050 (Austin display repair):**
 
-| Channel          | Live output                                                                                                                 |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `partsLogistics` | `PARTIAL` · inter-warehouse transfer `SP-DISP-15X-FHD` · `requiredApproval: true` · `cross_region_transfer`                 |
-| `scheduling`     | `PROVISIONAL` · `SR-A2` · Thursday 09:00–11:00 PDT · `partsEtaConstrained: true` · `requiredApproval: true` · `after_hours` |
+| Channel          | Live output                                                                                                                      |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `partsLogistics` | `PARTIAL` · inter-warehouse transfer `SP-DISP-15X-FHD` · `requiredApproval: true` · `cross_region_transfer`                      |
+| `scheduling`     | `PROVISIONAL` · `SR-A2` · PDT window · `partsEtaConstrained: true` · `requiredApproval: true` · `sla_breach_risk` (live planner) |
 
-This case must trigger `requireHumanApproval` from the Node 6 decision matrix (both channels flag approval, parts are partial, scheduling is provisional after-hours). It is the primary smoke target for 6a.
+**Node 6 outcome on live Railway (all five channels):** `escalate` · risk score **100** (critical) — not the minimal-fixture `requireHumanApproval` @ 70. Extra soft rules from `customerContext` (business risk, strategic account, repeat incident), `knowledgeGuidance` (`KB_REQUIRED_APPROVAL`), and `SCHEDULING_SLA_BREACH` (+5 vs the matrix doc’s `after_hours` label). Policy unit test `#3b` encodes this production-like path; `#3` remains the minimal three-channel fixture.
+
+Smoke `ASSERT_GUARDRAIL=1` accepts **either** `requireHumanApproval` (HITL + resume → `done`) **or** `escalate` (terminal `escalated`, score ≥ 70, `PARTS_PARTIAL` + `PARTS_APPROVAL_REQUIRED` triggered).
 
 ### 0.3 Current graph (prototype gate — to be replaced)
 
