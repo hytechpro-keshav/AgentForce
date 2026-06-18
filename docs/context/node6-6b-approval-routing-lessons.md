@@ -79,10 +79,10 @@ escalate @ ≥80). `ASSERT_GUARDRAIL_EMAIL=1` asserts
 `guardrail.approvalRouting.method=email` + `sentAt`; the approve-link click is
 manual proof.
 
-## 7. Deferred (not in 6b)
+## 7. Deferred / alternate channels
 
-- Salesforce Approval Process routing — `ORCHESTRATOR_GUARDRAIL_SF_APPROVAL_ENABLED`
-  stays false (6b+).
+- **Email approval routing** — code may exist (`ORCHESTRATOR_GUARDRAIL_EMAIL_NOTIFICATION_ENABLED`); live inbox rollout **deferred** by operator choice. See `implement-node6-guardrail-6b.prompt.md` if enabling later.
+- **Salesforce Approval Process** — primary track for out-of-band approval; plan: `plan-node6-guardrail-sf-approval.prompt.md` → `node-6-guardrail-sf-approval-phase-plan.md`.
 - Durable cross-restart idempotency marker — only needed if the graph moves off
   `MemorySaver` (tie to the persistence work).
 - N6-R2 Stop-AI guard before `interrupt()` — 6c (`re-orchestration-backlog.md`).

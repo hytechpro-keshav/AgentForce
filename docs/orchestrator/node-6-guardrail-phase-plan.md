@@ -3,7 +3,7 @@
 > **Document type:** Phase 6 planning — guardrail channel contract, composite policy matrix, gate migration, approval routing, 5c unblock gate, UI, test plan.
 > **Audience:** AI Architects · Salesforce Architects · Platform Engineers · Service Operations.
 > **Status:** **6a SHIPPED** (2026-06-16). `evaluateGuardrail` replaces the prototype `gate`; composite policy + `escalated` terminal + verdict rollup + Node 6 UI card are live. **6b CODE-COMPLETE + VALIDATED** (2026-06-18) — approval email routing + idempotent `sendApprovalNotification` + public approve/reject links; ai-api tests green; live email + Railway rollout pending. See §0.
-> **Next:** flip the 6b email env on Railway + live approve-link proof; then 6c (Stop AI guard, approval timeout, reconcile). SF Approval Process is deferred to 6b+.
+> **Next:** **6b+ SF Approval Process** (primary — email deferred). Plan: [`node-6-guardrail-sf-approval-phase-plan.md`](./node-6-guardrail-sf-approval-phase-plan.md). Then 6c (Stop AI guard, approval timeout, reconcile).
 > **Companions:** [`case-triage-orchestrator-flow.md`](./case-triage-orchestrator-flow.md) · [`node-5-scheduling-phase-plan.md`](./node-5-scheduling-phase-plan.md) · [`re-orchestration-backlog.md`](./re-orchestration-backlog.md) · [`new-node-phase-completion-checklist.md`](./new-node-phase-completion-checklist.md) · [`service-workflow-remediation-backlog.md`](./service-workflow-remediation-backlog.md)
 
 **Program invariants (unchanged):**
