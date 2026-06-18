@@ -151,6 +151,25 @@ export interface CaseTriageGraphDeps {
     partsLogistics: PartsLogisticsChannel | undefined
   ): Promise<PartsLogisticsChannel | undefined>;
   /**
+   * Node 5 — Phase 5c gated scheduling write, applied ONLY in the
+   * post-approval write-back (after {@link applyPartsFulfillment}). Does a
+   * fresh parts + scheduling re-read at write time (RC-5) and books a
+   * `ServiceAppointment` only for a still-`schedulable` plan; otherwise it
+   * returns the honest fresh channel without writing. Config-gated and
+   * idempotent. Returns an updated `scheduling` channel (with
+   * `appointmentStatus: "booked"` + `appointmentReference` on success), or
+   * `undefined` to leave the channel unchanged. Never throws.
+   */
+  applySchedulingWrite(
+    workflowId: string,
+    caseId: string,
+    context: SalesforceCaseContext,
+    scheduling: SchedulingChannel | undefined,
+    customerContext: CustomerContextChannel | undefined,
+    triagePriority: TriagePriorityDto | undefined,
+    knowledgeGuidance: KnowledgeGuidanceChannel | undefined
+  ): Promise<SchedulingChannel | undefined>;
+  /**
    * Node 2 — cheap, config-driven eligibility check. Pure over Case
    * criteria plus the optional triage hint; runs before any read.
    */
@@ -747,10 +766,23 @@ export function buildCaseTriageGraph(deps: CaseTriageGraphDeps) {
         state.caseId,
         state.partsLogistics
       );
+      // Phase 5c — book the approved ServiceAppointment after parts. Runs a
+      // fresh parts + scheduling re-read (RC-5) and writes only a still-
+      // schedulable plan; config-gated, idempotent, and degrade-safe.
+      const updatedScheduling = await deps.applySchedulingWrite(
+        state.workflowId,
+        state.caseId,
+        state.context!,
+        state.scheduling,
+        state.customerContext,
+        state.triage?.recommendedPriority,
+        state.knowledgeGuidance
+      );
       return {
         writeBackApplied: true,
         status: "done" as NodeLifecycleStatus,
-        ...(updatedParts ? { partsLogistics: updatedParts } : {})
+        ...(updatedParts ? { partsLogistics: updatedParts } : {}),
+        ...(updatedScheduling ? { scheduling: updatedScheduling } : {})
       };
     })
     .addNode("rejected", () => {

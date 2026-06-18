@@ -333,6 +333,13 @@ export interface OrchestratorSchedulingConfig {
    * default — the native scheduler needs a draft ServiceAppointment (5c).
    */
   candidatesApiEnabled: boolean;
+  /**
+   * Feature flag (5c): create the gated `ServiceAppointment` in the
+   * post-approval write-back. OFF by default; when on, the write-back does
+   * a fresh parts + scheduling re-read (RC-5) before any DML and books only
+   * a still-`schedulable` plan.
+   */
+  writesEnabled: boolean;
 }
 
 export interface OrchestratorConfig {
@@ -1905,6 +1912,11 @@ export class AppConfigService {
         env.AI_API_ORCHESTRATOR_SCHEDULING_CANDIDATES_API_ENABLED,
         false,
         "AI_API_ORCHESTRATOR_SCHEDULING_CANDIDATES_API_ENABLED"
+      ),
+      writesEnabled: AppConfigService.parseBooleanFlag(
+        env.AI_API_ORCHESTRATOR_SCHEDULING_WRITES_ENABLED,
+        false,
+        "AI_API_ORCHESTRATOR_SCHEDULING_WRITES_ENABLED"
       )
     };
   }

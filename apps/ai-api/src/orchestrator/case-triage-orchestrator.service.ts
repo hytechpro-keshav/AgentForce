@@ -15,6 +15,7 @@ import { SalesforceCaseGateway } from "../salesforce/salesforce-case.gateway";
 import { SalesforceCustomerGateway } from "../salesforce/salesforce-customer.gateway";
 import { SalesforceInventoryGateway } from "../salesforce/salesforce-inventory.gateway";
 import { SalesforceSchedulingGateway } from "../salesforce/salesforce-scheduling.gateway";
+import { SalesforceSchedulingWriteGateway } from "../salesforce/salesforce-scheduling-write.gateway";
 import { SalesforceFulfillmentGateway } from "../salesforce/salesforce-fulfillment.gateway";
 import { SalesforceGatewayError } from "../salesforce/salesforce-gateway.error";
 import { SupportTriageService } from "../agents/support-triage.service";
@@ -85,6 +86,10 @@ import type {
   PartsFulfillmentItemCommand,
   PartsFulfillmentResult
 } from "./dto/parts-fulfillment";
+import type {
+  SchedulingWriteCommand,
+  SchedulingWriteResult
+} from "./dto/scheduling-write";
 import type { SalesforceCaseContext } from "./dto/salesforce-case-context";
 import type { TriagePriorityDto } from "../agents/dto/triage-case.dto";
 import type {
@@ -140,6 +145,7 @@ export class CaseTriageOrchestratorService {
     private readonly partsPlanner: PartsLogisticsPlannerService,
     private readonly fulfillmentGateway: SalesforceFulfillmentGateway,
     private readonly schedulingGateway: SalesforceSchedulingGateway,
+    private readonly schedulingWriteGateway: SalesforceSchedulingWriteGateway,
     private readonly schedulingPlanner: SchedulingPlannerService,
     private readonly guardrailPolicy: GuardrailPolicyService
   ) {
@@ -152,6 +158,24 @@ export class CaseTriageOrchestratorService {
         this.sendApprovalNotification(workflowId, caseId, payload),
       applyPartsFulfillment: (workflowId, caseId, partsLogistics) =>
         this.applyPartsFulfillment(workflowId, caseId, partsLogistics),
+      applySchedulingWrite: (
+        workflowId,
+        caseId,
+        context,
+        scheduling,
+        customerContext,
+        triagePriority,
+        knowledgeGuidance
+      ) =>
+        this.applySchedulingWrite(
+          workflowId,
+          caseId,
+          context,
+          scheduling,
+          customerContext,
+          triagePriority,
+          knowledgeGuidance
+        ),
       isCustomerHistoryEligible: (context, triagePriority) =>
         this.isCustomerHistoryEligible(context, triagePriority),
       readCustomerContext: (scope) => this.readCustomerContext(scope),
@@ -697,6 +721,161 @@ export class CaseTriageOrchestratorService {
       idempotentSkipCount
     };
     return { ...channel, partPlans, writeOutcome };
+  }
+
+  /**
+   * Node 5 — Phase 5c gated scheduling write. Runs only in the
+   * post-approval write-back, after {@link applyPartsFulfillment}. It books
+   * the approved plan as a `ServiceAppointment` (via
+   * {@link SalesforceSchedulingWriteGateway}) ONLY when a fresh parts +
+   * scheduling re-read (RC-5) still resolves to a committed `schedulable`
+   * window; otherwise it surfaces the honest fresh channel and writes
+   * nothing. Config-gated (`scheduling.writesEnabled`) and degrade-safe —
+   * a read or write failure leaves the appointment `proposed` and never
+   * throws. Salesforce owns the DML + idempotency (workflow id + Case).
+   */
+  private async applySchedulingWrite(
+    workflowId: string,
+    caseId: string,
+    context: SalesforceCaseContext,
+    scheduling: SchedulingChannel | undefined,
+    customerContext: CustomerContextChannel | undefined,
+    triagePriority: TriagePriorityDto | undefined,
+    knowledgeGuidance: KnowledgeGuidanceChannel | undefined
+  ): Promise<SchedulingChannel | undefined> {
+    // Only an eligible, non-degraded, committed (`schedulable`) plan with a
+    // ranked technician + window is bookable; everything else is a no-op so
+    // the approved channel is left untouched (still `proposed`).
+    if (
+      !this.config.orchestrator.scheduling.writesEnabled ||
+      !scheduling ||
+      !scheduling.eligible ||
+      scheduling.degraded ||
+      scheduling.schedulingReadiness !== "schedulable" ||
+      scheduling.appointmentStatus === "booked" ||
+      !scheduling.recommendedResourceReference ||
+      !scheduling.proposedWindow?.proposedStart ||
+      !scheduling.proposedWindow?.proposedEnd
+    ) {
+      return undefined;
+    }
+
+    const startedAt = Date.now();
+    try {
+      // RC-5 — fresh parts + scheduling re-read at write time. Inventory and
+      // availability can move between the planning run and the approval; book
+      // only what is still true now. The parts re-read also reflects any
+      // transfer/backorder just created by applyPartsFulfillment. Mirror the
+      // graph's parts node: re-read inventory only when parts is eligible;
+      // a no-parts Case stays `skipped` (re-planning it would invent a parts
+      // dependency Node 5 never saw).
+      const freshParts: PartsLogisticsChannel | undefined =
+        this.isPartsLogisticsEligible(context, triagePriority).eligible
+          ? await this.planPartsLogistics(
+              workflowId,
+              context,
+              knowledgeGuidance,
+              triagePriority
+            )
+          : { eligible: false, degraded: false };
+      const freshScheduling = await this.planScheduling(
+        workflowId,
+        context,
+        freshParts,
+        customerContext,
+        triagePriority,
+        knowledgeGuidance
+      );
+
+      const window = freshScheduling.proposedWindow;
+      const bookable =
+        !freshScheduling.degraded &&
+        freshScheduling.schedulingReadiness === "schedulable" &&
+        Boolean(freshScheduling.recommendedResourceReference) &&
+        Boolean(window?.proposedStart) &&
+        Boolean(window?.proposedEnd);
+
+      // RC-5 abort: parts/availability regressed since approval — surface the
+      // honest fresh state (provisional/deferred/degraded) and book nothing.
+      if (!bookable || !window) {
+        this.logSchedulingWriteTelemetry(workflowId, startedAt, "skipped");
+        return freshScheduling;
+      }
+
+      const command: SchedulingWriteCommand = {
+        workflowId,
+        caseId,
+        resourceReference: freshScheduling.recommendedResourceReference!,
+        territoryReference: freshScheduling.candidates?.[0]?.territoryReference,
+        schedStart: window.proposedStart!,
+        schedEnd: window.proposedEnd!,
+        durationMinutes: window.durationMinutes,
+        approvalReason:
+          freshScheduling.approvalReason &&
+          freshScheduling.approvalReason !== "none"
+            ? freshScheduling.approvalReason
+            : undefined
+      };
+
+      const result =
+        await this.schedulingWriteGateway.applyAppointment(command);
+      const merged = CaseTriageOrchestratorService.mergeSchedulingWriteResult(
+        freshScheduling,
+        result
+      );
+      this.logSchedulingWriteTelemetry(
+        workflowId,
+        startedAt,
+        result.degraded ? "degraded" : "ok"
+      );
+      return merged;
+    } catch (err) {
+      // Degrade-safe: a fresh-read or write failure must never fail the run.
+      const kind =
+        err instanceof SalesforceGatewayError ? err.kind : "unexpected";
+      this.logger.warn(`Scheduling write degraded: kind=${kind}`);
+      this.logSchedulingWriteTelemetry(workflowId, startedAt, "degraded");
+      return undefined;
+    }
+  }
+
+  /**
+   * Folds the appointment-write result into the fresh channel. Only a
+   * completed booking flips `appointmentStatus` to `booked`; a degraded or
+   * empty write leaves the plan `proposed`.
+   */
+  private static mergeSchedulingWriteResult(
+    channel: SchedulingChannel,
+    result: SchedulingWriteResult
+  ): SchedulingChannel {
+    if (
+      !result.applied ||
+      result.degraded ||
+      result.appointmentStatus !== "booked" ||
+      !result.appointmentReference
+    ) {
+      return channel;
+    }
+    return {
+      ...channel,
+      appointmentStatus: "booked",
+      appointmentReference: result.appointmentReference
+    };
+  }
+
+  private logSchedulingWriteTelemetry(
+    workflowId: string,
+    startedAt: number,
+    healthStatus: "ok" | "degraded" | "skipped"
+  ): void {
+    this.telemetry.recordAgentWorkflow({
+      operation: "orchestrator.scheduling_write",
+      useCase: "agentforce_scheduling",
+      requestId: workflowId,
+      latencyMs: Date.now() - startedAt,
+      healthStatus,
+      outcome: "success"
+    });
   }
 
   /**

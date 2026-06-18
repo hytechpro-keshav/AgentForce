@@ -7,6 +7,7 @@ import type { SalesforceCustomerGateway } from "../salesforce/salesforce-custome
 import type { SalesforceInventoryGateway } from "../salesforce/salesforce-inventory.gateway";
 import type { SalesforceFulfillmentGateway } from "../salesforce/salesforce-fulfillment.gateway";
 import type { SalesforceSchedulingGateway } from "../salesforce/salesforce-scheduling.gateway";
+import type { SalesforceSchedulingWriteGateway } from "../salesforce/salesforce-scheduling-write.gateway";
 import { SalesforceGatewayError } from "../salesforce/salesforce-gateway.error";
 import { CaseTriageOrchestratorService } from "./case-triage-orchestrator.service";
 import { PartsLogisticsPlannerService } from "./parts-logistics-planner.service";
@@ -123,6 +124,7 @@ interface Harness {
   readCustomerBundle: jest.Mock;
   recordAgentWorkflow: jest.Mock;
   applyFulfillment: jest.Mock;
+  applyAppointment: jest.Mock;
 }
 
 function buildHarness(
@@ -132,6 +134,14 @@ function buildHarness(
   partsOverrides: { enabled?: boolean; writesEnabled?: boolean } = {},
   fulfillmentOverrides: {
     applyFulfillment?: jest.Mock;
+  } = {},
+  schedulingOverrides: {
+    enabled?: boolean;
+    writesEnabled?: boolean;
+    readSchedulingContext?: jest.Mock;
+  } = {},
+  schedulingWriteOverrides: {
+    applyAppointment?: jest.Mock;
   } = {}
 ): Harness {
   const readCaseContext = jest
@@ -196,7 +206,11 @@ function buildHarness(
         enabled: partsOverrides.enabled ?? false,
         writesEnabled: partsOverrides.writesEnabled ?? false
       },
-      scheduling: { enabled: false, candidatesApiEnabled: false }
+      scheduling: {
+        enabled: schedulingOverrides.enabled ?? false,
+        candidatesApiEnabled: false,
+        writesEnabled: schedulingOverrides.writesEnabled ?? false
+      }
     },
     rag: {
       enabled: false,
@@ -245,14 +259,29 @@ function buildHarness(
   } as unknown as SalesforceFulfillmentGateway;
   const schedulingGateway = {
     isConfigured: () => true,
-    readSchedulingContext: jest.fn().mockResolvedValue({
-      source: "none",
-      technicians: [],
-      businessWindows: [],
-      busyIntervals: [],
-      degraded: false
-    })
+    readSchedulingContext:
+      schedulingOverrides.readSchedulingContext ??
+      jest.fn().mockResolvedValue({
+        source: "none",
+        technicians: [],
+        businessWindows: [],
+        busyIntervals: [],
+        degraded: false
+      })
   } as unknown as SalesforceSchedulingGateway;
+  const applyAppointment =
+    schedulingWriteOverrides.applyAppointment ??
+    jest.fn().mockResolvedValue({
+      applied: false,
+      degraded: false,
+      booked: false,
+      idempotentSkip: false,
+      appointmentStatus: "none"
+    });
+  const schedulingWriteGateway = {
+    isConfigured: () => true,
+    applyAppointment
+  } as unknown as SalesforceSchedulingWriteGateway;
   const schedulingPlanner = new SchedulingPlannerService();
   const guardrailPolicy = {
     evaluate: jest.fn((state: CaseTriageStateType) =>
@@ -277,6 +306,7 @@ function buildHarness(
     partsPlanner,
     fulfillmentGateway,
     schedulingGateway,
+    schedulingWriteGateway,
     schedulingPlanner,
     guardrailPolicy
   );
@@ -292,7 +322,8 @@ function buildHarness(
     synthesize,
     readCustomerBundle,
     recordAgentWorkflow,
-    applyFulfillment
+    applyFulfillment,
+    applyAppointment
   };
 }
 
@@ -601,7 +632,11 @@ describe("CaseTriageOrchestratorService", () => {
             extractionEnabled: false
           },
           partsLogistics: { enabled: false },
-          scheduling: { enabled: false, candidatesApiEnabled: false }
+          scheduling: {
+            enabled: false,
+            candidatesApiEnabled: false,
+            writesEnabled: false
+          }
         },
         rag: {
           enabled: false,
@@ -633,6 +668,16 @@ describe("CaseTriageOrchestratorService", () => {
           degraded: false
         })
       } as unknown as SalesforceSchedulingGateway,
+      {
+        isConfigured: () => true,
+        applyAppointment: jest.fn().mockResolvedValue({
+          applied: false,
+          degraded: false,
+          booked: false,
+          idempotentSkip: false,
+          appointmentStatus: "none"
+        })
+      } as unknown as SalesforceSchedulingWriteGateway,
       new SchedulingPlannerService(),
       new GuardrailPolicyService()
     );
@@ -800,6 +845,122 @@ describe("CaseTriageOrchestratorService", () => {
       });
 
       expect(applyFulfillment).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Phase 5c gated scheduling writes", () => {
+    // Mon–Sun 09:00–17:00 so the slot search is weekday/time independent.
+    const ALL_DAY_WINDOWS = Array.from({ length: 7 }, (_, day) => ({
+      dayOfWeek: day,
+      openMinutes: 9 * 60,
+      closeMinutes: 17 * 60
+    }));
+    // A North-America technician with the laptop skills the demo Case needs.
+    const schedulableRead = {
+      source: "soql" as const,
+      technicians: [
+        {
+          resourceId: "0Hn000000000A1",
+          resourceReference: "SR-A1",
+          isActive: true,
+          territories: [{ name: "North America", type: "S" }],
+          skills: [
+            { label: "Laptop Hardware", level: 9 },
+            { label: "Battery/Power", level: 8 }
+          ]
+        }
+      ],
+      businessWindows: ALL_DAY_WINDOWS,
+      busyIntervals: [],
+      workTypeDurationMinutesBySkill: {},
+      candidatesApiUsed: false,
+      degraded: false
+    };
+    const laptopCase = {
+      subject: "Laptop battery not charging",
+      description: "Battery drains and will not charge on the AV-LP-15X-PRO.",
+      assetProductCode: "AV-LP-15X-PRO",
+      serviceShipToCountry: "US"
+    };
+
+    it("books the ServiceAppointment after approval and merges booked status", async () => {
+      const applyAppointment = jest.fn().mockResolvedValue({
+        applied: true,
+        degraded: false,
+        booked: true,
+        idempotentSkip: false,
+        appointmentStatus: "booked",
+        appointmentReference: "SA-0007"
+      });
+      const readSchedulingContext = jest
+        .fn()
+        .mockResolvedValue(schedulableRead);
+      // "always" → guardrail requireHumanApproval → approved → writeBack,
+      // the canonical 5c path (a Case that pauses, then is approved).
+      const h = buildHarness(
+        "always",
+        laptopCase,
+        {},
+        {},
+        {},
+        { enabled: true, writesEnabled: true, readSchedulingContext },
+        { applyAppointment }
+      );
+
+      const accepted = await h.service.trigger({ caseId: "500000000000001" });
+      await waitFor(
+        async () =>
+          (await statusOf(h.service, accepted.workflowId)) ===
+          "waiting_approval"
+      );
+      const resumed = await h.service.resume(accepted.workflowId, {
+        decision: "approved",
+        idempotencyKey: "approve-5c-1"
+      });
+
+      expect(resumed.status).toBe("done");
+      // RC-5: the plan was re-read at write time (plan-time + write-time).
+      expect(readSchedulingContext.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(applyAppointment).toHaveBeenCalledTimes(1);
+      expect(applyAppointment.mock.calls[0][0]).toMatchObject({
+        caseId: "500000000000001",
+        workflowId: accepted.workflowId,
+        resourceReference: "SR-A1"
+      });
+      expect(resumed.scheduling?.appointmentStatus).toBe("booked");
+      expect(resumed.scheduling?.appointmentReference).toBe("SA-0007");
+    });
+
+    it("does not call the scheduling gateway when writes are disabled", async () => {
+      const applyAppointment = jest.fn();
+      const readSchedulingContext = jest
+        .fn()
+        .mockResolvedValue(schedulableRead);
+      const h = buildHarness(
+        "always",
+        laptopCase,
+        {},
+        {},
+        {},
+        { enabled: true, writesEnabled: false, readSchedulingContext },
+        { applyAppointment }
+      );
+
+      const accepted = await h.service.trigger({ caseId: "500000000000001" });
+      await waitFor(
+        async () =>
+          (await statusOf(h.service, accepted.workflowId)) ===
+          "waiting_approval"
+      );
+      const resumed = await h.service.resume(accepted.workflowId, {
+        decision: "approved",
+        idempotencyKey: "approve-5c-2"
+      });
+
+      expect(applyAppointment).not.toHaveBeenCalled();
+      // The plan is still surfaced, just never booked.
+      expect(resumed.scheduling?.schedulingReadiness).toBe("schedulable");
+      expect(resumed.scheduling?.appointmentStatus).toBe("proposed");
     });
   });
 });

@@ -37,6 +37,11 @@
 #                           requires the scheduling flag enabled on Railway)
 #   ASSERT_SCHEDULING_5B  — set to 1 with ASSERT_SCHEDULING=1 to assert 5b fields
 #                           (territory-local TZ, durationSource, slotSource, PDT window)
+#   ASSERT_SCHEDULING_WRITES — set to 1 to assert Node 5 Phase 5c booked the
+#                           ServiceAppointment (appointmentStatus=booked +
+#                           reference). Needs an APPROVED Case (requireHumanApproval
+#                           → approved, NOT escalate), AI_API_ORCHESTRATOR_SCHEDULING_WRITES_ENABLED=true,
+#                           and ServiceAppointment create on the run-as user (default: 0)
 #   ASSERT_GUARDRAIL      — set to 1 to assert the demo Case trips Node 6 to
 #                           requireHumanApproval (default: 0; needs the parts +
 #                           scheduling flags on so the composite risk clears the band)
@@ -64,6 +69,11 @@ ASSERT_PARTS_WRITES="${ASSERT_PARTS_WRITES:-0}"
 # AI_API_ORCHESTRATOR_SCHEDULING_ENABLED=true with the Agentforce_Scheduling_Node5
 # perm set assigned to the run-as user and the 5-Pre Field Service seed in place.
 ASSERT_SCHEDULING="${ASSERT_SCHEDULING:-0}"
+# Node 5 Phase 5c gated-write assertion. Off by default — only meaningful once
+# the workflow is APPROVED (requireHumanApproval → approved, not escalate) AND
+# AI_API_ORCHESTRATOR_SCHEDULING_WRITES_ENABLED=true with ServiceAppointment
+# create on the run-as user. The plan must be schedulable at write time (RC-5).
+ASSERT_SCHEDULING_WRITES="${ASSERT_SCHEDULING_WRITES:-0}"
 # Node 6 guardrail demo-case assertion. Off by default — proves the live demo
 # Case (00001050) trips Node 6 composite policy on all upstream channels.
 # Production may land in requireHumanApproval (minimal fixture, score ~70) OR
@@ -258,6 +268,8 @@ scheduling_slot_source=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field s
 scheduling_duration_source=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field scheduling.proposedWindow.durationSource)
 scheduling_parts_eta=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field scheduling.proposedWindow.partsEtaConstrained)
 scheduling_candidates_api=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field scheduling.candidatesApiUsed)
+scheduling_appt_status=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field scheduling.appointmentStatus)
+scheduling_appt_ref=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field scheduling.appointmentReference)
 guardrail_outcome=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field guardrail.outcome)
 guardrail_risk_score=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field guardrail.riskScore)
 guardrail_risk_level=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field guardrail.riskLevel)
@@ -417,6 +429,27 @@ if [[ "${ASSERT_SCHEDULING}" == "1" ]]; then
   fi
 fi
 
+# Phase 5c — Node 5 gated ServiceAppointment write (only when explicitly asserted).
+# Requires an APPROVED Case (requireHumanApproval → approved, NOT escalate) with
+# AI_API_ORCHESTRATOR_SCHEDULING_WRITES_ENABLED=true and ServiceAppointment create
+# on the run-as user. RC-5: the plan must still be schedulable at write time.
+if [[ "${ASSERT_SCHEDULING_WRITES}" == "1" ]]; then
+  echo "  Scheduling appt status:  ${scheduling_appt_status}"
+  echo "  Scheduling appt ref:     ${scheduling_appt_ref}"
+  [[ "${guardrail_outcome}" != "escalate" ]] || {
+    echo "  FAIL: Case escalated — 5c writes only run on the approved path (use an approvable Case, not one that escalates)" >&2
+    (( errors++ ))
+  }
+  [[ "${scheduling_appt_status}" == "booked" ]] || {
+    echo "  FAIL: Expected scheduling.appointmentStatus=booked, got ${scheduling_appt_status} (check WRITES_ENABLED, ServiceAppointment create on run-as, schedulable at write time)" >&2
+    (( errors++ ))
+  }
+  [[ "${scheduling_appt_ref}" != "absent" && "${scheduling_appt_ref}" != "null" && -n "${scheduling_appt_ref}" ]] || {
+    echo "  FAIL: Expected a booked appointmentReference (e.g. SA-0007), got ${scheduling_appt_ref}" >&2
+    (( errors++ ))
+  }
+fi
+
 # Phase 6a — Node 6 guardrail demo-case decision (only when explicitly asserted).
 # Live Case 00001050 with all five channels often escalates (score 100) because
 # customerContext + KB approval flags add to the minimal matrix (~70). Both
@@ -473,5 +506,8 @@ echo "  Node 3 (Knowledge Base):    status=${knowledge_status}"
 echo "  Node 4 (Parts & Logistics): status=${parts_status}, readiness=${parts_readiness}, plans=${parts_plan_count}"
 if [[ "${ASSERT_SCHEDULING}" == "1" ]]; then
   echo "  Node 5 (Scheduling):        status=${scheduling_status}, readiness=${scheduling_readiness}, technician=${scheduling_technician}, window=${scheduling_window}"
+fi
+if [[ "${ASSERT_SCHEDULING_WRITES}" == "1" ]]; then
+  echo "  Node 5 (5c write):          appointmentStatus=${scheduling_appt_status}, reference=${scheduling_appt_ref}"
 fi
 echo "  Node 6 (Guardrail):         outcome=${guardrail_outcome}, risk=${guardrail_risk_score} (${guardrail_risk_level})"

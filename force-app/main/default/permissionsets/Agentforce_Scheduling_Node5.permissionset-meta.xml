@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
     <description
-  >Object access for Node 5 Scheduling orchestrator reads (technician skill, territory, operating hours, work type, availability). Read-only for 5a; create on ServiceAppointment/AssignedResource reserved for gated 5c writes after Node 6.</description>
+  >Node 5 Scheduling: read access for technician skill, territory, operating hours, work type, and availability, plus gated 5c ServiceAppointment/AssignedResource create (with workflow-id FLS for idempotency) after Node 6 approval.</description>
     <hasActivationRequired>false</hasActivationRequired>
     <label>Agentforce Scheduling Node 5</label>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>ServiceAppointment.Orchestrator_Workflow_Id__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
     <objectPermissions>
         <allowCreate>false</allowCreate>
         <allowDelete>false</allowDelete>

@@ -7,14 +7,16 @@ import { SalesforceCustomerGateway } from "./salesforce-customer.gateway";
 import { SalesforceFulfillmentGateway } from "./salesforce-fulfillment.gateway";
 import { SalesforceInventoryGateway } from "./salesforce-inventory.gateway";
 import { SalesforceSchedulingGateway } from "./salesforce-scheduling.gateway";
+import { SalesforceSchedulingWriteGateway } from "./salesforce-scheduling-write.gateway";
 
 /**
  * Outbound Salesforce connectivity for the orchestrator. Exposes the
  * Case gateway (read + gated write), the read-only customer gateway
  * (Node 2), the read-only inventory gateway (Node 4 read/plan), the
- * Phase 4c fulfillment gateway (gated writes after approval), and the
- * read-only Field Service scheduling gateway (Node 5 read/plan); the auth
- * service is an internal detail.
+ * Phase 4c fulfillment gateway (gated writes after approval), the
+ * read-only Field Service scheduling gateway (Node 5 read/plan), and the
+ * Phase 5c scheduling-write gateway (gated `ServiceAppointment` create
+ * after approval); the auth service is an internal detail.
  */
 @Module({
   imports: [AppConfigModule],
@@ -24,7 +26,8 @@ import { SalesforceSchedulingGateway } from "./salesforce-scheduling.gateway";
     SalesforceCustomerGateway,
     SalesforceInventoryGateway,
     SalesforceFulfillmentGateway,
-    SalesforceSchedulingGateway
+    SalesforceSchedulingGateway,
+    SalesforceSchedulingWriteGateway
   ],
   exports: [
     SalesforceCaseGateway,
@@ -32,6 +35,7 @@ import { SalesforceSchedulingGateway } from "./salesforce-scheduling.gateway";
     SalesforceInventoryGateway,
     SalesforceFulfillmentGateway,
     SalesforceSchedulingGateway,
+    SalesforceSchedulingWriteGateway,
     SalesforceAuthService
   ]
 })

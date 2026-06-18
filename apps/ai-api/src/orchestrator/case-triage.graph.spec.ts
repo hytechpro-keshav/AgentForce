@@ -154,6 +154,7 @@ function buildDeps(overrides: Partial<CaseTriageGraphDeps> = {}): DepsHarness {
       .fn()
       .mockResolvedValue({ method: "log_only" }),
     applyPartsFulfillment: jest.fn().mockResolvedValue(undefined),
+    applySchedulingWrite: jest.fn().mockResolvedValue(undefined),
     isCustomerHistoryEligible: isEligible,
     readCustomerContext,
     synthesizeCustomerHistory: synthesize,
@@ -545,12 +546,10 @@ describe("case-triage graph — Node 5 scheduling", () => {
   it("B11: skips Node 5 cleanly when ineligible (flag off)", async () => {
     const planScheduling = jest.fn();
     const h = buildDeps({
-      isSchedulingEligible: jest
-        .fn()
-        .mockReturnValue({
-          eligible: false,
-          reason: "Scheduling disabled by config"
-        }),
+      isSchedulingEligible: jest.fn().mockReturnValue({
+        eligible: false,
+        reason: "Scheduling disabled by config"
+      }),
       planScheduling
     });
 
@@ -559,6 +558,65 @@ describe("case-triage graph — Node 5 scheduling", () => {
     expect(planScheduling).not.toHaveBeenCalled();
     expect(result.scheduling?.eligible).toBe(false);
     expect(result.writeBackApplied).toBe(true);
+  });
+
+  it("5c: books the appointment in the write-back and merges the channel", async () => {
+    const applySchedulingWrite = jest.fn().mockResolvedValue({
+      ...schedulableChannel,
+      appointmentStatus: "booked",
+      appointmentReference: "SA-0007"
+    });
+    const h = buildDeps({
+      isSchedulingEligible: jest
+        .fn()
+        .mockReturnValue({ eligible: true, reason: "enabled" }),
+      planScheduling: jest.fn().mockResolvedValue(schedulableChannel),
+      applySchedulingWrite
+    });
+
+    const result = await invoke(h.deps);
+
+    // 5c write runs in the post-approval write-back with the planned channel.
+    expect(applySchedulingWrite).toHaveBeenCalledTimes(1);
+    expect(applySchedulingWrite.mock.calls[0][3]).toMatchObject({
+      schedulingReadiness: "schedulable"
+    });
+    expect(result.writeBackApplied).toBe(true);
+    expect(result.scheduling?.appointmentStatus).toBe("booked");
+    expect(result.scheduling?.appointmentReference).toBe("SA-0007");
+  });
+
+  it("5c: does not book the appointment when the gate is rejected", async () => {
+    const applySchedulingWrite = jest.fn().mockResolvedValue(undefined);
+    const h = buildDeps({
+      evaluateGuardrailPolicy: () => decisionFor("requireHumanApproval"),
+      isSchedulingEligible: jest
+        .fn()
+        .mockReturnValue({ eligible: true, reason: "enabled" }),
+      planScheduling: jest.fn().mockResolvedValue(schedulableChannel),
+      applySchedulingWrite
+    });
+
+    const graph = buildCaseTriageGraph(h.deps);
+    const config = { configurable: { thread_id: "wf-reject-5c" } };
+    await graph.invoke(
+      {
+        workflowId: "wf-reject-5c",
+        caseId: "500000000000001",
+        principalSubject: "orchestrator",
+        approvalRequired: false,
+        writeBackApplied: false,
+        status: "running"
+      },
+      config
+    );
+    const result = (await graph.invoke(
+      new Command({ resume: "rejected" }),
+      config
+    )) as any;
+
+    expect(applySchedulingWrite).not.toHaveBeenCalled();
+    expect(result.status).toBe("rejected");
   });
 });
 
