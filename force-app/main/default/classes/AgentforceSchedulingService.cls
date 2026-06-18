@@ -22,7 +22,8 @@
 public with sharing class AgentforceSchedulingService {
   private static final String STATUS_BOOKED = 'booked';
   private static final String STATUS_NONE = 'none';
-  private static final String APPT_STATUS_SCHEDULED = 'Scheduled';
+  // Org FSL validation blocks insert in Scheduled/Dispatched — use None.
+  private static final String APPT_STATUS_SCHEDULED = 'None';
 
   @InvocableMethod(
     label='Create Scheduling Appointment'
