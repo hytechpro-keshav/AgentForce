@@ -11,6 +11,42 @@ import { SalesforceGatewayError } from "../salesforce/salesforce-gateway.error";
 import { CaseTriageOrchestratorService } from "./case-triage-orchestrator.service";
 import { PartsLogisticsPlannerService } from "./parts-logistics-planner.service";
 import { SchedulingPlannerService } from "./scheduling-planner.service";
+import { GuardrailPolicyService } from "./guardrail-policy.service";
+import type { CaseTriageStateType } from "./case-triage.graph";
+import type { GuardrailDecision } from "./dto/guardrail";
+
+/**
+ * Guardrail fake for the orchestrator plumbing tests. It mirrors the
+ * pre-Node-6 gate semantics keyed on the legacy approval mode (+ any
+ * parts-plan approval flag) so the trigger/resume/persistence tests keep
+ * their original intent. The real composite matrix is covered exhaustively
+ * by guardrail-policy.service.spec.ts.
+ */
+function guardrailDecisionForMode(
+  mode: TriageApprovalMode,
+  state: CaseTriageStateType
+): GuardrailDecision {
+  const partsNeedApproval = (state.partsLogistics?.partPlans ?? []).some(
+    (plan) => plan.requiredApproval
+  );
+  const priorityHigh =
+    state.triage?.recommendedPriority === "high" ||
+    state.triage?.recommendedPriority === "critical";
+  const requiresApproval =
+    mode === "always" ||
+    partsNeedApproval ||
+    (mode === "high_risk" && priorityHigh);
+  return {
+    outcome: requiresApproval ? "requireHumanApproval" : "autoApprove",
+    riskScore: requiresApproval ? 50 : 0,
+    riskLevel: requiresApproval ? "medium" : "low",
+    allRules: [],
+    triggeredRules: [],
+    channelBasis: [],
+    approvalReasons: requiresApproval ? ["Approval required for test."] : [],
+    latencyMs: 0
+  };
+}
 import { ExternalContextAdapterRegistry } from "./adapters/external-context.adapter";
 import {
   InMemoryOrchestrationStatusRepository,
@@ -218,6 +254,11 @@ function buildHarness(
     })
   } as unknown as SalesforceSchedulingGateway;
   const schedulingPlanner = new SchedulingPlannerService();
+  const guardrailPolicy = {
+    evaluate: jest.fn((state: CaseTriageStateType) =>
+      guardrailDecisionForMode(approvalMode, state)
+    )
+  } as unknown as GuardrailPolicyService;
 
   const service = new CaseTriageOrchestratorService(
     gateway,
@@ -236,7 +277,8 @@ function buildHarness(
     partsPlanner,
     fulfillmentGateway,
     schedulingGateway,
-    schedulingPlanner
+    schedulingPlanner,
+    guardrailPolicy
   );
 
   return {
@@ -591,7 +633,8 @@ describe("CaseTriageOrchestratorService", () => {
           degraded: false
         })
       } as unknown as SalesforceSchedulingGateway,
-      new SchedulingPlannerService()
+      new SchedulingPlannerService(),
+      new GuardrailPolicyService()
     );
 
     const resolved =

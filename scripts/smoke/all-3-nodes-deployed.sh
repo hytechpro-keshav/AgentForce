@@ -2,11 +2,12 @@
 # ==============================================================================
 # all-3-nodes-deployed.sh — End-to-end test for the orchestrator nodes on
 # Railway (Node 1 Triage, Node 2 Customer History, Node 3 Knowledge Base,
-# Node 4 Parts & Logistics, Node 5 Scheduling)
+# Node 4 Parts & Logistics, Node 5 Scheduling, Node 6 Compliance & Guardrail)
 #
 # Tests the full LangGraph case-triage workflow with the laptop KB corpus:
 #   START → readContext → runTriage (N1) → customerHistory (N2) → knowledge (N3)
-#         → partsLogistics (N4) → scheduling (N5) → gate → writeBack
+#         → partsLogistics (N4) → scheduling (N5) → evaluateGuardrail (N6)
+#         → writeBack / rejected / escalated
 #
 # Prerequisites:
 #   • Railway deployment is healthy
@@ -36,6 +37,9 @@
 #                           requires the scheduling flag enabled on Railway)
 #   ASSERT_SCHEDULING_5B  — set to 1 with ASSERT_SCHEDULING=1 to assert 5b fields
 #                           (territory-local TZ, durationSource, slotSource, PDT window)
+#   ASSERT_GUARDRAIL      — set to 1 to assert the demo Case trips Node 6 to
+#                           requireHumanApproval (default: 0; needs the parts +
+#                           scheduling flags on so the composite risk clears the band)
 # ==============================================================================
 set -euo pipefail
 
@@ -60,6 +64,12 @@ ASSERT_PARTS_WRITES="${ASSERT_PARTS_WRITES:-0}"
 # AI_API_ORCHESTRATOR_SCHEDULING_ENABLED=true with the Agentforce_Scheduling_Node5
 # perm set assigned to the run-as user and the 5-Pre Field Service seed in place.
 ASSERT_SCHEDULING="${ASSERT_SCHEDULING:-0}"
+# Node 6 guardrail demo-case assertion. Off by default — the composite risk
+# only clears the requireHumanApproval band when the parts + scheduling flags
+# are enabled (so the demo Case surfaces PARTIAL parts + after-hours scheduling).
+# The always-on invariant below proves evaluateGuardrail replaced the gate on
+# every run regardless of this flag.
+ASSERT_GUARDRAIL="${ASSERT_GUARDRAIL:-0}"
 
 : "${SF_CASE_ID:?Set SF_CASE_ID to a Salesforce Case record ID for the triage test.}"
 
@@ -247,6 +257,9 @@ scheduling_slot_source=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field s
 scheduling_duration_source=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field scheduling.proposedWindow.durationSource)
 scheduling_parts_eta=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field scheduling.proposedWindow.partsEtaConstrained)
 scheduling_candidates_api=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field scheduling.candidatesApiUsed)
+guardrail_outcome=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field guardrail.outcome)
+guardrail_risk_score=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field guardrail.riskScore)
+guardrail_risk_level=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field guardrail.riskLevel)
 
 errors=0
 
@@ -279,6 +292,20 @@ fi
 }
 [[ "${knowledge_status}" == "ANSWERED" || "${knowledge_status}" == "NO_SOURCE" ]] || {
   echo "  FAIL: Unexpected knowledge status: ${knowledge_status}" >&2
+  (( errors++ ))
+}
+
+# Node 6 always runs (no feature flag) — every settled workflow must carry a
+# valid composite guardrail decision, proving evaluateGuardrail replaced the
+# prototype gate on this deployment.
+echo "  Guardrail outcome:       ${guardrail_outcome}"
+echo "  Guardrail risk:          ${guardrail_risk_score} (${guardrail_risk_level})"
+[[ "${guardrail_outcome}" == "autoApprove" || "${guardrail_outcome}" == "requireHumanApproval" || "${guardrail_outcome}" == "reject" || "${guardrail_outcome}" == "escalate" ]] || {
+  echo "  FAIL: Node 6 produced no valid guardrail outcome (got ${guardrail_outcome}); evaluateGuardrail may not be deployed" >&2
+  (( errors++ ))
+}
+[[ "${guardrail_risk_score}" =~ ^[0-9]+$ ]] || {
+  echo "  FAIL: Node 6 guardrail risk score missing/non-numeric: ${guardrail_risk_score}" >&2
   (( errors++ ))
 }
 
@@ -386,6 +413,25 @@ if [[ "${ASSERT_SCHEDULING}" == "1" ]]; then
   fi
 fi
 
+# Phase 6a — Node 6 guardrail demo-case decision (only when explicitly asserted).
+# Requires parts + scheduling flags on so the demo Case surfaces PARTIAL parts +
+# after-hours scheduling, tripping the composite policy to requireHumanApproval.
+if [[ "${ASSERT_GUARDRAIL}" == "1" ]]; then
+  echo "  Guardrail resume attempted: ${resume_attempted}"
+  [[ "${guardrail_outcome}" == "requireHumanApproval" ]] || {
+    echo "  FAIL: Expected demo Case to trip Node 6 to requireHumanApproval, got ${guardrail_outcome}" >&2
+    (( errors++ ))
+  }
+  [[ "${resume_attempted}" == "1" ]] || {
+    echo "  FAIL: Expected Node 6 to interrupt (waiting_approval) before resume for the demo Case" >&2
+    (( errors++ ))
+  }
+  [[ "${guardrail_risk_score}" =~ ^[0-9]+$ && "${guardrail_risk_score}" -ge 25 ]] || {
+    echo "  FAIL: Expected demo Case composite risk score >= 25, got ${guardrail_risk_score}" >&2
+    (( errors++ ))
+  }
+fi
+
 if (( errors > 0 )); then
   echo ""
   echo "All-nodes test FAILED with ${errors} error(s)." >&2
@@ -401,3 +447,4 @@ echo "  Node 4 (Parts & Logistics): status=${parts_status}, readiness=${parts_re
 if [[ "${ASSERT_SCHEDULING}" == "1" ]]; then
   echo "  Node 5 (Scheduling):        status=${scheduling_status}, readiness=${scheduling_readiness}, technician=${scheduling_technician}, window=${scheduling_window}"
 fi
+echo "  Node 6 (Guardrail):         outcome=${guardrail_outcome}, risk=${guardrail_risk_score} (${guardrail_risk_level})"

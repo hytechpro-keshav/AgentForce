@@ -4,6 +4,7 @@ import { buildCaseTriageGraph } from "./case-triage.graph";
 import type { CaseTriageGraphDeps } from "./case-triage.graph";
 import {
   CUSTOMER_HISTORY_NODE_ID,
+  GUARDRAIL_NODE_ID,
   PARTS_LOGISTICS_NODE_ID,
   SCHEDULING_NODE_ID
 } from "./dto/case-triage-lifecycle";
@@ -11,8 +12,23 @@ import type {
   CustomerContextSynthesis,
   CustomerHistoryReadResult
 } from "./dto/customer-context";
+import type { GuardrailDecision, GuardrailOutcome } from "./dto/guardrail";
 import type { SalesforceCaseContext } from "./dto/salesforce-case-context";
 import type { SanitizedTriageResult } from "./dto/orchestration-status-event";
+
+/** Default-shaped guardrail decision for a given outcome. */
+function decisionFor(outcome: GuardrailOutcome): GuardrailDecision {
+  return {
+    outcome,
+    riskScore: outcome === "autoApprove" ? 0 : 50,
+    riskLevel: outcome === "autoApprove" ? "low" : "medium",
+    allRules: [],
+    triggeredRules: [],
+    channelBasis: [],
+    approvalReasons: outcome === "autoApprove" ? [] : ["test reason"],
+    latencyMs: 0
+  };
+}
 
 const ACCOUNT_ID = "001000000000001";
 
@@ -131,7 +147,12 @@ function buildDeps(overrides: Partial<CaseTriageGraphDeps> = {}): DepsHarness {
     readContext: jest.fn().mockResolvedValue(buildContext()),
     runTriage,
     applyWriteBack,
-    requiresApproval: () => false,
+    // Node 6 default: auto-approve so the happy-path tests reach write-back
+    // without an interrupt. Individual tests override the outcome.
+    evaluateGuardrailPolicy: () => decisionFor("autoApprove"),
+    sendApprovalNotification: jest
+      .fn()
+      .mockResolvedValue({ method: "log_only" }),
     applyPartsFulfillment: jest.fn().mockResolvedValue(undefined),
     isCustomerHistoryEligible: isEligible,
     readCustomerContext,
@@ -193,7 +214,7 @@ async function invoke(deps: CaseTriageGraphDeps, workflowId = "wf-graph-1") {
 }
 
 describe("case-triage graph — Node 2 customer history", () => {
-  it("advances readContext -> runTriage -> customerHistory -> gate -> writeBack", async () => {
+  it("advances readContext -> runTriage -> customerHistory -> evaluateGuardrail -> writeBack", async () => {
     const h = buildDeps();
     const result = await invoke(h.deps);
 
@@ -402,7 +423,7 @@ describe("case-triage graph — Node 4 parts & logistics", () => {
   it("4c: does not apply parts fulfillment when the gate is rejected", async () => {
     const applyPartsFulfillment = jest.fn().mockResolvedValue(undefined);
     const h = buildDeps({
-      requiresApproval: () => true,
+      evaluateGuardrailPolicy: () => decisionFor("requireHumanApproval"),
       isPartsLogisticsEligible: jest
         .fn()
         .mockReturnValue({ eligible: true, reason: "enabled" }),
@@ -526,7 +547,10 @@ describe("case-triage graph — Node 5 scheduling", () => {
     const h = buildDeps({
       isSchedulingEligible: jest
         .fn()
-        .mockReturnValue({ eligible: false, reason: "Scheduling disabled by config" }),
+        .mockReturnValue({
+          eligible: false,
+          reason: "Scheduling disabled by config"
+        }),
       planScheduling
     });
 
@@ -535,5 +559,85 @@ describe("case-triage graph — Node 5 scheduling", () => {
     expect(planScheduling).not.toHaveBeenCalled();
     expect(result.scheduling?.eligible).toBe(false);
     expect(result.writeBackApplied).toBe(true);
+  });
+});
+
+describe("case-triage graph — Node 6 compliance & guardrail", () => {
+  it("autoApprove: replaces gate, writes the guardrail channel, no interrupt", async () => {
+    const h = buildDeps(); // default policy = autoApprove
+    const result = (await invoke(h.deps, "wf-guardrail-auto")) as any;
+
+    expect(result.guardrail?.outcome).toBe("autoApprove");
+    expect(result.guardrail?.requiresHumanApproval).toBe(false);
+    expect(result.approvalDecision).toBe("approved");
+    expect(result.writeBackApplied).toBe(true);
+
+    // Node 6 emits at least one progress line tagged with its node id so
+    // the UI stage lights up.
+    const node6Events = h.emitRunning.mock.calls.filter(
+      (call) => call[3] === GUARDRAIL_NODE_ID
+    );
+    expect(node6Events.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("requireHumanApproval: interrupts, then resume approved reaches write-back", async () => {
+    const sendApprovalNotification = jest
+      .fn()
+      .mockResolvedValue({ method: "log_only" });
+    const h = buildDeps({
+      evaluateGuardrailPolicy: () => decisionFor("requireHumanApproval"),
+      sendApprovalNotification
+    });
+    const graph = buildCaseTriageGraph(h.deps);
+    const config = { configurable: { thread_id: "wf-guardrail-approve" } };
+
+    const interrupted = (await graph.invoke(
+      {
+        workflowId: "wf-guardrail-approve",
+        caseId: "500000000000001",
+        principalSubject: "orchestrator",
+        approvalRequired: false,
+        writeBackApplied: false,
+        status: "running"
+      },
+      config
+    )) as any;
+
+    // Node 6 is the only interrupting node; the graph paused here.
+    expect(interrupted.__interrupt__).toBeDefined();
+    expect(interrupted.writeBackApplied).not.toBe(true);
+    expect(h.applyWriteBack).not.toHaveBeenCalled();
+    expect(sendApprovalNotification).toHaveBeenCalledTimes(1);
+
+    const resumed = (await graph.invoke(
+      new Command({ resume: "approved" }),
+      config
+    )) as any;
+    expect(resumed.guardrail?.outcome).toBe("requireHumanApproval");
+    expect(resumed.approvalDecision).toBe("approved");
+    expect(resumed.writeBackApplied).toBe(true);
+  });
+
+  it("escalate: routes to the escalated terminal, no interrupt, no write-back", async () => {
+    const h = buildDeps({
+      evaluateGuardrailPolicy: () => decisionFor("escalate")
+    });
+    const result = (await invoke(h.deps, "wf-guardrail-escalate")) as any;
+
+    expect(result.status).toBe("escalated");
+    expect(result.approvalDecision).toBe("escalated");
+    expect(result.writeBackApplied).not.toBe(true);
+    expect(h.applyWriteBack).not.toHaveBeenCalled();
+  });
+
+  it("reject (policy): routes to rejected without an interrupt", async () => {
+    const h = buildDeps({
+      evaluateGuardrailPolicy: () => decisionFor("reject")
+    });
+    const result = (await invoke(h.deps, "wf-guardrail-reject")) as any;
+
+    expect(result.status).toBe("rejected");
+    expect(result.approvalDecision).toBe("rejected");
+    expect(h.applyWriteBack).not.toHaveBeenCalled();
   });
 });

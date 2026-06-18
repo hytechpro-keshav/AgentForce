@@ -38,9 +38,15 @@ import {
   type CompiledCaseTriageGraph
 } from "./case-triage.graph";
 import {
+  GUARDRAIL_NODE_ID,
   isTerminalLifecycleStatus,
   type NodeLifecycleStatus
 } from "./dto/case-triage-lifecycle";
+import type {
+  GuardrailApprovalInterrupt,
+  GuardrailApprovalRouting,
+  GuardrailDecision
+} from "./dto/guardrail";
 import type {
   CustomerContextChannel,
   CustomerHistoryEligibilityResult,
@@ -57,6 +63,7 @@ import { deriveGuidanceConfidence } from "./knowledge-confidence";
 import { KnowledgeGuidanceExtractor } from "./knowledge-guidance-extractor.service";
 import { PartsLogisticsPlannerService } from "./parts-logistics-planner.service";
 import { SchedulingPlannerService } from "./scheduling-planner.service";
+import { GuardrailPolicyService } from "./guardrail-policy.service";
 import {
   kbDurationHintMinutes,
   regionForShipTo,
@@ -133,14 +140,16 @@ export class CaseTriageOrchestratorService {
     private readonly partsPlanner: PartsLogisticsPlannerService,
     private readonly fulfillmentGateway: SalesforceFulfillmentGateway,
     private readonly schedulingGateway: SalesforceSchedulingGateway,
-    private readonly schedulingPlanner: SchedulingPlannerService
+    private readonly schedulingPlanner: SchedulingPlannerService,
+    private readonly guardrailPolicy: GuardrailPolicyService
   ) {
     this.graph = buildCaseTriageGraph({
       readContext: (caseId) => this.gateway.readCaseContext(caseId),
       runTriage: (input) => this.runTriage(input),
       applyWriteBack: (triage, caseId) => this.applyWriteBack(triage, caseId),
-      requiresApproval: (triage, partsLogistics) =>
-        this.requiresApproval(triage, partsLogistics),
+      evaluateGuardrailPolicy: (state) => this.evaluateGuardrailPolicy(state),
+      sendApprovalNotification: (workflowId, caseId, payload) =>
+        this.sendApprovalNotification(workflowId, caseId, payload),
       applyPartsFulfillment: (workflowId, caseId, partsLogistics) =>
         this.applyPartsFulfillment(workflowId, caseId, partsLogistics),
       isCustomerHistoryEligible: (context, triagePriority) =>
@@ -345,6 +354,7 @@ export class CaseTriageOrchestratorService {
         knowledgeGuidance: result.knowledgeGuidance,
         partsLogistics: result.partsLogistics,
         scheduling: result.scheduling,
+        guardrail: result.guardrail,
         orchestratorVerdict: CaseTriageOrchestratorService.buildVerdict(
           result,
           "waiting_approval"
@@ -353,9 +363,11 @@ export class CaseTriageOrchestratorService {
       await this.store.appendEvent(
         workflowId,
         "waiting_approval",
-        "Awaiting approval — request sent to email / Salesforce.",
+        "Awaiting human approval — guardrail flagged the case for review.",
         undefined,
-        undefined,
+        // Node 6 is the only interrupting node, so tag the pause with the
+        // guardrail node id — that lights up the Node 6 stage in the UI.
+        GUARDRAIL_NODE_ID,
         CaseTriageOrchestratorService.buildWaitingApprovalTrace(result)
       );
       await this.trackOnSalesforce(
@@ -380,6 +392,7 @@ export class CaseTriageOrchestratorService {
         knowledgeGuidance: result.knowledgeGuidance,
         partsLogistics: result.partsLogistics,
         scheduling: result.scheduling,
+        guardrail: result.guardrail,
         approvalRequired: result.approvalRequired,
         approvalDecision: result.approvalDecision,
         orchestratorVerdict: CaseTriageOrchestratorService.buildVerdict(
@@ -390,13 +403,44 @@ export class CaseTriageOrchestratorService {
       await this.store.appendEvent(
         workflowId,
         "rejected",
-        "Triage write-back rejected; Case left unchanged.",
+        "Write-back rejected; Case left unchanged.",
         undefined,
-        undefined,
+        GUARDRAIL_NODE_ID,
         CaseTriageOrchestratorService.buildRejectedTrace(result)
       );
       await this.trackOnSalesforce(result.caseId, workflowId, "rejected");
       this.logTelemetry("rejected", workflowId, result.triage, startedAt);
+      this.logCustomerHistoryTelemetry(workflowId, result.customerContext);
+      return;
+    }
+
+    if (result.status === "escalated") {
+      // Node 6 supervisor path. Terminal like `rejected` (no write-back),
+      // but a distinct lifecycle state so the verdict and UI surface it.
+      await this.store.update(workflowId, {
+        triage: result.triage,
+        customerContext: result.customerContext,
+        knowledgeGuidance: result.knowledgeGuidance,
+        partsLogistics: result.partsLogistics,
+        scheduling: result.scheduling,
+        guardrail: result.guardrail,
+        approvalRequired: result.approvalRequired,
+        approvalDecision: result.approvalDecision,
+        orchestratorVerdict: CaseTriageOrchestratorService.buildVerdict(
+          result,
+          "escalated"
+        )
+      });
+      await this.store.appendEvent(
+        workflowId,
+        "escalated",
+        "Escalated to supervisor — critical guardrail risk.",
+        undefined,
+        GUARDRAIL_NODE_ID,
+        CaseTriageOrchestratorService.buildEscalatedTrace(result)
+      );
+      await this.trackOnSalesforce(result.caseId, workflowId, "escalated");
+      this.logTelemetry("escalated", workflowId, result.triage, startedAt);
       this.logCustomerHistoryTelemetry(workflowId, result.customerContext);
       return;
     }
@@ -407,6 +451,7 @@ export class CaseTriageOrchestratorService {
       knowledgeGuidance: result.knowledgeGuidance,
       partsLogistics: result.partsLogistics,
       scheduling: result.scheduling,
+      guardrail: result.guardrail,
       writeBackApplied: Boolean(result.writeBackApplied),
       approvalRequired: result.approvalRequired,
       approvalDecision: result.approvalDecision,
@@ -525,31 +570,39 @@ export class CaseTriageOrchestratorService {
     });
   }
 
-  private requiresApproval(
-    triage: SanitizedTriageResult,
-    partsLogistics: PartsLogisticsChannel | undefined
-  ): boolean {
-    // Any part plan that flags approval (cross-region transfer, backorder,
-    // high-value, expedite — §7.5) pauses the single v1 gate, even when
-    // triage policy alone would auto-approve.
-    const partsNeedApproval = (partsLogistics?.partPlans ?? []).some(
-      (plan) => plan.requiredApproval
+  /**
+   * Node 6 dep — measures wall-clock around the PURE policy evaluation and
+   * stamps it on the decision. The policy stays deterministic over state;
+   * only the observability `latencyMs` is added at this impure seam (it
+   * never affects the outcome, so resume re-execution remains safe).
+   */
+  private evaluateGuardrailPolicy(
+    state: CaseTriageStateType
+  ): GuardrailDecision {
+    const startedAt = Date.now();
+    const decision = this.guardrailPolicy.evaluate(state);
+    return { ...decision, latencyMs: Date.now() - startedAt };
+  }
+
+  /**
+   * Node 6 dep — approval notification. 6a default is log-only: it records
+   * a safe, non-PII line and returns a `log_only` routing record. Degrade-
+   * safe (never throws into the graph). Email / Salesforce Approval Process
+   * routing arrives in 6b behind the notification feature flags. The
+   * `evaluateGuardrail` node guards this on a prior `sentAt` so a resume
+   * does not re-notify.
+   */
+  private async sendApprovalNotification(
+    workflowId: string,
+    _caseId: string,
+    payload: GuardrailApprovalInterrupt
+  ): Promise<GuardrailApprovalRouting> {
+    this.logger.log(
+      `Guardrail approval required: workflow=${workflowId} ` +
+        `risk=${payload.guardrail.riskScore} (${payload.guardrail.riskLevel}); ` +
+        "awaiting out-of-band approval."
     );
-    if (partsNeedApproval) {
-      return true;
-    }
-    switch (this.config.orchestrator.triageApprovalMode) {
-      case "always":
-        return true;
-      case "high_risk":
-        return (
-          triage.recommendedPriority === "high" ||
-          triage.recommendedPriority === "critical"
-        );
-      case "auto":
-      default:
-        return false;
-    }
+    return { method: "log_only" };
   }
 
   /**
@@ -787,7 +840,8 @@ export class CaseTriageOrchestratorService {
       customerContext: result.customerContext,
       knowledgeGuidance: result.knowledgeGuidance,
       partsLogistics: result.partsLogistics,
-      scheduling: result.scheduling
+      scheduling: result.scheduling,
+      guardrail: result.guardrail
     });
   }
 
@@ -928,6 +982,55 @@ export class CaseTriageOrchestratorService {
               change: "modified",
               before: "waiting_approval",
               after: "rejected"
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  private static buildEscalatedTrace(
+    result: CaseTriageStateType
+  ): OrchestrationExecutionTrace {
+    const guardrail = result.guardrail;
+    return {
+      stepKey: "escalate_to_supervisor",
+      sections: [
+        {
+          key: "inputs",
+          title: "Inputs",
+          data: {
+            recommendedPriority:
+              result.triage?.recommendedPriority ?? "unknown",
+            riskScore: guardrail?.riskScore ?? null,
+            riskLevel: guardrail?.riskLevel ?? null,
+            triggeredRules:
+              guardrail?.policyRulesTriggered.map((rule) => rule.ruleId) ?? []
+          }
+        },
+        {
+          key: "outputs",
+          title: "Outputs",
+          data: {
+            workflowStatus: "escalated",
+            writeBackApplied: false,
+            caseUpdated: false
+          }
+        },
+        {
+          key: "state_changes",
+          title: "State changes",
+          data: [
+            {
+              path: "approvalDecision",
+              change: "added",
+              after: result.approvalDecision ?? "escalated"
+            },
+            {
+              path: "status",
+              change: "modified",
+              before: "running",
+              after: "escalated"
             }
           ]
         }

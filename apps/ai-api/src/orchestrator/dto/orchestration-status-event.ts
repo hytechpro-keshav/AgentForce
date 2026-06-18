@@ -8,6 +8,7 @@ import type { CustomerContextChannel } from "./customer-context";
 import type { KnowledgeGuidanceChannel } from "./knowledge-guidance";
 import type { PartsLogisticsChannel } from "./parts-logistics";
 import type { SchedulingChannel } from "./scheduling";
+import type { GuardrailChannel } from "./guardrail";
 import type { OrchestratorVerdict } from "./orchestrator-verdict";
 
 /**
@@ -134,7 +135,13 @@ export interface CaseTriageWorkflowSnapshot {
    */
   scheduling?: SchedulingChannel;
   /**
-   * Final Verdict — observability-only synthesis after Nodes 1-5.
+   * Node 6 (compliance & guardrail) output. Self-contained and sanitized
+   * so the read-only UI can render the composite policy decision, risk
+   * score, and triggered rule ids. Absent until Node 6 runs.
+   */
+  guardrail?: GuardrailChannel;
+  /**
+   * Final Verdict — observability-only synthesis after Nodes 1-6.
    * Generated for the operator console from the typed channels; never
    * parsed by downstream nodes. Absent until the workflow settles.
    */

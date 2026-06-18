@@ -8,6 +8,8 @@ import type {
   PartsLogisticsChannel
 } from "./dto/parts-logistics";
 import type { SchedulingChannel } from "./dto/scheduling";
+import { guardrailOutcomeLabel } from "./dto/guardrail";
+import type { GuardrailChannel } from "./dto/guardrail";
 
 /**
  * Deterministically synthesizes the Final Verdict from the sanitized
@@ -26,6 +28,7 @@ export function synthesizeOrchestratorVerdict(
 
   const parts = input.partsLogistics;
   const scheduling = input.scheduling;
+  const guardrail = input.guardrail;
 
   const basis: string[] = [];
   if (triage) basis.push("triage");
@@ -33,6 +36,7 @@ export function synthesizeOrchestratorVerdict(
   if (knowledge) basis.push("knowledgeGuidance");
   if (parts) basis.push("partsLogistics");
   if (scheduling) basis.push("scheduling");
+  if (guardrail) basis.push("guardrail");
 
   const priority = triage?.recommendedPriority;
   const risk = pkg?.businessRisk.value;
@@ -47,9 +51,18 @@ export function synthesizeOrchestratorVerdict(
     risk,
     knowledgeAnswered,
     parts,
-    scheduling
+    scheduling,
+    guardrail
   );
-  const summary = buildSummary(input, priority, risk, knowledge, parts, scheduling);
+  const summary = buildSummary(
+    input,
+    priority,
+    risk,
+    knowledge,
+    parts,
+    scheduling,
+    guardrail
+  );
   const recommendedSteps = buildSteps(
     input,
     triage?.suggestedNextStep,
@@ -58,9 +71,16 @@ export function synthesizeOrchestratorVerdict(
     knowledge?.answer?.sources,
     knowledge?.answer?.recommendedActions,
     parts,
-    scheduling
+    scheduling,
+    guardrail
   );
-  const highlights = buildHighlights(input, priority, risk, knowledge);
+  const highlights = buildHighlights(
+    input,
+    priority,
+    risk,
+    knowledge,
+    guardrail
+  );
 
   return {
     headline: clip(headline, 160),
@@ -80,7 +100,8 @@ function buildHeadline(
   risk: string | undefined,
   knowledgeAnswered: boolean,
   parts: PartsLogisticsChannel | undefined,
-  scheduling: SchedulingChannel | undefined
+  scheduling: SchedulingChannel | undefined,
+  guardrail: GuardrailChannel | undefined
 ): string {
   const priorityLabel = priority
     ? `${capitalize(priority)} priority case`
@@ -100,7 +121,32 @@ function buildHeadline(
   if (schedulingClause) {
     clauses.push(schedulingClause);
   }
+  const guardrailClause = buildGuardrailHeadlineClause(guardrail);
+  if (guardrailClause) {
+    clauses.push(guardrailClause);
+  }
   return clauses.join(" · ");
+}
+
+/** Node 6 headline clause — the composite guardrail decision. */
+function buildGuardrailHeadlineClause(
+  guardrail: GuardrailChannel | undefined
+): string | undefined {
+  if (!guardrail || guardrail.eligible === false) {
+    return undefined;
+  }
+  switch (guardrail.outcome) {
+    case "autoApprove":
+      return "auto-approved (low risk)";
+    case "requireHumanApproval":
+      return "approval required";
+    case "reject":
+      return "rejected (guardrail policy)";
+    case "escalate":
+      return "escalated (critical risk)";
+    default:
+      return undefined;
+  }
 }
 
 function buildSchedulingHeadlineClause(
@@ -153,7 +199,8 @@ function buildSummary(
   risk: string | undefined,
   knowledge: OrchestratorVerdictInput["knowledgeGuidance"],
   partsLogistics: PartsLogisticsChannel | undefined,
-  scheduling: SchedulingChannel | undefined
+  scheduling: SchedulingChannel | undefined,
+  guardrail: GuardrailChannel | undefined
 ): string {
   const triageParts: string[] = [];
   if (priority) {
@@ -193,8 +240,37 @@ function buildSummary(
     sentence += ` ${schedulingSentence}`;
   }
 
+  const guardrailSentence = buildGuardrailSummarySentence(guardrail);
+  if (guardrailSentence) {
+    sentence += ` ${guardrailSentence}`;
+  }
+
   sentence += " " + outcomeSentence(input);
   return sentence.trim();
+}
+
+/** Node 6 summary sentence — outcome + risk + the leading approval signals. */
+function buildGuardrailSummarySentence(
+  guardrail: GuardrailChannel | undefined
+): string | undefined {
+  if (!guardrail || guardrail.eligible === false) {
+    return undefined;
+  }
+  const outcomeText: Record<GuardrailChannel["outcome"], string> = {
+    autoApprove: "auto-approved",
+    requireHumanApproval: "requires human approval",
+    reject: "rejected by policy",
+    escalate: "escalated to supervisor"
+  };
+  let sentence = `Guardrail ${outcomeText[guardrail.outcome]} — risk score ${guardrail.riskScore} (${guardrail.riskLevel}).`;
+  if (guardrail.approvalReasons.length > 0) {
+    const reasons = guardrail.approvalReasons
+      .slice(0, 2)
+      .map((reason) => reason.replace(/\.$/, ""))
+      .join("; ");
+    sentence += ` Key signals: ${reasons}.`;
+  }
+  return sentence;
 }
 
 function buildSchedulingSummarySentence(
@@ -295,6 +371,9 @@ function outcomeSentence(input: OrchestratorVerdictInput): string {
   if (input.status === "rejected") {
     return "Write-back was rejected; the Case was left unchanged.";
   }
+  if (input.status === "escalated") {
+    return "Case escalated to a supervisor; no automated write-back was applied.";
+  }
   if (input.status === "done") {
     return input.writeBackApplied
       ? "The recommended priority was written back to the Case."
@@ -311,7 +390,8 @@ function buildSteps(
   sources: { title: string }[] | undefined,
   recommendedActions: { rationale: string }[] | undefined,
   partsLogistics: PartsLogisticsChannel | undefined,
-  scheduling: SchedulingChannel | undefined
+  scheduling: SchedulingChannel | undefined,
+  guardrail: GuardrailChannel | undefined
 ): string[] {
   const coreSteps: string[] = [];
   const genericSteps: string[] = [];
@@ -347,24 +427,50 @@ function buildSteps(
       "Account shows repeat incidents — consider a proactive follow-up."
     );
   }
-  if (input.status === "waiting_approval") {
-    genericSteps.push("Approve or reject the write-back via email / Salesforce.");
+  // Pre-Node-6 fallback: only when no guardrail channel is present does the
+  // generic approval line apply. With Node 6 active, the guardrail step
+  // below is the authoritative approval action.
+  if (input.status === "waiting_approval" && !guardrail) {
+    genericSteps.push(
+      "Approve or reject the write-back via email / Salesforce."
+    );
   } else if (input.status === "done" && input.writeBackApplied) {
     genericSteps.push(
       "Confirm the Case priority reflects the applied write-back."
     );
   }
 
-  const steps = [...coreSteps, ...genericSteps];
+  // Node 6 action goes first — it is the gating decision for the workflow.
+  const guardrailSteps = buildGuardrailSteps(guardrail);
+  const steps = [...guardrailSteps, ...coreSteps, ...genericSteps];
   if (steps.length === 0) {
     steps.push("Review the triage output and proceed per standard handling.");
   }
   return trimStepsToBudget(steps);
 }
 
-function buildPartsSteps(
-  parts: PartsLogisticsChannel | undefined
+/** Node 6 recommended step — the operator action for each outcome. */
+function buildGuardrailSteps(
+  guardrail: GuardrailChannel | undefined
 ): string[] {
+  if (!guardrail || guardrail.eligible === false) {
+    return [];
+  }
+  switch (guardrail.outcome) {
+    case "requireHumanApproval":
+      return ["Approve or reject via the account-manager approval link."];
+    case "autoApprove":
+      return ["Case auto-approved by guardrail — no action required."];
+    case "reject":
+      return ["Case rejected by guardrail policy — no automated action taken."];
+    case "escalate":
+      return ["Escalated to supervisor — manual review required."];
+    default:
+      return [];
+  }
+}
+
+function buildPartsSteps(parts: PartsLogisticsChannel | undefined): string[] {
   if (!parts || parts.eligible === false || parts.degraded) {
     return [];
   }
@@ -393,7 +499,10 @@ function buildPartsSteps(
         ? `Inter-warehouse transfer initiated for ${primary.partNumber} (${primary.sourceWarehouseReference} → ${primary.fulfillmentWarehouseReference}); track to fulfillment WH.`
         : `Initiate inter-warehouse transfer for ${primary.partNumber} from ${primary.sourceWarehouseReference} to ${primary.fulfillmentWarehouseReference}.`
     );
-  } else if (primary.availability === "available" && primary.fulfillmentWarehouseReference) {
+  } else if (
+    primary.availability === "available" &&
+    primary.fulfillmentWarehouseReference
+  ) {
     steps.push(
       `Dispatch ${primary.partNumber} from ${primary.fulfillmentWarehouseReference}.`
     );
@@ -498,9 +607,13 @@ function buildHighlights(
   input: OrchestratorVerdictInput,
   priority: string | undefined,
   risk: string | undefined,
-  knowledge: OrchestratorVerdictInput["knowledgeGuidance"]
+  knowledge: OrchestratorVerdictInput["knowledgeGuidance"],
+  guardrail: GuardrailChannel | undefined
 ): OrchestratorVerdictHighlight[] {
   const highlights: OrchestratorVerdictHighlight[] = [];
+  // Node 6 is the gating decision — surface it first so it survives the
+  // 8-highlight cap (the smoke check reads the "Guardrail outcome" row).
+  buildGuardrailHighlights(guardrail, highlights);
   if (priority) {
     highlights.push({ label: "Priority", value: priority });
   }
@@ -615,11 +728,39 @@ function buildHighlights(
         ? "Awaiting approval"
         : input.status === "rejected"
           ? "Rejected"
-          : input.writeBackApplied
-            ? "Applied"
-            : "Not applied"
+          : input.status === "escalated"
+            ? "Escalated"
+            : input.writeBackApplied
+              ? "Applied"
+              : "Not applied"
   });
   return highlights;
+}
+
+/**
+ * Prepends Node 6 guardrail highlights — the composite outcome, risk
+ * score, risk level, and triggered-rule count. Non-PII rule metadata
+ * only; `riskScore` (a number) is safe.
+ */
+function buildGuardrailHighlights(
+  guardrail: GuardrailChannel | undefined,
+  highlights: OrchestratorVerdictHighlight[]
+): void {
+  if (!guardrail || guardrail.eligible === false) {
+    return;
+  }
+  highlights.push({
+    label: "Guardrail outcome",
+    value: guardrailOutcomeLabel(guardrail.outcome)
+  });
+  highlights.push({ label: "Risk score", value: String(guardrail.riskScore) });
+  highlights.push({ label: "Risk level", value: guardrail.riskLevel });
+  if (guardrail.policyRulesTriggered.length > 0) {
+    highlights.push({
+      label: "Triggered rules",
+      value: String(guardrail.policyRulesTriggered.length)
+    });
+  }
 }
 
 /**
@@ -653,7 +794,10 @@ function buildSchedulingHighlights(
     highlights.push({ label: "Proposed window", value: window.displayWindow });
   }
   if (window?.earliestStartBasis) {
-    highlights.push({ label: "Window basis", value: window.earliestStartBasis });
+    highlights.push({
+      label: "Window basis",
+      value: window.earliestStartBasis
+    });
   }
   if (scheduling.requiredApproval) {
     highlights.push({

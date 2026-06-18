@@ -12,6 +12,7 @@ import { KnowledgeGuidanceExtractor } from "./knowledge-guidance-extractor.servi
 import { KnowledgeQueryBuilder } from "./knowledge-query.builder";
 import { PartsLogisticsPlannerService } from "./parts-logistics-planner.service";
 import { SchedulingPlannerService } from "./scheduling-planner.service";
+import { GuardrailPolicyService } from "./guardrail-policy.service";
 import {
   InMemoryOrchestrationStatusRepository,
   OrchestrationStatusRepository,
@@ -46,6 +47,7 @@ import { OrchestrationStatusStore } from "./orchestration-status.store";
     KnowledgeGuidanceExtractor,
     PartsLogisticsPlannerService,
     SchedulingPlannerService,
+    GuardrailPolicyService,
     PostgresOrchestrationStatusRepository,
     {
       provide: OrchestrationStatusRepository,

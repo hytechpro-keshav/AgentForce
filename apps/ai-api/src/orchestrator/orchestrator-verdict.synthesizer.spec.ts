@@ -3,6 +3,7 @@ import type { CustomerContextChannel } from "./dto/customer-context";
 import type { KnowledgeGuidanceChannel } from "./dto/knowledge-guidance";
 import type { PartsLogisticsChannel } from "./dto/parts-logistics";
 import type { SchedulingChannel } from "./dto/scheduling";
+import type { GuardrailChannel, GuardrailPolicyRule } from "./dto/guardrail";
 import type { SanitizedTriageResult } from "./dto/orchestration-status-event";
 
 const triage: SanitizedTriageResult = {
@@ -216,11 +217,16 @@ describe("synthesizeOrchestratorVerdict", () => {
     ]);
     const labels = verdict.highlights.map((h) => h.label);
     expect(labels).toEqual(
-      expect.arrayContaining(["Priority", "Business risk", "Knowledge", "Write-back"])
+      expect.arrayContaining([
+        "Priority",
+        "Business risk",
+        "Knowledge",
+        "Write-back"
+      ])
     );
-    expect(verdict.highlights.find((h) => h.label === "Write-back")?.value).toBe(
-      "Applied"
-    );
+    expect(
+      verdict.highlights.find((h) => h.label === "Write-back")?.value
+    ).toBe("Applied");
   });
 
   it("reflects the waiting_approval outcome", () => {
@@ -233,9 +239,9 @@ describe("synthesizeOrchestratorVerdict", () => {
     });
     expect(verdict.summary).toContain("awaiting out-of-band approval");
     expect(verdict.recommendedSteps.join(" ")).toContain("Approve or reject");
-    expect(verdict.highlights.find((h) => h.label === "Write-back")?.value).toBe(
-      "Awaiting approval"
-    );
+    expect(
+      verdict.highlights.find((h) => h.label === "Write-back")?.value
+    ).toBe("Awaiting approval");
   });
 
   it("handles a no-source, knowledge-skipped, triage-only case", () => {
@@ -243,7 +249,11 @@ describe("synthesizeOrchestratorVerdict", () => {
       status: "done",
       writeBackApplied: false,
       triage,
-      knowledgeGuidance: { eligible: true, degraded: false, status: "NO_SOURCE" }
+      knowledgeGuidance: {
+        eligible: true,
+        degraded: false,
+        status: "NO_SOURCE"
+      }
     });
     expect(verdict.summary).toContain("No matching knowledge sources");
     expect(verdict.summary).toContain("No write-back was applied");
@@ -300,7 +310,9 @@ describe("synthesizeOrchestratorVerdict", () => {
       knowledgeGuidance: knowledgeAnswered
     });
     const serialized = JSON.stringify(verdict);
-    expect(serialized).not.toContain("Replace the battery if diagnostics fail.");
+    expect(serialized).not.toContain(
+      "Replace the battery if diagnostics fail."
+    );
   });
 
   it("rolls Node 4 partial transfer into headline, summary, steps, and highlights", () => {
@@ -553,7 +565,9 @@ describe("synthesizeOrchestratorVerdict", () => {
     });
     const serialized = JSON.stringify(verdict);
     expect(serialized).not.toMatch(/001[a-zA-Z0-9]{12,18}/);
-    expect(serialized).not.toContain("Display panel replacement; transfer from SJO to AUS.");
+    expect(serialized).not.toContain(
+      "Display panel replacement; transfer from SJO to AUS."
+    );
   });
 
   // Node 5 — scheduling rollup (§10). All four surfaces must reflect the
@@ -733,5 +747,189 @@ describe("synthesizeOrchestratorVerdict", () => {
     const serialized = JSON.stringify(verdict);
     expect(serialized).not.toContain("Techinican");
     expect(serialized).toContain("SR-A1");
+  });
+
+  // Node 6 — guardrail rollup (§9). All four surfaces reflect the
+  // composite policy decision; only rule ids and reason labels surface.
+  function rule(
+    ruleId: string,
+    description: string,
+    over: Partial<GuardrailPolicyRule> = {}
+  ): GuardrailPolicyRule {
+    return {
+      ruleId,
+      channelSource: "partsLogistics",
+      fieldPath: "x",
+      triggered: true,
+      riskPoints: 10,
+      isHardRule: false,
+      description,
+      ...over
+    };
+  }
+
+  function guardrailChannel(
+    over: Partial<GuardrailChannel> = {}
+  ): GuardrailChannel {
+    return {
+      eligible: true,
+      outcome: "requireHumanApproval",
+      riskScore: 70,
+      riskLevel: "high",
+      policyRulesEvaluated: [],
+      policyRulesTriggered: [
+        rule("PARTS_APPROVAL_REQUIRED", "Parts plan requires approval.", {
+          riskPoints: 20
+        }),
+        rule(
+          "SCHEDULING_AFTER_HOURS",
+          "Scheduling proposed an after-hours window.",
+          {
+            channelSource: "scheduling"
+          }
+        )
+      ],
+      channelBasis: ["triage", "partsLogistics", "scheduling"],
+      requiresHumanApproval: true,
+      approvalRequired: true,
+      approvalReasons: [
+        "Parts plan requires approval.",
+        "Scheduling proposed an after-hours window."
+      ],
+      degraded: false,
+      ...over
+    };
+  }
+
+  it("Node 6: requireHumanApproval rolls into all four surfaces", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "waiting_approval",
+      approvalRequired: true,
+      triage,
+      guardrail: guardrailChannel()
+    });
+
+    expect(verdict.headline).toContain("approval required");
+    expect(verdict.summary).toContain("Guardrail requires human approval");
+    expect(verdict.summary).toContain("risk score 70 (high)");
+    expect(verdict.recommendedSteps.join(" ")).toContain(
+      "Approve or reject via the account-manager approval link."
+    );
+    expect(verdict.basis).toContain("guardrail");
+    expect(
+      verdict.highlights.find((h) => h.label === "Guardrail outcome")?.value
+    ).toBe("Approval required");
+    expect(
+      verdict.highlights.find((h) => h.label === "Risk score")?.value
+    ).toBe("70");
+    expect(
+      verdict.highlights.find((h) => h.label === "Risk level")?.value
+    ).toBe("high");
+  });
+
+  it("Node 6: autoApprove surfaces a low-risk, no-action verdict", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "done",
+      writeBackApplied: true,
+      triage,
+      guardrail: guardrailChannel({
+        outcome: "autoApprove",
+        riskScore: 5,
+        riskLevel: "low",
+        requiresHumanApproval: false,
+        approvalRequired: false,
+        approvalReasons: [],
+        autoApproveReason:
+          "Composite risk score 5 (low); no approval flags triggered.",
+        policyRulesTriggered: []
+      })
+    });
+    expect(verdict.headline).toContain("auto-approved (low risk)");
+    expect(verdict.recommendedSteps.join(" ")).toContain(
+      "Case auto-approved by guardrail"
+    );
+    expect(
+      verdict.highlights.find((h) => h.label === "Guardrail outcome")?.value
+    ).toBe("Auto-approved");
+  });
+
+  it("Node 6: reject surfaces the policy rejection", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "rejected",
+      triage,
+      guardrail: guardrailChannel({
+        outcome: "reject",
+        riskScore: 10,
+        riskLevel: "low",
+        requiresHumanApproval: false,
+        approvalRequired: false,
+        approvalReasons: [
+          "Out-of-warranty Case with unavailable parts — outside entitlement."
+        ],
+        policyRulesTriggered: [
+          rule(
+            "ENTITLEMENT_BREACH",
+            "Out-of-warranty Case with unavailable parts — outside entitlement.",
+            { isHardRule: true, riskPoints: 0 }
+          )
+        ]
+      })
+    });
+    expect(verdict.headline).toContain("rejected (guardrail policy)");
+    expect(verdict.recommendedSteps.join(" ")).toContain(
+      "Case rejected by guardrail policy"
+    );
+    expect(
+      verdict.highlights.find((h) => h.label === "Guardrail outcome")?.value
+    ).toBe("Rejected");
+  });
+
+  it("Node 6: escalate surfaces the supervisor path", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "escalated",
+      triage,
+      guardrail: guardrailChannel({
+        outcome: "escalate",
+        riskScore: 100,
+        riskLevel: "critical"
+      })
+    });
+    expect(verdict.headline).toContain("escalated (critical risk)");
+    expect(verdict.summary).toContain("escalated to a supervisor");
+    expect(verdict.recommendedSteps.join(" ")).toContain(
+      "Escalated to supervisor — manual review required."
+    );
+    expect(
+      verdict.highlights.find((h) => h.label === "Guardrail outcome")?.value
+    ).toBe("Escalated");
+    expect(
+      verdict.highlights.find((h) => h.label === "Write-back")?.value
+    ).toBe("Escalated");
+  });
+
+  it("Node 6: a skipped (absent) guardrail channel adds no guardrail surfaces", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "done",
+      writeBackApplied: true,
+      triage
+    });
+    expect(verdict.headline).not.toContain("approval required");
+    expect(verdict.basis).not.toContain("guardrail");
+    expect(
+      verdict.highlights.find((h) => h.label === "Guardrail outcome")
+    ).toBeUndefined();
+  });
+
+  it("Node 6: surfaces only non-PII rule ids and reason labels", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "waiting_approval",
+      approvalRequired: true,
+      triage,
+      guardrail: guardrailChannel()
+    });
+    const serialized = JSON.stringify(verdict);
+    // Rule ids and reason labels are safe; a numeric risk score is safe.
+    expect(serialized).not.toMatch(/001[a-zA-Z0-9]{12,18}/);
+    expect(serialized).toContain("70");
   });
 });

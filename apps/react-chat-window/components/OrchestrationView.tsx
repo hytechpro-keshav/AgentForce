@@ -9,6 +9,8 @@ import {
   Clock,
   Loader2,
   Link2,
+  ShieldAlert,
+  ShieldCheck,
   ShieldQuestion,
   Sparkles,
   XCircle
@@ -20,9 +22,11 @@ import {
   sanitizeSnapshot,
   STATUS_META,
   statusLabel,
+  type OrchestrationApprovalDecision,
   type OrchestrationCustomerContext,
   type OrchestrationEvent,
   type OrchestrationExecutionTrace,
+  type OrchestrationGuardrail,
   type OrchestrationKnowledgeGuidance,
   type OrchestrationNodeId,
   type OrchestrationScheduling,
@@ -40,6 +44,7 @@ const STATUS_ICON: Record<OrchestrationStatus, typeof CircleDot> = {
   waiting_approval: ShieldQuestion,
   done: CheckCircle2,
   rejected: XCircle,
+  escalated: ShieldAlert,
   failed: AlertTriangle
 };
 
@@ -76,6 +81,12 @@ const NODE_META: Record<
     shortLabel: "Scheduling",
     description:
       "Ranks technicians by skill, territory, and availability, and proposes the earliest service window after parts ETA."
+  },
+  guardrail: {
+    label: "Node 6 · Compliance & Guardrail",
+    shortLabel: "Guardrail",
+    description:
+      "Evaluates composite policy across all upstream channels and determines whether to auto-approve, pause for human sign-off, reject, or escalate."
   }
 };
 
@@ -127,6 +138,11 @@ const STAGE_META: Record<
     label: "Rejected",
     tone: STATUS_META.rejected.tone,
     icon: XCircle
+  },
+  escalated: {
+    label: "Escalated",
+    tone: STATUS_META.escalated.tone,
+    icon: ShieldAlert
   },
   failed: {
     label: "Failed",
@@ -236,6 +252,36 @@ function stageStatus(
     return displayEventStatus(snapshot, events.at(-1)!);
   }
 
+  if (node === "guardrail") {
+    if (snapshot.status === "failed" && snapshot.node === node) {
+      return "failed";
+    }
+    // A resolved approval decision wins over the raw outcome. Node 6 sets
+    // the decision itself for the non-interrupt outcomes (auto-approve →
+    // approved, policy reject → rejected, escalate → escalated); the human
+    // resume sets approved/rejected.
+    const decision = snapshot.approvalDecision;
+    if (decision === "approved") return "done";
+    if (decision === "rejected") return "rejected";
+    if (decision === "escalated") return "escalated";
+    const guardrail = snapshot.guardrail;
+    if (guardrail) {
+      switch (guardrail.outcome) {
+        case "autoApprove":
+          return "done";
+        case "reject":
+          return "rejected";
+        case "escalate":
+          return "escalated";
+        case "requireHumanApproval":
+          // Awaiting the out-of-band approver (no decision yet).
+          return "waiting_approval";
+      }
+    }
+    const events = nodeEvents(snapshot, node);
+    return events.length === 0 ? "pending" : "running";
+  }
+
   if (node === "customer_history") {
     if (snapshot.customerContext?.eligible === false) {
       return "skipped";
@@ -288,6 +334,9 @@ function displayEventStatus(
 
 function displayNode(snapshot: OrchestrationSnapshot): OrchestrationNodeId {
   if (snapshot.status === "done") {
+    if (stageStatus(snapshot, "guardrail") !== "pending") {
+      return "guardrail";
+    }
     if (stageStatus(snapshot, "scheduling") !== "pending") {
       return "scheduling";
     }
@@ -329,16 +378,17 @@ function currentStageSummary(snapshot: OrchestrationSnapshot): string {
   return `${nodeMeta(node).shortLabel}: ${displayEvent.safeSummary ?? statusLabel(displayEvent.status)}`;
 }
 
+const STAGE_NODES: OrchestrationNodeId[] = [
+  "triage",
+  "customer_history",
+  "knowledge",
+  "parts_logistics",
+  "scheduling",
+  "guardrail"
+];
+
 function completedStages(snapshot: OrchestrationSnapshot): number {
-  return (
-    [
-      "triage",
-      "customer_history",
-      "knowledge",
-      "parts_logistics",
-      "scheduling"
-    ] as OrchestrationNodeId[]
-  ).filter((node) => {
+  return STAGE_NODES.filter((node) => {
     const status = stageStatus(snapshot, node);
     return status === "done" || status === "skipped";
   }).length;
@@ -476,15 +526,7 @@ function StageRail({ snapshot }: { snapshot: OrchestrationSnapshot }) {
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
-        {(
-          [
-            "triage",
-            "customer_history",
-            "knowledge",
-            "parts_logistics",
-            "scheduling"
-          ] as OrchestrationNodeId[]
-        ).map((node) => {
+        {STAGE_NODES.map((node) => {
           const events = nodeEvents(snapshot, node);
           const status = stageStatus(snapshot, node);
           return (
@@ -1225,6 +1267,141 @@ function SchedulingSummary({
   );
 }
 
+function guardrailBadge(
+  guardrail: OrchestrationGuardrail,
+  approvalDecision?: OrchestrationApprovalDecision
+): { label: string; tone: string } {
+  switch (guardrail.outcome) {
+    case "autoApprove":
+      return { label: "Auto-Approved", tone: "bg-green-100 text-green-700" };
+    case "reject":
+      return { label: "Rejected", tone: "bg-slate-200 text-slate-700" };
+    case "escalate":
+      return { label: "Escalated", tone: "bg-orange-100 text-orange-800" };
+    case "requireHumanApproval":
+      if (approvalDecision === "approved") {
+        return { label: "Approved", tone: "bg-green-100 text-green-700" };
+      }
+      if (approvalDecision === "rejected") {
+        return { label: "Rejected", tone: "bg-slate-200 text-slate-700" };
+      }
+      if (approvalDecision === "escalated") {
+        return { label: "Escalated", tone: "bg-orange-100 text-orange-800" };
+      }
+      return {
+        label: "Waiting for Approval",
+        tone: "bg-amber-100 text-amber-800"
+      };
+  }
+}
+
+function GuardrailSummary({
+  guardrail,
+  approvalDecision
+}: {
+  guardrail?: OrchestrationGuardrail;
+  approvalDecision?: OrchestrationApprovalDecision;
+}) {
+  if (!guardrail) {
+    return null;
+  }
+  const badge = guardrailBadge(guardrail, approvalDecision);
+  const triggered = guardrail.policyRulesTriggered;
+
+  return (
+    <section
+      className="space-y-3 rounded-xl border bg-card p-5 text-card-foreground shadow-sm"
+      data-testid="guardrail-summary"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Node 6 output
+          </p>
+          <h2 className="text-lg font-semibold">Compliance &amp; guardrail</h2>
+        </div>
+        <span
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
+            badge.tone
+          )}
+          data-testid="guardrail-outcome-badge"
+        >
+          {badge.label}
+        </span>
+      </div>
+
+      <dl className="grid gap-3 md:grid-cols-2">
+        <FindingCard
+          label="Risk"
+          value={`${guardrail.riskScore} / ${guardrail.riskLevel.toUpperCase()}`}
+          supporting={
+            guardrail.degraded ? "Evaluated on degraded inputs" : undefined
+          }
+        />
+        <FindingCard
+          label="Triggered rules"
+          value={String(triggered.length)}
+          supporting={
+            guardrail.outcome === "autoApprove"
+              ? guardrail.autoApproveReason
+              : `Channels: ${guardrail.channelBasis.join(", ") || "n/a"}`
+          }
+        />
+      </dl>
+
+      {triggered.length > 0 ? (
+        <div
+          className="rounded-xl border bg-background p-4"
+          data-testid="guardrail-rules"
+        >
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Policy rules triggered
+          </p>
+          <ul className="mt-2 flex flex-wrap gap-2">
+            {triggered.map((rule) => (
+              <li
+                key={rule.ruleId}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+                  rule.isHardRule
+                    ? "bg-rose-100 text-rose-800"
+                    : "bg-muted text-muted-foreground"
+                )}
+                title={rule.description}
+              >
+                {rule.ruleId}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {guardrail.approvalReasons.length > 0 ? (
+        <div
+          className="rounded-xl border bg-background p-4"
+          data-testid="guardrail-approval-reasons"
+        >
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Approval reasons
+          </p>
+          <ul className="mt-2 space-y-1.5 text-sm text-foreground">
+            {guardrail.approvalReasons.map((reason, index) => (
+              <li key={`${index}-${reason.slice(0, 16)}`}>{reason}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      <p className="flex items-center gap-1.5 rounded-md bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+        <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
+        Deterministic policy over typed channel signals only. Approvals happen
+        out of band — this console is read-only.
+      </p>
+    </section>
+  );
+}
+
 function FindingCard({
   label,
   value,
@@ -1633,7 +1810,7 @@ export function OrchestrationPanel({
             <p className="mt-1 text-sm text-muted-foreground">
               Read-only engineering view of Node 1 triage, Node 2 customer
               context, Node 3 knowledge guidance, Node 4 parts &amp; logistics,
-              and Node 5 scheduling.
+              Node 5 scheduling, and Node 6 compliance &amp; guardrail.
             </p>
           </div>
           <StatusBadge status={snapshot.status} />
@@ -1643,7 +1820,7 @@ export function OrchestrationPanel({
           <SummaryCard
             label="Current stage"
             value={currentStageSummary(snapshot)}
-            supporting={`Completed stages: ${completedStages(snapshot)}/5`}
+            supporting={`Completed stages: ${completedStages(snapshot)}/6`}
           />
           <SummaryCard
             label="Workflow id"
@@ -1684,6 +1861,10 @@ export function OrchestrationPanel({
           />
           <PartsLogisticsSummary partsLogistics={snapshot.partsLogistics} />
           <SchedulingSummary scheduling={snapshot.scheduling} />
+          <GuardrailSummary
+            guardrail={snapshot.guardrail}
+            approvalDecision={snapshot.approvalDecision}
+          />
         </div>
       </div>
 

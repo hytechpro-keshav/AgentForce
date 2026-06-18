@@ -2,8 +2,8 @@
 
 > **Document type:** Phase 6 planning — guardrail channel contract, composite policy matrix, gate migration, approval routing, 5c unblock gate, UI, test plan.
 > **Audience:** AI Architects · Salesforce Architects · Platform Engineers · Service Operations.
-> **Status:** **PLANNED** (2026-06-16). Prototype `gate` node ships in its place until this lands. See §0.
-> **Next:** 6a — implement `evaluateGuardrail` node; CLEARS the 5c `ServiceAppointment` write gate.
+> **Status:** **6a SHIPPED** (2026-06-16). `evaluateGuardrail` replaces the prototype `gate`; composite policy + `escalated` terminal + verdict rollup + Node 6 UI card are live. See §0.
+> **Next:** 5c `ServiceAppointment` writes (now UNBLOCKED by 6a); then 6b approval routing (email / SF Approval Process).
 > **Companions:** [`case-triage-orchestrator-flow.md`](./case-triage-orchestrator-flow.md) · [`node-5-scheduling-phase-plan.md`](./node-5-scheduling-phase-plan.md) · [`re-orchestration-backlog.md`](./re-orchestration-backlog.md) · [`new-node-phase-completion-checklist.md`](./new-node-phase-completion-checklist.md) · [`service-workflow-remediation-backlog.md`](./service-workflow-remediation-backlog.md)
 
 **Program invariants (unchanged):**
@@ -18,14 +18,15 @@
 
 ### 0.1 What is shipped vs. what this plan adds
 
-| Layer                                                              | State today (2026-06-16)                                                           | Source of truth                      |
-| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------- | ------------------------------------ |
-| Nodes 1–5 (triage, customer history, knowledge, parts, scheduling) | **Shipped** on Railway (5b, deploy `e5b02949`)                                     | `case-triage.graph.ts`               |
-| **Prototype `gate` node** (triage + parts only)                    | **Shipped** — `requiresApproval(triage, partsLogistics)` → `interrupt()`           | `case-triage.graph.ts` lines 653–673 |
-| Scheduling `requiredApproval` / `approvalReason`                   | **Surfaced** in `scheduling` channel (5a/5b) — NOT yet gated by the prototype gate | `dto/scheduling.ts`                  |
-| **Node 6 `evaluateGuardrail` node**                                | **Planned** — this document                                                        | —                                    |
-| 5c `ServiceAppointment` writes                                     | **BLOCKED** on Node 6 per §3.8 and node-5-scheduling-phase-plan.md §3.6, §13 R5    | —                                    |
-| Approval routing (email / Salesforce)                              | Planned — 6b                                                                       | —                                    |
+| Layer                                                              | State today (2026-06-16)                                                           | Source of truth               |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------- | ----------------------------- |
+| Nodes 1–5 (triage, customer history, knowledge, parts, scheduling) | **Shipped** on Railway (5b, deploy `e5b02949`)                                     | `case-triage.graph.ts`        |
+| ~~Prototype `gate` node~~ (triage + parts only)                    | **Replaced** by `evaluateGuardrail` (6a) — removed from the graph                  | —                             |
+| Scheduling `requiredApproval` / `approvalReason`                   | **Gated** by the Node 6 composite policy (6a) — `SCHEDULING_*` rules               | `dto/scheduling.ts`           |
+| **Node 6 `evaluateGuardrail` node**                                | **Shipped** (6a, 2026-06-16) — composite policy, `escalated` terminal, verdict, UI | `case-triage.graph.ts`        |
+| `GuardrailPolicyService` (3 hard + 18 soft rules)                  | **Shipped** (6a) — pure, deterministic; unit-covered                               | `guardrail-policy.service.ts` |
+| 5c `ServiceAppointment` writes                                     | **UNBLOCKED** (6a shipped) — implement in `writeBack` per §13; not yet wired       | —                             |
+| Approval routing (email / Salesforce)                              | Planned — 6b (`sendApprovalNotification` is log-only in 6a)                        | —                             |
 
 ### 0.2 What the demo proof surfaces (live as of 2026-06-16)
 

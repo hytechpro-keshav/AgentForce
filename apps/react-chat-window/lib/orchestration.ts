@@ -15,6 +15,7 @@ export const ORCHESTRATION_STATUSES = [
   "done",
   "waiting_approval",
   "rejected",
+  "escalated",
   "failed"
 ] as const;
 
@@ -24,9 +25,18 @@ export const ORCHESTRATION_NODE_IDS = [
   "customer_history",
   "knowledge",
   "parts_logistics",
-  "scheduling"
+  "scheduling",
+  "guardrail"
 ] as const;
 export type OrchestrationNodeId = (typeof ORCHESTRATION_NODE_IDS)[number];
+
+export const ORCHESTRATION_APPROVAL_DECISIONS = [
+  "approved",
+  "rejected",
+  "escalated"
+] as const;
+export type OrchestrationApprovalDecision =
+  (typeof ORCHESTRATION_APPROVAL_DECISIONS)[number];
 
 export const TRIAGE_PRIORITIES = ["low", "normal", "high", "critical"] as const;
 export type TriagePriority = (typeof TRIAGE_PRIORITIES)[number];
@@ -268,6 +278,35 @@ export interface OrchestrationScheduling {
   latencyMs?: number;
 }
 
+export type OrchestrationGuardrailOutcome =
+  | "autoApprove"
+  | "requireHumanApproval"
+  | "reject"
+  | "escalate";
+
+export interface OrchestrationGuardrailRule {
+  ruleId: string;
+  channelSource: string;
+  triggered: boolean;
+  riskPoints: number;
+  isHardRule: boolean;
+  description: string;
+}
+
+export interface OrchestrationGuardrail {
+  eligible: boolean;
+  outcome: OrchestrationGuardrailOutcome;
+  riskScore: number;
+  riskLevel: string;
+  policyRulesTriggered: OrchestrationGuardrailRule[];
+  channelBasis: string[];
+  requiresHumanApproval: boolean;
+  approvalRequired: boolean;
+  approvalReasons: string[];
+  autoApproveReason?: string;
+  degraded: boolean;
+}
+
 export interface OrchestrationVerdictHighlight {
   label: string;
   value: string;
@@ -312,6 +351,7 @@ export interface OrchestrationSnapshot {
   caseNumber?: string;
   status: OrchestrationStatus;
   approvalRequired: boolean;
+  approvalDecision?: OrchestrationApprovalDecision;
   writeBackApplied: boolean;
   failureKind?: string;
   triage?: OrchestrationTriage;
@@ -319,6 +359,7 @@ export interface OrchestrationSnapshot {
   knowledgeGuidance?: OrchestrationKnowledgeGuidance;
   partsLogistics?: OrchestrationPartsLogistics;
   scheduling?: OrchestrationScheduling;
+  guardrail?: OrchestrationGuardrail;
   orchestratorVerdict?: OrchestrationVerdict;
   events: OrchestrationEvent[];
   updatedAt?: string;
@@ -337,7 +378,12 @@ export function isValidCaseId(value: string): boolean {
 }
 
 export function isTerminalStatus(status: OrchestrationStatus): boolean {
-  return status === "done" || status === "rejected" || status === "failed";
+  return (
+    status === "done" ||
+    status === "rejected" ||
+    status === "escalated" ||
+    status === "failed"
+  );
 }
 
 interface StatusMeta {
@@ -355,6 +401,7 @@ export const STATUS_META: Record<OrchestrationStatus, StatusMeta> = {
   },
   done: { label: "Done", tone: "bg-green-100 text-green-700" },
   rejected: { label: "Rejected", tone: "bg-red-100 text-red-700" },
+  escalated: { label: "Escalated", tone: "bg-orange-100 text-orange-800" },
   failed: { label: "Failed", tone: "bg-red-100 text-red-700" }
 };
 
@@ -1012,6 +1059,82 @@ function sanitizeScheduling(
   };
 }
 
+function isGuardrailOutcome(
+  value: unknown
+): value is OrchestrationGuardrailOutcome {
+  return (
+    value === "autoApprove" ||
+    value === "requireHumanApproval" ||
+    value === "reject" ||
+    value === "escalate"
+  );
+}
+
+function isApprovalDecision(
+  value: unknown
+): value is OrchestrationApprovalDecision {
+  return (
+    typeof value === "string" &&
+    (ORCHESTRATION_APPROVAL_DECISIONS as readonly string[]).includes(value)
+  );
+}
+
+function sanitizeGuardrailRule(
+  value: unknown
+): OrchestrationGuardrailRule | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  const ruleId = str(record.ruleId, 60);
+  if (!ruleId) return undefined;
+  return {
+    ruleId,
+    channelSource: str(record.channelSource, 40) ?? "",
+    triggered: record.triggered === true,
+    riskPoints:
+      typeof record.riskPoints === "number" ? Math.round(record.riskPoints) : 0,
+    isHardRule: record.isHardRule === true,
+    description: str(record.description, 160) ?? ""
+  };
+}
+
+/**
+ * Defensively coerce the guardrail channel. Everything here is already a
+ * safe label or number (rule ids, reason labels, a risk score) — there is
+ * no free-text to scrub — but unknown fields are dropped as defense in
+ * depth, matching the other channel sanitizers.
+ */
+function sanitizeGuardrail(value: unknown): OrchestrationGuardrail | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  if (!isGuardrailOutcome(record.outcome)) return undefined;
+  const strings = (input: unknown, max: number): string[] =>
+    Array.isArray(input)
+      ? input
+          .map((item) => str(item, max))
+          .filter((item): item is string => Boolean(item))
+          .slice(0, 12)
+      : [];
+  return {
+    eligible: record.eligible === true,
+    outcome: record.outcome,
+    riskScore:
+      typeof record.riskScore === "number" ? Math.round(record.riskScore) : 0,
+    riskLevel: str(record.riskLevel, 16) ?? "low",
+    policyRulesTriggered: Array.isArray(record.policyRulesTriggered)
+      ? record.policyRulesTriggered
+          .map((rule) => sanitizeGuardrailRule(rule))
+          .filter((rule): rule is OrchestrationGuardrailRule => Boolean(rule))
+          .slice(0, 24)
+      : [],
+    channelBasis: strings(record.channelBasis, 40),
+    requiresHumanApproval: record.requiresHumanApproval === true,
+    approvalRequired: record.approvalRequired === true,
+    approvalReasons: strings(record.approvalReasons, 160),
+    autoApproveReason: str(record.autoApproveReason, 160),
+    degraded: record.degraded === true
+  };
+}
+
 function sanitizeVerdictHighlights(
   value: unknown
 ): OrchestrationVerdictHighlight[] {
@@ -1116,6 +1239,9 @@ export function sanitizeSnapshot(value: unknown): OrchestrationSnapshot | null {
     caseNumber: str(record.caseNumber, 32),
     status: record.status,
     approvalRequired: record.approvalRequired === true,
+    approvalDecision: isApprovalDecision(record.approvalDecision)
+      ? record.approvalDecision
+      : undefined,
     writeBackApplied: record.writeBackApplied === true,
     failureKind: str(record.failureKind, 60),
     triage: sanitizeTriage(record.triage),
@@ -1123,6 +1249,7 @@ export function sanitizeSnapshot(value: unknown): OrchestrationSnapshot | null {
     knowledgeGuidance: sanitizeKnowledgeGuidance(record.knowledgeGuidance),
     partsLogistics: sanitizePartsLogistics(record.partsLogistics),
     scheduling: sanitizeScheduling(record.scheduling),
+    guardrail: sanitizeGuardrail(record.guardrail),
     orchestratorVerdict: sanitizeVerdict(record.orchestratorVerdict),
     events: sanitizeEvents(record.events),
     updatedAt: str(record.updatedAt, 40)

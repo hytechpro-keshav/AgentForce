@@ -78,7 +78,9 @@ describe("OrchestrationPanel", () => {
       "priority: critical"
     );
     expect(screen.getByText("Outage affecting service.")).toBeInTheDocument();
-    expect(screen.getByText(/Route to network operations\./)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Route to network operations\./)
+    ).toBeInTheDocument();
     expect(screen.getByText("openai")).toBeInTheDocument();
     expect(screen.getByText("gpt-4o-mini")).toBeInTheDocument();
 
@@ -162,7 +164,9 @@ describe("OrchestrationPanel", () => {
   });
 
   it("never renders approval action controls", () => {
-    render(<OrchestrationPanel snapshot={snapshot({ status: "waiting_approval" })} />);
+    render(
+      <OrchestrationPanel snapshot={snapshot({ status: "waiting_approval" })} />
+    );
     // The UI is read-only observability: zero buttons, zero inputs.
     expect(screen.queryAllByRole("button")).toHaveLength(0);
     expect(screen.queryByRole("textbox")).toBeNull();
@@ -171,11 +175,13 @@ describe("OrchestrationPanel", () => {
   });
 
   it("surfaces the waiting_approval lifecycle state", () => {
-    render(<OrchestrationPanel snapshot={snapshot({ status: "waiting_approval" })} />);
-    const badges = screen.getAllByTestId("status-badge");
-    expect(badges.some((b) => b.getAttribute("data-status") === "waiting_approval")).toBe(
-      true
+    render(
+      <OrchestrationPanel snapshot={snapshot({ status: "waiting_approval" })} />
     );
+    const badges = screen.getAllByTestId("status-badge");
+    expect(
+      badges.some((b) => b.getAttribute("data-status") === "waiting_approval")
+    ).toBe(true);
   });
 
   it("shows a safe failure message without raw detail", () => {
@@ -252,7 +258,11 @@ describe("OrchestrationPanel", () => {
                 evidenceBasis: "Strategic flag: yes"
               },
               installedAssets: {
-                value: { totalAssets: 2, modelCount: 1, primaryModel: "VX-900" },
+                value: {
+                  totalAssets: 2,
+                  modelCount: 1,
+                  primaryModel: "VX-900"
+                },
                 confidence: "high",
                 provenance: "Salesforce Asset",
                 evidenceBasis: "2 assets across 1 models"
@@ -273,7 +283,8 @@ describe("OrchestrationPanel", () => {
                 value: "high",
                 confidence: "high",
                 provenance: "AI synthesis",
-                evidenceBasis: "Risk signals: strategic, repeat-failure, premium"
+                evidenceBasis:
+                  "Risk signals: strategic, repeat-failure, premium"
               }
             }
           },
@@ -380,8 +391,12 @@ describe("OrchestrationPanel", () => {
     expect(
       screen.getAllByText(/Agent Reasoning \/ Execution Trace/).length
     ).toBeGreaterThan(0);
-    expect(screen.getByText(/State before and after each step/)).toBeInTheDocument();
-    expect(screen.getByText(/Knowledge · Writing knowledge findings to state\./)).toBeInTheDocument();
+    expect(
+      screen.getByText(/State before and after each step/)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Knowledge · Writing knowledge findings to state\./)
+    ).toBeInTheDocument();
   });
 
   it("renders Node 3 guidance as scannable label/value rows and always-visible sources", () => {
@@ -416,18 +431,20 @@ describe("OrchestrationPanel", () => {
 
     const detail = screen.getByTestId("knowledge-guidance-detail");
     expect(within(detail).getByText("Product")).toBeInTheDocument();
-    expect(within(detail).getByText("AeroVolt ProBook 15X")).toBeInTheDocument();
+    expect(
+      within(detail).getByText("AeroVolt ProBook 15X")
+    ).toBeInTheDocument();
     expect(within(detail).getByText("Issue")).toBeInTheDocument();
-    expect(within(detail).getByText("Battery not charging")).toBeInTheDocument();
+    expect(
+      within(detail).getByText("Battery not charging")
+    ).toBeInTheDocument();
     expect(within(detail).getByText("Cause")).toBeInTheDocument();
 
     // Sources are visible without expanding a collapsed panel.
     const sources = screen.getByTestId("knowledge-sources");
     expect(sources.tagName).not.toBe("DETAILS");
     expect(
-      within(sources).getByText(
-        "Battery Not Charging on AeroVolt ProBook 15X"
-      )
+      within(sources).getByText("Battery Not Charging on AeroVolt ProBook 15X")
     ).toBeInTheDocument();
     expect(within(sources).getByText(/Score: 81/)).toBeInTheDocument();
   });
@@ -459,10 +476,14 @@ describe("OrchestrationPanel", () => {
     expect(
       within(verdict).getByText(/Critical priority case/)
     ).toBeInTheDocument();
-    expect(within(verdict).getByText(/Route to network operations\./)).toBeInTheDocument();
+    expect(
+      within(verdict).getByText(/Route to network operations\./)
+    ).toBeInTheDocument();
     expect(within(verdict).getByText(/Business risk:/)).toBeInTheDocument();
     expect(
-      within(verdict).getByText(/downstream automation uses the typed channels/i)
+      within(verdict).getByText(
+        /downstream automation uses the typed channels/i
+      )
     ).toBeInTheDocument();
   });
 
@@ -482,7 +503,8 @@ describe("OrchestrationPanel", () => {
             status: "ANSWERED",
             answer: {
               safeSummary: "Product: X, Category: Power",
-              displaySummary: "Run diagnostics, then replace the battery if needed.",
+              displaySummary:
+                "Run diagnostics, then replace the battery if needed.",
               guidanceConfidence: "high",
               recommendedActions: [
                 {
@@ -514,7 +536,9 @@ describe("OrchestrationPanel", () => {
 
     const actions = screen.getByTestId("knowledge-actions");
     expect(within(actions).getByText(/run diagnostic/i)).toBeInTheDocument();
-    expect(within(actions).getByText(/Run BIOS battery diagnostics first\./)).toBeInTheDocument();
+    expect(
+      within(actions).getByText(/Run BIOS battery diagnostics first\./)
+    ).toBeInTheDocument();
     expect(within(actions).getByText("Approval")).toBeInTheDocument();
 
     expect(
@@ -631,7 +655,7 @@ describe("OrchestrationPanel", () => {
       within(summary).getByText(/transfer pending · ProductTransfer/i)
     ).toBeInTheDocument();
     expect(within(summary).getByText(/KB aligned/i)).toBeInTheDocument();
-    expect(screen.getByText(/Completed stages: 2\/5/)).toBeInTheDocument();
+    expect(screen.getByText(/Completed stages: 2\/6/)).toBeInTheDocument();
   });
 
   it("renders the Node 5 scheduling card with a sanitized technician + window", () => {
@@ -645,7 +669,8 @@ describe("OrchestrationPanel", () => {
               status: "running",
               sequence: 1,
               occurredAt: "t1",
-              safeSummary: "Scheduling schedulable: SR-A1 · Tomorrow 13:00–15:00 UTC."
+              safeSummary:
+                "Scheduling schedulable: SR-A1 · Tomorrow 13:00–15:00 UTC."
             }
           ],
           scheduling: {
@@ -666,7 +691,8 @@ describe("OrchestrationPanel", () => {
                 rankScore: 0.7,
                 rank: 1,
                 earliestAvailableAt: "2026-06-16T13:00:00.000Z",
-                rationale: "matches Battery/Power; secondary member of North America."
+                rationale:
+                  "matches Battery/Power; secondary member of North America."
               }
             ],
             proposedWindow: {
@@ -693,20 +719,176 @@ describe("OrchestrationPanel", () => {
     expect(within(summary).getByText("schedulable")).toBeInTheDocument();
     expect(within(summary).getAllByText("SR-A1").length).toBeGreaterThan(0);
     expect(
-      within(summary).getByText(/Tomorrow 13:00–15:00 UTC \(after parts arrive\)/)
+      within(summary).getByText(
+        /Tomorrow 13:00–15:00 UTC \(after parts arrive\)/
+      )
     ).toBeInTheDocument();
-    expect(
-      within(summary).getByText(/gated on parts ETA/)
-    ).toBeInTheDocument();
+    expect(within(summary).getByText(/gated on parts ETA/)).toBeInTheDocument();
     // Stage rail shows Node 5 and the count is out of five stages.
     expect(
       within(screen.getByTestId("stage-scheduling")).getByText(
         /Node 5 · Scheduling/
       )
     ).toBeInTheDocument();
-    // The stage count is now out of five nodes.
-    expect(screen.getByText(/Completed stages: \d\/5/)).toBeInTheDocument();
+    // The stage count is now out of six nodes.
+    expect(screen.getByText(/Completed stages: \d\/6/)).toBeInTheDocument();
     // No full technician name ever reaches the DOM.
     expect(screen.queryByText(/Techinican/)).toBeNull();
+  });
+
+  it("renders the Node 6 guardrail card and the waiting-for-approval state", () => {
+    render(
+      <OrchestrationPanel
+        snapshot={snapshot({
+          node: "guardrail",
+          status: "waiting_approval",
+          approvalRequired: true,
+          writeBackApplied: false,
+          events: [
+            ...snapshot().events,
+            {
+              node: "guardrail",
+              status: "waiting_approval",
+              sequence: 5,
+              occurredAt: "t5",
+              safeSummary:
+                "Awaiting human approval — guardrail flagged the case for review."
+            }
+          ],
+          guardrail: {
+            eligible: true,
+            outcome: "requireHumanApproval",
+            riskScore: 70,
+            riskLevel: "high",
+            policyRulesTriggered: [
+              {
+                ruleId: "PARTS_APPROVAL_REQUIRED",
+                channelSource: "partsLogistics",
+                triggered: true,
+                riskPoints: 20,
+                isHardRule: false,
+                description: "Parts plan requires approval."
+              },
+              {
+                ruleId: "SCHEDULING_AFTER_HOURS",
+                channelSource: "scheduling",
+                triggered: true,
+                riskPoints: 10,
+                isHardRule: false,
+                description: "Scheduling proposed an after-hours window."
+              }
+            ],
+            channelBasis: ["triage", "partsLogistics", "scheduling"],
+            requiresHumanApproval: true,
+            approvalRequired: true,
+            approvalReasons: [
+              "Parts plan requires approval.",
+              "Scheduling proposed an after-hours window."
+            ],
+            degraded: false
+          }
+        })}
+      />
+    );
+
+    const summary = screen.getByTestId("guardrail-summary");
+    expect(
+      within(summary).getByTestId("guardrail-outcome-badge")
+    ).toHaveTextContent("Waiting for Approval");
+    expect(within(summary).getByText("70 / HIGH")).toBeInTheDocument();
+    expect(
+      within(summary).getByText("PARTS_APPROVAL_REQUIRED")
+    ).toBeInTheDocument();
+    expect(
+      within(summary).getByText("SCHEDULING_AFTER_HOURS")
+    ).toBeInTheDocument();
+    // The Node 6 stage shows the waiting state in the rail.
+    expect(
+      within(screen.getByTestId("stage-guardrail")).getByText(
+        /Node 6 · Compliance & Guardrail/
+      )
+    ).toBeInTheDocument();
+    // It remains read-only — no approval controls.
+    expect(screen.queryAllByRole("button")).toHaveLength(0);
+  });
+
+  it("shows the escalated guardrail outcome and lifecycle state", () => {
+    render(
+      <OrchestrationPanel
+        snapshot={snapshot({
+          node: "guardrail",
+          status: "escalated",
+          approvalDecision: "escalated",
+          writeBackApplied: false,
+          guardrail: {
+            eligible: true,
+            outcome: "escalate",
+            riskScore: 100,
+            riskLevel: "critical",
+            policyRulesTriggered: [
+              {
+                ruleId: "SAFETY_CRITICAL_KB",
+                channelSource: "knowledgeGuidance",
+                triggered: true,
+                riskPoints: 0,
+                isHardRule: true,
+                description: "Knowledge base raised a safety-critical flag."
+              }
+            ],
+            channelBasis: ["triage", "knowledgeGuidance"],
+            requiresHumanApproval: false,
+            approvalRequired: false,
+            approvalReasons: ["Knowledge base raised a safety-critical flag."],
+            degraded: false
+          }
+        })}
+      />
+    );
+
+    expect(
+      within(screen.getByTestId("guardrail-summary")).getByTestId(
+        "guardrail-outcome-badge"
+      )
+    ).toHaveTextContent("Escalated");
+    // The overall workflow badge reflects the new terminal lifecycle state.
+    const badges = screen.getAllByTestId("status-badge");
+    expect(
+      badges.some((b) => b.getAttribute("data-status") === "escalated")
+    ).toBe(true);
+  });
+
+  it("shows the auto-approved guardrail outcome with no triggered rules", () => {
+    render(
+      <OrchestrationPanel
+        snapshot={snapshot({
+          node: "guardrail",
+          status: "done",
+          approvalRequired: false,
+          approvalDecision: "approved",
+          writeBackApplied: true,
+          guardrail: {
+            eligible: true,
+            outcome: "autoApprove",
+            riskScore: 5,
+            riskLevel: "low",
+            policyRulesTriggered: [],
+            channelBasis: ["triage", "partsLogistics", "scheduling"],
+            requiresHumanApproval: false,
+            approvalRequired: false,
+            approvalReasons: [],
+            autoApproveReason:
+              "Composite risk score 5 (low); no approval flags triggered.",
+            degraded: false
+          }
+        })}
+      />
+    );
+
+    expect(
+      within(screen.getByTestId("guardrail-summary")).getByTestId(
+        "guardrail-outcome-badge"
+      )
+    ).toHaveTextContent("Auto-Approved");
+    expect(screen.queryByTestId("guardrail-rules")).toBeNull();
   });
 });

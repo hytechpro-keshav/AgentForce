@@ -1,0 +1,1 @@
+../../.github/agents/node6-guardrail-implementer.agent.md

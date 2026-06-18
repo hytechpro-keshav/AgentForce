@@ -10,6 +10,7 @@ import {
 
 import {
   CUSTOMER_HISTORY_NODE_ID,
+  GUARDRAIL_NODE_ID,
   KNOWLEDGE_NODE_ID,
   PARTS_LOGISTICS_NODE_ID,
   SCHEDULING_NODE_ID,
@@ -18,6 +19,13 @@ import {
   type NodeLifecycleStatus,
   type OrchestratorNodeId
 } from "./dto/case-triage-lifecycle";
+import { guardrailOutcomeLabel } from "./dto/guardrail";
+import type {
+  GuardrailApprovalInterrupt,
+  GuardrailApprovalRouting,
+  GuardrailChannel,
+  GuardrailDecision
+} from "./dto/guardrail";
 import type { SalesforceCaseContext } from "./dto/salesforce-case-context";
 import type {
   CustomerContextChannel,
@@ -83,6 +91,8 @@ export const CaseTriageState = Annotation.Root({
   partsLogistics: Annotation<PartsLogisticsChannel | undefined>(),
   /** Node 5's own channel. Node 5 is the only writer. */
   scheduling: Annotation<SchedulingChannel | undefined>(),
+  /** Node 6's own channel (Compliance & Guardrail). Node 6 is the only writer. */
+  guardrail: Annotation<GuardrailChannel | undefined>(),
   approvalRequired: Annotation<boolean>(),
   approvalDecision: Annotation<ApprovalDecision | undefined>(),
   writeBackApplied: Annotation<boolean>(),
@@ -108,15 +118,26 @@ export interface CaseTriageGraphDeps {
   runTriage(input: CaseTriageTriageInput): Promise<SanitizedTriageResult>;
   applyWriteBack(triage: SanitizedTriageResult, caseId: string): Promise<void>;
   /**
-   * Approval gate policy. True when triage policy requires approval OR
-   * any part plan flags `requiredApproval` (cross-region transfer,
-   * backorder, high-value, expedite — §7.5). One gate covers triage +
-   * parts in v1 (interim until Node 6).
+   * Node 6 — composite deterministic policy evaluation over all typed
+   * channels. Pure (no Salesforce access, no LLM, no throws); returns a
+   * GuardrailDecision the `evaluateGuardrail` node uses to set the channel
+   * and decide whether to interrupt. Injected from GuardrailPolicyService.
+   * Because the node re-runs its pre-interrupt code on every resume, this
+   * MUST be deterministic over `state`.
    */
-  requiresApproval(
-    triage: SanitizedTriageResult,
-    partsLogistics: PartsLogisticsChannel | undefined
-  ): boolean;
+  evaluateGuardrailPolicy(state: CaseTriageStateType): GuardrailDecision;
+  /**
+   * Node 6 — optional approval notification (idempotent; 6b+). The
+   * `evaluateGuardrail` node guards on `state.guardrail?.approvalRouting?.sentAt`
+   * before calling this. Degrade-safe, never throws; returns the routing
+   * record stamped on the guardrail channel. 6a default: log only and
+   * return `{ method: 'log_only' }`.
+   */
+  sendApprovalNotification(
+    workflowId: string,
+    caseId: string,
+    payload: GuardrailApprovalInterrupt
+  ): Promise<GuardrailApprovalRouting>;
   /**
    * Node 4 — Phase 4c gated fulfillment writes, applied ONLY in the
    * post-approval write-back. Creates `ProductTransfer` / `ProductRequest`
@@ -221,19 +242,6 @@ export interface CaseTriageGraphDeps {
     trace?: OrchestrationExecutionTrace
   ): void | Promise<void>;
   checkpointer: BaseCheckpointSaver;
-}
-
-/**
- * The safe payload surfaced when the graph pauses for approval. It
- * carries no Case text, prompts, or hidden reasoning — only the
- * identifiers an out-of-band approver needs.
- */
-export interface TriageApprovalInterrupt {
-  action: "approve_triage_write_back";
-  workflowId: string;
-  caseId: string;
-  caseNumber?: string;
-  recommendedPriority: SanitizedTriageResult["recommendedPriority"];
 }
 
 export function buildCaseTriageGraph(deps: CaseTriageGraphDeps) {
@@ -650,26 +658,84 @@ export function buildCaseTriageGraph(deps: CaseTriageGraphDeps) {
 
       return { scheduling };
     })
-    .addNode("gate", (state) => {
-      const triage = state.triage!;
-      if (!deps.requiresApproval(triage, state.partsLogistics)) {
+    .addNode("evaluateGuardrail", async (state) => {
+      // Node 6 — Compliance & Guardrail: the SOLE interrupting node. It
+      // runs the deterministic composite policy over all five upstream
+      // channels and produces one of four outcomes. Only
+      // `requireHumanApproval` calls `interrupt()`.
+
+      // Phase 1 — deterministic policy. Pure and idempotent: this re-runs
+      // on every resume, so it must branch on `state` alone.
+      const decision = deps.evaluateGuardrailPolicy(state);
+      const guardrail = buildGuardrailChannel(decision);
+      const details = buildGuardrailDecisionDetails(guardrail);
+
+      // Phase 2 — deterministic outcomes route WITHOUT interrupt().
+      if (decision.outcome === "autoApprove") {
+        await deps.emitRunning(
+          state.workflowId,
+          "Auto-approved — low composite risk.",
+          details,
+          GUARDRAIL_NODE_ID,
+          buildGuardrailTrace(guardrail, "auto_approved")
+        );
         return {
+          guardrail,
           approvalRequired: false,
           approvalDecision: "approved" as ApprovalDecision
         };
       }
-      // Pauses the graph. On resume the node re-runs from here and
-      // `interrupt` returns the approver's decision. Anything before
-      // this line must stay deterministic because it re-executes.
-      const payload: TriageApprovalInterrupt = {
-        action: "approve_triage_write_back",
-        workflowId: state.workflowId,
-        caseId: state.caseId,
-        caseNumber: state.caseNumber,
-        recommendedPriority: triage.recommendedPriority
+      if (decision.outcome === "reject") {
+        await deps.emitRunning(
+          state.workflowId,
+          "Rejected — policy rule triggered.",
+          details,
+          GUARDRAIL_NODE_ID,
+          buildGuardrailTrace(guardrail, "rejected")
+        );
+        return {
+          guardrail,
+          approvalRequired: false,
+          approvalDecision: "rejected" as ApprovalDecision
+        };
+      }
+      if (decision.outcome === "escalate") {
+        await deps.emitRunning(
+          state.workflowId,
+          "Escalated — critical risk signals.",
+          details,
+          GUARDRAIL_NODE_ID,
+          buildGuardrailTrace(guardrail, "escalated")
+        );
+        return {
+          guardrail,
+          approvalRequired: false,
+          approvalDecision: "escalated" as ApprovalDecision
+        };
+      }
+
+      // Phase 3 — requireHumanApproval: the ONLY interrupt path. Every
+      // line here re-runs on resume, so it stays idempotent: the
+      // notification is guarded on a prior `sentAt`, and the
+      // waiting_approval timeline event is emitted once by the
+      // orchestrator (settleAfterInvoke), not appended here (which would
+      // duplicate on each resume).
+      const payload = buildGuardrailApprovalPayload(state, decision);
+      let routedGuardrail = guardrail;
+      if (!state.guardrail?.approvalRouting?.sentAt) {
+        const routing = await deps.sendApprovalNotification(
+          state.workflowId,
+          state.caseId,
+          payload
+        );
+        routedGuardrail = { ...guardrail, approvalRouting: routing };
+      }
+      const resolved = interrupt(payload) as "approved" | "rejected";
+      return {
+        guardrail: routedGuardrail,
+        approvalRequired: true,
+        approvalDecision: resolved as ApprovalDecision
       };
-      const decision = interrupt(payload) as ApprovalDecision;
-      return { approvalRequired: true, approvalDecision: decision };
     })
     .addNode("writeBack", async (state) => {
       await deps.applyWriteBack(state.triage!, state.caseId);
@@ -690,21 +756,30 @@ export function buildCaseTriageGraph(deps: CaseTriageGraphDeps) {
     .addNode("rejected", () => {
       return { status: "rejected" as NodeLifecycleStatus };
     })
+    .addNode("escalated", () => {
+      // Node 6 supervisor path. Terminal like `rejected` — no write-back —
+      // but distinct so the verdict and UI can surface the escalation.
+      return { status: "escalated" as NodeLifecycleStatus };
+    })
     .addEdge(START, "readContext")
     .addEdge("readContext", "runTriage")
     .addEdge("runTriage", "customerHistory")
     .addEdge("customerHistory", "knowledge")
     .addEdge("knowledge", "parts")
     .addEdge("parts", "schedule")
-    .addEdge("schedule", "gate")
+    .addEdge("schedule", "evaluateGuardrail")
     .addConditionalEdges(
-      "gate",
-      (state) =>
-        state.approvalDecision === "approved" ? "writeBack" : "rejected",
-      { writeBack: "writeBack", rejected: "rejected" }
+      "evaluateGuardrail",
+      (state) => {
+        if (state.approvalDecision === "approved") return "writeBack";
+        if (state.approvalDecision === "escalated") return "escalated";
+        return "rejected";
+      },
+      { writeBack: "writeBack", rejected: "rejected", escalated: "escalated" }
     )
     .addEdge("writeBack", END)
     .addEdge("rejected", END)
+    .addEdge("escalated", END)
     .compile({ checkpointer: deps.checkpointer });
 }
 
@@ -2268,6 +2343,149 @@ function buildSchedulingWriteTrace(
       }
     ]
   };
+}
+
+// Node 6 (Compliance & Guardrail) builders. Every value is a safe,
+// non-PII fact: rule ids, reason labels, a numeric risk score, and the
+// priority/status facts an approver needs — never raw Case text, account
+// ids, customer names, or technician names.
+
+/** Assembles the `guardrail` channel from the pure policy decision. */
+function buildGuardrailChannel(decision: GuardrailDecision): GuardrailChannel {
+  return {
+    eligible: true,
+    outcome: decision.outcome,
+    riskScore: decision.riskScore,
+    riskLevel: decision.riskLevel,
+    policyRulesEvaluated: decision.allRules,
+    policyRulesTriggered: decision.triggeredRules,
+    requiresHumanApproval: decision.outcome === "requireHumanApproval",
+    approvalRequired: decision.outcome === "requireHumanApproval",
+    channelBasis: decision.channelBasis,
+    approvalReasons: decision.approvalReasons,
+    autoApproveReason: decision.autoApproveReason,
+    degraded: false,
+    latencyMs: decision.latencyMs
+  };
+}
+
+/**
+ * Builds the safe interrupt payload for the approver. Reads typed fields
+ * plus the sanitized `displayWindow` string (the one free-text field the
+ * §7 contract explicitly allows in the interrupt context). No PII.
+ */
+function buildGuardrailApprovalPayload(
+  state: CaseTriageStateType,
+  decision: GuardrailDecision
+): GuardrailApprovalInterrupt {
+  const parts = state.partsLogistics;
+  const scheduling = state.scheduling;
+  const partsApprovalReasons = dedupeStrings(
+    (parts?.partPlans ?? [])
+      .filter(
+        (plan) =>
+          plan.requiredApproval &&
+          plan.approvalReason &&
+          plan.approvalReason !== "none"
+      )
+      .map((plan) => plan.approvalReason as string)
+  );
+  const schedulingApprovalReasons =
+    scheduling?.requiredApproval &&
+    scheduling.approvalReason &&
+    scheduling.approvalReason !== "none"
+      ? [scheduling.approvalReason]
+      : undefined;
+  return {
+    action: "approve_case_workflow",
+    workflowId: state.workflowId,
+    caseId: state.caseId,
+    caseNumber: state.caseNumber,
+    guardrail: {
+      riskScore: decision.riskScore,
+      riskLevel: decision.riskLevel,
+      policyRulesTriggered: decision.triggeredRules.map((rule) => rule.ruleId),
+      approvalReasons: decision.approvalReasons
+    },
+    context: {
+      recommendedPriority: state.triage?.recommendedPriority ?? "unknown",
+      partsStatus: parts?.status,
+      partsApprovalReasons:
+        partsApprovalReasons.length > 0 ? partsApprovalReasons : undefined,
+      schedulingStatus: scheduling?.status,
+      schedulingWindow: scheduling?.proposedWindow?.displayWindow,
+      schedulingApprovalReasons
+    }
+  };
+}
+
+function buildGuardrailDecisionDetails(
+  guardrail: GuardrailChannel
+): OrchestrationEventDetail[] {
+  const details: OrchestrationEventDetail[] = [
+    { label: "Outcome", value: guardrailOutcomeLabel(guardrail.outcome) },
+    { label: "Risk score", value: String(guardrail.riskScore) },
+    { label: "Risk level", value: guardrail.riskLevel }
+  ];
+  if (guardrail.policyRulesTriggered.length > 0) {
+    details.push({
+      label: "Triggered rules",
+      value: guardrail.policyRulesTriggered
+        .map((rule) => rule.ruleId)
+        .join(", ")
+    });
+  }
+  return details;
+}
+
+function buildGuardrailTrace(
+  guardrail: GuardrailChannel,
+  stepKind: "auto_approved" | "rejected" | "escalated" | "waiting_approval"
+): OrchestrationExecutionTrace {
+  const summary = {
+    outcome: guardrail.outcome,
+    riskScore: guardrail.riskScore,
+    riskLevel: guardrail.riskLevel
+  };
+  return {
+    stepKey: `guardrail_${stepKind}`,
+    sections: [
+      {
+        key: "decision",
+        title: "Guardrail decision",
+        data: {
+          ...summary,
+          channelBasis: guardrail.channelBasis,
+          requiresHumanApproval: guardrail.requiresHumanApproval
+        }
+      },
+      {
+        key: "rules_triggered",
+        title: "Policy rules triggered",
+        data: guardrail.policyRulesTriggered.map((rule) => ({
+          ruleId: rule.ruleId,
+          channel: rule.channelSource,
+          riskPoints: rule.riskPoints,
+          hardRule: rule.isHardRule,
+          description: rule.description
+        }))
+      },
+      {
+        key: "approval_reasons",
+        title: "Approval reasons",
+        data: guardrail.approvalReasons
+      },
+      {
+        key: "state_changes",
+        title: "State changes",
+        data: [{ path: "guardrail", change: "added", after: summary }]
+      }
+    ]
+  };
+}
+
+function dedupeStrings(values: string[]): string[] {
+  return Array.from(new Set(values));
 }
 
 export { Command };

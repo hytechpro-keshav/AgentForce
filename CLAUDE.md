@@ -52,6 +52,7 @@ Read the relevant `SKILL.md` before doing specialized work in these domains:
 | `langgraph-case-triage-slice`      | Node 1 case triage orchestrator                                                                         |
 | `langgraph-node4-parts-logistics`  | Phase 4a Node 4 Parts & Logistics — see also `docs/orchestrator/new-node-phase-completion-checklist.md` |
 | `langgraph-node5-scheduling`       | Node 5 Scheduling — plan via `/plan-node5-scheduling` before implementation                             |
+| `langgraph-node6-guardrail`        | Node 6 Compliance & Guardrail — composite policy matrix, gate migration, 5c write gate                  |
 | `salesforce-node4-parts-prep`      | Phase 4-Pre Salesforce inventory metadata deploy and validation                                         |
 | `salesforce-node5-scheduling-prep` | Phase 5-Pre Skills, NA territory, laptop WorkTypes, Run As FLS                                          |
 | `langchain-fundamentals`           | LangChain chains, runnables, callbacks                                                                  |
@@ -87,27 +88,29 @@ These subagents run in isolated context with specialized system prompts. Invoke 
 | `node4-parts-logistics-implementer` | Phase 4a Node 4 Parts & Logistics implementation                        |
 | `node5-scheduling-planner`          | Node 5 Scheduling planning before implementation                        |
 | `node5-scheduling-implementer`      | Phase 5a Node 5 Scheduling implementation                               |
+| `node6-guardrail-implementer`       | Phase 6a Node 6 Compliance & Guardrail implementation                   |
 | `new-org-tenant-onboarding`         | New org/tenant onboarding workflow                                      |
 
 ---
 
 ## Custom Slash Commands (`.claude/commands/`)
 
-| Command                                 | Purpose                                                        |
-| --------------------------------------- | -------------------------------------------------------------- |
-| `/review-ai-change`                     | Review an AI-related code change                               |
-| `/create-agentforce-action`             | Scaffold a new Salesforce Agentforce action                    |
-| `/add-llm-provider`                     | Add a new LLM provider to the NestJS AI API                    |
-| `/create-rag-endpoint`                  | Scaffold a new RAG endpoint                                    |
-| `/review-agentforce-metadata`           | Deep review of Agentforce metadata                             |
-| `/implement-case-triage-slice`          | Implement the Node 1 case triage LangGraph slice               |
-| `/implement-node4-parts-logistics`      | Implement Phase 4a Node 4 Parts & Logistics orchestrator slice |
-| `/plan-node5-scheduling`                | Plan Node 5 Scheduling: architecture, SF readiness, phase plan |
-| `/node5-pre-salesforce-prep`            | 5-Pre: Skills, NA territory, laptop WorkTypes, Run As FLS      |
-| `/implement-node5-scheduling`           | Implement Phase 5a Node 5 Scheduling orchestrator slice        |
-| `/onboard-new-org-tenant`               | Run new org/tenant onboarding workflow                         |
-| `/generate-production-runbook`          | Generate a production runbook                                  |
-| `/service-workflow-architecture-review` | Architecture review of service workflows                       |
+| Command                                 | Purpose                                                                     |
+| --------------------------------------- | --------------------------------------------------------------------------- |
+| `/review-ai-change`                     | Review an AI-related code change                                            |
+| `/create-agentforce-action`             | Scaffold a new Salesforce Agentforce action                                 |
+| `/add-llm-provider`                     | Add a new LLM provider to the NestJS AI API                                 |
+| `/create-rag-endpoint`                  | Scaffold a new RAG endpoint                                                 |
+| `/review-agentforce-metadata`           | Deep review of Agentforce metadata                                          |
+| `/implement-case-triage-slice`          | Implement the Node 1 case triage LangGraph slice                            |
+| `/implement-node4-parts-logistics`      | Implement Phase 4a Node 4 Parts & Logistics orchestrator slice              |
+| `/plan-node5-scheduling`                | Plan Node 5 Scheduling: architecture, SF readiness, phase plan              |
+| `/node5-pre-salesforce-prep`            | 5-Pre: Skills, NA territory, laptop WorkTypes, Run As FLS                   |
+| `/implement-node5-scheduling`           | Implement Phase 5a Node 5 Scheduling orchestrator slice                     |
+| `/implement-node6-guardrail`            | Implement Phase 6a Node 6 Compliance & Guardrail (replaces gate, clears 5c) |
+| `/onboard-new-org-tenant`               | Run new org/tenant onboarding workflow                                      |
+| `/generate-production-runbook`          | Generate a production runbook                                               |
+| `/service-workflow-architecture-review` | Architecture review of service workflows                                    |
 
 ---
 
