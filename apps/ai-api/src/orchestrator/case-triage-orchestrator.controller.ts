@@ -3,18 +3,26 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpCode,
   Logger,
   Param,
   Post,
+  Query,
   Req,
-  ServiceUnavailableException
+  ServiceUnavailableException,
+  UseGuards
 } from "@nestjs/common";
 
 import type { AuthenticatedRequest } from "../auth/jwt-auth.guard";
+import { Public } from "../auth/public.decorator";
 import { RequireScopes } from "../auth/require-scopes.decorator";
 import { CaseTriageOrchestratorService } from "./case-triage-orchestrator.service";
+import { GuardrailApprovalTokenService } from "./guardrail-approval-token.service";
+import { OrchestratorApprovalRateLimitGuard } from "./orchestrator-approval-rate-limit.guard";
+import { ApproveCaseTriageDto } from "./dto/approve-case-triage.dto";
 import type { CaseTriageWorkflowSnapshot } from "./dto/orchestration-status-event";
+import type { ApproverResumeDecision } from "./dto/case-triage-lifecycle";
 import { ResumeCaseTriageDto } from "./dto/resume-case-triage.dto";
 import {
   TriggerCaseTriageDto,
@@ -38,7 +46,10 @@ const CASE_ID_PATTERN = /^[a-zA-Z0-9]{15}(?:[a-zA-Z0-9]{3})?$/;
 export class CaseTriageOrchestratorController {
   private readonly logger = new Logger(CaseTriageOrchestratorController.name);
 
-  constructor(private readonly orchestrator: CaseTriageOrchestratorService) {}
+  constructor(
+    private readonly orchestrator: CaseTriageOrchestratorService,
+    private readonly approvalTokens: GuardrailApprovalTokenService
+  ) {}
 
   @RequireScopes("agentforce:orchestrator-triage")
   @Post("triggers")
@@ -86,6 +97,101 @@ export class CaseTriageOrchestratorController {
     return this.orchestrator.resume(this.assertWorkflowId(workflowId), body);
   }
 
+  /**
+   * PUBLIC approve/reject confirmation page (6b). The guardrail approval email
+   * links land here. The page renders ONLY after the scoped token verifies; it
+   * then shows a single Confirm button that POSTs back. The deliberate
+   * two-step (GET shows, POST acts) stops email-scanner / link-prefetch from
+   * auto-approving — a GET never mutates state. Token-gated + rate-limited;
+   * no API scope (it is `@Public()`).
+   */
+  @Public()
+  @UseGuards(OrchestratorApprovalRateLimitGuard)
+  @Header("content-type", "text/html; charset=utf-8")
+  @Get(":workflowId/approve")
+  approvePage(
+    @Param("workflowId") workflowId: string,
+    @Query("token") token: string,
+    @Req() request: { originalUrl?: string; url?: string }
+  ): string {
+    const id = this.assertWorkflowId(workflowId);
+    let decision: ApproverResumeDecision;
+    try {
+      const claims = this.approvalTokens.verify(token ?? "");
+      if (claims.workflowId !== id) {
+        throw new Error("workflow_mismatch");
+      }
+      decision = claims.decision;
+    } catch {
+      return CaseTriageOrchestratorController.htmlPage(
+        "Link unavailable",
+        "<p>This approval link is invalid or has expired. Ask for a fresh notification.</p>"
+      );
+    }
+    const action = (request.originalUrl ?? request.url ?? "").split("?")[0];
+    return CaseTriageOrchestratorController.confirmPage(
+      action,
+      token,
+      decision
+    );
+  }
+
+  /**
+   * PUBLIC approve/reject action (6b). Invoked by the confirmation form. The
+   * decision + workflow come ONLY from the verified token, never the request
+   * body; the token's `jti` is the resume idempotency key, so a re-submit (or
+   * a prefetch + confirm) resolves the workflow exactly once. Token-gated +
+   * rate-limited.
+   */
+  @Public()
+  @UseGuards(OrchestratorApprovalRateLimitGuard)
+  @Header("content-type", "text/html; charset=utf-8")
+  @HttpCode(200)
+  @Post(":workflowId/approve")
+  async approveAction(
+    @Param("workflowId") workflowId: string,
+    @Body() body: ApproveCaseTriageDto
+  ): Promise<string> {
+    const id = this.assertWorkflowId(workflowId);
+    let decision: ApproverResumeDecision;
+    let idempotencyKey: string;
+    try {
+      const claims = this.approvalTokens.verify(body.token);
+      if (claims.workflowId !== id) {
+        throw new Error("workflow_mismatch");
+      }
+      decision = claims.decision;
+      idempotencyKey = claims.jti;
+    } catch {
+      return CaseTriageOrchestratorController.htmlPage(
+        "Link unavailable",
+        "<p>This approval link is invalid or has expired. Ask for a fresh notification.</p>"
+      );
+    }
+    try {
+      const snapshot = await this.orchestrator.resume(id, {
+        decision,
+        idempotencyKey
+      });
+      return CaseTriageOrchestratorController.resultPage(
+        decision,
+        snapshot.status
+      );
+    } catch (err) {
+      // The link is valid but the workflow is no longer resumable (e.g. it
+      // moved out of waiting_approval by another path). Friendly, generic.
+      this.logger.warn(
+        `Approval link resume not applied: workflow=${id} kind=${
+          (err as Error).name ?? "unknown"
+        }`
+      );
+      return CaseTriageOrchestratorController.htmlPage(
+        "Already resolved",
+        "<p>This case is no longer awaiting approval. No action was taken.</p>"
+      );
+    }
+  }
+
   private assertWorkflowId(workflowId: string): string {
     if (!WORKFLOW_ID_PATTERN.test(workflowId)) {
       throw new BadRequestException({ error: "invalid_workflow_id" });
@@ -99,5 +205,59 @@ export class CaseTriageOrchestratorController {
       throw new BadRequestException({ error: "invalid_case_id" });
     }
     return trimmed;
+  }
+
+  /** Minimal, no-index HTML shell. `title`/`body` come from trusted literals. */
+  private static htmlPage(title: string, body: string): string {
+    return (
+      `<!doctype html><html lang="en"><head><meta charset="utf-8"/>` +
+      `<meta name="viewport" content="width=device-width,initial-scale=1"/>` +
+      `<meta name="robots" content="noindex"/><title>${title}</title></head>` +
+      `<body style="font-family:system-ui,-apple-system,sans-serif;max-width:34rem;` +
+      `margin:3rem auto;padding:0 1rem;color:#111;line-height:1.5;">` +
+      `<h1 style="font-size:1.25rem;">${title}</h1>${body}</body></html>`
+    );
+  }
+
+  private static confirmPage(
+    action: string,
+    token: string,
+    decision: ApproverResumeDecision
+  ): string {
+    const verb = decision === "approved" ? "Approve" : "Reject";
+    const color = decision === "approved" ? "#16a34a" : "#6b7280";
+    const safeAction = CaseTriageOrchestratorController.escapeAttr(action);
+    const safeToken = CaseTriageOrchestratorController.escapeAttr(token);
+    return CaseTriageOrchestratorController.htmlPage(
+      `${verb} this service case?`,
+      `<p>Confirm to ${verb.toLowerCase()} the orchestrated write-back for this ` +
+        `case. Nothing changes until you confirm.</p>` +
+        `<form method="post" action="${safeAction}">` +
+        `<input type="hidden" name="token" value="${safeToken}"/>` +
+        `<button type="submit" style="background:${color};color:#fff;border:0;` +
+        `padding:12px 22px;border-radius:6px;font-size:1rem;cursor:pointer;">` +
+        `Confirm ${verb}</button></form>`
+    );
+  }
+
+  private static resultPage(
+    decision: ApproverResumeDecision,
+    status: string
+  ): string {
+    return CaseTriageOrchestratorController.htmlPage(
+      `Case ${decision}`,
+      `<p>Thank you — the case was <strong>${decision}</strong>.</p>` +
+        `<p style="color:#6b7280;">Workflow status: ` +
+        `${CaseTriageOrchestratorController.escapeAttr(status)}.</p>`
+    );
+  }
+
+  private static escapeAttr(value: string): string {
+    return value
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   }
 }

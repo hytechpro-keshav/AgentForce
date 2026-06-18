@@ -139,6 +139,16 @@ export interface CaseTriageGraphDeps {
     payload: GuardrailApprovalInterrupt
   ): Promise<GuardrailApprovalRouting>;
   /**
+   * Node 6 — optional supervisor escalation notice for the terminal
+   * `escalate` outcome (no interrupt). Degrade-safe and never throws; a no-op
+   * unless escalation email is enabled. Phase 6b.
+   */
+  sendEscalationNotification(
+    workflowId: string,
+    caseId: string,
+    payload: GuardrailApprovalInterrupt
+  ): Promise<void>;
+  /**
    * Node 4 — Phase 4c gated fulfillment writes, applied ONLY in the
    * post-approval write-back. Creates `ProductTransfer` / `ProductRequest`
    * for approved transfer/backorder plans (config-gated, idempotent).
@@ -725,6 +735,13 @@ export function buildCaseTriageGraph(deps: CaseTriageGraphDeps) {
           details,
           GUARDRAIL_NODE_ID,
           buildGuardrailTrace(guardrail, "escalated")
+        );
+        // 6b — supervisor escalation notice (terminal path, no interrupt).
+        // Degrade-safe; the dep swallows its own failures and never throws.
+        await deps.sendEscalationNotification(
+          state.workflowId,
+          state.caseId,
+          buildGuardrailApprovalPayload(state, decision)
         );
         return {
           guardrail,

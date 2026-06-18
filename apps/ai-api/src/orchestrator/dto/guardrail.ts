@@ -59,6 +59,12 @@ export interface GuardrailApprovalRouting {
   sentAt?: string; // ISO timestamp — used as idempotency guard on node re-run
   recipientRole?: string; // role label, never a full name/email
   externalRef?: string; // SF Approval Process record id
+  /**
+   * 6b: true when the routing was attempted but delivery failed (e.g. the
+   * email provider errored). The graph still reaches `interrupt()` — routing
+   * is degrade-safe — but the operator can see the notification did not land.
+   */
+  degraded?: boolean;
 }
 
 /** Node 6 output channel — sole writer: Node 6. */

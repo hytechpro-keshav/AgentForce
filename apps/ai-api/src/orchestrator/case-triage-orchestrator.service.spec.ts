@@ -13,6 +13,7 @@ import { CaseTriageOrchestratorService } from "./case-triage-orchestrator.servic
 import { PartsLogisticsPlannerService } from "./parts-logistics-planner.service";
 import { SchedulingPlannerService } from "./scheduling-planner.service";
 import { GuardrailPolicyService } from "./guardrail-policy.service";
+import type { GuardrailApprovalNotificationService } from "./guardrail-approval-notification.service";
 import type { CaseTriageStateType } from "./case-triage.graph";
 import type { GuardrailDecision } from "./dto/guardrail";
 
@@ -288,6 +289,13 @@ function buildHarness(
       guardrailDecisionForMode(approvalMode, state)
     )
   } as unknown as GuardrailPolicyService;
+  // Log-only notification fake — keeps the trigger/resume/persistence tests
+  // unchanged. The real email routing + idempotency live in
+  // guardrail-approval-notification.service.spec.ts.
+  const approvalNotifications = {
+    notifyApprovalRequired: jest.fn().mockResolvedValue({ method: "log_only" }),
+    notifyEscalation: jest.fn().mockResolvedValue(undefined)
+  } as unknown as GuardrailApprovalNotificationService;
 
   const service = new CaseTriageOrchestratorService(
     gateway,
@@ -308,7 +316,8 @@ function buildHarness(
     schedulingGateway,
     schedulingWriteGateway,
     schedulingPlanner,
-    guardrailPolicy
+    guardrailPolicy,
+    approvalNotifications
   );
 
   return {
@@ -679,7 +688,13 @@ describe("CaseTriageOrchestratorService", () => {
         })
       } as unknown as SalesforceSchedulingWriteGateway,
       new SchedulingPlannerService(),
-      new GuardrailPolicyService()
+      new GuardrailPolicyService(),
+      {
+        notifyApprovalRequired: jest
+          .fn()
+          .mockResolvedValue({ method: "log_only" }),
+        notifyEscalation: jest.fn().mockResolvedValue(undefined)
+      } as unknown as GuardrailApprovalNotificationService
     );
 
     const resolved =

@@ -13,6 +13,15 @@ import { KnowledgeQueryBuilder } from "./knowledge-query.builder";
 import { PartsLogisticsPlannerService } from "./parts-logistics-planner.service";
 import { SchedulingPlannerService } from "./scheduling-planner.service";
 import { GuardrailPolicyService } from "./guardrail-policy.service";
+import { GuardrailApprovalTokenService } from "./guardrail-approval-token.service";
+import { GuardrailApprovalNotificationService } from "./guardrail-approval-notification.service";
+import { OrchestratorApprovalRateLimitGuard } from "./orchestrator-approval-rate-limit.guard";
+import {
+  APPROVAL_EMAIL_SENDER,
+  LoggingApprovalEmailSender,
+  ResendApprovalEmailSender,
+  type ApprovalEmailSender
+} from "./approval-email-sender";
 import {
   InMemoryOrchestrationStatusRepository,
   OrchestrationStatusRepository,
@@ -48,6 +57,30 @@ import { OrchestrationStatusStore } from "./orchestration-status.store";
     PartsLogisticsPlannerService,
     SchedulingPlannerService,
     GuardrailPolicyService,
+    // Phase 6b — guardrail approval routing (email links + scoped tokens).
+    GuardrailApprovalTokenService,
+    GuardrailApprovalNotificationService,
+    OrchestratorApprovalRateLimitGuard,
+    LoggingApprovalEmailSender,
+    ResendApprovalEmailSender,
+    {
+      // Provider switching stays in configuration (AGENTS.md): the notification
+      // service binds to whichever transport `emailProvider` selects.
+      provide: APPROVAL_EMAIL_SENDER,
+      useFactory: (
+        config: AppConfigService,
+        logging: LoggingApprovalEmailSender,
+        resend: ResendApprovalEmailSender
+      ): ApprovalEmailSender =>
+        config.orchestrator.guardrailApproval.emailProvider === "resend"
+          ? resend
+          : logging,
+      inject: [
+        AppConfigService,
+        LoggingApprovalEmailSender,
+        ResendApprovalEmailSender
+      ]
+    },
     PostgresOrchestrationStatusRepository,
     {
       provide: OrchestrationStatusRepository,

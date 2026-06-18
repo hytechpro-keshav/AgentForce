@@ -152,11 +152,42 @@ Resume only accepts `'approved' | 'rejected'` — `'escalated'` is a policy outc
 - `applySchedulingWrite` seam is wired in `writeBack` post-6a
 - 5c must do a fresh parts re-read at write time (RC-5)
 
+## Phase 6b — approval routing (email links + idempotent notification)
+
+6b replaces the log-only `sendApprovalNotification` with real email delivery and
+a public approve/reject link flow. See `docs/context/node6-6b-approval-routing-lessons.md`.
+
+- **R2 idempotency (critical):** `interrupt()` suspends BEFORE the node returns,
+  so `guardrail.approvalRouting.sentAt` is NOT committed on the first run. On
+  resume the node re-runs with `state.guardrail === undefined`, so the graph
+  guard alone would re-send. `sendApprovalNotification` is internally idempotent
+  (`GuardrailApprovalNotificationService` keeps a `Map<workflowId, routing>`).
+  Lifetime matches `MemorySaver`, so the map is the complete fix; the graph guard
+  covers later resumes. Both layers together = one email.
+- **Degrade-safe:** email failure → `{ method: "email", sentAt, degraded: true }`,
+  never throws into the graph.
+- **Public approve/reject links** (`@Public()` + `OrchestratorApprovalRateLimitGuard`):
+  `GET …/approve?token=` renders a confirmation page (prefetch-safe — a GET never
+  mutates); `POST …/approve` verifies and resumes with `idempotencyKey = token jti`.
+- **Token** (`GuardrailApprovalTokenService`): HS256 JWT signed with
+  `ORCHESTRATOR_APPROVAL_TOKEN_SECRET` (separate from `AI_API_JWT_SECRET`); binds
+  `workflowId` + `decision` + `jti`; PII-free; `escalated` never mintable (R6).
+- **Transport seam:** `ApprovalEmailSender` (logging default + Resend via `fetch`,
+  no SDK); provider chosen by `ORCHESTRATOR_APPROVAL_EMAIL_PROVIDER`.
+- **Config fails closed** when email is enabled without secret/link-base/from/to.
+  Flag OFF → 6a `log_only` parity.
+- **No PII** in email body — risk score/level, reason labels, rule ids, and a
+  case **suffix** only.
+- Smoke: `ASSERT_GUARDRAIL_EMAIL=1` needs a Case that lands `requireHumanApproval`
+  (NOT 00001050 escalate / 00001054 autoApprove).
+- Out of scope: Salesforce Approval Process (`..._SF_APPROVAL_ENABLED` stays
+  false) and N6-R2 Stop-AI guard (6c).
+
 ## Implementation harness
 
-- Prompt: `.github/prompts/implement-node6-guardrail.prompt.md`
+- Prompt: `.github/prompts/implement-node6-guardrail.prompt.md` · 6b: `.github/prompts/implement-node6-guardrail-6b.prompt.md`
 - Agent: `.github/agents/node6-guardrail-implementer.agent.md`
-- Claude command: `.claude/commands/implement-node6-guardrail.md`
+- Claude command: `.claude/commands/implement-node6-guardrail.md` · 6b: `.claude/commands/implement-node6-guardrail-6b.md`
 
 ## Related skills
 

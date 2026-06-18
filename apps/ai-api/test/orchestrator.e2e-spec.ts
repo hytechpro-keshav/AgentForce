@@ -99,26 +99,45 @@ describe("CaseTriageOrchestrator (e2e)", () => {
     });
   });
 
-  async function pollUntilTerminal(
+  async function pollUntilStatus(
     workflowId: string,
-    auth: string
+    auth: string,
+    accepted: string[]
   ): Promise<request.Response> {
-    for (let i = 0; i < 40; i += 1) {
+    for (let i = 0; i < 60; i += 1) {
       const response = await request(app.getHttpServer())
         .get(`/orchestrator/case-triage/${workflowId}`)
         .set("Authorization", auth);
-      if (
-        response.status === 200 &&
-        ["done", "rejected", "failed"].includes(response.body.status)
-      ) {
+      if (response.status === 200 && accepted.includes(response.body.status)) {
         return response;
       }
       await new Promise((resolve) => setTimeout(resolve, 15));
     }
-    throw new Error("Workflow did not reach a terminal state.");
+    throw new Error(`Workflow did not reach any of [${accepted.join(", ")}].`);
   }
 
-  it("accepts a trigger and drives Node 1 to done with a real write-back", async () => {
+  it("drives Node 1→6 to an auto-approved done with a real write-back", async () => {
+    // A low-risk, account-linked case clears the Node 6 composite policy to
+    // autoApprove (no NO_ACCOUNT_LINKED hard rule; no TRIAGE_* lift), so the
+    // graph proceeds straight to the gated write-back without an interrupt.
+    fakeGateway.readCaseContext.mockResolvedValue({
+      caseId: "500000000000001",
+      caseNumber: "00004242",
+      subject: "Outage",
+      description: "No service since 9am",
+      reportedPriority: "normal",
+      accountId: "001000000000001"
+    });
+    fakeTriage.triage.mockResolvedValue({
+      recommendedPriority: "normal",
+      summary: "Service degraded.",
+      suggestedNextStep: "Route to support queue.",
+      provider: "openai",
+      model: "gpt-4o-mini",
+      fallbackUsed: false,
+      latencyMs: 40
+    });
+
     const accepted = await request(app.getHttpServer())
       .post("/orchestrator/case-triage/triggers")
       .set("Authorization", bearer("agentforce:orchestrator-triage"))
@@ -129,13 +148,15 @@ describe("CaseTriageOrchestrator (e2e)", () => {
     const workflowId = accepted.body.workflowId as string;
     expect(workflowId).toMatch(/^wf-/);
 
-    const final = await pollUntilTerminal(
+    const final = await pollUntilStatus(
       workflowId,
-      bearer("agentforce:orchestrator-read")
+      bearer("agentforce:orchestrator-read"),
+      ["done", "rejected", "failed"]
     );
     expect(final.body.status).toBe("done");
     expect(final.body.writeBackApplied).toBe(true);
-    expect(final.body.triage.recommendedPriority).toBe("critical");
+    expect(final.body.triage.recommendedPriority).toBe("normal");
+    expect(final.body.guardrail.outcome).toBe("autoApprove");
     expect(fakeGateway.readCaseContext).toHaveBeenCalledWith("500000000000001");
     expect(fakeGateway.applyWriteBack).toHaveBeenCalledTimes(1);
 

@@ -45,6 +45,14 @@
 #   ASSERT_GUARDRAIL      — set to 1 to assert the demo Case trips Node 6 to
 #                           requireHumanApproval (default: 0; needs the parts +
 #                           scheduling flags on so the composite risk clears the band)
+#   ASSERT_GUARDRAIL_EMAIL — set to 1 to assert Phase 6b approval EMAIL routing:
+#                           guardrail.approvalRouting.method=email + sentAt set.
+#                           Requires ORCHESTRATOR_GUARDRAIL_EMAIL_NOTIFICATION_ENABLED=true
+#                           (+ ORCHESTRATOR_APPROVAL_TOKEN_SECRET, _LINK_BASE_URL,
+#                           _EMAIL_FROM, _EMAIL_TO) on Railway AND an SF_CASE_ID that
+#                           lands requireHumanApproval — NOT 00001050 (escalates),
+#                           NOT 00001054 (autoApprove). The approve-link click is
+#                           manual proof; this only asserts the email was routed.
 # ==============================================================================
 set -euo pipefail
 
@@ -81,6 +89,11 @@ ASSERT_SCHEDULING_WRITES="${ASSERT_SCHEDULING_WRITES:-0}"
 # The always-on invariant below proves evaluateGuardrail replaced the gate on
 # every run regardless of this flag.
 ASSERT_GUARDRAIL="${ASSERT_GUARDRAIL:-0}"
+# Node 6 Phase 6b — approval email routing assertion. Off by default. Asserts
+# the approver notification was routed by email (method=email + sentAt). Needs
+# the email flags on Railway and an SF_CASE_ID that lands requireHumanApproval
+# (escalate has no interrupt/routing; autoApprove never pauses). See the header.
+ASSERT_GUARDRAIL_EMAIL="${ASSERT_GUARDRAIL_EMAIL:-0}"
 
 : "${SF_CASE_ID:?Set SF_CASE_ID to a Salesforce Case record ID for the triage test.}"
 
@@ -273,6 +286,8 @@ scheduling_appt_ref=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field sche
 guardrail_outcome=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field guardrail.outcome)
 guardrail_risk_score=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field guardrail.riskScore)
 guardrail_risk_level=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field guardrail.riskLevel)
+guardrail_routing_method=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field guardrail.approvalRouting.method)
+guardrail_routing_sent_at=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field guardrail.approvalRouting.sentAt)
 
 errors=0
 
@@ -492,6 +507,32 @@ console.log((s.guardrail?.policyRulesTriggered ?? []).map((r) => r.ruleId).join(
   fi
 fi
 
+# Phase 6b — Node 6 approval EMAIL routing (only when explicitly asserted).
+# The auto-resume above (step 5) drives the workflow to done via the Bearer
+# resume endpoint; the email is sent BEFORE that pause, so the final snapshot
+# carries the routing the approver email used. The approve-link click itself is
+# manual proof (see header). Use a Case that lands requireHumanApproval.
+if [[ "${ASSERT_GUARDRAIL_EMAIL}" == "1" ]]; then
+  echo "  Guardrail routing method:  ${guardrail_routing_method}"
+  echo "  Guardrail routing sentAt:  ${guardrail_routing_sent_at}"
+  [[ "${guardrail_outcome}" == "requireHumanApproval" ]] || {
+    echo "  FAIL: Email routing only applies to requireHumanApproval (got ${guardrail_outcome}); pick an approvable Case (not 00001050 escalate / 00001054 autoApprove)" >&2
+    (( errors++ ))
+  }
+  [[ "${resume_attempted}" == "1" ]] || {
+    echo "  FAIL: Expected the workflow to pause at waiting_approval (so the email was routed) before resume" >&2
+    (( errors++ ))
+  }
+  [[ "${guardrail_routing_method}" == "email" ]] || {
+    echo "  FAIL: Expected guardrail.approvalRouting.method=email (check ORCHESTRATOR_GUARDRAIL_EMAIL_NOTIFICATION_ENABLED + token secret + link base + from/to), got ${guardrail_routing_method}" >&2
+    (( errors++ ))
+  }
+  [[ "${guardrail_routing_sent_at}" != "absent" && "${guardrail_routing_sent_at}" != "null" && -n "${guardrail_routing_sent_at}" ]] || {
+    echo "  FAIL: Expected guardrail.approvalRouting.sentAt to be set when email routing is on" >&2
+    (( errors++ ))
+  }
+fi
+
 if (( errors > 0 )); then
   echo ""
   echo "All-nodes test FAILED with ${errors} error(s)." >&2
@@ -511,3 +552,6 @@ if [[ "${ASSERT_SCHEDULING_WRITES}" == "1" ]]; then
   echo "  Node 5 (5c write):          appointmentStatus=${scheduling_appt_status}, reference=${scheduling_appt_ref}"
 fi
 echo "  Node 6 (Guardrail):         outcome=${guardrail_outcome}, risk=${guardrail_risk_score} (${guardrail_risk_level})"
+if [[ "${ASSERT_GUARDRAIL_EMAIL}" == "1" ]]; then
+  echo "  Node 6 (6b approval email): method=${guardrail_routing_method}, sentAt=${guardrail_routing_sent_at}"
+fi

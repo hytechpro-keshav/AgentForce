@@ -153,6 +153,7 @@ function buildDeps(overrides: Partial<CaseTriageGraphDeps> = {}): DepsHarness {
     sendApprovalNotification: jest
       .fn()
       .mockResolvedValue({ method: "log_only" }),
+    sendEscalationNotification: jest.fn().mockResolvedValue(undefined),
     applyPartsFulfillment: jest.fn().mockResolvedValue(undefined),
     applySchedulingWrite: jest.fn().mockResolvedValue(undefined),
     isCustomerHistoryEligible: isEligible,
@@ -676,9 +677,11 @@ describe("case-triage graph — Node 6 compliance & guardrail", () => {
     expect(resumed.writeBackApplied).toBe(true);
   });
 
-  it("escalate: routes to the escalated terminal, no interrupt, no write-back", async () => {
+  it("escalate: routes to the escalated terminal, notifies, no interrupt, no write-back", async () => {
+    const sendEscalationNotification = jest.fn().mockResolvedValue(undefined);
     const h = buildDeps({
-      evaluateGuardrailPolicy: () => decisionFor("escalate")
+      evaluateGuardrailPolicy: () => decisionFor("escalate"),
+      sendEscalationNotification
     });
     const result = (await invoke(h.deps, "wf-guardrail-escalate")) as any;
 
@@ -686,6 +689,55 @@ describe("case-triage graph — Node 6 compliance & guardrail", () => {
     expect(result.approvalDecision).toBe("escalated");
     expect(result.writeBackApplied).not.toBe(true);
     expect(h.applyWriteBack).not.toHaveBeenCalled();
+    // 6b — the terminal escalate path fires the supervisor notice exactly once.
+    expect(sendEscalationNotification).toHaveBeenCalledTimes(1);
+  });
+
+  it("requireHumanApproval: graph guard skips re-notifying when routing already has sentAt", async () => {
+    // Simulate the resume re-run AFTER the channel committed: state already
+    // carries approvalRouting.sentAt, so the node must NOT call the dep again.
+    // (The first-resume case, where the channel is NOT yet committed, is
+    // covered by the notification service's own idempotency map.)
+    const sendApprovalNotification = jest
+      .fn()
+      .mockResolvedValue({ method: "log_only" });
+    const h = buildDeps({
+      evaluateGuardrailPolicy: () => decisionFor("requireHumanApproval"),
+      sendApprovalNotification
+    });
+    const graph = buildCaseTriageGraph(h.deps);
+    const config = { configurable: { thread_id: "wf-guardrail-guard" } };
+    const interrupted = (await graph.invoke(
+      {
+        workflowId: "wf-guardrail-guard",
+        caseId: "500000000000001",
+        principalSubject: "orchestrator",
+        approvalRequired: false,
+        writeBackApplied: false,
+        status: "running",
+        guardrail: {
+          eligible: true,
+          outcome: "requireHumanApproval",
+          riskScore: 50,
+          riskLevel: "medium",
+          policyRulesEvaluated: [],
+          policyRulesTriggered: [],
+          channelBasis: [],
+          requiresHumanApproval: true,
+          approvalRequired: true,
+          approvalReasons: [],
+          degraded: false,
+          approvalRouting: {
+            method: "email",
+            sentAt: "2026-06-18T00:00:00.000Z"
+          }
+        }
+      } as any,
+      config
+    )) as any;
+
+    expect(interrupted.__interrupt__).toBeDefined();
+    expect(sendApprovalNotification).not.toHaveBeenCalled();
   });
 
   it("reject (policy): routes to rejected without an interrupt", async () => {

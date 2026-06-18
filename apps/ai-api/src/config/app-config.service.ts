@@ -342,6 +342,35 @@ export interface OrchestratorSchedulingConfig {
   writesEnabled: boolean;
 }
 
+export type OrchestratorApprovalEmailProvider = "log" | "resend";
+
+/**
+ * Phase 6b — guardrail approval routing. Every flag defaults OFF so the
+ * 6a log-only behavior stays the safe default. Turning email on REQUIRES a
+ * signing secret + public link base + from/to (and a Resend key when the
+ * provider is `resend`) so approve/reject links can be minted and
+ * delivered — config fails closed rather than minting unsigned or
+ * undeliverable links. `tokenSecret` MUST be distinct from
+ * `AI_API_JWT_SECRET`: these links are public, single-purpose, and never
+ * carry an API scope (Node 6 phase plan §3.7, §10).
+ */
+export interface OrchestratorGuardrailApprovalConfig {
+  emailEnabled: boolean;
+  escalationEmailEnabled: boolean;
+  /** Reserved for 6b+ Salesforce Approval Process; stays false in 6b v1. */
+  salesforceApprovalEnabled: boolean;
+  tokenSecret?: string;
+  tokenTtlSeconds: number;
+  emailProvider: OrchestratorApprovalEmailProvider;
+  resendApiKey?: string;
+  emailFrom?: string;
+  emailTo?: string;
+  recipientRole: string;
+  linkBaseUrl?: string;
+  rateLimitWindowMs: number;
+  rateLimitMaxRequests: number;
+}
+
 export interface OrchestratorConfig {
   /**
    * Gate policy for the Node 1 triage write-back.
@@ -357,6 +386,7 @@ export interface OrchestratorConfig {
   knowledge: OrchestratorKnowledgeConfig;
   partsLogistics: OrchestratorPartsLogisticsConfig;
   scheduling: OrchestratorSchedulingConfig;
+  guardrailApproval: OrchestratorGuardrailApprovalConfig;
 }
 
 export interface AppRuntimeConfig {
@@ -1878,7 +1908,112 @@ export class AppConfigService {
       customerHistory: AppConfigService.loadOrchestratorCustomerHistory(env),
       knowledge: AppConfigService.loadOrchestratorKnowledge(env),
       partsLogistics: AppConfigService.loadOrchestratorPartsLogistics(env),
-      scheduling: AppConfigService.loadOrchestratorScheduling(env)
+      scheduling: AppConfigService.loadOrchestratorScheduling(env),
+      guardrailApproval: AppConfigService.loadOrchestratorGuardrailApproval(env)
+    };
+  }
+
+  private static loadOrchestratorGuardrailApproval(
+    env: NodeJS.ProcessEnv
+  ): OrchestratorGuardrailApprovalConfig {
+    const emailEnabled = AppConfigService.parseBooleanFlag(
+      env.ORCHESTRATOR_GUARDRAIL_EMAIL_NOTIFICATION_ENABLED,
+      false,
+      "ORCHESTRATOR_GUARDRAIL_EMAIL_NOTIFICATION_ENABLED"
+    );
+    const escalationEmailEnabled = AppConfigService.parseBooleanFlag(
+      env.ORCHESTRATOR_GUARDRAIL_ESCALATION_EMAIL_ENABLED,
+      false,
+      "ORCHESTRATOR_GUARDRAIL_ESCALATION_EMAIL_ENABLED"
+    );
+    const salesforceApprovalEnabled = AppConfigService.parseBooleanFlag(
+      env.ORCHESTRATOR_GUARDRAIL_SF_APPROVAL_ENABLED,
+      false,
+      "ORCHESTRATOR_GUARDRAIL_SF_APPROVAL_ENABLED"
+    );
+    const tokenSecret = AppConfigService.normalize(
+      env.ORCHESTRATOR_APPROVAL_TOKEN_SECRET
+    );
+    const rawProvider =
+      AppConfigService.normalize(
+        env.ORCHESTRATOR_APPROVAL_EMAIL_PROVIDER
+      )?.toLowerCase() ?? "log";
+    if (!["log", "resend"].includes(rawProvider)) {
+      throw new Error(
+        "ORCHESTRATOR_APPROVAL_EMAIL_PROVIDER must be log or resend."
+      );
+    }
+    const resendApiKey = AppConfigService.normalize(
+      env.ORCHESTRATOR_APPROVAL_RESEND_API_KEY ?? env.RESEND_API_KEY
+    );
+    const emailFrom = AppConfigService.normalize(
+      env.ORCHESTRATOR_APPROVAL_EMAIL_FROM
+    );
+    const emailTo = AppConfigService.normalize(
+      env.ORCHESTRATOR_APPROVAL_EMAIL_TO
+    );
+    const rawLinkBase = AppConfigService.normalize(
+      env.ORCHESTRATOR_APPROVAL_LINK_BASE_URL
+    );
+    const linkBaseUrl = rawLinkBase
+      ? AppConfigService.readUrl(
+          { ORCHESTRATOR_APPROVAL_LINK_BASE_URL: rawLinkBase },
+          "ORCHESTRATOR_APPROVAL_LINK_BASE_URL",
+          "ORCHESTRATOR_APPROVAL_LINK_BASE_URL"
+        )
+      : undefined;
+
+    // Fail closed: enabling email without a signing secret, a public link
+    // base, sender/recipient (and a Resend key for the resend provider)
+    // would mint unsigned or undeliverable approve/reject links. Approvals
+    // are security-critical, so require the full set rather than silently
+    // degrading to log-only.
+    if (emailEnabled) {
+      const missing: string[] = [];
+      if (!tokenSecret) missing.push("ORCHESTRATOR_APPROVAL_TOKEN_SECRET");
+      if (!linkBaseUrl) missing.push("ORCHESTRATOR_APPROVAL_LINK_BASE_URL");
+      if (!emailFrom) missing.push("ORCHESTRATOR_APPROVAL_EMAIL_FROM");
+      if (!emailTo) missing.push("ORCHESTRATOR_APPROVAL_EMAIL_TO");
+      if (rawProvider === "resend" && !resendApiKey) {
+        missing.push("ORCHESTRATOR_APPROVAL_RESEND_API_KEY");
+      }
+      if (missing.length > 0) {
+        throw new Error(
+          `ORCHESTRATOR_GUARDRAIL_EMAIL_NOTIFICATION_ENABLED=true requires ${missing.join(
+            ", "
+          )}.`
+        );
+      }
+    }
+
+    return {
+      emailEnabled,
+      escalationEmailEnabled,
+      salesforceApprovalEnabled,
+      tokenSecret,
+      tokenTtlSeconds: AppConfigService.parsePositiveInteger(
+        env.ORCHESTRATOR_APPROVAL_TOKEN_TTL_SECONDS,
+        86400,
+        "ORCHESTRATOR_APPROVAL_TOKEN_TTL_SECONDS"
+      ),
+      emailProvider: rawProvider as OrchestratorApprovalEmailProvider,
+      resendApiKey,
+      emailFrom,
+      emailTo,
+      recipientRole:
+        AppConfigService.normalize(env.ORCHESTRATOR_APPROVAL_RECIPIENT_ROLE) ??
+        "account-manager",
+      linkBaseUrl,
+      rateLimitWindowMs: AppConfigService.parsePositiveInteger(
+        env.ORCHESTRATOR_APPROVAL_RATE_LIMIT_WINDOW_MS,
+        60000,
+        "ORCHESTRATOR_APPROVAL_RATE_LIMIT_WINDOW_MS"
+      ),
+      rateLimitMaxRequests: AppConfigService.parsePositiveInteger(
+        env.ORCHESTRATOR_APPROVAL_RATE_LIMIT_MAX_REQUESTS,
+        20,
+        "ORCHESTRATOR_APPROVAL_RATE_LIMIT_MAX_REQUESTS"
+      )
     };
   }
 

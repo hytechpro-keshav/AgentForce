@@ -65,6 +65,7 @@ import { KnowledgeGuidanceExtractor } from "./knowledge-guidance-extractor.servi
 import { PartsLogisticsPlannerService } from "./parts-logistics-planner.service";
 import { SchedulingPlannerService } from "./scheduling-planner.service";
 import { GuardrailPolicyService } from "./guardrail-policy.service";
+import { GuardrailApprovalNotificationService } from "./guardrail-approval-notification.service";
 import {
   kbDurationHintMinutes,
   regionForShipTo,
@@ -147,7 +148,8 @@ export class CaseTriageOrchestratorService {
     private readonly schedulingGateway: SalesforceSchedulingGateway,
     private readonly schedulingWriteGateway: SalesforceSchedulingWriteGateway,
     private readonly schedulingPlanner: SchedulingPlannerService,
-    private readonly guardrailPolicy: GuardrailPolicyService
+    private readonly guardrailPolicy: GuardrailPolicyService,
+    private readonly approvalNotifications: GuardrailApprovalNotificationService
   ) {
     this.graph = buildCaseTriageGraph({
       readContext: (caseId) => this.gateway.readCaseContext(caseId),
@@ -156,6 +158,8 @@ export class CaseTriageOrchestratorService {
       evaluateGuardrailPolicy: (state) => this.evaluateGuardrailPolicy(state),
       sendApprovalNotification: (workflowId, caseId, payload) =>
         this.sendApprovalNotification(workflowId, caseId, payload),
+      sendEscalationNotification: (workflowId, caseId, payload) =>
+        this.sendEscalationNotification(workflowId, caseId, payload),
       applyPartsFulfillment: (workflowId, caseId, partsLogistics) =>
         this.applyPartsFulfillment(workflowId, caseId, partsLogistics),
       applySchedulingWrite: (
@@ -609,24 +613,40 @@ export class CaseTriageOrchestratorService {
   }
 
   /**
-   * Node 6 dep — approval notification. 6a default is log-only: it records
-   * a safe, non-PII line and returns a `log_only` routing record. Degrade-
-   * safe (never throws into the graph). Email / Salesforce Approval Process
-   * routing arrives in 6b behind the notification feature flags. The
-   * `evaluateGuardrail` node guards this on a prior `sentAt` so a resume
-   * does not re-notify.
+   * Node 6 dep — approval notification. Delegates to
+   * {@link GuardrailApprovalNotificationService}, which is idempotent per
+   * workflow (a resume re-run never re-sends — phase plan §11 R2) and
+   * degrade-safe (never throws into the graph). When email routing is off it
+   * preserves 6a parity: a safe, non-PII log line and a `log_only` routing
+   * record. The `evaluateGuardrail` node also guards on a prior `sentAt`.
    */
-  private async sendApprovalNotification(
+  private sendApprovalNotification(
     workflowId: string,
-    _caseId: string,
+    caseId: string,
     payload: GuardrailApprovalInterrupt
   ): Promise<GuardrailApprovalRouting> {
-    this.logger.log(
-      `Guardrail approval required: workflow=${workflowId} ` +
-        `risk=${payload.guardrail.riskScore} (${payload.guardrail.riskLevel}); ` +
-        "awaiting out-of-band approval."
+    return this.approvalNotifications.notifyApprovalRequired(
+      workflowId,
+      caseId,
+      payload
     );
-    return { method: "log_only" };
+  }
+
+  /**
+   * Node 6 dep — terminal supervisor escalation notice. Delegates to the
+   * notification service; degrade-safe and a no-op unless escalation email is
+   * enabled.
+   */
+  private sendEscalationNotification(
+    workflowId: string,
+    caseId: string,
+    payload: GuardrailApprovalInterrupt
+  ): Promise<void> {
+    return this.approvalNotifications.notifyEscalation(
+      workflowId,
+      caseId,
+      payload
+    );
   }
 
   /**

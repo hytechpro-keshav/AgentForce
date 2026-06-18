@@ -2,8 +2,8 @@
 
 > **Document type:** Phase 6 planning — guardrail channel contract, composite policy matrix, gate migration, approval routing, 5c unblock gate, UI, test plan.
 > **Audience:** AI Architects · Salesforce Architects · Platform Engineers · Service Operations.
-> **Status:** **6a SHIPPED** (2026-06-16). `evaluateGuardrail` replaces the prototype `gate`; composite policy + `escalated` terminal + verdict rollup + Node 6 UI card are live. See §0.
-> **Next:** 5c `ServiceAppointment` writes (now UNBLOCKED by 6a); then 6b approval routing (email / SF Approval Process).
+> **Status:** **6a SHIPPED** (2026-06-16). `evaluateGuardrail` replaces the prototype `gate`; composite policy + `escalated` terminal + verdict rollup + Node 6 UI card are live. **6b CODE-COMPLETE + VALIDATED** (2026-06-18) — approval email routing + idempotent `sendApprovalNotification` + public approve/reject links; ai-api tests green; live email + Railway rollout pending. See §0.
+> **Next:** flip the 6b email env on Railway + live approve-link proof; then 6c (Stop AI guard, approval timeout, reconcile). SF Approval Process is deferred to 6b+.
 > **Companions:** [`case-triage-orchestrator-flow.md`](./case-triage-orchestrator-flow.md) · [`node-5-scheduling-phase-plan.md`](./node-5-scheduling-phase-plan.md) · [`re-orchestration-backlog.md`](./re-orchestration-backlog.md) · [`new-node-phase-completion-checklist.md`](./new-node-phase-completion-checklist.md) · [`service-workflow-remediation-backlog.md`](./service-workflow-remediation-backlog.md)
 
 **Program invariants (unchanged):**
@@ -18,15 +18,16 @@
 
 ### 0.1 What is shipped vs. what this plan adds
 
-| Layer                                                              | State today (2026-06-16)                                                           | Source of truth               |
-| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------- | ----------------------------- |
-| Nodes 1–5 (triage, customer history, knowledge, parts, scheduling) | **Shipped** on Railway (5b, deploy `e5b02949`)                                     | `case-triage.graph.ts`        |
-| ~~Prototype `gate` node~~ (triage + parts only)                    | **Replaced** by `evaluateGuardrail` (6a) — removed from the graph                  | —                             |
-| Scheduling `requiredApproval` / `approvalReason`                   | **Gated** by the Node 6 composite policy (6a) — `SCHEDULING_*` rules               | `dto/scheduling.ts`           |
-| **Node 6 `evaluateGuardrail` node**                                | **Shipped** (6a, 2026-06-16) — composite policy, `escalated` terminal, verdict, UI | `case-triage.graph.ts`        |
-| `GuardrailPolicyService` (3 hard + 18 soft rules)                  | **Shipped** (6a) — pure, deterministic; unit-covered                               | `guardrail-policy.service.ts` |
-| 5c `ServiceAppointment` writes                                     | **UNBLOCKED** (6a shipped) — implement in `writeBack` per §13; not yet wired       | —                             |
-| Approval routing (email / Salesforce)                              | Planned — 6b (`sendApprovalNotification` is log-only in 6a)                        | —                             |
+| Layer                                                              | State today (2026-06-16)                                                                                                               | Source of truth                              |
+| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| Nodes 1–5 (triage, customer history, knowledge, parts, scheduling) | **Shipped** on Railway (5b, deploy `e5b02949`)                                                                                         | `case-triage.graph.ts`                       |
+| ~~Prototype `gate` node~~ (triage + parts only)                    | **Replaced** by `evaluateGuardrail` (6a) — removed from the graph                                                                      | —                                            |
+| Scheduling `requiredApproval` / `approvalReason`                   | **Gated** by the Node 6 composite policy (6a) — `SCHEDULING_*` rules                                                                   | `dto/scheduling.ts`                          |
+| **Node 6 `evaluateGuardrail` node**                                | **Shipped** (6a, 2026-06-16) — composite policy, `escalated` terminal, verdict, UI                                                     | `case-triage.graph.ts`                       |
+| `GuardrailPolicyService` (3 hard + 18 soft rules)                  | **Shipped** (6a) — pure, deterministic; unit-covered                                                                                   | `guardrail-policy.service.ts`                |
+| 5c `ServiceAppointment` writes                                     | **UNBLOCKED** (6a shipped) — implement in `writeBack` per §13; not yet wired                                                           | —                                            |
+| Approval routing (email)                                           | **6b CODE-COMPLETE** (2026-06-18) — email links + scoped tokens + idempotent `sendApprovalNotification`; flag-gated, log-only when off | `guardrail-approval-notification.service.ts` |
+| Approval routing (Salesforce Approval Process)                     | Deferred — 6b+ (`ORCHESTRATOR_GUARDRAIL_SF_APPROVAL_ENABLED` stays false)                                                              | —                                            |
 
 ### 0.2 What the demo proof surfaces (live as of 2026-06-16)
 
@@ -678,12 +679,26 @@ Also:
 
 No feature flag for the `evaluateGuardrail` node itself — it directly replaces `gate` and is always active. Flags for optional sub-features:
 
-| Env var                                             | Default | Purpose                              |
-| --------------------------------------------------- | ------- | ------------------------------------ |
-| `ORCHESTRATOR_GUARDRAIL_EMAIL_NOTIFICATION_ENABLED` | `false` | 6b: send approval email on interrupt |
-| `ORCHESTRATOR_GUARDRAIL_SF_APPROVAL_ENABLED`        | `false` | 6b+: trigger SF Approval Process     |
-| `ORCHESTRATOR_GUARDRAIL_ESCALATION_EMAIL_ENABLED`   | `false` | 6b: send escalation email            |
-| `ORCHESTRATOR_APPROVAL_TOKEN_SECRET`                | —       | 6b: sign approve/reject link tokens  |
+| Env var                                             | Default           | Purpose                                                                     |
+| --------------------------------------------------- | ----------------- | --------------------------------------------------------------------------- |
+| `ORCHESTRATOR_GUARDRAIL_EMAIL_NOTIFICATION_ENABLED` | `false`           | 6b: send approval email on interrupt (off → `log_only`, 6a parity)          |
+| `ORCHESTRATOR_GUARDRAIL_ESCALATION_EMAIL_ENABLED`   | `false`           | 6b: send supervisor escalation email on the terminal `escalate` path        |
+| `ORCHESTRATOR_GUARDRAIL_SF_APPROVAL_ENABLED`        | `false`           | 6b+: trigger SF Approval Process (deferred; stays false)                    |
+| `ORCHESTRATOR_APPROVAL_TOKEN_SECRET`                | — (req. when on)  | 6b: sign approve/reject link tokens — **separate** from `AI_API_JWT_SECRET` |
+| `ORCHESTRATOR_APPROVAL_TOKEN_TTL_SECONDS`           | `86400`           | 6b: link token lifetime (~24h)                                              |
+| `ORCHESTRATOR_APPROVAL_EMAIL_PROVIDER`              | `log`             | 6b: `log` (no send) or `resend` (HTTPS via `fetch`, no SDK)                 |
+| `ORCHESTRATOR_APPROVAL_RESEND_API_KEY`              | — (req. resend)   | 6b: Resend API key (falls back to `RESEND_API_KEY`)                         |
+| `ORCHESTRATOR_APPROVAL_EMAIL_FROM`                  | — (req. when on)  | 6b: sender address                                                          |
+| `ORCHESTRATOR_APPROVAL_EMAIL_TO`                    | — (req. when on)  | 6b: approver/ops mailbox (role-based routing target)                        |
+| `ORCHESTRATOR_APPROVAL_RECIPIENT_ROLE`              | `account-manager` | 6b: role label stamped on the routing record (never a name/email)           |
+| `ORCHESTRATOR_APPROVAL_LINK_BASE_URL`               | — (req. when on)  | 6b: public ai-api base for approve/reject link targets                      |
+| `ORCHESTRATOR_APPROVAL_RATE_LIMIT_WINDOW_MS`        | `60000`           | 6b: public approve/reject link rate-limit window                            |
+| `ORCHESTRATOR_APPROVAL_RATE_LIMIT_MAX_REQUESTS`     | `20`              | 6b: public approve/reject link rate-limit ceiling per client+route          |
+
+Config **fails closed**: when `…_EMAIL_NOTIFICATION_ENABLED=true`, the token
+secret, link base, and from/to are required (plus the Resend key when
+`…_EMAIL_PROVIDER=resend`) — startup throws rather than mint unsigned or
+undeliverable links.
 
 The `ORCHESTRATOR_TRIAGE_APPROVAL_MODE` env var (`auto | always | high_risk`) in the existing config service provided a mode hint for the prototype gate. In Node 6 it becomes an optional risk-threshold override:
 
