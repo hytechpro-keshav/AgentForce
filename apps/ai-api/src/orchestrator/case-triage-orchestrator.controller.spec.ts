@@ -88,3 +88,69 @@ describe("CaseTriageOrchestratorController — guardrail approval links", () => 
     expect(html).toContain("no longer awaiting approval");
   });
 });
+
+describe("CaseTriageOrchestratorController — Salesforce approval callback (6b+)", () => {
+  it("resumes with the body decision + token jti idempotency key", async () => {
+    const { controller, tokens, resume } = build();
+    const token = tokens.mintForSalesforce(WF);
+    const { jti } = tokens.verifyForSalesforce(token);
+
+    const ack = await controller.salesforceApprovalCallback(WF, {
+      decision: "approved",
+      token
+    });
+
+    expect(resume).toHaveBeenCalledTimes(1);
+    expect(resume.mock.calls[0][0]).toBe(WF);
+    expect(resume.mock.calls[0][1]).toEqual({
+      decision: "approved",
+      idempotencyKey: jti
+    });
+    expect(ack).toEqual({ status: "done", applied: true });
+  });
+
+  it("passes a rejection decision through from the body", async () => {
+    const { controller, tokens, resume } = build();
+    const token = tokens.mintForSalesforce(WF);
+    await controller.salesforceApprovalCallback(WF, {
+      decision: "rejected",
+      token
+    });
+    expect(resume.mock.calls[0][1].decision).toBe("rejected");
+  });
+
+  it("rejects a token minted for a different workflow", async () => {
+    const { controller, tokens, resume } = build();
+    const token = tokens.mintForSalesforce(OTHER_WF);
+    await expect(
+      controller.salesforceApprovalCallback(WF, {
+        decision: "approved",
+        token
+      })
+    ).rejects.toThrow();
+    expect(resume).not.toHaveBeenCalled();
+  });
+
+  it("rejects an email-link token (wrong audience) at the SF callback", async () => {
+    const { controller, tokens, resume } = build();
+    const emailToken = tokens.mint(WF, "approved");
+    await expect(
+      controller.salesforceApprovalCallback(WF, {
+        decision: "approved",
+        token: emailToken
+      })
+    ).rejects.toThrow();
+    expect(resume).not.toHaveBeenCalled();
+  });
+
+  it("acknowledges without error when the workflow is no longer resumable", async () => {
+    const resume = jest.fn().mockRejectedValue(new ConflictException());
+    const { controller, tokens } = build(resume);
+    const token = tokens.mintForSalesforce(WF);
+    const ack = await controller.salesforceApprovalCallback(WF, {
+      decision: "approved",
+      token
+    });
+    expect(ack).toEqual({ status: "not_applied", applied: false });
+  });
+});

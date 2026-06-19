@@ -94,6 +94,14 @@ ASSERT_GUARDRAIL="${ASSERT_GUARDRAIL:-0}"
 # the email flags on Railway and an SF_CASE_ID that lands requireHumanApproval
 # (escalate has no interrupt/routing; autoApprove never pauses). See the header.
 ASSERT_GUARDRAIL_EMAIL="${ASSERT_GUARDRAIL_EMAIL:-0}"
+# Node 6 Phase 6b+ — Salesforce Approval Process routing assertion. Off by
+# default. Asserts the approver notification was routed to a native SF Approval
+# (method=salesforce_approval + sentAt + externalRef = ProcessInstance id).
+# Needs ORCHESTRATOR_GUARDRAIL_SF_APPROVAL_ENABLED=true + ORCHESTRATOR_APPROVAL_TOKEN_SECRET
+# on Railway and an SF_CASE_ID that lands requireHumanApproval (NOT 00001050
+# escalate / 00001054 autoApprove). The approver acting in Salesforce is manual
+# proof; this asserts the submit routed.
+ASSERT_GUARDRAIL_SF="${ASSERT_GUARDRAIL_SF:-0}"
 
 : "${SF_CASE_ID:?Set SF_CASE_ID to a Salesforce Case record ID for the triage test.}"
 
@@ -288,6 +296,7 @@ guardrail_risk_score=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field gua
 guardrail_risk_level=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field guardrail.riskLevel)
 guardrail_routing_method=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field guardrail.approvalRouting.method)
 guardrail_routing_sent_at=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field guardrail.approvalRouting.sentAt)
+guardrail_routing_external_ref=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field guardrail.approvalRouting.externalRef)
 
 errors=0
 
@@ -533,6 +542,38 @@ if [[ "${ASSERT_GUARDRAIL_EMAIL}" == "1" ]]; then
   }
 fi
 
+# Node 6 Phase 6b+ — Salesforce Approval Process routing. The submit is
+# asserted here; the approver acting in the native SF Approval UI is manual
+# proof (see header). Use a Case that lands requireHumanApproval.
+if [[ "${ASSERT_GUARDRAIL_SF}" == "1" ]]; then
+  echo "  Guardrail routing method:  ${guardrail_routing_method}"
+  echo "  Guardrail routing sentAt:  ${guardrail_routing_sent_at}"
+  echo "  Guardrail externalRef:     ${guardrail_routing_external_ref}"
+  [[ "${guardrail_outcome}" == "requireHumanApproval" ]] || {
+    echo "  FAIL: SF approval routing only applies to requireHumanApproval (got ${guardrail_outcome}); pick an approvable Case (not 00001050 escalate / 00001054 autoApprove)" >&2
+    (( errors++ ))
+  }
+  [[ "${resume_attempted}" == "1" ]] || {
+    echo "  FAIL: Expected the workflow to pause at waiting_approval (so the SF Approval was submitted) before resume" >&2
+    (( errors++ ))
+  }
+  [[ "${guardrail_routing_method}" == "salesforce_approval" ]] || {
+    echo "  FAIL: Expected guardrail.approvalRouting.method=salesforce_approval (check ORCHESTRATOR_GUARDRAIL_SF_APPROVAL_ENABLED + token secret + SF connection), got ${guardrail_routing_method}" >&2
+    (( errors++ ))
+  }
+  [[ "${guardrail_routing_sent_at}" != "absent" && "${guardrail_routing_sent_at}" != "null" && -n "${guardrail_routing_sent_at}" ]] || {
+    echo "  FAIL: Expected guardrail.approvalRouting.sentAt to be set when SF approval routing is on" >&2
+    (( errors++ ))
+  }
+  # externalRef is the ProcessInstance id; absent/empty means the submit
+  # degraded (the graph still paused). Warn rather than fail so a degraded
+  # submit (e.g. Approval Process not yet active in the org) is visible
+  # without masking the routing assertion above.
+  if [[ "${guardrail_routing_external_ref}" == "absent" || "${guardrail_routing_external_ref}" == "null" || -z "${guardrail_routing_external_ref}" ]]; then
+    echo "  WARN: guardrail.approvalRouting.externalRef is unset — SF submit degraded (Approval Process may not be active/assigned). The workflow still paused; resume via the SF callback or a manual resume." >&2
+  fi
+fi
+
 if (( errors > 0 )); then
   echo ""
   echo "All-nodes test FAILED with ${errors} error(s)." >&2
@@ -554,4 +595,7 @@ fi
 echo "  Node 6 (Guardrail):         outcome=${guardrail_outcome}, risk=${guardrail_risk_score} (${guardrail_risk_level})"
 if [[ "${ASSERT_GUARDRAIL_EMAIL}" == "1" ]]; then
   echo "  Node 6 (6b approval email): method=${guardrail_routing_method}, sentAt=${guardrail_routing_sent_at}"
+fi
+if [[ "${ASSERT_GUARDRAIL_SF}" == "1" ]]; then
+  echo "  Node 6 (6b+ SF approval):   method=${guardrail_routing_method}, externalRef=${guardrail_routing_external_ref}"
 fi

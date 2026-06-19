@@ -24,6 +24,7 @@ import { ApproveCaseTriageDto } from "./dto/approve-case-triage.dto";
 import type { CaseTriageWorkflowSnapshot } from "./dto/orchestration-status-event";
 import type { ApproverResumeDecision } from "./dto/case-triage-lifecycle";
 import { ResumeCaseTriageDto } from "./dto/resume-case-triage.dto";
+import { SalesforceApprovalCallbackDto } from "./dto/sf-approval-callback.dto";
 import {
   TriggerCaseTriageDto,
   type TriggerCaseTriageAcceptedDto
@@ -189,6 +190,58 @@ export class CaseTriageOrchestratorController {
         "Already resolved",
         "<p>This case is no longer awaiting approval. No action was taken.</p>"
       );
+    }
+  }
+
+  /**
+   * PUBLIC Salesforce-Approval callback (6b+). The native Approval Process's
+   * completion Flow POSTs here when an approver approves/rejects in Salesforce.
+   * The workflow + idempotency key come ONLY from the verified, workflow-scoped
+   * token (separate audience from the email links, so an email token cannot be
+   * replayed here); the decision is taken from the body (the approver's actual
+   * SF action) but constrained to `approved`/`rejected`. The token `jti` is the
+   * resume idempotency key, so a duplicate Flow retry resolves once. Returns a
+   * compact JSON ack the Apex callout can log. Token-gated + rate-limited.
+   */
+  @Public()
+  @UseGuards(OrchestratorApprovalRateLimitGuard)
+  @HttpCode(200)
+  @Post(":workflowId/sf-approval-callback")
+  async salesforceApprovalCallback(
+    @Param("workflowId") workflowId: string,
+    @Body() body: SalesforceApprovalCallbackDto
+  ): Promise<{ status: string; applied: boolean }> {
+    const id = this.assertWorkflowId(workflowId);
+    let idempotencyKey: string;
+    try {
+      const claims = this.approvalTokens.verifyForSalesforce(body.token);
+      if (claims.workflowId !== id) {
+        throw new BadRequestException({ error: "workflow_mismatch" });
+      }
+      idempotencyKey = claims.jti;
+    } catch (err) {
+      if (err instanceof BadRequestException) {
+        throw err;
+      }
+      // verifyForSalesforce throws UnauthorizedException — surface as-is.
+      throw err;
+    }
+    try {
+      const snapshot = await this.orchestrator.resume(id, {
+        decision: body.decision,
+        idempotencyKey
+      });
+      return { status: snapshot.status, applied: true };
+    } catch (err) {
+      // The token is valid but the workflow is no longer resumable (e.g. it
+      // already moved out of waiting_approval). Acknowledge without error so
+      // a retrying Flow does not loop.
+      this.logger.warn(
+        `SF approval callback resume not applied: workflow=${id} kind=${
+          (err as Error).name ?? "unknown"
+        }`
+      );
+      return { status: "not_applied", applied: false };
     }
   }
 

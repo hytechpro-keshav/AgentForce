@@ -46,7 +46,8 @@ import {
 import type {
   GuardrailApprovalInterrupt,
   GuardrailApprovalRouting,
-  GuardrailDecision
+  GuardrailDecision,
+  GuardrailSalesforceApprovalContext
 } from "./dto/guardrail";
 import type {
   CustomerContextChannel,
@@ -156,8 +157,9 @@ export class CaseTriageOrchestratorService {
       runTriage: (input) => this.runTriage(input),
       applyWriteBack: (triage, caseId) => this.applyWriteBack(triage, caseId),
       evaluateGuardrailPolicy: (state) => this.evaluateGuardrailPolicy(state),
-      sendApprovalNotification: (workflowId, caseId, payload) =>
-        this.sendApprovalNotification(workflowId, caseId, payload),
+      sendApprovalNotification: (workflowId, caseId, payload, context) =>
+        this.sendApprovalNotification(workflowId, caseId, payload, context),
+      buildApprovalContext: (state) => this.buildApprovalContext(state),
       sendEscalationNotification: (workflowId, caseId, payload) =>
         this.sendEscalationNotification(workflowId, caseId, payload),
       applyPartsFulfillment: (workflowId, caseId, partsLogistics) =>
@@ -623,13 +625,53 @@ export class CaseTriageOrchestratorService {
   private sendApprovalNotification(
     workflowId: string,
     caseId: string,
-    payload: GuardrailApprovalInterrupt
+    payload: GuardrailApprovalInterrupt,
+    context?: GuardrailSalesforceApprovalContext
   ): Promise<GuardrailApprovalRouting> {
     return this.approvalNotifications.notifyApprovalRequired(
       workflowId,
       caseId,
-      payload
+      payload,
+      context
     );
+  }
+
+  /**
+   * Node 6 dep — builds the 6b+ Salesforce-Approval context: the synthesized
+   * Orchestrator Verdict (same four fields as the read-only console panel)
+   * plus a deep link back to the console. Pure over `state` and re-run safe
+   * (the synthesizer is deterministic, no I/O). Computed BEFORE `interrupt()`
+   * so the approver sees the full AI story on the Case record without opening
+   * the console.
+   */
+  private buildApprovalContext(
+    state: CaseTriageStateType
+  ): GuardrailSalesforceApprovalContext {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "waiting_approval",
+      approvalRequired: true,
+      triage: state.triage,
+      customerContext: state.customerContext,
+      knowledgeGuidance: state.knowledgeGuidance,
+      partsLogistics: state.partsLogistics,
+      scheduling: state.scheduling,
+      guardrail: state.guardrail
+    });
+    const uiBaseUrl = this.config.orchestrator.salesforceWriteBack.uiBaseUrl;
+    const orchestrationConsoleUrl = uiBaseUrl
+      ? `${uiBaseUrl.replace(/\/+$/, "")}/orchestration?caseId=${encodeURIComponent(
+          state.caseId
+        )}`
+      : undefined;
+    return {
+      verdict: {
+        headline: verdict.headline,
+        summary: verdict.summary,
+        recommendedSteps: verdict.recommendedSteps,
+        highlights: verdict.highlights
+      },
+      orchestrationConsoleUrl
+    };
   }
 
   /**

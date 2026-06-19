@@ -5,6 +5,7 @@ import { SalesforceAuthService } from "./salesforce-auth.service";
 import { SalesforceCaseGateway } from "./salesforce-case.gateway";
 import { SalesforceCustomerGateway } from "./salesforce-customer.gateway";
 import { SalesforceFulfillmentGateway } from "./salesforce-fulfillment.gateway";
+import { SalesforceGuardrailApprovalGateway } from "./salesforce-guardrail-approval.gateway";
 import { SalesforceInventoryGateway } from "./salesforce-inventory.gateway";
 import { SalesforceSchedulingGateway } from "./salesforce-scheduling.gateway";
 import { SalesforceSchedulingWriteGateway } from "./salesforce-scheduling-write.gateway";
@@ -26,6 +27,7 @@ import { SalesforceSchedulingWriteGateway } from "./salesforce-scheduling-write.
     SalesforceCustomerGateway,
     SalesforceInventoryGateway,
     SalesforceFulfillmentGateway,
+    SalesforceGuardrailApprovalGateway,
     SalesforceSchedulingGateway,
     SalesforceSchedulingWriteGateway
   ],
@@ -34,6 +36,7 @@ import { SalesforceSchedulingWriteGateway } from "./salesforce-scheduling-write.
     SalesforceCustomerGateway,
     SalesforceInventoryGateway,
     SalesforceFulfillmentGateway,
+    SalesforceGuardrailApprovalGateway,
     SalesforceSchedulingGateway,
     SalesforceSchedulingWriteGateway,
     SalesforceAuthService

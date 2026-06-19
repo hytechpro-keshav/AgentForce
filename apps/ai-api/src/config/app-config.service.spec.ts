@@ -1023,4 +1023,30 @@ describe("AppConfigService", () => {
       })
     ).toThrow("maxTokensPerMinute requires maxOutputTokensPerRequest");
   });
+
+  it("guardrail SF approval: defaults off with the default process name", () => {
+    const approval = AppConfigService.load({}).orchestrator.guardrailApproval;
+    expect(approval.salesforceApprovalEnabled).toBe(false);
+    expect(approval.salesforceApprovalProcess).toBe(
+      "Agentforce_Guardrail_Approval"
+    );
+  });
+
+  it("guardrail SF approval: fails closed when enabled without a token secret", () => {
+    expect(() =>
+      AppConfigService.load({
+        ORCHESTRATOR_GUARDRAIL_SF_APPROVAL_ENABLED: "true"
+      })
+    ).toThrow("ORCHESTRATOR_APPROVAL_TOKEN_SECRET");
+  });
+
+  it("guardrail SF approval: enables with a token secret + custom process name", () => {
+    const approval = AppConfigService.load({
+      ORCHESTRATOR_GUARDRAIL_SF_APPROVAL_ENABLED: "true",
+      ORCHESTRATOR_APPROVAL_TOKEN_SECRET: "sf-approval-secret-0123456789",
+      ORCHESTRATOR_GUARDRAIL_SF_APPROVAL_PROCESS: "Custom_Guardrail_Process"
+    }).orchestrator.guardrailApproval;
+    expect(approval.salesforceApprovalEnabled).toBe(true);
+    expect(approval.salesforceApprovalProcess).toBe("Custom_Guardrail_Process");
+  });
 });

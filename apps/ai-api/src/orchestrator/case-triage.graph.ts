@@ -24,7 +24,8 @@ import type {
   GuardrailApprovalInterrupt,
   GuardrailApprovalRouting,
   GuardrailChannel,
-  GuardrailDecision
+  GuardrailDecision,
+  GuardrailSalesforceApprovalContext
 } from "./dto/guardrail";
 import type { SalesforceCaseContext } from "./dto/salesforce-case-context";
 import type {
@@ -136,8 +137,24 @@ export interface CaseTriageGraphDeps {
   sendApprovalNotification(
     workflowId: string,
     caseId: string,
-    payload: GuardrailApprovalInterrupt
+    payload: GuardrailApprovalInterrupt,
+    /**
+     * 6b+ — optional Salesforce-Approval context (synthesized verdict +
+     * console deep link) used only by the SF routing path. Built from the
+     * full graph state before `interrupt()` via {@link buildApprovalContext};
+     * the email/log paths ignore it.
+     */
+    context?: GuardrailSalesforceApprovalContext
   ): Promise<GuardrailApprovalRouting>;
+  /**
+   * Node 6 — optional builder for the 6b+ Salesforce-Approval context
+   * (synthesized Orchestrator Verdict + console deep link). Pure over
+   * `state` (re-run safe); injected from the orchestrator service. Absent in
+   * graph unit tests that do not exercise SF routing.
+   */
+  buildApprovalContext?(
+    state: CaseTriageStateType
+  ): GuardrailSalesforceApprovalContext;
   /**
    * Node 6 — optional supervisor escalation notice for the terminal
    * `escalate` outcome (no interrupt). Degrade-safe and never throws; a no-op
@@ -759,10 +776,15 @@ export function buildCaseTriageGraph(deps: CaseTriageGraphDeps) {
       const payload = buildGuardrailApprovalPayload(state, decision);
       let routedGuardrail = guardrail;
       if (!state.guardrail?.approvalRouting?.sentAt) {
+        // Build the SF-Approval context (verdict + console link) from the
+        // full state BEFORE interrupt(). Pure + idempotent; only the SF
+        // routing path reads it.
+        const approvalContext = deps.buildApprovalContext?.(state);
         const routing = await deps.sendApprovalNotification(
           state.workflowId,
           state.caseId,
-          payload
+          payload,
+          approvalContext
         );
         routedGuardrail = { ...guardrail, approvalRouting: routing };
       }

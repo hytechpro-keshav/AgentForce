@@ -2,8 +2,8 @@
 
 > **Document type:** Phase 6b+ planning — Salesforce-native approval routing for the guardrail interrupt, callback resume, metadata, smoke, and test plan.
 > **Audience:** AI Architects · Salesforce Architects · Platform Engineers · Service Operations.
-> **Status:** **PLANNING** (2026-06-16). 6a shipped; 6b email code-complete but **live email rollout deferred** by operator choice. This plan is the **primary approval channel** for the next implementation track.
-> **Next:** 6b+-Pre Salesforce metadata → 6b+-a NestJS submit seam → 6b+-b SF callback → live proof (`ASSERT_GUARDRAIL_SF=1`).
+> **Status:** **CODE-COMPLETE + VALIDATED** (2026-06-18). 6b+-Pre/a/b implemented; ai-api focused tests + Apex tests green, `sf project deploy validate` succeeds for the full package (fields + perm set + Apex + workflow + approval process + flow). **Deploy + live approver-in-SF proof + Railway flag flip pending** (operator chose not to run `sf project deploy quick` yet). Lessons: [`node6-sf-approval-lessons.md`](../context/node6-sf-approval-lessons.md).
+> **Next:** `sf project deploy quick` to org `AgentForce` → set adhoc→real approver → enable `ORCHESTRATOR_GUARDRAIL_SF_APPROVAL_ENABLED` + token secret on Railway → live proof (`ASSERT_GUARDRAIL_SF=1`).
 > **Companions:** [`node-6-guardrail-phase-plan.md`](./node-6-guardrail-phase-plan.md) · [`node6-6b-approval-routing-lessons.md`](../context/node6-6b-approval-routing-lessons.md) · [`case-triage-orchestrator-flow.md`](./case-triage-orchestrator-flow.md) §6 · [`re-orchestration-backlog.md`](./re-orchestration-backlog.md)
 
 **Program invariants (unchanged):**

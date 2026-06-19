@@ -106,4 +106,71 @@ describe("GuardrailApprovalTokenService", () => {
     });
     expect(() => svc.verify(forged)).toThrow(UnauthorizedException);
   });
+
+  describe("Salesforce approval callback tokens (6b+)", () => {
+    const SF_AUDIENCE = "guardrail-sf-approval";
+
+    it("mints a decision-agnostic token that verifies back to the workflow", () => {
+      const svc = new GuardrailApprovalTokenService(configWith());
+      const claims = svc.verifyForSalesforce(svc.mintForSalesforce("wf-1"));
+      expect(claims.workflowId).toBe("wf-1");
+      expect(claims.jti).toMatch(/^[0-9a-f-]{36}$/);
+      // No decision is carried — Salesforce supplies it on the callback.
+      expect(
+        (claims as unknown as Record<string, unknown>).decision
+      ).toBeUndefined();
+    });
+
+    it("mintForSalesforce throws when no secret is configured", () => {
+      const svc = new GuardrailApprovalTokenService(
+        configWith({ tokenSecret: undefined })
+      );
+      expect(() => svc.mintForSalesforce("wf-1")).toThrow();
+    });
+
+    it("an SF token cannot be replayed at the email approve endpoint", () => {
+      const svc = new GuardrailApprovalTokenService(configWith());
+      const sfToken = svc.mintForSalesforce("wf-1");
+      // The email-link verify() uses a different audience → rejected.
+      expect(() => svc.verify(sfToken)).toThrow(UnauthorizedException);
+    });
+
+    it("an email token cannot be replayed at the SF callback endpoint", () => {
+      const svc = new GuardrailApprovalTokenService(configWith());
+      const emailToken = svc.mint("wf-1", "approved");
+      expect(() => svc.verifyForSalesforce(emailToken)).toThrow(
+        UnauthorizedException
+      );
+    });
+
+    it("rejects an expired SF token", () => {
+      const svc = new GuardrailApprovalTokenService(configWith());
+      const expired = jwt.sign({}, SECRET, {
+        algorithm: "HS256",
+        subject: "wf-1",
+        jwtid: "j1",
+        issuer: ISSUER,
+        audience: SF_AUDIENCE,
+        expiresIn: -10
+      });
+      expect(() => svc.verifyForSalesforce(expired)).toThrow(
+        UnauthorizedException
+      );
+    });
+
+    it("rejects an SF token signed with a different secret", () => {
+      const svc = new GuardrailApprovalTokenService(configWith());
+      const forged = jwt.sign({}, "other-secret", {
+        algorithm: "HS256",
+        subject: "wf-1",
+        jwtid: "j1",
+        issuer: ISSUER,
+        audience: SF_AUDIENCE,
+        expiresIn: 3600
+      });
+      expect(() => svc.verifyForSalesforce(forged)).toThrow(
+        UnauthorizedException
+      );
+    });
+  });
 });

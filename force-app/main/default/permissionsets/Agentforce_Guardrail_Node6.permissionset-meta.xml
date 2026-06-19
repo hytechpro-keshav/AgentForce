@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description
+  >Node 6 Compliance &amp; Guardrail (6b+): FLS read/write on the guardrail status/audit + Orchestrator Verdict + resume-token Case fields for the AI API run-as user, so it can stamp the approval context and submit the Case Approval Process.</description>
+    <hasActivationRequired>false</hasActivationRequired>
+    <label>Agentforce Guardrail Node 6</label>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Case.AI_Guardrail_Status__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Case.AI_Guardrail_Decision_At__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Case.AI_Guardrail_Approver__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Case.AI_Guardrail_Resume_Token__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Case.AI_Orchestrator_Verdict_Headline__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Case.AI_Orchestrator_Verdict_Summary__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Case.AI_Orchestrator_Verdict_Steps__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Case.AI_Orchestrator_Verdict_Highlights__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Case.AI_Orchestration_Console_URL__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Case.AI_Triage_Workflow_Id__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+</PermissionSet>

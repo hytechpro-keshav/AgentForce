@@ -677,6 +677,45 @@ describe("case-triage graph — Node 6 compliance & guardrail", () => {
     expect(resumed.writeBackApplied).toBe(true);
   });
 
+  it("requireHumanApproval: builds the SF approval context and forwards it to the notification (6b+)", async () => {
+    const sendApprovalNotification = jest
+      .fn()
+      .mockResolvedValue({ method: "salesforce_approval", sentAt: "t" });
+    const approvalContext = {
+      verdict: {
+        headline: "Approval required",
+        summary: "s",
+        recommendedSteps: ["step"],
+        highlights: [{ label: "Risk", value: "45 (medium)" }]
+      },
+      orchestrationConsoleUrl: "https://ui.example.com/orchestration?caseId=x"
+    };
+    const buildApprovalContext = jest.fn().mockReturnValue(approvalContext);
+    const h = buildDeps({
+      evaluateGuardrailPolicy: () => decisionFor("requireHumanApproval"),
+      sendApprovalNotification,
+      buildApprovalContext
+    });
+    const graph = buildCaseTriageGraph(h.deps);
+    const config = { configurable: { thread_id: "wf-guardrail-sf-ctx" } };
+
+    await graph.invoke(
+      {
+        workflowId: "wf-guardrail-sf-ctx",
+        caseId: "500000000000001",
+        principalSubject: "orchestrator",
+        approvalRequired: false,
+        writeBackApplied: false,
+        status: "running"
+      },
+      config
+    );
+
+    expect(buildApprovalContext).toHaveBeenCalledTimes(1);
+    // The context is the 4th arg of the notification call.
+    expect(sendApprovalNotification.mock.calls[0][3]).toBe(approvalContext);
+  });
+
   it("escalate: routes to the escalated terminal, notifies, no interrupt, no write-back", async () => {
     const sendEscalationNotification = jest.fn().mockResolvedValue(undefined);
     const h = buildDeps({

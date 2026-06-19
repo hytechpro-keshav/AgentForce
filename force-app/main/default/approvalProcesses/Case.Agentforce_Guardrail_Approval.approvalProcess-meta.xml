@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ApprovalProcess xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Case.Agentforce_Guardrail_Approval</fullName>
+    <active>true</active>
+    <allowRecall>true</allowRecall>
+    <allowedSubmitters>
+        <type>owner</type>
+    </allowedSubmitters>
+    <enableMobileDeviceAccess>false</enableMobileDeviceAccess>
+    <entryCriteria>
+        <formula
+    >AND(ISPICKVAL(AI_Guardrail_Status__c, "pending_approval"))</formula>
+    </entryCriteria>
+    <finalApprovalActions>
+        <action>
+            <name>Set_Guardrail_Approved</name>
+            <type>FieldUpdate</type>
+        </action>
+    </finalApprovalActions>
+    <finalApprovalRecordLock>false</finalApprovalRecordLock>
+    <finalRejectionActions>
+        <action>
+            <name>Set_Guardrail_Rejected</name>
+            <type>FieldUpdate</type>
+        </action>
+    </finalRejectionActions>
+    <finalRejectionRecordLock>false</finalRejectionRecordLock>
+    <label>Agentforce Guardrail Approval</label>
+    <recordEditability>AdminOnly</recordEditability>
+    <!--
+        DEMO ORG SETUP: the approval step below uses an "adhoc" approver, meaning
+        the submitter chooses the approver at submission time. This is the portable
+        default that deploys cleanly into any org without referencing org-specific
+        users or queues. For a real demo/runtime, swap the assignedApprover to a
+        queue (e.g. a queue named Agentforce_Guardrail_Approvers) or a named role.
+    -->
+    <approvalStep>
+        <name>Guardrail_Approver</name>
+        <label>Guardrail Approver</label>
+        <allowDelegate>false</allowDelegate>
+        <assignedApprover>
+            <approver>
+                <type>adhoc</type>
+            </approver>
+        </assignedApprover>
+    </approvalStep>
+</ApprovalProcess>

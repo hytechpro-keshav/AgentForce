@@ -1,11 +1,17 @@
 import type { AppConfigService } from "../config/app-config.service";
+import type { SalesforceGuardrailApprovalGateway } from "../salesforce/salesforce-guardrail-approval.gateway";
 import {
   type ApprovalEmailMessage,
   type ApprovalEmailSender
 } from "./approval-email-sender";
 import { GuardrailApprovalNotificationService } from "./guardrail-approval-notification.service";
 import { GuardrailApprovalTokenService } from "./guardrail-approval-token.service";
-import type { GuardrailApprovalInterrupt } from "./dto/guardrail";
+import type {
+  GuardrailApprovalInterrupt,
+  GuardrailApprovalSubmitCommand,
+  GuardrailApprovalSubmitResult,
+  GuardrailSalesforceApprovalContext
+} from "./dto/guardrail";
 
 const SECRET = "notify-secret-0123456789";
 // A PII-shaped case id we assert never appears in the email body.
@@ -21,6 +27,7 @@ function buildConfig(
         emailEnabled: false,
         escalationEmailEnabled: false,
         salesforceApprovalEnabled: false,
+        salesforceApprovalProcess: "Agentforce_Guardrail_Approval",
         tokenSecret: SECRET,
         tokenTtlSeconds: 3600,
         emailProvider: "log",
@@ -72,16 +79,50 @@ class FakeSender implements ApprovalEmailSender {
   }
 }
 
+/** Fake SF approval gateway capturing submit commands. */
+class FakeSfGateway {
+  readonly commands: GuardrailApprovalSubmitCommand[] = [];
+  result: GuardrailApprovalSubmitResult = {
+    submitted: true,
+    processInstanceId: "04i000000000001AAA"
+  };
+  shouldThrow = false;
+
+  async submitApproval(
+    command: GuardrailApprovalSubmitCommand
+  ): Promise<GuardrailApprovalSubmitResult> {
+    this.commands.push(command);
+    if (this.shouldThrow) {
+      throw new Error("gateway_blew_up");
+    }
+    return this.result;
+  }
+}
+
 function build(overrides: Record<string, unknown> = {}) {
   const config = buildConfig(overrides);
   const tokens = new GuardrailApprovalTokenService(config);
   const sender = new FakeSender();
+  const gateway = new FakeSfGateway();
   const service = new GuardrailApprovalNotificationService(
     config,
     tokens,
-    sender
+    sender,
+    gateway as unknown as SalesforceGuardrailApprovalGateway
   );
-  return { service, sender };
+  return { service, sender, gateway };
+}
+
+function buildContext(): GuardrailSalesforceApprovalContext {
+  return {
+    verdict: {
+      headline: "Normal priority case — approval required (medium risk)",
+      summary: "Held for human approval by the compliance guardrail.",
+      recommendedSteps: ["Review parts transfer"],
+      highlights: [{ label: "Risk", value: "52 (high)" }]
+    },
+    orchestrationConsoleUrl: "https://ui.example.com/orchestration?caseId=x"
+  };
 }
 
 describe("GuardrailApprovalNotificationService", () => {
@@ -188,5 +229,120 @@ describe("GuardrailApprovalNotificationService", () => {
     expect(on.sender.messages[0].subject.toLowerCase()).toContain("escalated");
     // Terminal path — no approve/reject action links.
     expect(on.sender.messages[0].text).not.toContain("/approve?token=");
+  });
+
+  describe("Salesforce approval routing (6b+)", () => {
+    it("submits the SF approval and returns salesforce_approval routing with externalRef", async () => {
+      const { service, gateway, sender } = build({
+        salesforceApprovalEnabled: true,
+        emailEnabled: false
+      });
+      const routing = await service.notifyApprovalRequired(
+        "wf-abc-123",
+        FULL_CASE_ID,
+        buildPayload(),
+        buildContext()
+      );
+      expect(routing.method).toBe("salesforce_approval");
+      expect(routing.sentAt).toBeDefined();
+      expect(routing.externalRef).toBe("04i000000000001AAA");
+      expect(routing.degraded).toBeUndefined();
+      // SF path takes precedence — no email sent.
+      expect(sender.messages).toHaveLength(0);
+      expect(gateway.commands).toHaveLength(1);
+      const command = gateway.commands[0];
+      expect(command.workflowId).toBe("wf-abc-123");
+      expect(command.caseId).toBe(FULL_CASE_ID);
+      expect(command.resumeToken.split(".")).toHaveLength(3); // JWT
+      expect(command.verdict.headline).toContain("approval required");
+      expect(command.orchestrationConsoleUrl).toContain("/orchestration");
+    });
+
+    it("takes precedence over email when both are enabled", async () => {
+      const { service, gateway, sender } = build({
+        salesforceApprovalEnabled: true,
+        emailEnabled: true
+      });
+      const routing = await service.notifyApprovalRequired(
+        "wf-both",
+        FULL_CASE_ID,
+        buildPayload(),
+        buildContext()
+      );
+      expect(routing.method).toBe("salesforce_approval");
+      expect(gateway.commands).toHaveLength(1);
+      expect(sender.messages).toHaveLength(0);
+    });
+
+    it("falls back to a synthesized verdict when context is absent", async () => {
+      const { service, gateway } = build({
+        salesforceApprovalEnabled: true
+      });
+      await service.notifyApprovalRequired(
+        "wf-noctx",
+        FULL_CASE_ID,
+        buildPayload()
+      );
+      const command = gateway.commands[0];
+      expect(command.verdict.headline.toLowerCase()).toContain("approval");
+      expect(command.verdict.highlights.length).toBeGreaterThan(0);
+    });
+
+    it("is degrade-safe: a degraded submit marks routing degraded, never throws", async () => {
+      const { service, gateway } = build({ salesforceApprovalEnabled: true });
+      gateway.result = { submitted: false, degraded: true };
+      const routing = await service.notifyApprovalRequired(
+        "wf-degraded-sf",
+        FULL_CASE_ID,
+        buildPayload(),
+        buildContext()
+      );
+      expect(routing.method).toBe("salesforce_approval");
+      expect(routing.degraded).toBe(true);
+      expect(routing.sentAt).toBeDefined();
+    });
+
+    it("is degrade-safe: a thrown gateway error never escapes the graph", async () => {
+      const { service, gateway } = build({ salesforceApprovalEnabled: true });
+      gateway.shouldThrow = true;
+      const routing = await service.notifyApprovalRequired(
+        "wf-throw-sf",
+        FULL_CASE_ID,
+        buildPayload(),
+        buildContext()
+      );
+      expect(routing.degraded).toBe(true);
+    });
+
+    it("is idempotent per workflow: a re-run never submits twice", async () => {
+      const { service, gateway } = build({ salesforceApprovalEnabled: true });
+      const first = await service.notifyApprovalRequired(
+        "wf-idem-sf",
+        FULL_CASE_ID,
+        buildPayload(),
+        buildContext()
+      );
+      const second = await service.notifyApprovalRequired(
+        "wf-idem-sf",
+        FULL_CASE_ID,
+        buildPayload(),
+        buildContext()
+      );
+      expect(second).toBe(first);
+      expect(gateway.commands).toHaveLength(1);
+    });
+
+    it("never leaks PII into the submit command", async () => {
+      const { service, gateway } = build({ salesforceApprovalEnabled: true });
+      await service.notifyApprovalRequired(
+        "wf-pii-sf",
+        FULL_CASE_ID,
+        buildPayload(),
+        buildContext()
+      );
+      const serialized = JSON.stringify(gateway.commands[0].verdict);
+      expect(serialized).not.toContain(FULL_CASE_ID);
+      expect(serialized).not.toContain(FULL_CASE_NUMBER);
+    });
   });
 });

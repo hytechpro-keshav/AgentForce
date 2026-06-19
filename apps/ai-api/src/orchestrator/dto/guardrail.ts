@@ -67,6 +67,62 @@ export interface GuardrailApprovalRouting {
   degraded?: boolean;
 }
 
+/**
+ * 6b+ — the Orchestrator Verdict surfaced to a Salesforce approver. Same
+ * four fields as the read-only orchestration console panel, sanitized and
+ * non-PII. Built from all typed channels via `synthesizeOrchestratorVerdict`
+ * at submit time so the approver sees the full AI story on the Case record
+ * without opening the console.
+ */
+export interface GuardrailApprovalVerdict {
+  headline: string;
+  summary: string;
+  recommendedSteps: string[];
+  highlights: { label: string; value: string }[];
+}
+
+/**
+ * 6b+ — extra context the Salesforce Approval submit needs beyond the
+ * interrupt payload: the verdict to stamp on the Case and a deep link back
+ * to the orchestration console. Computed from the full graph state BEFORE
+ * `interrupt()` and forwarded to the notification service; the email path
+ * ignores it. Optional everywhere so the SF path degrades (never throws)
+ * when it is unavailable.
+ */
+export interface GuardrailSalesforceApprovalContext {
+  verdict: GuardrailApprovalVerdict;
+  orchestrationConsoleUrl?: string;
+}
+
+/**
+ * 6b+ — command POSTed to the Apex REST submit resource
+ * (`/services/apexrest/agentforce/guardrail-approval/submit`). Mirrors the
+ * Apex `AgentforceGuardrailApprovalService.SubmitRequest`. No PII: ids,
+ * scores, rule/reason labels, the sanitized verdict, and a workflow-scoped
+ * callback token only.
+ */
+export interface GuardrailApprovalSubmitCommand {
+  workflowId: string;
+  caseId: string;
+  riskScore: number;
+  riskLevel: GuardrailRiskLevel;
+  policyRulesTriggered: string[];
+  approvalReasons: string[];
+  /** Workflow-scoped callback token the SF Flow presents to resume. */
+  resumeToken: string;
+  verdict: GuardrailApprovalVerdict;
+  orchestrationConsoleUrl?: string;
+}
+
+/** 6b+ — result returned by the Apex REST submit resource. */
+export interface GuardrailApprovalSubmitResult {
+  submitted: boolean;
+  processInstanceId?: string;
+  /** Idempotent resubmit: an approval was already pending for the workflow. */
+  alreadyPending?: boolean;
+  degraded?: boolean;
+}
+
 /** Node 6 output channel — sole writer: Node 6. */
 export interface GuardrailChannel {
   eligible: boolean;

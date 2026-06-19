@@ -180,8 +180,38 @@ a public approve/reject link flow. See `docs/context/node6-6b-approval-routing-l
   case **suffix** only.
 - Smoke: `ASSERT_GUARDRAIL_EMAIL=1` needs a Case that lands `requireHumanApproval`
   (NOT 00001050 escalate / 00001054 autoApprove).
-- Out of scope: Salesforce Approval Process (`..._SF_APPROVAL_ENABLED` stays
-  false) and N6-R2 Stop-AI guard (6c).
+- Out of scope (6b email track): N6-R2 Stop-AI guard (6c).
+
+## Phase 6b+ — Salesforce Approval Process routing
+
+6b+ routes the `requireHumanApproval` interrupt to a **native SF Approval
+Process** (email stays off). Harness `/implement-node6-guardrail-sf-approval`;
+plan `docs/orchestrator/node-6-guardrail-sf-approval-phase-plan.md`; lessons
+`docs/context/node6-sf-approval-lessons.md`.
+
+- **Routing**: `notifyApprovalRequired` branches SF-first → `{ method:
+"salesforce_approval", sentAt, externalRef }` via `SalesforceGuardrailApprovalGateway`
+  (degrade-safe; mirrors the fulfillment gateway). Same in-service
+  `Map<workflowId, routing>` for R2 idempotency.
+- **Token**: decision-AGNOSTIC `mintForSalesforce`/`verifyForSalesforce` with a
+  DISTINCT audience (`guardrail-sf-approval`) — an SF token can't replay at the
+  email `/approve` and vice-versa. The decision comes from Salesforce on the
+  callback body, constrained to approved/rejected (escalated never — R6); `jti`
+  = resume idempotencyKey.
+- **Verdict context**: graph optional dep `buildApprovalContext(state)`
+  synthesizes the Orchestrator Verdict + console deep link BEFORE `interrupt()`
+  and passes it as the 4th arg of `sendApprovalNotification` (SF path stamps it
+  on the Case; email path ignores it).
+- **Callback**: Approval final actions set `AI_Guardrail_Status__c` → record
+  Flow `Agentforce_Guardrail_Approval_Callback` → invocable
+  `AgentforceGuardrailApprovalCallback` → Queueable callout to public
+  `POST :workflowId/sf-approval-callback`.
+- **Config** fails closed: `ORCHESTRATOR_GUARDRAIL_SF_APPROVAL_ENABLED` requires
+  `ORCHESTRATOR_APPROVAL_TOKEN_SECRET`. Smoke: `ASSERT_GUARDRAIL_SF=1`.
+- **Metadata/Apex gotchas** (see lessons): self-PSA doesn't refresh test FLS →
+  `runAs(currentUser)`; the active callback Flow fires on a status `update` →
+  seed on insert; mock counts only `/sf-approval-callback`; ApprovalProcess
+  `<fullName>` = `Case.<name>`; no Flow `ISBLANK` on a Long Text Area.
 
 ## Implementation harness
 

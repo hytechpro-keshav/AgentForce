@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Flow xmlns="http://soap.sforce.com/2006/04/metadata">
+    <actionCalls>
+        <name>Resume_Guardrail_Approval_Callback</name>
+        <label>Resume Guardrail Approval Callback</label>
+        <locationX>176</locationX>
+        <locationY>134</locationY>
+        <actionName>AgentforceGuardrailApprovalCallback</actionName>
+        <actionType>apex</actionType>
+        <flowTransactionModel>Automatic</flowTransactionModel>
+        <inputParameters>
+            <name>caseId</name>
+            <value>
+                <elementReference>$Record.Id</elementReference>
+            </value>
+        </inputParameters>
+        <storeOutputAutomatically>true</storeOutputAutomatically>
+    </actionCalls>
+    <apiVersion>66.0</apiVersion>
+    <description
+  >On guardrail approval/rejection of a Case with an active workflow and resume token, calls the AI API back to resume the paused orchestration.</description>
+    <environments>Default</environments>
+    <interviewLabel
+  >Agentforce Guardrail Approval Callback {!$Flow.CurrentDateTime}</interviewLabel>
+    <label>Agentforce Guardrail Approval Callback</label>
+    <processMetadataValues>
+        <name>BuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>CanvasMode</name>
+        <value>
+            <stringValue>AUTO_LAYOUT_CANVAS</stringValue>
+        </value>
+    </processMetadataValues>
+    <processMetadataValues>
+        <name>OriginBuilderType</name>
+        <value>
+            <stringValue>LightningFlowBuilder</stringValue>
+        </value>
+    </processMetadataValues>
+    <processType>AutoLaunchedFlow</processType>
+    <start>
+        <locationX>50</locationX>
+        <locationY>0</locationY>
+        <connector>
+            <targetReference
+      >Resume_Guardrail_Approval_Callback</targetReference>
+        </connector>
+        <filterFormula
+    >AND( OR(ISPICKVAL({!$Record.AI_Guardrail_Status__c}, "approved"), ISPICKVAL({!$Record.AI_Guardrail_Status__c}, "rejected")), ISCHANGED({!$Record.AI_Guardrail_Status__c}), NOT(ISBLANK({!$Record.AI_Triage_Workflow_Id__c})) )</filterFormula>
+        <object>Case</object>
+        <recordTriggerType>Update</recordTriggerType>
+        <triggerType>RecordAfterSave</triggerType>
+    </start>
+    <status>Active</status>
+</Flow>

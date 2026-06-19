@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>AI_Orchestrator_Verdict_Summary__c</fullName>
+    <description
+  >Final verdict summary narrative from the AI orchestrator rollup for this Case. Managed by the AI API; do not edit manually.</description>
+    <inlineHelpText
+  >Final verdict summary from the AI orchestrator. Managed by the AI API; do not edit manually.</inlineHelpText>
+    <label>AI Orchestrator Verdict Summary</label>
+    <length>32768</length>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>LongTextArea</type>
+    <visibleLines>6</visibleLines>
+</CustomField>

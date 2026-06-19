@@ -357,8 +357,16 @@ export type OrchestratorApprovalEmailProvider = "log" | "resend";
 export interface OrchestratorGuardrailApprovalConfig {
   emailEnabled: boolean;
   escalationEmailEnabled: boolean;
-  /** Reserved for 6b+ Salesforce Approval Process; stays false in 6b v1. */
+  /**
+   * 6b+ — route the guardrail `requireHumanApproval` interrupt to a native
+   * Salesforce Approval Process instead of (or alongside) email. When on,
+   * the notification service submits the Case Approval via the Apex REST
+   * submit gateway and the approver acts in Salesforce; a Flow callout
+   * resumes the workflow. Requires `tokenSecret` (callback auth).
+   */
   salesforceApprovalEnabled: boolean;
+  /** Developer name of the Case Approval Process submitted programmatically. */
+  salesforceApprovalProcess: string;
   tokenSecret?: string;
   tokenTtlSeconds: number;
   emailProvider: OrchestratorApprovalEmailProvider;
@@ -1986,10 +1994,24 @@ export class AppConfigService {
       }
     }
 
+    // Fail closed: Salesforce approval routing mints a workflow-scoped
+    // callback token that the SF Flow presents to resume the workflow.
+    // Without the signing secret the callback could not be authenticated,
+    // so require it (6b+ phase plan §8 — "fails closed").
+    if (salesforceApprovalEnabled && !tokenSecret) {
+      throw new Error(
+        "ORCHESTRATOR_GUARDRAIL_SF_APPROVAL_ENABLED=true requires ORCHESTRATOR_APPROVAL_TOKEN_SECRET."
+      );
+    }
+
     return {
       emailEnabled,
       escalationEmailEnabled,
       salesforceApprovalEnabled,
+      salesforceApprovalProcess:
+        AppConfigService.normalize(
+          env.ORCHESTRATOR_GUARDRAIL_SF_APPROVAL_PROCESS
+        ) ?? "Agentforce_Guardrail_Approval",
       tokenSecret,
       tokenTtlSeconds: AppConfigService.parsePositiveInteger(
         env.ORCHESTRATOR_APPROVAL_TOKEN_TTL_SECONDS,
