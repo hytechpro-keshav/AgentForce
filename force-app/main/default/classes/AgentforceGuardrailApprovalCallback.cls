@@ -26,6 +26,9 @@ public with sharing class AgentforceGuardrailApprovalCallback {
     'approved',
     'rejected'
   };
+  // Node 6 6c / RC-1: operator Stop-AI takeover flag value on the Case.
+  @TestVisible
+  private static final String STOPPED_BY_USER = 'stopped_by_user';
 
   @InvocableMethod(
     label='Resume AI Workflow After Guardrail Approval'
@@ -50,20 +53,28 @@ public with sharing class AgentforceGuardrailApprovalCallback {
 
     List<CalloutPayload> payloads = new List<CalloutPayload>();
     if (!caseIds.isEmpty()) {
-      for (Case caseRow : [
+      List<Case> decidedCases = [
         SELECT
           Id,
           AI_Guardrail_Status__c,
+          AI_Orchestration_Status__c,
           AI_Triage_Workflow_Id__c,
-          AI_Guardrail_Resume_Token__c
+          AI_Guardrail_Resume_Token__c,
+          AI_Guardrail_Approver__c,
+          AI_Guardrail_Decision_At__c
         FROM Case
         WHERE Id IN :caseIds
-      ]) {
+      ];
+      for (Case caseRow : decidedCases) {
         CalloutPayload payload = buildPayload(caseRow);
         if (payload != null) {
           payloads.add(payload);
         }
       }
+      // Stamp approver alias + decision timestamp (PII-safe) from the completed
+      // approval step. Independent of the resume callout: a stopped Case (callout
+      // skipped) still records who approved in Salesforce. Best-effort, no throw.
+      stampApprovalAudit(decidedCases);
     }
 
     if (!payloads.isEmpty()) {
@@ -83,6 +94,12 @@ public with sharing class AgentforceGuardrailApprovalCallback {
   }
 
   private static CalloutPayload buildPayload(Case caseRow) {
+    // Stop-AI guard (Node 6 6c / RC-1, Flow B): an operator took the Case over,
+    // so a late Salesforce approval must NOT resume the workflow. Drop the
+    // callout here entirely; the NestJS terminal/idempotency guard is the backstop.
+    if (caseRow.AI_Orchestration_Status__c == STOPPED_BY_USER) {
+      return null;
+    }
     String decision = caseRow.AI_Guardrail_Status__c;
     if (
       String.isBlank(decision) ||
@@ -97,6 +114,97 @@ public with sharing class AgentforceGuardrailApprovalCallback {
     payload.decision = decision;
     payload.token = caseRow.AI_Guardrail_Resume_Token__c;
     return payload;
+  }
+
+  /**
+   * Stamp AI_Guardrail_Approver__c (User.Alias — PII-safe) and
+   * AI_Guardrail_Decision_At__c from the most-recent completed
+   * ProcessInstanceStep on each approved/rejected Case. A classic Workflow
+   * FieldUpdate cannot resolve the approver (no {!ApprovalRequest.*} merge field
+   * for field updates), so the stamp lives here.
+   *
+   * First decision wins — only stamps when both audit fields are still blank, so
+   * the resulting update never changes AI_Guardrail_Status__c and therefore
+   * never re-fires the status-change callback Flow (no recursion / double
+   * callout). Best-effort: a query/DML failure is logged, never thrown, so it
+   * cannot block the resume callout. ProcessInstanceStep cannot be inserted in
+   * tests, so the populated path is proven live (6c-c S4); unit tests cover the
+   * degrade-safe no-step path.
+   */
+  @TestVisible
+  private static void stampApprovalAudit(List<Case> cases) {
+    Set<Id> needsStamp = new Set<Id>();
+    for (Case caseRow : cases) {
+      if (
+        ALLOWED_DECISIONS.contains(caseRow.AI_Guardrail_Status__c) &&
+        String.isBlank(caseRow.AI_Guardrail_Approver__c) &&
+        caseRow.AI_Guardrail_Decision_At__c == null
+      ) {
+        needsStamp.add(caseRow.Id);
+      }
+    }
+    if (needsStamp.isEmpty()) {
+      return;
+    }
+
+    // Most-recent completed approval step per Case (ascending → last wins).
+    Map<Id, ProcessInstanceStep> latestStep = new Map<Id, ProcessInstanceStep>();
+    for (ProcessInstanceStep step : [
+      SELECT ProcessInstance.TargetObjectId, ActorId, StepStatus, CompletedDate
+      FROM ProcessInstanceStep
+      WHERE
+        ProcessInstance.TargetObjectId IN :needsStamp
+        AND StepStatus IN ('Approved', 'Rejected')
+      ORDER BY CompletedDate ASC NULLS FIRST
+    ]) {
+      latestStep.put(step.ProcessInstance.TargetObjectId, step);
+    }
+    if (latestStep.isEmpty()) {
+      return;
+    }
+
+    // Resolve approver aliases for User actors only — a queue/group actor has no
+    // alias, so leave the field null rather than stamp a group name.
+    Set<Id> actorIds = new Set<Id>();
+    for (ProcessInstanceStep step : latestStep.values()) {
+      if (
+        step.ActorId != null &&
+        step.ActorId.getSObjectType() == User.SObjectType
+      ) {
+        actorIds.add(step.ActorId);
+      }
+    }
+    Map<Id, User> actors = actorIds.isEmpty()
+      ? new Map<Id, User>()
+      : new Map<Id, User>([SELECT Id, Alias FROM User WHERE Id IN :actorIds]);
+
+    List<Case> updates = new List<Case>();
+    for (Id caseId : needsStamp) {
+      ProcessInstanceStep step = latestStep.get(caseId);
+      if (step == null) {
+        continue;
+      }
+      User actor = step.ActorId == null ? null : actors.get(step.ActorId);
+      updates.add(
+        new Case(
+          Id = caseId,
+          AI_Guardrail_Approver__c = actor == null ? null : actor.Alias,
+          AI_Guardrail_Decision_At__c = step.CompletedDate
+        )
+      );
+    }
+
+    if (updates.isEmpty()) {
+      return;
+    }
+    try {
+      update updates;
+    } catch (Exception stampError) {
+      System.debug(
+        LoggingLevel.WARN,
+        'Guardrail approver/decision stamp failed: ' + stampError.getTypeName()
+      );
+    }
   }
 
   @TestVisible

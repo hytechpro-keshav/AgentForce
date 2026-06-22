@@ -62,6 +62,27 @@ function snapshot(
 describe("OrchestrationPanel", () => {
   afterEach(() => cleanup());
 
+  it("renders the stopped (manual takeover) banner with the operator reason", () => {
+    render(
+      <OrchestrationPanel
+        snapshot={snapshot({
+          status: "stopped",
+          node: "guardrail",
+          writeBackApplied: false,
+          stoppedAt: "2026-06-22T10:00:00.000Z",
+          stopReason: "manual takeover"
+        })}
+      />
+    );
+
+    expect(screen.getByText(/AI orchestration stopped/i)).toBeInTheDocument();
+    expect(screen.getByText(/Reason: manual takeover/i)).toBeInTheDocument();
+    // The status badge reflects the manual takeover (not a guardrail rejection).
+    expect(screen.getAllByText(/Stopped \(manual\)/i).length).toBeGreaterThan(
+      0
+    );
+  });
+
   it("renders Node 1 status, timeline, and sanitized triage output", () => {
     render(<OrchestrationPanel snapshot={snapshot()} />);
 

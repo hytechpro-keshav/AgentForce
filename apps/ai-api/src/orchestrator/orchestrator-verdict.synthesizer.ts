@@ -408,6 +408,9 @@ function outcomeSentence(input: OrchestratorVerdictInput): string {
   if (input.status === "escalated") {
     return "Case escalated to a supervisor; no automated write-back was applied.";
   }
+  if (input.status === "stopped") {
+    return "AI orchestration was stopped by an operator; the Case is being handled manually.";
+  }
   if (input.status === "done") {
     return input.writeBackApplied
       ? "The recommended priority was written back to the Case."
@@ -427,6 +430,14 @@ function buildSteps(
   scheduling: SchedulingChannel | undefined,
   guardrail: GuardrailChannel | undefined
 ): string[] {
+  // Node 6 6c — an operator Stop-AI takeover supersedes the channel steps:
+  // the AI is no longer acting, so the only honest action is manual handling.
+  if (input.status === "stopped") {
+    return [
+      "AI orchestration was stopped — continue handling this Case manually in Salesforce."
+    ];
+  }
+
   const coreSteps: string[] = [];
   const genericSteps: string[] = [];
 
@@ -784,9 +795,11 @@ function buildHighlights(
           ? "Rejected"
           : input.status === "escalated"
             ? "Escalated"
-            : input.writeBackApplied
-              ? "Applied"
-              : "Not applied"
+            : input.status === "stopped"
+              ? "Stopped"
+              : input.writeBackApplied
+                ? "Applied"
+                : "Not applied"
   });
   return highlights;
 }

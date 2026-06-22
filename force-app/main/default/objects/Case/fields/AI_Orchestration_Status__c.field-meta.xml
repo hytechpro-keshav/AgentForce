@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>AI_Orchestration_Status__c</fullName>
+    <description
+  >Operator orchestration control flag for this Case (RC-1 / Node 6 6c). active = AI orchestration runs normally; stopped_by_user = a service rep has taken over and the AI must stop (no new triggers, no resume after a late approval); suppressed = orchestration administratively disabled. Defaults to active. Managed by the AI API; do not edit manually.</description>
+    <externalId>false</externalId>
+    <inlineHelpText
+  >AI orchestration control state. active by default; stopped_by_user halts AI takeover for this Case. Managed by the AI API; do not edit manually.</inlineHelpText>
+    <label>AI Orchestration Status</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>active</fullName>
+                <default>true</default>
+                <label>active</label>
+            </value>
+            <value>
+                <fullName>stopped_by_user</fullName>
+                <default>false</default>
+                <label>stopped_by_user</label>
+            </value>
+            <value>
+                <fullName>suppressed</fullName>
+                <default>false</default>
+                <label>suppressed</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

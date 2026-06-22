@@ -105,6 +105,10 @@ import type { OrchestratorVerdict } from "./dto/orchestrator-verdict";
 import { synthesizeOrchestratorVerdict } from "./orchestrator-verdict.synthesizer";
 import type { ResumeCaseTriageDto } from "./dto/resume-case-triage.dto";
 import type {
+  StopCaseTriageDto,
+  StopCaseTriageResult
+} from "./dto/stop-case-triage.dto";
+import type {
   TriggerCaseTriageAcceptedDto,
   TriggerCaseTriageDto
 } from "./dto/trigger-case-triage.dto";
@@ -255,6 +259,20 @@ export class CaseTriageOrchestratorService {
     dto: TriggerCaseTriageDto,
     principal?: AuthPrincipal
   ): Promise<TriggerCaseTriageAcceptedDto> {
+    // Node 6 6c / RC-1 — refuse a new workflow when an operator has taken
+    // the Case over (Stop AI). Degrade-safe: a missing field / failed read
+    // returns undefined (treated as active), so only an explicit
+    // `stopped_by_user` blocks. No snapshot is created on refusal.
+    const orchestrationStatus = await this.gateway.readOrchestrationStatus(
+      dto.caseId
+    );
+    if (orchestrationStatus === "stopped_by_user") {
+      throw new ConflictException({
+        error: "orchestration_stopped",
+        caseId: dto.caseId
+      });
+    }
+
     const workflowId = `wf-${randomUUID()}`;
     // Await create so the assigned snapshot is written through to the
     // durable store before the 202 — the Case is resolvable by id
@@ -340,6 +358,78 @@ export class CaseTriageOrchestratorService {
       await this.fail(workflowId, err);
     }
     return this.getSnapshot(workflowId);
+  }
+
+  /**
+   * RC-1 (Node 6 6c) — operator Stop-AI takeover. NOT a guardrail
+   * approve/reject: it carries the dedicated `agentforce:orchestrator-control`
+   * scope and routes the Case to a `stopped` terminal, never `rejected`.
+   *
+   * Two effects: (1) flip the Case control flag so the Apex callback guard +
+   * the `/triggers` refuse path stop future AI work and a late SF approve
+   * no-ops; (2) settle the latest workflow snapshot — flip a non-terminal one
+   * to `stopped` (which blocks any later resume, since `stopped` is terminal),
+   * or just stamp `stoppedAt` on an already-terminal one. The paused LangGraph
+   * thread is left orphaned (harmless); the terminal snapshot short-circuits a
+   * late resume(). Does NOT recall a pending SF ProcessInstance (v1 — §7).
+   */
+  async stop(
+    caseId: string,
+    dto: StopCaseTriageDto
+  ): Promise<StopCaseTriageResult> {
+    const stoppedAt = new Date().toISOString();
+    // Best-effort Case flag write; the snapshot stop below is authoritative
+    // for blocking resume even if the Salesforce write degrades.
+    await this.markCaseStoppedOnSalesforce(caseId);
+
+    const latest = await this.store.getLatestForCase(caseId);
+    let workflowId: string | undefined;
+    if (latest) {
+      workflowId = latest.workflowId;
+      const wasTerminal = isTerminalLifecycleStatus(latest.status);
+      await this.store.update(latest.workflowId, {
+        stoppedAt,
+        stopReason: dto.reason,
+        ...(wasTerminal
+          ? {}
+          : {
+              approvalRequired: false,
+              orchestratorVerdict:
+                CaseTriageOrchestratorService.buildStopVerdict(latest)
+            })
+      });
+      if (!wasTerminal) {
+        // appendEvent flips snapshot.status → stopped (terminal) and tags the
+        // guardrail node so the UI stage reflects the takeover.
+        await this.store.appendEvent(
+          latest.workflowId,
+          "stopped",
+          "AI orchestration stopped by operator — manual takeover.",
+          undefined,
+          GUARDRAIL_NODE_ID,
+          CaseTriageOrchestratorService.buildStopRequestTrace(
+            latest,
+            dto.reason
+          )
+        );
+        await this.trackOnSalesforce(caseId, latest.workflowId, "stopped");
+      }
+    }
+    this.logger.log(
+      `Stop AI applied: case=${caseId} workflow=${workflowId ?? "none"}`
+    );
+    return { caseId, status: "stopped_by_user", workflowId, stoppedAt };
+  }
+
+  /** Best-effort Case Stop-AI flag write; soft-fails like `trackOnSalesforce`. */
+  private async markCaseStoppedOnSalesforce(caseId: string): Promise<void> {
+    try {
+      await this.gateway.writeOrchestrationStop(caseId);
+    } catch {
+      this.logger.warn(
+        `Stop-AI flag write skipped for case ${caseId}; snapshot stop remains authoritative.`
+      );
+    }
   }
 
   private async run(
@@ -471,6 +561,38 @@ export class CaseTriageOrchestratorService {
       );
       await this.trackOnSalesforce(result.caseId, workflowId, "escalated");
       this.logTelemetry("escalated", workflowId, result.triage, startedAt);
+      this.logCustomerHistoryTelemetry(workflowId, result.customerContext);
+      return;
+    }
+
+    if (result.status === "stopped") {
+      // Node 6 6c / RC-1 — operator Stop-AI takeover. Terminal like
+      // `escalated` (no write-back), but a distinct lifecycle state so the
+      // verdict + UI surface a manual takeover, not a guardrail rejection.
+      await this.store.update(workflowId, {
+        triage: result.triage,
+        customerContext: result.customerContext,
+        knowledgeGuidance: result.knowledgeGuidance,
+        partsLogistics: result.partsLogistics,
+        scheduling: result.scheduling,
+        guardrail: result.guardrail,
+        approvalRequired: result.approvalRequired,
+        approvalDecision: result.approvalDecision,
+        orchestratorVerdict: CaseTriageOrchestratorService.buildVerdict(
+          result,
+          "stopped"
+        )
+      });
+      await this.store.appendEvent(
+        workflowId,
+        "stopped",
+        "AI orchestration stopped — operator is handling the Case manually.",
+        undefined,
+        GUARDRAIL_NODE_ID,
+        CaseTriageOrchestratorService.buildStoppedTrace(result)
+      );
+      await this.trackOnSalesforce(result.caseId, workflowId, "stopped");
+      this.logTelemetry("stopped", workflowId, result.triage, startedAt);
       this.logCustomerHistoryTelemetry(workflowId, result.customerContext);
       return;
     }
@@ -1272,6 +1394,109 @@ export class CaseTriageOrchestratorService {
               change: "modified",
               before: "running",
               after: "escalated"
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  /** Node 6 6c / RC-1 — Stop-AI takeover terminal trace. No policy ran. */
+  private static buildStoppedTrace(
+    result: CaseTriageStateType
+  ): OrchestrationExecutionTrace {
+    return {
+      stepKey: "stopped_by_operator",
+      sections: [
+        {
+          key: "inputs",
+          title: "Inputs",
+          data: {
+            orchestrationStatus:
+              result.context?.orchestrationStatus ?? "active",
+            recommendedPriority: result.triage?.recommendedPriority ?? "unknown"
+          }
+        },
+        {
+          key: "outputs",
+          title: "Outputs",
+          data: {
+            workflowStatus: "stopped",
+            writeBackApplied: false,
+            caseUpdated: false
+          }
+        },
+        {
+          key: "state_changes",
+          title: "State changes",
+          data: [
+            {
+              path: "status",
+              change: "modified",
+              before: "running",
+              after: "stopped"
+            }
+          ]
+        }
+      ]
+    };
+  }
+
+  /**
+   * RC-1 — verdict for a Stop-AI takeover synthesized from the latest
+   * snapshot's channels (the paused graph state is not available out of band).
+   */
+  private static buildStopVerdict(
+    snapshot: CaseTriageWorkflowSnapshot
+  ): OrchestratorVerdict {
+    return synthesizeOrchestratorVerdict({
+      status: "stopped",
+      writeBackApplied: false,
+      approvalRequired: false,
+      approvalDecision: snapshot.approvalDecision,
+      triage: snapshot.triage,
+      customerContext: snapshot.customerContext,
+      knowledgeGuidance: snapshot.knowledgeGuidance,
+      partsLogistics: snapshot.partsLogistics,
+      scheduling: snapshot.scheduling,
+      guardrail: snapshot.guardrail
+    });
+  }
+
+  /** RC-1 — trace for an out-of-band Stop-AI request. Reason kept as a flag (no raw text). */
+  private static buildStopRequestTrace(
+    snapshot: CaseTriageWorkflowSnapshot,
+    reason?: string
+  ): OrchestrationExecutionTrace {
+    return {
+      stepKey: "stop_ai_takeover",
+      sections: [
+        {
+          key: "inputs",
+          title: "Inputs",
+          data: {
+            previousStatus: snapshot.status,
+            reasonProvided: Boolean(reason)
+          }
+        },
+        {
+          key: "outputs",
+          title: "Outputs",
+          data: {
+            workflowStatus: "stopped",
+            controlScope: "agentforce:orchestrator-control",
+            writeBackApplied: false
+          }
+        },
+        {
+          key: "state_changes",
+          title: "State changes",
+          data: [
+            {
+              path: "status",
+              change: "modified",
+              before: snapshot.status,
+              after: "stopped"
             }
           ]
         }

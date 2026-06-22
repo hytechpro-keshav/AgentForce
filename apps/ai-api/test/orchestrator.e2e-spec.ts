@@ -25,6 +25,11 @@ function bearer(scope: string): string {
 const fakeGateway = {
   isConfigured: jest.fn().mockReturnValue(true),
   readCaseContext: jest.fn(),
+  // RC-1 (6c): trigger() reads the Stop-AI flag (degrade-safe → active);
+  // the stop/timeout writes are degrade-safe no-ops in these e2e flows.
+  readOrchestrationStatus: jest.fn().mockResolvedValue(undefined),
+  writeOrchestrationStop: jest.fn().mockResolvedValue(undefined),
+  writeGuardrailStatus: jest.fn().mockResolvedValue(undefined),
   applyWriteBack: jest.fn()
 };
 

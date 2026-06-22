@@ -66,6 +66,8 @@
             <targetReference
       >Hand_Off_Case_To_AI_Triage_Orchestrator</targetReference>
         </connector>
+        <filterFormula
+    >NOT(ISPICKVAL({!$Record.AI_Orchestration_Status__c}, &quot;stopped_by_user&quot;))</filterFormula>
         <object>Case</object>
         <recordTriggerType>Create</recordTriggerType>
         <triggerType>RecordAfterSave</triggerType>

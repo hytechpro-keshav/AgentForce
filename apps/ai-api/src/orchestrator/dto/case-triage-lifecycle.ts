@@ -14,6 +14,7 @@ export const NODE_LIFECYCLE_STATUSES = [
   "waiting_approval",
   "rejected",
   "escalated",
+  "stopped",
   "failed"
 ] as const;
 
@@ -23,9 +24,19 @@ export type NodeLifecycleStatus = (typeof NODE_LIFECYCLE_STATUSES)[number];
  * Statuses from which a workflow can never transition again. `escalated`
  * is terminal like `rejected`: Node 6 routed the Case to a supervisor
  * path instead of the write-back, and the graph has reached END.
+ * `stopped` (Node 6 6c / RC-1) is terminal too: an operator took the Case
+ * over (Stop AI), so the guardrail settled without interrupt or write-back.
+ * It is deliberately distinct from `rejected` — an operator takeover is not
+ * a guardrail compliance rejection (Node 6 6c plan §1.1).
  */
 export const TERMINAL_LIFECYCLE_STATUSES: ReadonlySet<NodeLifecycleStatus> =
-  new Set<NodeLifecycleStatus>(["done", "rejected", "escalated", "failed"]);
+  new Set<NodeLifecycleStatus>([
+    "done",
+    "rejected",
+    "escalated",
+    "stopped",
+    "failed"
+  ]);
 
 export function isTerminalLifecycleStatus(
   status: NodeLifecycleStatus

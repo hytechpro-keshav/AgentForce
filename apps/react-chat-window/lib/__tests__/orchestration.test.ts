@@ -38,10 +38,12 @@ describe("isValidCaseId", () => {
 });
 
 describe("isTerminalStatus", () => {
-  it("treats done/rejected/failed as terminal", () => {
+  it("treats done/rejected/escalated/stopped/failed as terminal", () => {
     for (const status of [
       "done",
       "rejected",
+      "escalated",
+      "stopped",
       "failed"
     ] as OrchestrationStatus[]) {
       expect(isTerminalStatus(status)).toBe(true);

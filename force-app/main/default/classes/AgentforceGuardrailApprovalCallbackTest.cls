@@ -145,6 +145,78 @@ private class AgentforceGuardrailApprovalCallbackTest {
   }
 
   @IsTest
+  static void stoppedByUserSkipsCallout() {
+    // Operator took the Case over (Stop AI, Flow B). Even with an approved
+    // status + workflow + token, the callback must drop the resume callout.
+    Account account = new Account(Name = 'Aptivance Stop Test');
+    insert account;
+    Case supportCase = new Case(
+      AccountId = account.Id,
+      Subject = 'Stop AI test',
+      Status = 'New',
+      Origin = 'Web',
+      AI_Guardrail_Status__c = 'approved',
+      AI_Orchestration_Status__c = AgentforceGuardrailApprovalCallback.STOPPED_BY_USER,
+      AI_Triage_Workflow_Id__c = WORKFLOW_ID,
+      AI_Guardrail_Resume_Token__c = RESUME_TOKEN
+    );
+    insert supportCase;
+
+    CallbackMock mock = new CallbackMock();
+    Test.setMock(HttpCalloutMock.class, mock);
+    Test.startTest();
+    List<AgentforceGuardrailApprovalCallback.CallbackResult> results = AgentforceGuardrailApprovalCallback.dispatch(
+      requestFor(supportCase.Id)
+    );
+    Test.stopTest();
+
+    System.assertEquals(
+      false,
+      results[0].enqueued,
+      'Stopped Case not enqueued.'
+    );
+    System.assertEquals(
+      0,
+      mock.count,
+      'No callout when the operator stopped the Case.'
+    );
+  }
+
+  @IsTest
+  static void stampLeavesAuditBlankWithoutApprovalStep() {
+    // No ProcessInstanceStep exists in a unit test, so the approver/decision-at
+    // stamp must no-op (degrade-safe) and never block the resume callout.
+    Id caseId = seedCase('approved', WORKFLOW_ID, RESUME_TOKEN);
+    CallbackMock mock = new CallbackMock();
+    Test.setMock(HttpCalloutMock.class, mock);
+
+    Test.startTest();
+    AgentforceGuardrailApprovalCallback.dispatch(requestFor(caseId));
+    Test.stopTest();
+
+    System.assertEquals(
+      1,
+      mock.count,
+      'Callout still fires despite no approval step to stamp.'
+    );
+    Case stamped = [
+      SELECT AI_Guardrail_Approver__c, AI_Guardrail_Decision_At__c
+      FROM Case
+      WHERE Id = :caseId
+    ];
+    System.assertEquals(
+      null,
+      stamped.AI_Guardrail_Approver__c,
+      'No approver stamped without a completed step.'
+    );
+    System.assertEquals(
+      null,
+      stamped.AI_Guardrail_Decision_At__c,
+      'No decision timestamp stamped without a completed step.'
+    );
+  }
+
+  @IsTest
   static void emptyRequestIsNoOp() {
     Test.startTest();
     List<AgentforceGuardrailApprovalCallback.CallbackResult> results = AgentforceGuardrailApprovalCallback.dispatch(

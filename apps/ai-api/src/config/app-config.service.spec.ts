@@ -1049,4 +1049,49 @@ describe("AppConfigService", () => {
     expect(approval.salesforceApprovalEnabled).toBe(true);
     expect(approval.salesforceApprovalProcess).toBe("Custom_Guardrail_Process");
   });
+
+  it("guardrail approval timeout (6c): defaults off with a 24h SLA and escalate action", () => {
+    const timeout = AppConfigService.load({}).orchestrator.guardrailApproval
+      .timeout;
+    expect(timeout.enabled).toBe(false);
+    expect(timeout.timeoutSeconds).toBe(86400);
+    expect(timeout.action).toBe("escalate");
+    expect(timeout.scanSeconds).toBe(300);
+  });
+
+  it("guardrail approval timeout (6c): reads the enabled flag, SLA, action, and scan interval", () => {
+    const timeout = AppConfigService.load({
+      ORCHESTRATOR_GUARDRAIL_APPROVAL_TIMEOUT_ENABLED: "true",
+      ORCHESTRATOR_GUARDRAIL_APPROVAL_TIMEOUT_SECONDS: "60",
+      ORCHESTRATOR_GUARDRAIL_APPROVAL_TIMEOUT_ACTION: "reject",
+      ORCHESTRATOR_GUARDRAIL_APPROVAL_TIMEOUT_SCAN_SECONDS: "30"
+    }).orchestrator.guardrailApproval.timeout;
+    expect(timeout.enabled).toBe(true);
+    expect(timeout.timeoutSeconds).toBe(60);
+    expect(timeout.action).toBe("reject");
+    expect(timeout.scanSeconds).toBe(30);
+  });
+
+  it("guardrail approval timeout (6c): rejects an unknown timeout action", () => {
+    expect(() =>
+      AppConfigService.load({
+        ORCHESTRATOR_GUARDRAIL_APPROVAL_TIMEOUT_ACTION: "delete"
+      })
+    ).toThrow("ORCHESTRATOR_GUARDRAIL_APPROVAL_TIMEOUT_ACTION");
+  });
+
+  it("operator orchestration session (RC-8a): defaults to no access code + a 1h TTL", () => {
+    const session = AppConfigService.load({}).operatorOrchestrationSession;
+    expect(session.accessCode).toBeUndefined();
+    expect(session.ttlSeconds).toBe(3600);
+  });
+
+  it("operator orchestration session (RC-8a): reads the access code + TTL", () => {
+    const session = AppConfigService.load({
+      ORCHESTRATOR_OPERATOR_ACCESS_CODE: "ops-code",
+      ORCHESTRATOR_OPERATOR_SESSION_TTL_SECONDS: "900"
+    }).operatorOrchestrationSession;
+    expect(session.accessCode).toBe("ops-code");
+    expect(session.ttlSeconds).toBe(900);
+  });
 });

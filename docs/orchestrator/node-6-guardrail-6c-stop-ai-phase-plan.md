@@ -2,7 +2,7 @@
 
 > **Document type:** Phase 6c planning — Stop-AI manual takeover (RC-1), approval timeout → auto-escalate (N6-R1), Stop-AI guard at the guardrail interrupt + callback (N6-R2), reconcile/long-wait interactions (N6-R3/R4), and the Salesforce approver/decision stamps + Approval History layout polish.
 > **Audience:** AI Architects · Salesforce Architects · Platform Engineers · Service Operations.
-> **Status:** **PLANNING** (2026-06-22). No production code in this session. This plan + scaffolds only.
+> **Status:** **IMPLEMENTED — code-complete + unit-green (2026-06-22).** 6c-Pre SF metadata authored (deploy/validate + Approval History layout retrieve pending org); 6c-a/RC-1a/6c-b/RC-8a NestJS + RC-1b React shipped with focused tests green (ai-api 528, react 53). Live proof (smoke S1–S5) + Railway env flips pending. Lessons: [`node6-6c-stop-ai-lessons.md`](../context/node6-6c-stop-ai-lessons.md).
 > **Builds on:** 6a `evaluateGuardrail` (**live**), 6b+ Salesforce Approval Process submit + callback resume (**LIVE PROOF COMPLETE 2026-06-22** — Case 00001059 approved, 00001060 paused), post-approval verdict rollup (**live**).
 > **Companions:** [`node-6-guardrail-phase-plan.md`](./node-6-guardrail-phase-plan.md) §3.9/§15 · [`node-6-guardrail-sf-approval-phase-plan.md`](./node-6-guardrail-sf-approval-phase-plan.md) §9 · [`re-orchestration-backlog.md`](./re-orchestration-backlog.md) RC-1/RC-2/RC-8, N6-R1–R4 · [`case-triage-orchestrator-flow.md`](./case-triage-orchestrator-flow.md) §6 · [`node6-sf-approval-lessons.md`](../context/node6-sf-approval-lessons.md) · [`new-node-phase-completion-checklist.md`](./new-node-phase-completion-checklist.md)
 

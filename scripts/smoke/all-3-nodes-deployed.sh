@@ -102,6 +102,29 @@ ASSERT_GUARDRAIL_EMAIL="${ASSERT_GUARDRAIL_EMAIL:-0}"
 # escalate / 00001054 autoApprove). The approver acting in Salesforce is manual
 # proof; this asserts the submit routed.
 ASSERT_GUARDRAIL_SF="${ASSERT_GUARDRAIL_SF:-0}"
+# Node 6 Phase 6c (RC-1) — Stop-AI manual takeover assertion. Off by default.
+# Proves S1/S2: a control-scoped stop drives the Case to status=stopped with no
+# write-back, and a late SF approve no-ops. Needs a control-scoped mint
+# (phase4-mint-jwt.mjs --scope "agentforce:orchestrator-control …"), an
+# SF_CASE_ID that lands requireHumanApproval (NOT 00001050 escalate / 00001054
+# autoApprove — use the 00001060 recipe), and the 6c-Pre field deployed.
+ASSERT_STOP_AI="${ASSERT_STOP_AI:-0}"
+# Node 6 Phase 6c (N6-R1) — approval timeout auto-escalate assertion. Off by
+# default. Proves S3: a stale waiting_approval past the SLA settles to
+# status=escalated + Case AI_Guardrail_Status__c=escalated with NO SF token
+# minted. Needs ORCHESTRATOR_GUARDRAIL_APPROVAL_TIMEOUT_ENABLED=true +
+# a short ORCHESTRATOR_GUARDRAIL_APPROVAL_TIMEOUT_SECONDS in the test env.
+ASSERT_APPROVAL_TIMEOUT="${ASSERT_APPROVAL_TIMEOUT:-0}"
+
+# The ASSERT_STOP_AI / ASSERT_APPROVAL_TIMEOUT assertion bodies are wired during
+# the live 6c-c run (they need a control-scoped mint + precise pause-window
+# timing against a real org). Fail loud rather than silently pass if requested
+# before they are wired — see docs/context/node6-6c-stop-ai-lessons.md.
+if [ "${ASSERT_STOP_AI}" = "1" ] || [ "${ASSERT_APPROVAL_TIMEOUT}" = "1" ]; then
+  echo "ERROR: ASSERT_STOP_AI / ASSERT_APPROVAL_TIMEOUT are not yet wired in this harness." >&2
+  echo "       Run the documented 6c-c live proof steps; see docs/context/node6-6c-stop-ai-lessons.md." >&2
+  exit 2
+fi
 
 : "${SF_CASE_ID:?Set SF_CASE_ID to a Salesforce Case record ID for the triage test.}"
 

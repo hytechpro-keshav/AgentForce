@@ -56,7 +56,38 @@ export class SalesforceCaseGateway {
     // path as triage) with an SOQL fallback when the REST relationship
     // is absent.
     const logistics = await this.readCaseLogisticsContext(caseId, context);
-    return SalesforceCaseGateway.mergeDefined(context, logistics);
+    const merged = SalesforceCaseGateway.mergeDefined(context, logistics);
+    // RC-1 (Node 6 6c) — best-effort read of the operator Stop-AI control
+    // flag. Degrade-safe: a missing field or failed read leaves it undefined,
+    // which the guardrail treats as `active` (never blocks orchestration).
+    const orchestrationStatus = await this.readOrchestrationStatus(caseId);
+    return orchestrationStatus
+      ? SalesforceCaseGateway.mergeDefined(merged, { orchestrationStatus })
+      : merged;
+  }
+
+  /**
+   * Best-effort, degrade-safe read of the operator Stop-AI control flag
+   * (RC-1 / Node 6 6c). Returns the picklist value, or `undefined` when the
+   * field is absent (older org), the read fails, or the value is unknown —
+   * callers MUST treat `undefined` as `active` so orchestration is never
+   * blocked on the field being present. Never throws. Reused by the
+   * `/triggers` refuse-when-stopped guard so it does not pull the full Case.
+   */
+  async readOrchestrationStatus(
+    caseId: string
+  ): Promise<SalesforceCaseContext["orchestrationStatus"]> {
+    if (!SF_ID_PATTERN.test(caseId)) {
+      return undefined;
+    }
+    const row = await this.queryCaseRow(
+      caseId,
+      "AI_Orchestration_Status__c",
+      "orchestration-status"
+    );
+    return SalesforceCaseGateway.normalizeOrchestrationStatus(
+      row?.["AI_Orchestration_Status__c"]
+    );
   }
 
   /** Merge partial updates without letting explicit `undefined` clobber values. */
@@ -66,7 +97,10 @@ export class SalesforceCaseGateway {
   ): SalesforceCaseContext {
     const merged = { ...base };
     for (const [key, value] of Object.entries(patch) as Array<
-      [keyof SalesforceCaseContext, SalesforceCaseContext[keyof SalesforceCaseContext]]
+      [
+        keyof SalesforceCaseContext,
+        SalesforceCaseContext[keyof SalesforceCaseContext]
+      ]
     >) {
       if (value !== undefined) {
         (merged as Record<string, unknown>)[key as string] = value;
@@ -108,6 +142,21 @@ export class SalesforceCaseGateway {
     fields: string,
     label: "asset" | "ship-to"
   ): Promise<Partial<SalesforceCaseContext>> {
+    const row = await this.queryCaseRow(caseId, fields, label);
+    return SalesforceCaseGateway.mapLogistics(row);
+  }
+
+  /**
+   * Best-effort single-Case SOQL row read. Returns the first record, or
+   * `undefined` on any non-2xx, malformed payload, or transport failure —
+   * never throws. The shared seam for the degrade-safe custom-field reads
+   * (Node 4 logistics, RC-1 orchestration status).
+   */
+  private async queryCaseRow(
+    caseId: string,
+    fields: string,
+    label: string
+  ): Promise<Record<string, unknown> | undefined> {
     try {
       const soql = `SELECT ${fields} FROM Case WHERE Id = '${caseId}' LIMIT 1`;
       const path = `/services/data/v${this.apiVersion()}/query?q=${encodeURIComponent(
@@ -118,20 +167,29 @@ export class SalesforceCaseGateway {
         this.logger.warn(
           `Case ${label} fields read degraded (status=${response.status}).`
         );
-        return {};
+        return undefined;
       }
       const json = await readJsonObject(response);
       const records = json["records"];
-      const row = Array.isArray(records)
+      return Array.isArray(records)
         ? (records[0] as Record<string, unknown> | undefined)
         : undefined;
-      return SalesforceCaseGateway.mapLogistics(row);
     } catch {
       this.logger.warn(
-        `Case ${label} fields read degraded; continuing without Node 4 ${label} context.`
+        `Case ${label} fields read degraded; continuing without ${label} context.`
       );
-      return {};
+      return undefined;
     }
+  }
+
+  /** Coerce the raw picklist value to the restricted orchestration-status set. */
+  private static normalizeOrchestrationStatus(
+    raw: unknown
+  ): SalesforceCaseContext["orchestrationStatus"] {
+    if (raw === "active" || raw === "stopped_by_user" || raw === "suppressed") {
+      return raw;
+    }
+    return undefined;
   }
 
   async applyWriteBack(
@@ -179,6 +237,39 @@ export class SalesforceCaseGateway {
       body.AI_Triage_UI_URL__c = command.uiUrl.slice(0, 255);
     }
     const response = await this.authedRequest("PATCH", path, body);
+    this.assertOk(response, "write");
+  }
+
+  /**
+   * RC-1 (Node 6 6c) — flips the operator Stop-AI control flag on the Case.
+   * Mirrors {@link writeTriageTracking}: a single PATCH to the Case custom
+   * field. Throws on a non-2xx like the other writes; the orchestrator
+   * soft-fails it so a missing field / FLS gap can never break the stop action
+   * (the in-memory snapshot stop stays authoritative for blocking resume).
+   */
+  async writeOrchestrationStop(caseId: string): Promise<void> {
+    const path = `/services/data/v${this.apiVersion()}/sobjects/Case/${encodeURIComponent(
+      caseId
+    )}`;
+    const response = await this.authedRequest("PATCH", path, {
+      AI_Orchestration_Status__c: "stopped_by_user"
+    });
+    this.assertOk(response, "write");
+  }
+
+  /**
+   * Node 6 — writes the guardrail approval status onto the Case
+   * (`AI_Guardrail_Status__c`). Used by the 6c approval-timeout sweep to settle
+   * a stale pending approval to `escalated`/`rejected`. Throws on a non-2xx
+   * like the other writes; the caller soft-fails it (degrade-safe).
+   */
+  async writeGuardrailStatus(caseId: string, status: string): Promise<void> {
+    const path = `/services/data/v${this.apiVersion()}/sobjects/Case/${encodeURIComponent(
+      caseId
+    )}`;
+    const response = await this.authedRequest("PATCH", path, {
+      AI_Guardrail_Status__c: status.slice(0, 40)
+    });
     this.assertOk(response, "write");
   }
 

@@ -25,6 +25,8 @@ import type { CaseTriageWorkflowSnapshot } from "./dto/orchestration-status-even
 import type { ApproverResumeDecision } from "./dto/case-triage-lifecycle";
 import { ResumeCaseTriageDto } from "./dto/resume-case-triage.dto";
 import { SalesforceApprovalCallbackDto } from "./dto/sf-approval-callback.dto";
+import { StopCaseTriageDto } from "./dto/stop-case-triage.dto";
+import type { StopCaseTriageResult } from "./dto/stop-case-triage.dto";
 import {
   TriggerCaseTriageDto,
   type TriggerCaseTriageAcceptedDto
@@ -96,6 +98,24 @@ export class CaseTriageOrchestratorController {
     @Body() body: ResumeCaseTriageDto
   ): Promise<CaseTriageWorkflowSnapshot> {
     return this.orchestrator.resume(this.assertWorkflowId(workflowId), body);
+  }
+
+  /**
+   * RC-1 (Node 6 6c) — operator Stop-AI takeover. The ONLY console-originated
+   * mutation. Distinct from guardrail approve/reject: it carries the dedicated
+   * `agentforce:orchestrator-control` scope — the read-only view token
+   * (`agentforce:orchestrator-read`) and the approval scope CANNOT call it —
+   * and routes the Case to a `stopped` terminal, never `rejected`. Flips the
+   * Case control flag and settles the latest workflow so future AI work is
+   * refused and a late SF approve no-ops.
+   */
+  @RequireScopes("agentforce:orchestrator-control")
+  @Post("cases/:caseId/stop")
+  async stop(
+    @Param("caseId") caseId: string,
+    @Body() body: StopCaseTriageDto
+  ): Promise<StopCaseTriageResult> {
+    return this.orchestrator.stop(this.assertCaseId(caseId), body);
   }
 
   /**

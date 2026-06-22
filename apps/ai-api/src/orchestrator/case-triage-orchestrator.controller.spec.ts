@@ -154,3 +154,45 @@ describe("CaseTriageOrchestratorController — Salesforce approval callback (6b+
     expect(ack).toEqual({ status: "not_applied", applied: false });
   });
 });
+
+describe("CaseTriageOrchestratorController — Stop AI (RC-1)", () => {
+  const CASE_ID = "500000000000001";
+
+  function buildStop(stop: jest.Mock) {
+    const orchestrator = { stop } as unknown as CaseTriageOrchestratorService;
+    const tokens = new GuardrailApprovalTokenService(tokenConfig());
+    return new CaseTriageOrchestratorController(orchestrator, tokens);
+  }
+
+  it("delegates a valid case id (and reason) to the orchestrator stop", async () => {
+    const stop = jest.fn().mockResolvedValue({
+      caseId: CASE_ID,
+      status: "stopped_by_user",
+      workflowId: WF,
+      stoppedAt: "2026-06-22T00:00:00.000Z"
+    });
+    const controller = buildStop(stop);
+
+    const result = await controller.stop(CASE_ID, {
+      reason: "manual takeover"
+    });
+
+    expect(stop).toHaveBeenCalledWith(CASE_ID, { reason: "manual takeover" });
+    expect(result.status).toBe("stopped_by_user");
+  });
+
+  it("rejects a malformed case id with 400 before calling the service", async () => {
+    const stop = jest.fn();
+    const controller = buildStop(stop);
+
+    let err: { getStatus?: () => number; getResponse?: () => unknown } = {};
+    try {
+      await controller.stop("../bad", {});
+    } catch (e) {
+      err = e as typeof err;
+    }
+    expect(err.getStatus?.()).toBe(400);
+    expect(err.getResponse?.()).toMatchObject({ error: "invalid_case_id" });
+    expect(stop).not.toHaveBeenCalled();
+  });
+});

@@ -111,6 +111,8 @@ interface OrchestrationWorkflowRow extends QueryResultRow {
   scheduling: unknown;
   guardrail: unknown;
   events: unknown;
+  stopped_at: Date | string | null;
+  stop_reason: string | null;
   created_at: Date | string;
   updated_at: Date | string;
 }
@@ -184,10 +186,12 @@ export class PostgresOrchestrationStatusRepository
             scheduling,
             guardrail,
             events,
+            stopped_at,
+            stop_reason,
             created_at,
             updated_at
           ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12::jsonb, $13::jsonb, $14::jsonb, $15::jsonb, $16::jsonb, $17, $18
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12::jsonb, $13::jsonb, $14::jsonb, $15::jsonb, $16::jsonb, $17, $18, $19, $20
           )
           ON CONFLICT (workflow_id) DO UPDATE SET
             case_id = EXCLUDED.case_id,
@@ -205,6 +209,8 @@ export class PostgresOrchestrationStatusRepository
             scheduling = EXCLUDED.scheduling,
             guardrail = EXCLUDED.guardrail,
             events = EXCLUDED.events,
+            stopped_at = EXCLUDED.stopped_at,
+            stop_reason = EXCLUDED.stop_reason,
             created_at = EXCLUDED.created_at,
             updated_at = EXCLUDED.updated_at
         `,
@@ -231,6 +237,8 @@ export class PostgresOrchestrationStatusRepository
           snapshot.scheduling ? JSON.stringify(snapshot.scheduling) : null,
           snapshot.guardrail ? JSON.stringify(snapshot.guardrail) : null,
           JSON.stringify(snapshot.events ?? []),
+          snapshot.stoppedAt ?? null,
+          snapshot.stopReason ?? null,
           snapshot.createdAt,
           snapshot.updatedAt
         ]
@@ -326,6 +334,15 @@ export class PostgresOrchestrationStatusRepository
         ALTER TABLE ai_api_orchestration_workflows
         ADD COLUMN IF NOT EXISTS guardrail jsonb
       `);
+      // RC-1 (Node 6 6c) — operator Stop-AI takeover audit columns.
+      await client.query(`
+        ALTER TABLE ai_api_orchestration_workflows
+        ADD COLUMN IF NOT EXISTS stopped_at timestamptz
+      `);
+      await client.query(`
+        ALTER TABLE ai_api_orchestration_workflows
+        ADD COLUMN IF NOT EXISTS stop_reason text
+      `);
       await client.query(
         "CREATE INDEX IF NOT EXISTS ai_api_orchestration_workflows_case_idx ON ai_api_orchestration_workflows(case_id)"
       );
@@ -373,6 +390,10 @@ export class PostgresOrchestrationStatusRepository
       guardrail: PostgresOrchestrationStatusRepository.parseGuardrail(
         row.guardrail
       ),
+      stoppedAt: row.stopped_at
+        ? PostgresOrchestrationStatusRepository.toIso(row.stopped_at)
+        : undefined,
+      stopReason: row.stop_reason ?? undefined,
       createdAt: PostgresOrchestrationStatusRepository.toIso(row.created_at),
       updatedAt: PostgresOrchestrationStatusRepository.toIso(row.updated_at),
       events: PostgresOrchestrationStatusRepository.parseEvents(row.events)

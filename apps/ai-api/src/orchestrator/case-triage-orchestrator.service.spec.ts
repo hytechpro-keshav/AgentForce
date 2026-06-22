@@ -118,6 +118,8 @@ interface Harness {
   store: OrchestrationStatusStore;
   repository: OrchestrationStatusRepository;
   readCaseContext: jest.Mock;
+  readOrchestrationStatus: jest.Mock;
+  writeOrchestrationStop: jest.Mock;
   applyWriteBack: jest.Mock;
   writeTriageTracking: jest.Mock;
   triage: jest.Mock;
@@ -154,11 +156,17 @@ function buildHarness(
     commentCreated: true
   });
   const writeTriageTracking = jest.fn().mockResolvedValue(undefined);
+  // RC-1: default to active (undefined) so existing trigger tests proceed.
+  // A stopped-Case override drives the /triggers 409 refuse path.
+  const readOrchestrationStatus = jest.fn().mockResolvedValue(undefined);
+  const writeOrchestrationStop = jest.fn().mockResolvedValue(undefined);
   const gateway = {
     isConfigured: () => true,
     readCaseContext,
     applyWriteBack,
-    writeTriageTracking
+    writeTriageTracking,
+    readOrchestrationStatus,
+    writeOrchestrationStop
   } as unknown as SalesforceCaseGateway;
 
   const triage = jest.fn().mockResolvedValue({
@@ -325,6 +333,8 @@ function buildHarness(
     store,
     repository,
     readCaseContext,
+    readOrchestrationStatus,
+    writeOrchestrationStop,
     applyWriteBack,
     writeTriageTracking,
     triage,
@@ -381,6 +391,139 @@ describe("CaseTriageOrchestratorService", () => {
     expect(statuses[0]).toBe("assigned");
     expect(statuses).toContain("running");
     expect(statuses[statuses.length - 1]).toBe("done");
+  });
+
+  it("refuses a new workflow with 409 when the operator stopped the Case (RC-1)", async () => {
+    const h = buildHarness("auto");
+    h.readOrchestrationStatus.mockResolvedValueOnce("stopped_by_user");
+
+    let error: { getStatus?: () => number; getResponse?: () => unknown } = {};
+    try {
+      await h.service.trigger({ caseId: "500000000000001" });
+    } catch (e) {
+      error = e as typeof error;
+    }
+    expect(error.getStatus?.()).toBe(409);
+    expect(error.getResponse?.()).toMatchObject({
+      error: "orchestration_stopped"
+    });
+    // The refusal short-circuits before any workflow is created or run.
+    expect(h.readCaseContext).not.toHaveBeenCalled();
+  });
+
+  it("settles to the stopped terminal when the Case is taken over mid-flight (6c-a)", async () => {
+    // trigger passes (active at trigger time, default readOrchestrationStatus),
+    // but the graph's readContext sees the operator takeover, so the guardrail
+    // node reaches the stopped terminal — no interrupt, no write-back.
+    const h = buildHarness("always", {
+      orchestrationStatus: "stopped_by_user"
+    });
+
+    const accepted = await h.service.trigger({ caseId: "500000000000001" });
+    await waitFor(
+      async () => (await statusOf(h.service, accepted.workflowId)) === "stopped"
+    );
+
+    const snapshot = await h.service.getSnapshot(accepted.workflowId);
+    expect(snapshot.status).toBe("stopped");
+    expect(snapshot.writeBackApplied).toBe(false);
+    expect(h.applyWriteBack).not.toHaveBeenCalled();
+    expect(snapshot.events[snapshot.events.length - 1].status).toBe("stopped");
+    // The verdict reflects the manual takeover, not a guardrail rejection.
+    expect(snapshot.orchestratorVerdict?.recommendedSteps.join(" ")).toContain(
+      "stopped"
+    );
+  });
+
+  it("stop() flips a waiting_approval workflow to the stopped terminal + writes the Case flag (RC-1a)", async () => {
+    const h = buildHarness("always");
+    const accepted = await h.service.trigger({ caseId: "500000000000001" });
+    await waitFor(
+      async () =>
+        (await statusOf(h.service, accepted.workflowId)) === "waiting_approval"
+    );
+
+    const result = await h.service.stop("500000000000001", {
+      reason: "manual takeover"
+    });
+
+    expect(result).toMatchObject({
+      caseId: "500000000000001",
+      status: "stopped_by_user",
+      workflowId: accepted.workflowId
+    });
+    expect(result.stoppedAt).toEqual(expect.any(String));
+    expect(h.writeOrchestrationStop).toHaveBeenCalledWith("500000000000001");
+
+    const snapshot = await h.service.getSnapshot(accepted.workflowId);
+    expect(snapshot.status).toBe("stopped");
+    expect(snapshot.stoppedAt).toBe(result.stoppedAt);
+    expect(snapshot.stopReason).toBe("manual takeover");
+    expect(snapshot.orchestratorVerdict?.recommendedSteps.join(" ")).toContain(
+      "stopped"
+    );
+  });
+
+  it("a late resume no-ops after stop — the stopped snapshot is terminal (RC-1a backstop)", async () => {
+    const h = buildHarness("always");
+    const accepted = await h.service.trigger({ caseId: "500000000000001" });
+    await waitFor(
+      async () =>
+        (await statusOf(h.service, accepted.workflowId)) === "waiting_approval"
+    );
+    await h.service.stop("500000000000001", {});
+
+    const resumed = await h.service.resume(accepted.workflowId, {
+      decision: "approved",
+      idempotencyKey: "late-key"
+    });
+
+    expect(resumed.status).toBe("stopped");
+    expect(h.applyWriteBack).not.toHaveBeenCalled();
+  });
+
+  it("stop() stamps stoppedAt on an already-terminal workflow without changing its status", async () => {
+    const h = buildHarness("auto");
+    const accepted = await h.service.trigger({ caseId: "500000000000001" });
+    await waitFor(
+      async () => (await statusOf(h.service, accepted.workflowId)) === "done"
+    );
+
+    const result = await h.service.stop("500000000000001", {});
+
+    expect(result.status).toBe("stopped_by_user");
+    expect(h.writeOrchestrationStop).toHaveBeenCalledWith("500000000000001");
+    const snapshot = await h.service.getSnapshot(accepted.workflowId);
+    expect(snapshot.status).toBe("done"); // terminal status preserved
+    expect(snapshot.stoppedAt).toBe(result.stoppedAt);
+  });
+
+  it("stop() writes the Case flag even when no workflow exists for the Case", async () => {
+    const h = buildHarness("auto");
+    const result = await h.service.stop("500000000000009", {});
+
+    expect(result).toMatchObject({
+      caseId: "500000000000009",
+      status: "stopped_by_user"
+    });
+    expect(result.workflowId).toBeUndefined();
+    expect(h.writeOrchestrationStop).toHaveBeenCalledWith("500000000000009");
+  });
+
+  it("stop() still succeeds when the Case flag write degrades (snapshot authoritative)", async () => {
+    const h = buildHarness("always");
+    h.writeOrchestrationStop.mockRejectedValueOnce(new Error("FLS"));
+    const accepted = await h.service.trigger({ caseId: "500000000000001" });
+    await waitFor(
+      async () =>
+        (await statusOf(h.service, accepted.workflowId)) === "waiting_approval"
+    );
+
+    const result = await h.service.stop("500000000000001", {});
+
+    expect(result.status).toBe("stopped_by_user");
+    const snapshot = await h.service.getSnapshot(accepted.workflowId);
+    expect(snapshot.status).toBe("stopped");
   });
 
   it("attaches safe, non-PII step details to the timeline events", async () => {

@@ -54,4 +54,9 @@
         <field>Case.AI_Triage_Workflow_Id__c</field>
         <readable>true</readable>
     </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Case.AI_Orchestration_Status__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
 </PermissionSet>

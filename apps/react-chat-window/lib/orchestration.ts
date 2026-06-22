@@ -16,6 +16,7 @@ export const ORCHESTRATION_STATUSES = [
   "waiting_approval",
   "rejected",
   "escalated",
+  "stopped",
   "failed"
 ] as const;
 
@@ -363,6 +364,10 @@ export interface OrchestrationSnapshot {
   orchestratorVerdict?: OrchestrationVerdict;
   events: OrchestrationEvent[];
   updatedAt?: string;
+  /** RC-1 (Node 6 6c) — when an operator issued Stop AI for this Case. */
+  stoppedAt?: string;
+  /** RC-1 — optional, non-PII operator reason for the Stop-AI takeover. */
+  stopReason?: string;
 }
 
 export const WORKFLOW_ID_PATTERN =
@@ -382,6 +387,7 @@ export function isTerminalStatus(status: OrchestrationStatus): boolean {
     status === "done" ||
     status === "rejected" ||
     status === "escalated" ||
+    status === "stopped" ||
     status === "failed"
   );
 }
@@ -402,6 +408,7 @@ export const STATUS_META: Record<OrchestrationStatus, StatusMeta> = {
   done: { label: "Done", tone: "bg-green-100 text-green-700" },
   rejected: { label: "Rejected", tone: "bg-red-100 text-red-700" },
   escalated: { label: "Escalated", tone: "bg-orange-100 text-orange-800" },
+  stopped: { label: "Stopped (manual)", tone: "bg-slate-200 text-slate-800" },
   failed: { label: "Failed", tone: "bg-red-100 text-red-700" }
 };
 
@@ -1252,6 +1259,8 @@ export function sanitizeSnapshot(value: unknown): OrchestrationSnapshot | null {
     guardrail: sanitizeGuardrail(record.guardrail),
     orchestratorVerdict: sanitizeVerdict(record.orchestratorVerdict),
     events: sanitizeEvents(record.events),
-    updatedAt: str(record.updatedAt, 40)
+    updatedAt: str(record.updatedAt, 40),
+    stoppedAt: str(record.stoppedAt, 40),
+    stopReason: str(record.stopReason, 200)
   };
 }

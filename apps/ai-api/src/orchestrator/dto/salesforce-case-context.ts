@@ -30,4 +30,13 @@ export interface SalesforceCaseContext {
   serviceShipToCity?: string;
   serviceShipToState?: string;
   serviceShipToCountry?: string;
+  /**
+   * Operator orchestration control flag (RC-1 / Node 6 6c). `active` (or
+   * absent) = AI runs normally; `stopped_by_user` = a service rep took the
+   * Case over, so Node 6 must stop without interrupt/resume/write-back;
+   * `suppressed` = administratively disabled. Read degrade-safe — a missing
+   * field or failed read is treated as `active`, so orchestration is never
+   * blocked on the field being present.
+   */
+  orchestrationStatus?: "active" | "stopped_by_user" | "suppressed";
 }

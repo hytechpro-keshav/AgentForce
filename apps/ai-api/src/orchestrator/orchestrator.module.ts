@@ -15,6 +15,7 @@ import { SchedulingPlannerService } from "./scheduling-planner.service";
 import { GuardrailPolicyService } from "./guardrail-policy.service";
 import { GuardrailApprovalTokenService } from "./guardrail-approval-token.service";
 import { GuardrailApprovalNotificationService } from "./guardrail-approval-notification.service";
+import { GuardrailApprovalTimeoutService } from "./guardrail-approval-timeout.service";
 import { OrchestratorApprovalRateLimitGuard } from "./orchestrator-approval-rate-limit.guard";
 import {
   APPROVAL_EMAIL_SENDER,
@@ -60,6 +61,8 @@ import { OrchestrationStatusStore } from "./orchestration-status.store";
     // Phase 6b — guardrail approval routing (email links + scoped tokens).
     GuardrailApprovalTokenService,
     GuardrailApprovalNotificationService,
+    // Phase 6c (N6-R1) — approval timeout sweep (disabled by default).
+    GuardrailApprovalTimeoutService,
     OrchestratorApprovalRateLimitGuard,
     LoggingApprovalEmailSender,
     ResendApprovalEmailSender,

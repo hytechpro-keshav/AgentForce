@@ -710,6 +710,25 @@ export function buildCaseTriageGraph(deps: CaseTriageGraphDeps) {
       // channels and produces one of four outcomes. Only
       // `requireHumanApproval` calls `interrupt()`.
 
+      // Phase 0 — Stop-AI takeover (Node 6 6c / RC-1, Flow A). Checked BEFORE
+      // the policy so a Case an operator has taken over never submits an SF
+      // Approval, never calls interrupt(), and never writes back. Degrade-safe:
+      // only an explicit `stopped_by_user` stops; a missing field (read as
+      // undefined / `active`) lets orchestration proceed normally.
+      if (state.context?.orchestrationStatus === "stopped_by_user") {
+        await deps.emitRunning(
+          state.workflowId,
+          "AI orchestration stopped — operator took over the Case.",
+          [{ label: "Orchestration", value: "stopped_by_user" }],
+          GUARDRAIL_NODE_ID,
+          buildGuardrailStoppedTrace(state)
+        );
+        return {
+          approvalRequired: false,
+          status: "stopped" as NodeLifecycleStatus
+        };
+      }
+
       // Phase 1 — deterministic policy. Pure and idempotent: this re-runs
       // on every resume, so it must branch on `state` alone.
       const decision = deps.evaluateGuardrailPolicy(state);
@@ -832,6 +851,13 @@ export function buildCaseTriageGraph(deps: CaseTriageGraphDeps) {
       // but distinct so the verdict and UI can surface the escalation.
       return { status: "escalated" as NodeLifecycleStatus };
     })
+    .addNode("stopped", () => {
+      // Node 6 6c / RC-1 — operator Stop-AI takeover terminal. Like
+      // `escalated`: no interrupt, no write-back, but a distinct lifecycle
+      // state so the verdict + UI surface a manual takeover, not a guardrail
+      // rejection (Node 6 6c plan §1.1).
+      return { status: "stopped" as NodeLifecycleStatus };
+    })
     .addEdge(START, "readContext")
     .addEdge("readContext", "runTriage")
     .addEdge("runTriage", "customerHistory")
@@ -842,15 +868,24 @@ export function buildCaseTriageGraph(deps: CaseTriageGraphDeps) {
     .addConditionalEdges(
       "evaluateGuardrail",
       (state) => {
+        // Node 6 6c — the Stop-AI takeover sets `status: "stopped"` directly
+        // (it is not an ApprovalDecision), so route on it first.
+        if (state.status === "stopped") return "stopped";
         if (state.approvalDecision === "approved") return "writeBack";
         if (state.approvalDecision === "escalated") return "escalated";
         return "rejected";
       },
-      { writeBack: "writeBack", rejected: "rejected", escalated: "escalated" }
+      {
+        writeBack: "writeBack",
+        rejected: "rejected",
+        escalated: "escalated",
+        stopped: "stopped"
+      }
     )
     .addEdge("writeBack", END)
     .addEdge("rejected", END)
     .addEdge("escalated", END)
+    .addEdge("stopped", END)
     .compile({ checkpointer: deps.checkpointer });
 }
 
@@ -2550,6 +2585,51 @@ function buildGuardrailTrace(
         key: "state_changes",
         title: "State changes",
         data: [{ path: "guardrail", change: "added", after: summary }]
+      }
+    ]
+  };
+}
+
+/**
+ * Trace for the Node 6 6c Stop-AI takeover terminal (RC-1). No policy ran —
+ * the operator stopped the Case before the guardrail evaluated — so the trace
+ * records the control flag and the terminal transition only. No PII.
+ */
+function buildGuardrailStoppedTrace(
+  state: CaseTriageStateType
+): OrchestrationExecutionTrace {
+  return {
+    stepKey: "guardrail_stopped_by_user",
+    sections: [
+      {
+        key: "inputs",
+        title: "Inputs",
+        data: {
+          orchestrationStatus: state.context?.orchestrationStatus ?? "active",
+          recommendedPriority: state.triage?.recommendedPriority ?? "unknown"
+        }
+      },
+      {
+        key: "outputs",
+        title: "Outputs",
+        data: {
+          workflowStatus: "stopped",
+          interrupted: false,
+          approvalSubmitted: false,
+          writeBackApplied: false
+        }
+      },
+      {
+        key: "state_changes",
+        title: "State changes",
+        data: [
+          {
+            path: "status",
+            change: "modified",
+            before: "running",
+            after: "stopped"
+          }
+        ]
       }
     ]
   };

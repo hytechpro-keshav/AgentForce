@@ -148,6 +148,15 @@ export interface CaseTriageWorkflowSnapshot {
   orchestratorVerdict?: OrchestratorVerdict;
   /** Safe failure classification only (no stack traces, no raw text). */
   failureKind?: string;
+  /**
+   * RC-1 (Node 6 6c) — when an operator issued Stop AI for this Case. Stamped
+   * on the latest workflow snapshot whether or not it was already terminal, so
+   * the console can show the takeover banner and a late SF approve stays
+   * blocked. Absent unless the Case was stopped.
+   */
+  stoppedAt?: string;
+  /** RC-1 — optional, non-PII operator reason for the Stop-AI takeover. */
+  stopReason?: string;
   createdAt: string;
   updatedAt: string;
   events: OrchestrationStatusEvent[];

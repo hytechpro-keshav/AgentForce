@@ -105,6 +105,69 @@ describe("SalesforceCaseGateway", () => {
     });
   });
 
+  it("threads the operator orchestration status into the Case context (RC-1)", async () => {
+    const h = buildHarness();
+    h.fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse({
+          Id: "500000000000001",
+          Subject: "x",
+          Description: "y",
+          Priority: "High",
+          AssetId: "02i000000000001",
+          Asset: { Product2: { ProductCode: "AV-LP-15X-PRO" } }
+        })
+      )
+      .mockResolvedValueOnce(jsonResponse({ records: [] })) // ship-to
+      .mockResolvedValueOnce(
+        jsonResponse({
+          records: [{ AI_Orchestration_Status__c: "stopped_by_user" }]
+        })
+      );
+
+    const context = await h.gateway.readCaseContext("500000000000001");
+    expect(context.orchestrationStatus).toBe("stopped_by_user");
+  });
+
+  it("readOrchestrationStatus returns the Stop-AI flag for the Case", async () => {
+    const h = buildHarness();
+    h.fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        records: [{ AI_Orchestration_Status__c: "stopped_by_user" }]
+      })
+    );
+    await expect(
+      h.gateway.readOrchestrationStatus("500000000000001")
+    ).resolves.toBe("stopped_by_user");
+  });
+
+  it("readOrchestrationStatus degrades to undefined when the field read fails", async () => {
+    const h = buildHarness();
+    h.fetchMock.mockResolvedValueOnce(new Response("{}", { status: 400 }));
+    // Degrade-safe: a missing field / failed read is treated as `active`.
+    await expect(
+      h.gateway.readOrchestrationStatus("500000000000001")
+    ).resolves.toBeUndefined();
+  });
+
+  it("readOrchestrationStatus ignores an unrecognized value", async () => {
+    const h = buildHarness();
+    h.fetchMock.mockResolvedValueOnce(
+      jsonResponse({ records: [{ AI_Orchestration_Status__c: "weird" }] })
+    );
+    await expect(
+      h.gateway.readOrchestrationStatus("500000000000001")
+    ).resolves.toBeUndefined();
+  });
+
+  it("readOrchestrationStatus rejects a malformed case id without a callout", async () => {
+    const h = buildHarness();
+    await expect(
+      h.gateway.readOrchestrationStatus("../bad")
+    ).resolves.toBeUndefined();
+    expect(h.fetchMock).not.toHaveBeenCalled();
+  });
+
   it("maps Salesforce Medium priority to normal", async () => {
     const h = buildHarness();
     h.fetchMock
@@ -197,6 +260,42 @@ describe("SalesforceCaseGateway", () => {
     );
     expect(body).not.toHaveProperty("AI_Triage_UI_URL__c");
     expect(body.AI_Triage_Status__c).toBe("assigned");
+  });
+
+  it("writeOrchestrationStop PATCHes the Stop-AI flag onto the Case (RC-1)", async () => {
+    const h = buildHarness();
+    h.fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    await h.gateway.writeOrchestrationStop("500000000000001");
+
+    const [url, init] = h.fetchMock.mock.calls[0];
+    expect((init as RequestInit).method).toBe("PATCH");
+    expect(url).toContain("/sobjects/Case/500000000000001");
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual({
+      AI_Orchestration_Status__c: "stopped_by_user"
+    });
+  });
+
+  it("surfaces a Stop-AI flag write error for the caller to swallow", async () => {
+    const h = buildHarness();
+    h.fetchMock.mockResolvedValueOnce(new Response("{}", { status: 400 }));
+    await expect(
+      h.gateway.writeOrchestrationStop("500000000000001")
+    ).rejects.toBeInstanceOf(SalesforceGatewayError);
+  });
+
+  it("writeGuardrailStatus PATCHes the guardrail status onto the Case (6c timeout)", async () => {
+    const h = buildHarness();
+    h.fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    await h.gateway.writeGuardrailStatus("500000000000001", "escalated");
+
+    const [url, init] = h.fetchMock.mock.calls[0];
+    expect((init as RequestInit).method).toBe("PATCH");
+    expect(url).toContain("/sobjects/Case/500000000000001");
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual({
+      AI_Guardrail_Status__c: "escalated"
+    });
   });
 
   it("surfaces a tracking write-back error for the caller to swallow", async () => {

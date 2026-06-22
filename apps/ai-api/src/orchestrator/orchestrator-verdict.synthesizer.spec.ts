@@ -122,6 +122,21 @@ const partsLogisticsPartialTransfer: PartsLogisticsChannel = {
 };
 
 describe("synthesizeOrchestratorVerdict", () => {
+  it("6c: surfaces the operator Stop-AI takeover (RC-1) — manual handling, not a rejection", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "stopped",
+      writeBackApplied: false,
+      triage
+    });
+    expect(verdict.summary).toContain("stopped by an operator");
+    expect(verdict.recommendedSteps).toEqual([
+      "AI orchestration was stopped — continue handling this Case manually in Salesforce."
+    ]);
+    expect(
+      verdict.highlights.find((h) => h.label === "Write-back")?.value
+    ).toBe("Stopped");
+  });
+
   it("4b: surfaces a KB-alignment highlight and divergence note", () => {
     const verdict = synthesizeOrchestratorVerdict({
       status: "done",
@@ -977,7 +992,9 @@ describe("synthesizeOrchestratorVerdict", () => {
     expect(verdict.summary).toContain("risk 70");
     expect(verdict.summary).toContain("written back");
     expect(verdict.recommendedSteps.join(" ")).not.toContain("approval link");
-    expect(verdict.recommendedSteps.join(" ")).not.toContain("Items to Approve");
+    expect(verdict.recommendedSteps.join(" ")).not.toContain(
+      "Items to Approve"
+    );
     expect(verdict.recommendedSteps.join(" ")).toContain(
       "Human approval granted — proceed with fulfillment and scheduling."
     );

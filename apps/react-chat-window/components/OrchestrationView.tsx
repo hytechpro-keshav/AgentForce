@@ -1,12 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode
+} from "react";
 import {
   AlertTriangle,
   CheckCircle2,
   ChevronDown,
   CircleDot,
   Clock,
+  Hand,
   Loader2,
   Link2,
   ShieldAlert,
@@ -45,6 +52,7 @@ const STATUS_ICON: Record<OrchestrationStatus, typeof CircleDot> = {
   done: CheckCircle2,
   rejected: XCircle,
   escalated: ShieldAlert,
+  stopped: Hand,
   failed: AlertTriangle
 };
 
@@ -143,6 +151,11 @@ const STAGE_META: Record<
     label: "Escalated",
     tone: STATUS_META.escalated.tone,
     icon: ShieldAlert
+  },
+  stopped: {
+    label: "Stopped (manual)",
+    tone: STATUS_META.stopped.tone,
+    icon: Hand
   },
   failed: {
     label: "Failed",
@@ -255,6 +268,11 @@ function stageStatus(
   if (node === "guardrail") {
     if (snapshot.status === "failed" && snapshot.node === node) {
       return "failed";
+    }
+    // Operator Stop-AI takeover (6c / RC-1) lands on Node 6 and is terminal —
+    // surface it as stopped regardless of any pending policy outcome.
+    if (snapshot.status === "stopped") {
+      return "stopped";
     }
     // A resolved approval decision wins over the raw outcome. Node 6 sets
     // the decision itself for the non-interrupt outcomes (auto-approve →
@@ -1789,9 +1807,16 @@ function WorkflowStateInspection({
  * tested in isolation.
  */
 export function OrchestrationPanel({
-  snapshot
+  snapshot,
+  headerControl
 }: {
   snapshot: OrchestrationSnapshot;
+  /**
+   * RC-1b — optional control slot beside the status badge. The stateful
+   * container passes the Stop-AI control here; isolated panel tests omit it,
+   * preserving the panel's pure, read-only rendering.
+   */
+  headerControl?: ReactNode;
 }) {
   return (
     <section
@@ -1813,7 +1838,10 @@ export function OrchestrationPanel({
               Node 5 scheduling, and Node 6 compliance &amp; guardrail.
             </p>
           </div>
-          <StatusBadge status={snapshot.status} />
+          <div className="flex flex-col items-end gap-2">
+            <StatusBadge status={snapshot.status} />
+            {headerControl}
+          </div>
         </div>
 
         <div className="grid gap-3 md:grid-cols-3">
@@ -1868,6 +1896,16 @@ export function OrchestrationPanel({
         </div>
       </div>
 
+      {snapshot.status === "stopped" ? (
+        <p className="rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-700">
+          AI orchestration stopped — this Case is being handled manually
+          {snapshot.stoppedAt
+            ? ` since ${new Date(snapshot.stoppedAt).toLocaleString()}`
+            : ""}
+          .{snapshot.stopReason ? ` Reason: ${snapshot.stopReason}.` : ""}
+        </p>
+      ) : null}
+
       {snapshot.status === "failed" ? (
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
           Workflow could not complete
@@ -1875,6 +1913,181 @@ export function OrchestrationPanel({
         </p>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * RC-1b (Node 6 6c) — the console's ONLY mutation. Stop AI is NOT a guardrail
+ * approve/reject: it carries the operator session (`orchestrator-control`
+ * scope, set as an httpOnly cookie by the session proxy) and routes the Case
+ * to a `stopped` terminal. Confirm dialog + inline operator login on 401.
+ */
+function StopAiControl({
+  caseId,
+  status,
+  onStopped
+}: {
+  caseId: string;
+  status: OrchestrationStatus;
+  onStopped: () => void;
+}) {
+  const [mode, setMode] = useState<"idle" | "confirm" | "login" | "working">(
+    "idle"
+  );
+  const [accessCode, setAccessCode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  // Visible only while the AI could still act; hidden once stopped/terminal.
+  const canStop =
+    status === "assigned" ||
+    status === "running" ||
+    status === "waiting_approval" ||
+    status === "done";
+
+  const postStop = useCallback(async (): Promise<
+    "ok" | "needs_login" | "error"
+  > => {
+    try {
+      const res = await fetch(`/api/orchestrator/case/${caseId}/stop`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ reason: "manual takeover" })
+      });
+      if (res.status === 401) return "needs_login";
+      return res.ok ? "ok" : "error";
+    } catch {
+      return "error";
+    }
+  }, [caseId]);
+
+  if (!canStop) {
+    return null;
+  }
+
+  const handleConfirm = async () => {
+    setMode("working");
+    setError(null);
+    const result = await postStop();
+    if (result === "ok") {
+      setMode("idle");
+      onStopped();
+    } else if (result === "needs_login") {
+      setMode("login");
+    } else {
+      setError("Could not stop AI orchestration. Try again.");
+      setMode("confirm");
+    }
+  };
+
+  const handleLogin = async () => {
+    setMode("working");
+    setError(null);
+    try {
+      const res = await fetch("/api/orchestrator/operator-session", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ accessCode })
+      });
+      if (!res.ok) {
+        setError(
+          res.status === 401 ? "Invalid access code." : "Login unavailable."
+        );
+        setMode("login");
+        return;
+      }
+    } catch {
+      setError("Login unavailable.");
+      setMode("login");
+      return;
+    }
+    const result = await postStop();
+    if (result === "ok") {
+      setAccessCode("");
+      setMode("idle");
+      onStopped();
+    } else {
+      setError("Could not stop AI orchestration. Try again.");
+      setMode("confirm");
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-end gap-1.5">
+      <button
+        type="button"
+        onClick={() => {
+          setError(null);
+          setMode("confirm");
+        }}
+        disabled={mode === "working"}
+        className="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-100 disabled:opacity-60"
+      >
+        <Hand className="h-3.5 w-3.5" aria-hidden />
+        Stop AI
+      </button>
+
+      {mode === "confirm" || mode === "working" ? (
+        <div className="w-72 rounded-md border bg-card p-3 text-left text-xs shadow-sm">
+          <p className="text-foreground">
+            Stops future AI runs and pauses resume on this Case. Does{" "}
+            <strong>not</strong> undo a Salesforce approval already pending, and
+            does <strong>not</strong> close the Case.
+          </p>
+          {error ? <p className="mt-1.5 text-red-600">{error}</p> : null}
+          <div className="mt-2 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setMode("idle")}
+              disabled={mode === "working"}
+              className="rounded border px-2 py-1 text-muted-foreground hover:bg-muted disabled:opacity-60"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleConfirm()}
+              disabled={mode === "working"}
+              className="rounded bg-red-600 px-2 py-1 font-medium text-white hover:bg-red-700 disabled:opacity-60"
+            >
+              {mode === "working" ? "Stopping…" : "Confirm Stop AI"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {mode === "login" ? (
+        <div className="w-72 rounded-md border bg-card p-3 text-left text-xs shadow-sm">
+          <p className="text-foreground">
+            Enter the operator access code to take over this Case.
+          </p>
+          <input
+            type="password"
+            value={accessCode}
+            onChange={(event) => setAccessCode(event.target.value)}
+            placeholder="Operator access code"
+            className="mt-2 w-full rounded border px-2 py-1"
+          />
+          {error ? <p className="mt-1.5 text-red-600">{error}</p> : null}
+          <div className="mt-2 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setMode("idle")}
+              className="rounded border px-2 py-1 text-muted-foreground hover:bg-muted"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleLogin()}
+              disabled={!accessCode.trim()}
+              className="rounded bg-red-600 px-2 py-1 font-medium text-white hover:bg-red-700 disabled:opacity-60"
+            >
+              Sign in &amp; Stop
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -1958,5 +2171,18 @@ export function OrchestrationView({
     );
   }
 
-  return <OrchestrationPanel snapshot={snapshot} />;
+  return (
+    <OrchestrationPanel
+      snapshot={snapshot}
+      headerControl={
+        caseId ? (
+          <StopAiControl
+            caseId={caseId}
+            status={snapshot.status}
+            onStopped={() => void load()}
+          />
+        ) : undefined
+      }
+    />
+  );
 }

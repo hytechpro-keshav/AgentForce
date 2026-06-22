@@ -199,11 +199,15 @@ See [`node-5-scheduling-phase-plan.md`](./node-5-scheduling-phase-plan.md) §3.7
 6a shipped `evaluateGuardrail` (the sole interrupting node) operating on point-in-time channel snapshots. The guardrail pauses on `requireHumanApproval`; channels can go stale during the wait. Added after 6a ships ([`node-6-guardrail-phase-plan.md`](./node-6-guardrail-phase-plan.md) §15):
 
 | ID    | Item                                                                                                  | Phase |
-| ----- | ----------------------------------------------------------------------------------------------------- | ----- |
-| N6-R1 | Approval timeout → auto-escalate (configurable SLA) when the approver never responds                  | 6c    |
-| N6-R2 | Stop AI guard at `evaluateGuardrail` — check `AI_Orchestration_Status__c` before `interrupt()` (RC-1) | 6c    |
-| N6-R3 | Reconcile API (RC-3) must skip threads in `waiting_approval`; never resume stopped workflows          | 6c    |
-| N6-R4 | Channel staleness on long approvals — escalation notice when the approval wait exceeds threshold      | 6c    |
+| ----- | ----------------------------------------------------------------------------------------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ID    | Item                                                                                                  | Phase | Status                                                                                                                                                                                                          |
+| ----- | ----------------------------------------------------------------------------------------------------- | ----- | ------                                                                                                                                                                                                          |
+| N6-R1 | Approval timeout → auto-escalate (configurable SLA) when the approver never responds                  | 6c    | **DONE (code-complete + unit-green 2026-06-22)** — `GuardrailApprovalTimeoutService` interval sweep; direct snapshot+Case settle, never `resume()`, no SF token; config OFF by default. Live SLA proof pending. |
+| N6-R2 | Stop AI guard at `evaluateGuardrail` — check `AI_Orchestration_Status__c` before `interrupt()` (RC-1) | 6c    | **DONE** — stop check at top of `evaluateGuardrail` → `stopped` terminal; Apex callback guard + NestJS terminal backstop.                                                                                       |
+| N6-R3 | Reconcile API (RC-3) must skip threads in `waiting_approval`; never resume stopped workflows          | 6c    | Contract documented (`stopped` terminal blocks resume); RC-3 reconcile API itself out of scope.                                                                                                                 |
+| N6-R4 | Channel staleness on long approvals — escalation notice when the approval wait exceeds threshold      | 6c    | Deferred — hard-timeout escalate (N6-R1) covers the SLA; warning-threshold email is a follow-up (email OFF this rollout).                                                                                       |
+
+> **RC-1 / RC-2 / RC-8 status (2026-06-22):** RC-1 Stop AI (Case `AI_Orchestration_Status__c` + `POST …/cases/:caseId/stop` + `orchestrator-control` scope + React button/banner) and RC-2 Handoff Flow `<filterFormula>` guard are **code-complete + unit-green**. RC-8a operator session (`POST /auth/operator-orchestration/session` → httpOnly cookie via the Next.js BFF) is **code-complete + unit-green**. Live SF deploy/validate + smoke S1–S5 + Railway env flips pending. See [`node6-6c-stop-ai-lessons.md`](../context/node6-6c-stop-ai-lessons.md).
 
 5c `applySchedulingWrite` (unblocked by 6a) must do a write-time fresh parts read (RC-5) before `ServiceAppointment` create, aborting/degrading if parts no longer match the approved channel.
 
@@ -234,9 +238,9 @@ Do not mark a node phase complete without explicit re-orchestration decisions do
 
 ## Verification checklist (when implementing any item)
 
-- [ ] Stopped Case does not receive new triggers (Flow + API integration test).
+- [x] Stopped Case does not receive new triggers — NestJS `/triggers` 409 `orchestration_stopped` + Handoff Flow `<filterFormula>` guard (unit-green; live Flow+API integration proof pending).
 - [ ] Reconcile produces new channel `asOf` / workflow version; UI shows latest.
 - [ ] Final Verdict indicates stale vs. fresh when snapshot age exceeds policy.
 - [ ] Write paths re-read upstream state; abort or degrade on conflict.
-- [ ] Stop AI button requires RC-8 operator session (or equivalent), not static view token alone.
-- [ ] Orchestration console uses RC-8 login session; no manual Railway view-token refresh runbook.
+- [x] Stop AI button requires RC-8 operator session (cookie), not static view token alone — the stop proxy 401s without the `orchestrator_session` cookie; the read-only view token lacks `orchestrator-control`.
+- [~] Orchestration console uses an RC-8a login session for control — Stop AI is session-gated; full removal of the static `AI_API_ORCHESTRATOR_VIEW_TOKEN` for the read path is a follow-up.

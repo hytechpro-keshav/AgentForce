@@ -38,6 +38,8 @@ interface WorkflowPatch {
   approvalDecision?: ApprovalDecision;
   writeBackApplied?: boolean;
   failureKind?: string;
+  stoppedAt?: string;
+  stopReason?: string;
 }
 
 /**
@@ -252,6 +254,12 @@ export class OrchestrationStatusStore {
     }
     if (patch.failureKind !== undefined) {
       snapshot.failureKind = patch.failureKind;
+    }
+    if (patch.stoppedAt !== undefined) {
+      snapshot.stoppedAt = patch.stoppedAt;
+    }
+    if (patch.stopReason !== undefined) {
+      snapshot.stopReason = patch.stopReason;
     }
     snapshot.updatedAt = new Date().toISOString();
     await this.persist(workflowId);

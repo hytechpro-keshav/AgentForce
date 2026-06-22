@@ -789,4 +789,42 @@ describe("case-triage graph — Node 6 compliance & guardrail", () => {
     expect(result.approvalDecision).toBe("rejected");
     expect(h.applyWriteBack).not.toHaveBeenCalled();
   });
+
+  it("stop AI (6c/RC-1): stopped_by_user → stopped terminal before policy, no interrupt/submit/write-back", async () => {
+    // The operator took the Case over even though the policy would otherwise
+    // require approval. The stop check at the top of evaluateGuardrail must
+    // short-circuit BEFORE the policy, notification, interrupt, and write-back.
+    const evaluateGuardrailPolicy = jest.fn(() =>
+      decisionFor("requireHumanApproval")
+    );
+    const sendApprovalNotification = jest
+      .fn()
+      .mockResolvedValue({ method: "log_only" });
+    const sendEscalationNotification = jest.fn().mockResolvedValue(undefined);
+    const h = buildDeps({
+      readContext: jest.fn().mockResolvedValue({
+        ...buildContext(),
+        orchestrationStatus: "stopped_by_user"
+      }),
+      evaluateGuardrailPolicy,
+      sendApprovalNotification,
+      sendEscalationNotification
+    });
+
+    const result = (await invoke(h.deps, "wf-guardrail-stopped")) as any;
+
+    expect(result.status).toBe("stopped");
+    expect(result.__interrupt__).toBeUndefined();
+    expect(result.guardrail).toBeUndefined();
+    expect(result.approvalDecision).toBeUndefined();
+    expect(evaluateGuardrailPolicy).not.toHaveBeenCalled();
+    expect(sendApprovalNotification).not.toHaveBeenCalled();
+    expect(sendEscalationNotification).not.toHaveBeenCalled();
+    expect(h.applyWriteBack).not.toHaveBeenCalled();
+    // Node 6 still emits one progress line so the UI stage reflects the stop.
+    const node6Events = h.emitRunning.mock.calls.filter(
+      (call) => call[3] === GUARDRAIL_NODE_ID
+    );
+    expect(node6Events.length).toBeGreaterThanOrEqual(1);
+  });
 });

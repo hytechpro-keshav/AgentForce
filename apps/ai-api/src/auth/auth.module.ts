@@ -7,6 +7,9 @@ import { CustomerChatSessionService } from "./customer-chat-session.service";
 import { JwtAuthGuard } from "./jwt-auth.guard";
 import { OAuthTokenController } from "./oauth-token.controller";
 import { OAuthTokenService } from "./oauth-token.service";
+import { OperatorOrchestrationSessionController } from "./operator-orchestration-session.controller";
+import { OperatorOrchestrationSessionRateLimitGuard } from "./operator-orchestration-session-rate-limit.guard";
+import { OperatorOrchestrationSessionService } from "./operator-orchestration-session.service";
 import { TenantOperationsController } from "./tenant-operations.controller";
 import { TenantOperationsService } from "./tenant-operations.service";
 import { TenantRegistryService } from "./tenant-registry.service";
@@ -15,12 +18,15 @@ import { TenantRegistryService } from "./tenant-registry.service";
   controllers: [
     CustomerChatSessionController,
     OAuthTokenController,
+    OperatorOrchestrationSessionController,
     TenantOperationsController
   ],
   providers: [
     JwtAuthGuard,
     CustomerChatSessionService,
     CustomerChatSessionRateLimitGuard,
+    OperatorOrchestrationSessionService,
+    OperatorOrchestrationSessionRateLimitGuard,
     OAuthTokenService,
     TenantOperationsService,
     TenantRegistryService,

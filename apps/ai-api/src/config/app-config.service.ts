@@ -167,6 +167,20 @@ export interface CustomerChatSessionConfig {
   rateLimitMaxRequests: number;
 }
 
+/**
+ * RC-8a (Node 6 6c) — operator console login session. An access code mints a
+ * short-TTL JWT carrying BOTH `agentforce:orchestrator-read` and
+ * `agentforce:orchestrator-control` so the console can read status AND issue
+ * Stop AI. Login is unavailable (fail closed) until `accessCode` is set. The
+ * approval scope is NEVER granted here — Stop AI is not approve/reject.
+ */
+export interface OperatorOrchestrationSessionConfig {
+  accessCode?: string;
+  ttlSeconds: number;
+  rateLimitWindowMs: number;
+  rateLimitMaxRequests: number;
+}
+
 export interface OpenAiEmbeddingProviderConfig {
   apiKey: string;
   baseUrl: string;
@@ -354,6 +368,21 @@ export type OrchestratorApprovalEmailProvider = "log" | "resend";
  * `AI_API_JWT_SECRET`: these links are public, single-purpose, and never
  * carry an API scope (Node 6 phase plan §3.7, §10).
  */
+/**
+ * Phase 6c (N6-R1) — approval timeout sweep. A configurable SLA after which a
+ * stale `waiting_approval` workflow is auto-settled to a terminal decision
+ * (default `escalate`). Disabled by default (6b+ parity). The sweep settles
+ * the snapshot + Case directly and mints NO Salesforce callback token —
+ * `escalated`/`rejected` are not resumable (R6) and the checkpoint may be
+ * orphaned.
+ */
+export interface OrchestratorGuardrailApprovalTimeoutConfig {
+  enabled: boolean;
+  timeoutSeconds: number;
+  action: "escalate" | "reject";
+  scanSeconds: number;
+}
+
 export interface OrchestratorGuardrailApprovalConfig {
   emailEnabled: boolean;
   escalationEmailEnabled: boolean;
@@ -377,6 +406,7 @@ export interface OrchestratorGuardrailApprovalConfig {
   linkBaseUrl?: string;
   rateLimitWindowMs: number;
   rateLimitMaxRequests: number;
+  timeout: OrchestratorGuardrailApprovalTimeoutConfig;
 }
 
 export interface OrchestratorConfig {
@@ -417,6 +447,7 @@ export interface AppRuntimeConfig {
   agentforce: AgentforceRuntimeConfig;
   cors: CorsConfig;
   customerChatSession: CustomerChatSessionConfig;
+  operatorOrchestrationSession: OperatorOrchestrationSessionConfig;
   telemetryEnabled: boolean;
   rag: RagRuntimeConfig;
   openAiGateway: OpenAiCompatibleGatewayConfig;
@@ -445,6 +476,7 @@ export class AppConfigService {
   readonly agentforce: AgentforceRuntimeConfig;
   readonly cors: CorsConfig;
   readonly customerChatSession: CustomerChatSessionConfig;
+  readonly operatorOrchestrationSession: OperatorOrchestrationSessionConfig;
   readonly telemetryEnabled: boolean;
   readonly rag: RagRuntimeConfig;
   readonly openAiGateway: OpenAiCompatibleGatewayConfig;
@@ -472,6 +504,7 @@ export class AppConfigService {
     this.agentforce = config.agentforce;
     this.cors = config.cors;
     this.customerChatSession = config.customerChatSession;
+    this.operatorOrchestrationSession = config.operatorOrchestrationSession;
     this.telemetryEnabled = config.telemetryEnabled;
     this.rag = config.rag;
     this.openAiGateway = config.openAiGateway;
@@ -556,6 +589,8 @@ export class AppConfigService {
     const agentforce = AppConfigService.loadAgentforceRuntime(env);
     const cors = AppConfigService.loadCors(env, productionLike);
     const customerChatSession = AppConfigService.loadCustomerChatSession(env);
+    const operatorOrchestrationSession =
+      AppConfigService.loadOperatorOrchestrationSession(env);
     const telemetryEnabled =
       AppConfigService.normalize(env.AI_API_TELEMETRY_ENABLED) !== "false";
     const rag = AppConfigService.loadRag(env, productionLike, openAi);
@@ -588,6 +623,7 @@ export class AppConfigService {
       agentforce,
       cors,
       customerChatSession,
+      operatorOrchestrationSession,
       telemetryEnabled,
       rag,
       openAiGateway,
@@ -1850,6 +1886,31 @@ export class AppConfigService {
     };
   }
 
+  private static loadOperatorOrchestrationSession(
+    env: NodeJS.ProcessEnv
+  ): OperatorOrchestrationSessionConfig {
+    return {
+      accessCode: AppConfigService.normalize(
+        env.ORCHESTRATOR_OPERATOR_ACCESS_CODE
+      ),
+      ttlSeconds: AppConfigService.parsePositiveInteger(
+        env.ORCHESTRATOR_OPERATOR_SESSION_TTL_SECONDS,
+        3600,
+        "ORCHESTRATOR_OPERATOR_SESSION_TTL_SECONDS"
+      ),
+      rateLimitWindowMs: AppConfigService.parsePositiveInteger(
+        env.ORCHESTRATOR_OPERATOR_SESSION_RATE_LIMIT_WINDOW_MS,
+        60000,
+        "ORCHESTRATOR_OPERATOR_SESSION_RATE_LIMIT_WINDOW_MS"
+      ),
+      rateLimitMaxRequests: AppConfigService.parsePositiveInteger(
+        env.ORCHESTRATOR_OPERATOR_SESSION_RATE_LIMIT_MAX_REQUESTS,
+        10,
+        "ORCHESTRATOR_OPERATOR_SESSION_RATE_LIMIT_MAX_REQUESTS"
+      )
+    };
+  }
+
   private static loadSalesforceConnection(
     env: NodeJS.ProcessEnv
   ): SalesforceConnectionConfig {
@@ -1939,6 +2000,15 @@ export class AppConfigService {
       false,
       "ORCHESTRATOR_GUARDRAIL_SF_APPROVAL_ENABLED"
     );
+    const timeoutAction =
+      AppConfigService.normalize(
+        env.ORCHESTRATOR_GUARDRAIL_APPROVAL_TIMEOUT_ACTION
+      )?.toLowerCase() ?? "escalate";
+    if (!["escalate", "reject"].includes(timeoutAction)) {
+      throw new Error(
+        "ORCHESTRATOR_GUARDRAIL_APPROVAL_TIMEOUT_ACTION must be escalate or reject."
+      );
+    }
     const tokenSecret = AppConfigService.normalize(
       env.ORCHESTRATOR_APPROVAL_TOKEN_SECRET
     );
@@ -2035,7 +2105,25 @@ export class AppConfigService {
         env.ORCHESTRATOR_APPROVAL_RATE_LIMIT_MAX_REQUESTS,
         20,
         "ORCHESTRATOR_APPROVAL_RATE_LIMIT_MAX_REQUESTS"
-      )
+      ),
+      timeout: {
+        enabled: AppConfigService.parseBooleanFlag(
+          env.ORCHESTRATOR_GUARDRAIL_APPROVAL_TIMEOUT_ENABLED,
+          false,
+          "ORCHESTRATOR_GUARDRAIL_APPROVAL_TIMEOUT_ENABLED"
+        ),
+        timeoutSeconds: AppConfigService.parsePositiveInteger(
+          env.ORCHESTRATOR_GUARDRAIL_APPROVAL_TIMEOUT_SECONDS,
+          86400,
+          "ORCHESTRATOR_GUARDRAIL_APPROVAL_TIMEOUT_SECONDS"
+        ),
+        action: timeoutAction as "escalate" | "reject",
+        scanSeconds: AppConfigService.parsePositiveInteger(
+          env.ORCHESTRATOR_GUARDRAIL_APPROVAL_TIMEOUT_SCAN_SECONDS,
+          300,
+          "ORCHESTRATOR_GUARDRAIL_APPROVAL_TIMEOUT_SCAN_SECONDS"
+        )
+      }
     };
   }
 
