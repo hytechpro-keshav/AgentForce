@@ -10,6 +10,7 @@ import type {
 import type { SchedulingChannel } from "./dto/scheduling";
 import { guardrailOutcomeLabel } from "./dto/guardrail";
 import type { GuardrailChannel } from "./dto/guardrail";
+import type { ApprovalDecision } from "./dto/case-triage-lifecycle";
 
 /**
  * Deterministically synthesizes the Final Verdict from the sanitized
@@ -95,7 +96,7 @@ export function synthesizeOrchestratorVerdict(
 }
 
 function buildHeadline(
-  _input: OrchestratorVerdictInput,
+  input: OrchestratorVerdictInput,
   priority: string | undefined,
   risk: string | undefined,
   knowledgeAnswered: boolean,
@@ -121,7 +122,10 @@ function buildHeadline(
   if (schedulingClause) {
     clauses.push(schedulingClause);
   }
-  const guardrailClause = buildGuardrailHeadlineClause(guardrail);
+  const guardrailClause = buildGuardrailHeadlineClause(
+    guardrail,
+    input.approvalDecision
+  );
   if (guardrailClause) {
     clauses.push(guardrailClause);
   }
@@ -130,10 +134,17 @@ function buildHeadline(
 
 /** Node 6 headline clause — the composite guardrail decision. */
 function buildGuardrailHeadlineClause(
-  guardrail: GuardrailChannel | undefined
+  guardrail: GuardrailChannel | undefined,
+  approvalDecision?: ApprovalDecision
 ): string | undefined {
   if (!guardrail || guardrail.eligible === false) {
     return undefined;
+  }
+  // Post-HITL: replace policy label with the human decision.
+  // guardrail.outcome stays requireHumanApproval (policy audit preserved).
+  if (guardrail.outcome === "requireHumanApproval" && approvalDecision) {
+    if (approvalDecision === "approved") return "human approval granted";
+    if (approvalDecision === "rejected") return "rejected (human)";
   }
   switch (guardrail.outcome) {
     case "autoApprove":
@@ -240,7 +251,10 @@ function buildSummary(
     sentence += ` ${schedulingSentence}`;
   }
 
-  const guardrailSentence = buildGuardrailSummarySentence(guardrail);
+  const guardrailSentence = buildGuardrailSummarySentence(
+    guardrail,
+    input.approvalDecision
+  );
   if (guardrailSentence) {
     sentence += ` ${guardrailSentence}`;
   }
@@ -251,10 +265,21 @@ function buildSummary(
 
 /** Node 6 summary sentence — outcome + risk + the leading approval signals. */
 function buildGuardrailSummarySentence(
-  guardrail: GuardrailChannel | undefined
+  guardrail: GuardrailChannel | undefined,
+  approvalDecision?: ApprovalDecision
 ): string | undefined {
   if (!guardrail || guardrail.eligible === false) {
     return undefined;
+  }
+  // Post-HITL: show both the policy requirement and the human decision.
+  // guardrail.outcome is preserved as requireHumanApproval (policy audit).
+  if (guardrail.outcome === "requireHumanApproval" && approvalDecision) {
+    if (approvalDecision === "approved") {
+      return `Guardrail required human approval (risk ${guardrail.riskScore}, ${guardrail.riskLevel}); approver approved.`;
+    }
+    if (approvalDecision === "rejected") {
+      return `Guardrail required human approval (risk ${guardrail.riskScore}, ${guardrail.riskLevel}); approver rejected. Write-back was not applied.`;
+    }
   }
   const outcomeText: Record<GuardrailChannel["outcome"], string> = {
     autoApprove: "auto-approved",
@@ -369,6 +394,15 @@ function outcomeSentence(input: OrchestratorVerdictInput): string {
     return "Write-back is awaiting out-of-band approval.";
   }
   if (input.status === "rejected") {
+    // When a human approver rejected via Node 6 HITL, the guardrail summary
+    // sentence already says "approver rejected. Write-back was not applied."
+    // Suppress the generic write-back line to avoid duplicate copy.
+    if (
+      input.guardrail?.outcome === "requireHumanApproval" &&
+      input.approvalDecision === "rejected"
+    ) {
+      return "";
+    }
     return "Write-back was rejected; the Case was left unchanged.";
   }
   if (input.status === "escalated") {
@@ -441,7 +475,7 @@ function buildSteps(
   }
 
   // Node 6 action goes first — it is the gating decision for the workflow.
-  const guardrailSteps = buildGuardrailSteps(guardrail);
+  const guardrailSteps = buildGuardrailSteps(guardrail, input.approvalDecision);
   const steps = [...guardrailSteps, ...coreSteps, ...genericSteps];
   if (steps.length === 0) {
     steps.push("Review the triage output and proceed per standard handling.");
@@ -451,14 +485,34 @@ function buildSteps(
 
 /** Node 6 recommended step — the operator action for each outcome. */
 function buildGuardrailSteps(
-  guardrail: GuardrailChannel | undefined
+  guardrail: GuardrailChannel | undefined,
+  approvalDecision?: ApprovalDecision
 ): string[] {
   if (!guardrail || guardrail.eligible === false) {
     return [];
   }
+  if (guardrail.outcome === "requireHumanApproval") {
+    // Post-HITL: replace "approve" action with the resolved outcome.
+    if (approvalDecision === "approved") {
+      return [
+        "Human approval granted — proceed with fulfillment and scheduling."
+      ];
+    }
+    if (approvalDecision === "rejected") {
+      return ["Case rejected by approver — no automated write-back."];
+    }
+    // Still waiting: surface routing-specific approve action.
+    const method = guardrail.approvalRouting?.method;
+    if (method === "salesforce_approval") {
+      return ["Approve or reject in Salesforce (Items to Approve)."];
+    }
+    if (method === "log_only") {
+      return ["Approve or reject via configured out-of-band channel."];
+    }
+    // email or absent routing → default link copy
+    return ["Approve or reject via the account-manager approval link."];
+  }
   switch (guardrail.outcome) {
-    case "requireHumanApproval":
-      return ["Approve or reject via the account-manager approval link."];
     case "autoApprove":
       return ["Case auto-approved by guardrail — no action required."];
     case "reject":
@@ -613,7 +667,7 @@ function buildHighlights(
   const highlights: OrchestratorVerdictHighlight[] = [];
   // Node 6 is the gating decision — surface it first so it survives the
   // 8-highlight cap (the smoke check reads the "Guardrail outcome" row).
-  buildGuardrailHighlights(guardrail, highlights);
+  buildGuardrailHighlights(guardrail, highlights, input.approvalDecision);
   if (priority) {
     highlights.push({ label: "Priority", value: priority });
   }
@@ -744,21 +798,33 @@ function buildHighlights(
  */
 function buildGuardrailHighlights(
   guardrail: GuardrailChannel | undefined,
-  highlights: OrchestratorVerdictHighlight[]
+  highlights: OrchestratorVerdictHighlight[],
+  approvalDecision?: ApprovalDecision
 ): void {
   if (!guardrail || guardrail.eligible === false) {
     return;
   }
-  highlights.push({
-    label: "Guardrail outcome",
-    value: guardrailOutcomeLabel(guardrail.outcome)
-  });
+  // Post-HITL: show the human decision as the outcome label so the
+  // console reflects what actually happened, not the policy requirement.
+  let outcomeValue: string;
+  if (guardrail.outcome === "requireHumanApproval" && approvalDecision) {
+    outcomeValue = approvalDecision === "approved" ? "Approved" : "Rejected";
+  } else {
+    outcomeValue = guardrailOutcomeLabel(guardrail.outcome);
+  }
+  highlights.push({ label: "Guardrail outcome", value: outcomeValue });
   highlights.push({ label: "Risk score", value: String(guardrail.riskScore) });
   highlights.push({ label: "Risk level", value: guardrail.riskLevel });
   if (guardrail.policyRulesTriggered.length > 0) {
     highlights.push({
       label: "Triggered rules",
       value: String(guardrail.policyRulesTriggered.length)
+    });
+  }
+  if (guardrail.approvalRouting?.method) {
+    highlights.push({
+      label: "Approval channel",
+      value: guardrail.approvalRouting.method
     });
   }
 }

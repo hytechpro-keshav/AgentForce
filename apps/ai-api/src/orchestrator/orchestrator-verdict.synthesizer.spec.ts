@@ -932,4 +932,130 @@ describe("synthesizeOrchestratorVerdict", () => {
     expect(serialized).not.toMatch(/001[a-zA-Z0-9]{12,18}/);
     expect(serialized).toContain("70");
   });
+
+  // Node 6 6b+ post-HITL verdict rollup — the console must reflect the human
+  // decision after SF or email resume, not the pre-interrupt policy copy.
+
+  it("Node 6 6b+: pre-approval with salesforce_approval routing surfaces 'Items to Approve' step", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "waiting_approval",
+      approvalRequired: true,
+      triage,
+      guardrail: guardrailChannel({
+        approvalRouting: {
+          method: "salesforce_approval",
+          sentAt: "2026-06-18T10:00:00.000Z"
+        }
+      })
+    });
+    expect(verdict.headline).toContain("approval required");
+    expect(verdict.recommendedSteps.join(" ")).toContain(
+      "Approve or reject in Salesforce (Items to Approve)."
+    );
+    expect(verdict.recommendedSteps.join(" ")).not.toContain("approval link");
+    expect(
+      verdict.highlights.find((h) => h.label === "Approval channel")?.value
+    ).toBe("salesforce_approval");
+  });
+
+  it("Node 6 6b+: post-approval (approved, SF) clears 'approval required' and 'approval link' copy", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "done",
+      approvalDecision: "approved",
+      writeBackApplied: true,
+      triage,
+      guardrail: guardrailChannel({
+        approvalRouting: {
+          method: "salesforce_approval",
+          sentAt: "2026-06-18T10:00:00.000Z"
+        }
+      })
+    });
+    expect(verdict.headline).not.toContain("approval required");
+    expect(verdict.headline).toContain("human approval granted");
+    expect(verdict.summary).toContain("approver approved");
+    expect(verdict.summary).toContain("risk 70");
+    expect(verdict.summary).toContain("written back");
+    expect(verdict.recommendedSteps.join(" ")).not.toContain("approval link");
+    expect(verdict.recommendedSteps.join(" ")).not.toContain("Items to Approve");
+    expect(verdict.recommendedSteps.join(" ")).toContain(
+      "Human approval granted — proceed with fulfillment and scheduling."
+    );
+    expect(
+      verdict.highlights.find((h) => h.label === "Guardrail outcome")?.value
+    ).toBe("Approved");
+    expect(
+      verdict.highlights.find((h) => h.label === "Approval channel")?.value
+    ).toBe("salesforce_approval");
+  });
+
+  it("Node 6 6b+: post-reject (rejected, SF) surfaces rejected copy without duplicate write-back", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "rejected",
+      approvalDecision: "rejected",
+      triage,
+      guardrail: guardrailChannel({
+        approvalRouting: {
+          method: "salesforce_approval",
+          sentAt: "2026-06-18T10:00:00.000Z"
+        }
+      })
+    });
+    expect(verdict.headline).toContain("rejected (human)");
+    expect(verdict.headline).not.toContain("approval required");
+    expect(verdict.summary).toContain("approver rejected");
+    expect(verdict.summary).toContain("Write-back was not applied");
+    // outcomeSentence must not double up "write-back" copy
+    const writeBackMatches = verdict.summary.match(/write-back/gi) ?? [];
+    expect(writeBackMatches.length).toBeLessThanOrEqual(1);
+    expect(verdict.recommendedSteps.join(" ")).toContain(
+      "Case rejected by approver — no automated write-back."
+    );
+    expect(
+      verdict.highlights.find((h) => h.label === "Guardrail outcome")?.value
+    ).toBe("Rejected");
+  });
+
+  it("Node 6 6b+: regression — autoApprove verdict unchanged when no approvalDecision", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "done",
+      writeBackApplied: true,
+      triage,
+      guardrail: guardrailChannel({
+        outcome: "autoApprove",
+        riskScore: 5,
+        riskLevel: "low",
+        requiresHumanApproval: false,
+        approvalRequired: false,
+        approvalReasons: [],
+        policyRulesTriggered: []
+      })
+    });
+    expect(verdict.headline).toContain("auto-approved (low risk)");
+    expect(verdict.recommendedSteps.join(" ")).toContain(
+      "Case auto-approved by guardrail"
+    );
+    expect(
+      verdict.highlights.find((h) => h.label === "Guardrail outcome")?.value
+    ).toBe("Auto-approved");
+  });
+
+  it("Node 6 6b+: regression — escalate verdict unchanged when no approvalDecision", () => {
+    const verdict = synthesizeOrchestratorVerdict({
+      status: "escalated",
+      triage,
+      guardrail: guardrailChannel({
+        outcome: "escalate",
+        riskScore: 100,
+        riskLevel: "critical"
+      })
+    });
+    expect(verdict.headline).toContain("escalated (critical risk)");
+    expect(verdict.recommendedSteps.join(" ")).toContain(
+      "Escalated to supervisor — manual review required."
+    );
+    expect(
+      verdict.highlights.find((h) => h.label === "Guardrail outcome")?.value
+    ).toBe("Escalated");
+  });
 });
