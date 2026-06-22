@@ -3,10 +3,11 @@
 > Phase 6b+ routes the guardrail `requireHumanApproval` interrupt to a **native
 > Salesforce Approval Process** instead of email: submit at pause, approver acts
 > in Salesforce, a record-triggered Flow calls back to resume the workflow.
-> Status: **CODE-COMPLETE + VALIDATED** (2026-06-18) — ai-api focused tests
-> green (typecheck clean), Apex tests green, `sf project deploy validate`
-> succeeds for the full package (fields + perm set + Apex + workflow + approval
-> process + flow). Live approver-in-SF proof + Railway flag flip pending.
+> Status: **LIVE PROOF COMPLETE** (2026-06-22) — SF Approval deploy + queue
+> approver + Railway flags + Mohit approve on Case 00001059; callback Apex
+> Completed. Post-approval **verdict rollup** shipped (headline/steps/highlights
+> reflect `approvalDecision` after resume). Clean demo Case **00001060** paused
+> at `waiting_approval` for end-to-end console proof.
 > Companion: `node-6-guardrail-sf-approval-phase-plan.md`,
 > `node6-6b-approval-routing-lessons.md`.
 
@@ -97,10 +98,28 @@ keys on the token `jti`).
   must set a real approver/queue (`Agentforce_Guardrail_Approvers`) before the
   live proof — see the XML comment in the approvalProcess metadata.
 
-## 8. Deferred (this track)
+## 8. Post-approval verdict rollup (2026-06-22)
 
-- Live approver-in-SF proof + `sf project deploy quick` to the org + Railway
-  flag flip.
+`synthesizeOrchestratorVerdict()` now keys off `approvalDecision` + `status`,
+not only immutable `guardrail.outcome`. After SF approve + callback resume,
+headline shows **human approval granted**, step 1 drops the email link, highlight
+shows **Approved**. Persisted snapshots are **not retroactive** — deploy + **new
+workflow run** required to see updated copy (Case 00001059 kept pre-rollup text).
+
+At `waiting_approval`, the stored snapshot may show `guardrail: {}` (interrupt
+commits after pause — same R2 family as routing). Verdict at pause uses
+`buildApprovalContext` / partial channels; full guardrail surfaces after resume.
+
+## 9. Deferred (this track)
+
 - 6c: Stop-AI guard before the callback no-ops, approval timeout → auto-escalate,
-  reconcile API.
+  reconcile API (N6-R1–R4).
+- SF workflow stamps `AI_Guardrail_Approver__c` / `AI_Guardrail_Decision_At__c` on
+  approve/reject (today only status picklist updates).
+- Case Lightning layout: **Approval History** related list (approvers use Items
+  to Approve or direct work-item URL).
+- Queue member list in metadata (`Agentforce_Guardrail_Approvers.queue-meta.xml`)
+  — keep Mohit + Keshav in sync with demo org.
 - React Approve/Reject buttons (console stays read-only).
+- RC-8 operator orchestration login (retire manual `AI_API_ORCHESTRATOR_VIEW_TOKEN`
+  refresh).
