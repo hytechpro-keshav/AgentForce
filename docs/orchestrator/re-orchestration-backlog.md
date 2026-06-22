@@ -34,6 +34,76 @@
 | RC-5 | **Write-time fresh read**                        | P1       | Before any gated SF write (parts 4c, scheduling 5c), **re-read** upstream dependencies and abort/degrade if stale vs. channel.                                                           |
 | RC-6 | **Correlation / idempotency**                    | P2       | Use `correlationId` on triggers to avoid duplicate workflows for the same Case event (currently validated but unused).                                                                   |
 | RC-7 | **Durable checkpointer**                         | P2       | Move off in-memory `MemorySaver` so mid-graph reconcile/resume survives ai-api restart.                                                                                                  |
+| RC-8 | **Operator orchestration login**                 | P1       | Replace static `AI_API_ORCHESTRATOR_VIEW_TOKEN` on `react-chat-window` with login-gated session minting. Prerequisite for RC-1 Stop AI auth. See § Operator login below.                 |
+
+---
+
+## Operator login — orchestration console (RC-8)
+
+### Problem (v1 scaffolding)
+
+The read-only orchestration console at `/orchestration` proxies to ai-api via a **static** JWT in Railway env (`AI_API_ORCHESTRATOR_VIEW_TOKEN`). That token:
+
+- Expires when its `exp` claim passes (ai-api `jwt.verify` rejects it).
+- Breaks when `AI_API_JWT_SECRET` rotates on ai-api without a matching refresh on `react-chat-window`.
+- Is shared by all viewers — no per-operator audit subject.
+- Cannot safely carry control scopes (Stop AI, reconcile) — read-only by design today.
+
+Manual mint + `railway variable set` is an ops workaround, not the target design.
+
+### User story
+
+> As an internal operator or service rep, I want to **log in** to the orchestration console so I can view workflow status without ops manually refreshing Railway tokens, and so future control actions (Stop AI) are tied to my session.
+
+### Proposed behavior
+
+| Action                                    | System response                                                                                                                                        |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Unauthenticated visit to `/orchestration` | Show operator login screen (mirror customer-chat `LoginCard` pattern).                                                                                 |
+| Successful login                          | `POST /auth/operator-orchestration/session` on ai-api validates credential → mints JWT with `agentforce:orchestrator-read` (short TTL, e.g. 8h shift). |
+| Session storage                           | **httpOnly cookie** on `react-chat-window`; browser never sees the bearer. `/api/orchestrator/*` proxies attach it server-side.                        |
+| Logout                                    | Clear cookie; user must log in again. (Stateless JWT may remain valid until `exp`; v1 accepts short TTL; v2 optional session revocation registry.)     |
+| Token refresh                             | Optional: silent refresh before `exp` while cookie session active.                                                                                     |
+
+### Auth tiers (phased)
+
+| Phase     | Credential                                                        | Notes                                             |
+| --------- | ----------------------------------------------------------------- | ------------------------------------------------- |
+| **RC-8a** | Operator access code in env (`ORCHESTRATOR_OPERATOR_ACCESS_CODE`) | Same pattern as customer chat; internal/demo UAT. |
+| **RC-8b** | Salesforce SSO / OAuth for service reps                           | Production ops console.                           |
+
+### Scope discipline (mandatory)
+
+| Scope                              | Console use                                                        |
+| ---------------------------------- | ------------------------------------------------------------------ |
+| `agentforce:orchestrator-read`     | Poll workflow snapshot — **RC-8 mints this**                       |
+| `agentforce:orchestrator-control`  | Stop AI, future reconcile — add to session when RC-1 / RC-3 ship   |
+| `agentforce:orchestrator-approval` | **Never in browser** — out-of-band only (SF Approval, email links) |
+
+### NestJS (ai-api)
+
+- New `POST /auth/operator-orchestration/session` (or extend auth module sibling to `customer-chat/session`).
+- Rate-limit login attempts (mirror customer chat guard).
+- Config: `ORCHESTRATOR_OPERATOR_ACCESS_CODE`, `ORCHESTRATOR_OPERATOR_SESSION_TTL_SECONDS` (default 28800 = 8h).
+- Fail closed when access code or JWT secret not configured.
+
+### React (`apps/react-chat-window`)
+
+- Gate `/orchestration` behind operator login (reuse `LoginCard` UX patterns; separate copy/branding from customer chat).
+- New `POST /api/operator-orchestration/session` proxy route.
+- Update `/api/orchestrator/[workflowId]` and `/api/orchestrator/case/[caseId]` to read session cookie instead of `AI_API_ORCHESTRATOR_VIEW_TOKEN`.
+- Logout control clears cookie and returns to login.
+
+### Exit criteria
+
+- [ ] No `AI_API_ORCHESTRATOR_VIEW_TOKEN` required on Railway for normal console use.
+- [ ] Console survives ai-api JWT secret rotation (operators re-login; no ops runbook for static token refresh).
+- [ ] RC-1 Stop AI can require the same operator session (not view token alone).
+- [ ] Focused tests: ai-api session mint + react proxy + login gate.
+
+### Deprecation
+
+Once RC-8 ships, remove `AI_API_ORCHESTRATOR_VIEW_TOKEN` from `.env.example`, deploy runbooks, and `new-node-phase-completion-checklist.md` (replace with operator login checklist).
 
 ---
 
@@ -57,7 +127,7 @@
 - Show **Stop AI orchestration** when workflow is `running`, `waiting_approval`, or `done` (last run) and Case not already stopped.
 - Disabled when Case already `stopped_by_user`.
 - **Not** an approval control — separate from Node 6 guardrail.
-- Requires auth beyond view token (operator session or scoped bearer) — view token alone stays read-only.
+- Requires auth beyond view token — **RC-8 operator session** (or scoped bearer); static view token alone stays read-only until RC-8 ships.
 
 ### Salesforce metadata (backlog)
 
@@ -153,11 +223,12 @@ Do not mark a node phase complete without explicit re-orchestration decisions do
 
 ## Recommended implementation order
 
-1. **RC-1 + RC-2** — Stop AI (Case field + Flow guard + API) — unblocks manual work safely.
-2. **RC-5** — Fresh read at write time for parts 4c and scheduling 5c.
-3. **RC-3** — Reconcile API for `parts` (highest stale-data pain).
-4. **RC-4** — Salesforce event → reconcile for transfer complete / stock receipt.
-5. **RC-6, RC-7** — Idempotency + durable checkpointer.
+1. **RC-8** — Operator orchestration login — removes static view-token ops pain; prerequisite for safe RC-1 UI auth.
+2. **RC-1 + RC-2** — Stop AI (Case field + Flow guard + API) — uses RC-8 session + `orchestrator-control` scope.
+3. **RC-5** — Fresh read at write time for parts 4c and scheduling 5c.
+4. **RC-3** — Reconcile API for `parts` (highest stale-data pain).
+5. **RC-4** — Salesforce event → reconcile for transfer complete / stock receipt.
+6. **RC-6, RC-7** — Idempotency + durable checkpointer.
 
 ---
 
@@ -167,4 +238,5 @@ Do not mark a node phase complete without explicit re-orchestration decisions do
 - [ ] Reconcile produces new channel `asOf` / workflow version; UI shows latest.
 - [ ] Final Verdict indicates stale vs. fresh when snapshot age exceeds policy.
 - [ ] Write paths re-read upstream state; abort or degrade on conflict.
-- [ ] Stop AI button requires operator auth, not view token alone.
+- [ ] Stop AI button requires RC-8 operator session (or equivalent), not static view token alone.
+- [ ] Orchestration console uses RC-8 login session; no manual Railway view-token refresh runbook.

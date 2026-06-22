@@ -354,7 +354,7 @@ contract with Salesforce mocked at the gateway. A **real Case** proof additional
 1. Deploy the orchestrator code to the Railway AI API (the route is currently absent there — `POST /orchestrator/case-triage/triggers` returns 404).
 2. A Salesforce **connected app with the OAuth 2.0 client-credentials flow** + run-as user, and the four `SF_OAUTH_*` / `SF_INSTANCE_URL` vars set on the AI API.
 3. Grant `agentforce:orchestrator-triage` / `-read` / `-approval` to the inbound service bearer (`AGENTFORCE_SERVICE_BEARERS`).
-4. Deploy `AgentforceCaseTriageOrchestratorTrigger` and wire a Case record-triggered Flow to call it; set `AI_API_ORCHESTRATOR_VIEW_TOKEN` on the React app.
+4. Deploy `AgentforceCaseTriageOrchestratorTrigger` and wire a Case record-triggered Flow to call it; operator auth for the React orchestration console — **target:** RC-8 operator login ([`re-orchestration-backlog.md`](./re-orchestration-backlog.md) § RC-8); **interim:** `AI_API_ORCHESTRATOR_VIEW_TOKEN` on `react-chat-window`.
 
 ### Durable historical lookup validation (Case creation → restart-safe lookup)
 

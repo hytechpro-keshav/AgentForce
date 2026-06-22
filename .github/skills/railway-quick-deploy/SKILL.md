@@ -100,3 +100,18 @@ Return:
 - smoke check HTTP result
 - public URL
 - whether other local changes still need a different service deploy
+
+## Auto-deploy on main (GitHub Actions)
+
+Production deploys for `ai-api` and `react-chat-window` run automatically when platform code is pushed to `main` via `.github/workflows/railway-deploy-main.yml`.
+
+- **Included:** `ai-api`, `react-chat-window`
+- **Excluded (backlog):** `openwebui` — still manual via `SERVICE=openwebui ./scripts/deploy/railway-quick-deploy.sh`
+
+One-time setup:
+
+1. Railway → project `agentforce-ai-api` → **Settings → Tokens** → create a **project token**.
+2. GitHub → repository **Settings → Secrets and variables → Actions** → add secret `RAILWAY_TOKEN` with that token.
+3. Optional repo variable `RAILWAY_PROJECT_ID` (defaults to `37f564d8-5a19-40ca-9deb-3eabbed43720` in the workflow).
+
+Manual re-run: GitHub **Actions → Railway Deploy (main) → Run workflow**.

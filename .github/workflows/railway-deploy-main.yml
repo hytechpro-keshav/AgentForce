@@ -1,0 +1,64 @@
+# Auto-deploy Railway production when main changes platform code.
+#
+# Services: ai-api + react-chat-window (Open WebUI is manual/backlog).
+#
+# Required GitHub repository secret:
+#   RAILWAY_TOKEN — project token from Railway → agentforce-ai-api → Settings → Tokens
+#
+# Optional repository variables (defaults shown):
+#   RAILWAY_PROJECT_ID — 37f564d8-5a19-40ca-9deb-3eabbed43720
+#   RAILWAY_ENVIRONMENT — production
+name: Railway Deploy (main)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/ai-api/**"
+      - "apps/react-chat-window/**"
+      - "packages/**"
+      - "railway.json"
+      - "package.json"
+      - "package-lock.json"
+      - ".railwayignore"
+      - "scripts/deploy/railway-quick-deploy.sh"
+      - ".github/workflows/railway-deploy-main.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: railway-production
+  cancel-in-progress: false
+
+env:
+  RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID || '37f564d8-5a19-40ca-9deb-3eabbed43720' }}
+  RAILWAY_ENVIRONMENT: ${{ vars.RAILWAY_ENVIRONMENT || 'production' }}
+  RAILWAY_CALLER: github-actions:railway-deploy-main@1.0.0
+  RAILWAY_AGENT_SESSION: gh-${{ github.run_id }}
+
+jobs:
+  deploy:
+    name: Deploy ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [ai-api, react-chat-window]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          SERVICE: ${{ matrix.service }}
+          MESSAGE: main@${{ github.sha }}
+        run: ./scripts/deploy/railway-quick-deploy.sh

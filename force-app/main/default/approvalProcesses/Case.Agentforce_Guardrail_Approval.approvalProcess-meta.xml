@@ -27,20 +27,14 @@
     <finalRejectionRecordLock>false</finalRejectionRecordLock>
     <label>Agentforce Guardrail Approval</label>
     <recordEditability>AdminOnly</recordEditability>
-    <!--
-        DEMO ORG SETUP: the approval step below uses an "adhoc" approver, meaning
-        the submitter chooses the approver at submission time. This is the portable
-        default that deploys cleanly into any org without referencing org-specific
-        users or queues. For a real demo/runtime, swap the assignedApprover to a
-        queue (e.g. a queue named Agentforce_Guardrail_Approvers) or a named role.
-    -->
     <approvalStep>
         <name>Guardrail_Approver</name>
         <label>Guardrail Approver</label>
         <allowDelegate>false</allowDelegate>
         <assignedApprover>
             <approver>
-                <type>adhoc</type>
+                <name>Agentforce_Guardrail_Approvers</name>
+                <type>queue</type>
             </approver>
         </assignedApprover>
     </approvalStep>

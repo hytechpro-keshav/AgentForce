@@ -32,7 +32,12 @@ service_health_url() {
 }
 
 railway_cmd() {
-  RAILWAY_CALLER="${RAILWAY_CALLER}" RAILWAY_AGENT_SESSION="${RAILWAY_AGENT_SESSION}" railway "$@"
+  local -a project_args=()
+  if [[ -n "${RAILWAY_PROJECT_ID:-}" ]]; then
+    project_args=(--project "${RAILWAY_PROJECT_ID}")
+  fi
+  RAILWAY_CALLER="${RAILWAY_CALLER}" RAILWAY_AGENT_SESSION="${RAILWAY_AGENT_SESSION}" \
+    railway "${project_args[@]}" "$@"
 }
 
 require_command() {
@@ -213,7 +218,12 @@ main() {
   require_command curl
   require_command python3
 
-  if ! railway_cmd whoami >/dev/null 2>&1; then
+  if [[ -n "${RAILWAY_TOKEN:-}" ]]; then
+    if [[ -z "${RAILWAY_PROJECT_ID:-}" ]]; then
+      printf 'RAILWAY_TOKEN is set but RAILWAY_PROJECT_ID is missing (required for CI deploys).\n' >&2
+      exit 1
+    fi
+  elif ! railway_cmd whoami >/dev/null 2>&1; then
     printf 'Railway auth expired. Run: railway login\n' >&2
     exit 1
   fi

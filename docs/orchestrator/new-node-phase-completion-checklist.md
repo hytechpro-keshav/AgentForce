@@ -52,7 +52,7 @@ Also:
 - [ ] `lib/orchestration.ts` — sanitize/parse types for the channel
 - [ ] `app/orchestration/page.tsx` — subtitle mentions **all** active nodes
 - [ ] Component tests for new stage card and verdict copy when user-facing
-- [ ] `AI_API_ORCHESTRATOR_VIEW_TOKEN` on Railway `react-chat-window` (refresh before blaming UI)
+- [ ] Orchestration console auth: **RC-8 operator login** (target) — until shipped, interim `AI_API_ORCHESTRATOR_VIEW_TOKEN` on Railway `react-chat-window` (mint via `scripts/smoke/phase4-mint-jwt.mjs --scope agentforce:orchestrator-read`; refresh before blaming UI). See [`re-orchestration-backlog.md`](./re-orchestration-backlog.md) § RC-8.
 
 ## Smoke, deploy, and docs
 
@@ -77,5 +77,5 @@ If any answer is no, the phase is not complete — even when the graph node and 
 - [ ] Phase plan §0 states whether this phase is **point-in-time only** or includes reconcile (which nodes re-run).
 - [ ] Channel outputs do not imply live Salesforce truth after `done` without a reconcile path.
 - [ ] Gated Salesforce writes re-read upstream state at write time (parts 4c, scheduling 5c pattern).
-- [ ] Stop AI orchestration respected — no auto-trigger when Case `AI_Orchestration_Status__c = stopped_by_user` (backlog RC-1/RC-2; implement when UI ships).
+- [ ] Stop AI orchestration respected — no auto-trigger when Case `AI_Orchestration_Status__c = stopped_by_user` (backlog RC-1/RC-2; implement when UI ships; requires RC-8 operator session for the Stop button).
 - [ ] Entry added or updated in [`re-orchestration-backlog.md`](./re-orchestration-backlog.md) for this node's stale matrix.
