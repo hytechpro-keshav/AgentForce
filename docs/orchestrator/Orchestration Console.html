@@ -341,10 +341,10 @@
       .card.guardwait {
         border-color: var(--amber-bd);
       }
-      body.settled .card.done .chead {
+      .card.done .chead {
         cursor: pointer;
       }
-      body.settled .card.done:hover {
+      .card.done:hover {
         background: #fff;
         border-color: #dededa;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
@@ -498,7 +498,7 @@
         transition: transform 0.25s;
         display: none;
       }
-      body.settled .card.done .chev {
+      .card.done .chev {
         display: inline;
       }
       .card.open .chev {
@@ -533,6 +533,55 @@
         font-size: 10px;
         font-weight: 700;
         margin-top: 1px;
+      }
+
+      /* step controls (manual "Run / Next" buttons) */
+      .ctl {
+        margin-top: 11px;
+        margin-left: 43px;
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        flex-wrap: wrap;
+      }
+      .nextbtn {
+        font-family: var(--mono);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: #fff;
+        background: var(--black);
+        border: none;
+        border-radius: 7px;
+        padding: 9px 15px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.18s;
+      }
+      .nextbtn:hover {
+        background: #2a2a2a;
+      }
+      .nextbtn:active {
+        transform: translateY(1px);
+      }
+      .nextbtn:disabled {
+        background: #ececea;
+        color: #b0b0ac;
+        cursor: not-allowed;
+      }
+      .nextbtn.amber {
+        background: var(--amber-dot);
+      }
+      .nextbtn.amber:hover {
+        background: #c26a05;
+      }
+      .ctl .hint {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--faint);
+        letter-spacing: 0.03em;
       }
 
       /* accordion (the "agent detailed thinking") */
@@ -1918,14 +1967,31 @@
               '<div class="waitnote" style="margin-top:9px;"><span class="bang" style="background:#111;">✓</span><span>Human approval <b>granted</b> (out of band, via Salesforce). Flow resumed and completed.</span></div>';
           }
           node._slot.innerHTML = html;
+        } else if (st === "queued") {
+          node._slot.innerHTML = queuedButton(node, false);
         }
+      }
+
+      /* a Run/Next button for a step — enabled only when it is the frontier */
+      function queuedButton(node, enabled) {
+        return (
+          '<div class="ctl"><button class="nextbtn"' +
+          (enabled ? "" : " disabled") +
+          ">" +
+          (enabled ? "Run " + esc(node.name) + " ▸" : "Queued ▸") +
+          "</button>" +
+          (enabled
+            ? '<span class="hint">press to dispatch this stage to the orchestrator</span>'
+            : "") +
+          "</div>"
+        );
       }
 
       /* ---- header pill + progress + orchestrator panel ---- */
       function setPill(kind) {
         R.pill.className =
           "pill" +
-          (kind === "complete"
+          (kind === "complete" || kind === "ready"
             ? " complete"
             : kind === "paused"
               ? " paused"
@@ -1933,9 +1999,11 @@
         R.pillLabel.textContent =
           kind === "complete"
             ? "COMPLETE"
-            : kind === "paused"
-              ? "WAITING · APPROVAL"
-              : "RUNNING";
+            : kind === "ready"
+              ? "AWAITING NEXT"
+              : kind === "paused"
+                ? "WAITING · APPROVAL"
+                : "RUNNING";
       }
       function setProgress(done, paused) {
         R.progress.textContent = done + " / 6";
@@ -1975,6 +2043,12 @@
             label = "Run complete";
             sub = "6 / 6 nodes settled";
             color = "#111";
+            break;
+          case "ready":
+            label = "Awaiting Next ▸";
+            sub = "press Run to dispatch " + activeName;
+            color = "#111";
+            anim = "liveblink 1.2s infinite";
             break;
           default:
             label = "Idle";
@@ -2026,15 +2100,21 @@
       }
 
       /* ============================================================
-   Animate once, then settle.
+   Manual step-through. No auto-orchestration: each stage waits
+   for its "Run" button. Triage is the exception — it auto-runs
+   once the case is assigned. Pressing a step's button dispatches
+   it to the orchestrator, which runs that one stage.
    ============================================================ */
       const T = [];
       function at(ms, fn) {
         T.push(setTimeout(fn, ms));
       }
 
-      function run() {
+      let doneCount = 0;
+
+      function init() {
         runStart = Date.now();
+        doneCount = 0;
         NODES.forEach((n) => setStatus(n, "queued"));
         setProgress(0, false);
         setPill("running");
@@ -2044,49 +2124,78 @@
           R.elapsed.textContent = fmt((Date.now() - runStart) / 1000);
         }, 500);
         logLine("sys", "orchestrator armed · case 00001079");
-
-        let t = 600;
-        let doneCount = 0;
-        NODES.forEach((node, i) => {
-          const last = i === NODES.length - 1;
-          at(t, () => {
-            setStatus(node, "assigned");
-            setOrch("dispatching", node.name);
-            logLine("out", "dispatch → " + node.name);
-          });
-          at(t + 380, () => {
-            setStatus(node, "running");
-            setOrch("awaiting", node.name);
-          });
-          if (node.guardrail) {
-            at(t + 1330, () => {
-              setStatus(node, "waiting");
-              setOrch("paused", node.name);
-              setPill("paused");
-              setProgress(doneCount, true);
-              logLine("warn", "approval requested → email / Salesforce");
-            });
-            at(t + 3500, () => {
-              doneCount++;
-              setStatus(node, "done");
-              setOrch("receiving", node.name);
-              setPill("running");
-              setProgress(doneCount, false);
-              logLine("in", "approval cleared (external) ← " + node.name);
-            });
-            t += 4000;
-          } else {
-            at(t + 1330, () => {
-              doneCount++;
-              setStatus(node, "done");
-              setOrch("receiving", node.name);
-              setProgress(doneCount, false);
-              logLine("in", "received ← " + node.name);
-            });
-            t += 1900;
-          }
-          if (last) at(t, complete);
+        // Triage runs automatically as soon as the case is assigned.
+        at(700, () => {
+          logLine("sys", "case assigned → auto‑running Triage");
+          runNode(0);
         });
+      }
+
+      // Make stage `i` the active frontier: enable its Run button and wait.
+      function armFrontier(i) {
+        if (i >= NODES.length) {
+          complete();
+          return;
+        }
+        const node = NODES[i];
+        node._slot.innerHTML = queuedButton(node, true);
+        const btn = node._slot.querySelector(".nextbtn");
+        btn.addEventListener("click", () => {
+          if (btn.disabled) return;
+          btn.disabled = true;
+          runNode(i);
+        });
+        setPill("ready");
+        setOrch("ready", node.name);
+      }
+
+      // Dispatch + run a single stage (assigned → running → done).
+      function runNode(i) {
+        const node = NODES[i];
+        setStatus(node, "assigned");
+        setPill("running");
+        setOrch("dispatching", node.name);
+        logLine("out", "dispatch → " + node.name);
+        at(440, () => {
+          setStatus(node, "running");
+          setOrch("awaiting", node.name);
+        });
+        if (node.guardrail) {
+          at(1550, () => {
+            setStatus(node, "waiting");
+            setOrch("paused", node.name);
+            setPill("paused");
+            setProgress(doneCount, true);
+            logLine("warn", "approval requested → email / Salesforce");
+            // Approval clears out of band — surface a manual Resume button.
+            const ctl = document.createElement("div");
+            ctl.className = "ctl";
+            ctl.innerHTML =
+              '<button class="nextbtn amber">Resume — approval cleared ▸</button>' +
+              '<span class="hint">approval routed to account‑manager email / Salesforce</span>';
+            node._slot.appendChild(ctl);
+            const rb = ctl.querySelector(".nextbtn");
+            rb.addEventListener("click", () => {
+              if (rb.disabled) return;
+              rb.disabled = true;
+              finishNode(i, "approval cleared (external) ← ");
+            });
+          });
+        } else {
+          at(1550, () => finishNode(i, "received ← "));
+        }
+      }
+
+      // Mark a stage done, then hand the frontier to the next stage.
+      function finishNode(i, logPrefix) {
+        const node = NODES[i];
+        doneCount++;
+        setStatus(node, "done");
+        setOrch("receiving", node.name);
+        setPill("running");
+        setProgress(doneCount, false);
+        logLine("in", logPrefix + node.name);
+        at(520, () => armFrontier(i + 1));
       }
 
       function complete() {
@@ -2126,10 +2235,9 @@
         R.termChev.style.display = "inline";
       }
 
-      /* ---- accordion clicks (only once settled) ---- */
+      /* ---- accordion clicks: a node opens as soon as it is done ---- */
       NODES.forEach((node) => {
         node._head.addEventListener("click", () => {
-          if (!document.body.classList.contains("settled")) return;
           if (!node._card.classList.contains("done")) return;
           node._card.classList.toggle("open");
         });
@@ -2142,7 +2250,7 @@
         R.termChev.style.transform = open ? "none" : "rotate(180deg)";
       });
 
-      run();
+      init();
     </script>
   </body>
 </html>
