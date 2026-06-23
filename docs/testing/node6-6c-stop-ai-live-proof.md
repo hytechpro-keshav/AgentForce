@@ -96,6 +96,8 @@ sf project deploy start --target-org AgentForce \
 
 **Fallback:** add Approval History via Setup → Object Manager → Case → Page Layouts → edit demo layout → Related Lists → Approval History. Screenshot for evidence (not source-controlled).
 
+**Sales Console — Approval Requests nav (S5 companion):** retrieve `standard__LightningSalesConsole` — adds tab `standard-ProcessInstanceWorkitem` (Items to Approve list). Path: `force-app/main/default/applications/standard__LightningSalesConsole.app-meta.xml`.
+
 ---
 
 ## D. Railway deploy

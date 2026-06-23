@@ -43,5 +43,9 @@
         <members>Case-Case Layout</members>
         <name>Layout</name>
     </types>
+    <types>
+        <members>standard__LightningSalesConsole</members>
+        <name>CustomApplication</name>
+    </types>
     <version>66.0</version>
 </Package>
