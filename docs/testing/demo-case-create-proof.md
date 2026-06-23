@@ -25,7 +25,7 @@ curl -sS "${REACT_CHAT_URL}/api/orchestrator/case/<CASE_ID>" | jq '.status'
 
 ## Proof log
 
-| Date      | Scenario                     | Case Id | Case Number | Orchestration status      | Notes |
-| --------- | ---------------------------- | ------- | ----------- | ------------------------- | ----- |
-| _pending_ | same-day-battery-fix         |         |             |                           |       |
-| _pending_ | manager-approval-mixed-parts |         |             | waiting_approval expected |       |
+| Date       | Scenario                     | Case Id            | Case Number | Orchestration status      | Notes                                        |
+| ---------- | ---------------------------- | ------------------ | ----------- | ------------------------- | -------------------------------------------- |
+| 2026-06-23 | same-day-battery-fix         | 500g500000cAu34AAC | 00001069    | pending (async trigger)   | Post-deploy smoke; catalog path fix redeploy |
+| _pending_  | manager-approval-mixed-parts |                    |             | waiting_approval expected |                                              |

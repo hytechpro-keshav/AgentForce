@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { CASE_ID_PATTERN } from "@/lib/orchestration";
+import { resolveOrchestratorViewToken } from "@/lib/orchestrator-proxy-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +25,7 @@ export async function GET(
     return NextResponse.json({ error: "invalid_case_id" }, { status: 400 });
   }
 
-  const viewToken = process.env.AI_API_ORCHESTRATOR_VIEW_TOKEN?.trim();
+  const viewToken = resolveOrchestratorViewToken();
   if (!viewToken) {
     return NextResponse.json(
       {

@@ -12,7 +12,8 @@ import {
 import type {
   DemoCaseCreateDto,
   DemoCaseCreateResponseDto,
-  DemoCaseFormDto
+  DemoCaseFormDto,
+  DemoCaseOverridesDto
 } from "./dto/demo-case-create.dto";
 import { SalesforceCaseWriteGateway } from "../salesforce/salesforce-case-write.gateway";
 import { SalesforceGatewayError } from "../salesforce/salesforce-gateway.error";
@@ -137,7 +138,7 @@ export class DemoCaseCreateService {
 
   private mergeForm(
     base: DemoCaseFormDto,
-    overrides?: Partial<DemoCaseFormDto>
+    overrides?: DemoCaseOverridesDto
   ): DemoCaseFormDto {
     if (!overrides) {
       return { ...base };

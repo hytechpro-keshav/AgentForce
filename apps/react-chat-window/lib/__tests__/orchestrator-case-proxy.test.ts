@@ -32,10 +32,25 @@ describe("orchestrator Case lookup proxy", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("returns 503 when the view token is not configured", async () => {
+  it("returns 503 when no orchestrator token is configured", async () => {
     delete process.env.AI_API_ORCHESTRATOR_VIEW_TOKEN;
+    delete process.env.AI_API_DEMO_CASE_CREATE_TOKEN;
     const response = await call(VALID_CASE_ID);
     expect(response.status).toBe(503);
+  });
+
+  it("falls back to AI_API_DEMO_CASE_CREATE_TOKEN when view token is unset", async () => {
+    delete process.env.AI_API_ORCHESTRATOR_VIEW_TOKEN;
+    process.env.AI_API_DEMO_CASE_CREATE_TOKEN = "demo-create-token";
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ status: "running" }), { status: 200 })
+    );
+
+    const response = await call(VALID_CASE_ID);
+    expect(response.status).toBe(200);
+    expect((fetchSpy.mock.calls[0][1] as RequestInit).headers).toMatchObject({
+      authorization: "Bearer demo-create-token"
+    });
   });
 
   it("attaches the server-side bearer token and proxies latest Case workflow JSON", async () => {

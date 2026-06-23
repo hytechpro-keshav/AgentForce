@@ -36,6 +36,20 @@ describe("DemoCaseCreateDto", () => {
     ).toHaveLength(0);
   });
 
+  it("accepts partial overrides for a catalog scenario", () => {
+    expect(
+      errorsFor({
+        scenarioId: "same-day-battery-fix",
+        overrides: {
+          subject: "Edited subject",
+          description: "SP-BATT-15X",
+          priority: "High",
+          shipTo: { city: "Austin", state: "TX", country: "US" }
+        }
+      })
+    ).toHaveLength(0);
+  });
+
   it("rejects an invalid priority", () => {
     expect(
       errorsFor({

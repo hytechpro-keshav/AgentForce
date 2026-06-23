@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { WORKFLOW_ID_PATTERN } from "@/lib/orchestration";
+import { resolveOrchestratorViewToken } from "@/lib/orchestrator-proxy-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +19,8 @@ function aiApiBaseUrl(): string {
 /**
  * Read-only proxy for the Node 1 orchestration status feed.
  *
- * The read scope token (`AI_API_ORCHESTRATOR_VIEW_TOKEN`) lives only
+ * The read scope token (`AI_API_ORCHESTRATOR_VIEW_TOKEN`, or
+ * `AI_API_DEMO_CASE_CREATE_TOKEN` as fallback) lives only on the Next.js
  * on the Next.js server and is attached here. The browser never sees
  * it and never talks to the NestJS orchestrator directly. This route
  * is GET-only: there is intentionally no proxy for the approval
@@ -33,7 +35,7 @@ export async function GET(
     return NextResponse.json({ error: "invalid_workflow_id" }, { status: 400 });
   }
 
-  const viewToken = process.env.AI_API_ORCHESTRATOR_VIEW_TOKEN?.trim();
+  const viewToken = resolveOrchestratorViewToken();
   if (!viewToken) {
     return NextResponse.json(
       {

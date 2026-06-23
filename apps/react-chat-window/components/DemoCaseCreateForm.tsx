@@ -105,7 +105,11 @@ export function DemoCaseCreateForm({ scenarios }: DemoCaseCreateFormProps) {
       }
 
       if (!response.ok) {
-        throw new Error(data.message ?? "Could not create the demo Case.");
+        const payload = data as { message?: string | string[] };
+        const message = Array.isArray(payload.message)
+          ? payload.message.join(" ")
+          : payload.message;
+        throw new Error(message ?? "Could not create the demo Case.");
       }
 
       router.push(data.orchestrationUrl);

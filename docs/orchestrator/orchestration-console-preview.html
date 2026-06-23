@@ -1,0 +1,1592 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Orchestration Console — Preview</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --canvas: #f1f0ed;
+        --surface: #fbfbfa;
+        --border: #e6e6e2;
+        --border-soft: #ececea;
+        --spine: #111111;
+        --text: #1a1a1a;
+        --text-secondary: #3a3a37;
+        --muted: #a2a29d;
+        --muted-light: #bcbcb6;
+        --muted-faint: #c2c2bd;
+        --output-bg: #f4f4f1;
+        --approval: #d97706;
+        --approval-bg: #fdf3e7;
+        --approval-border: #f0d9b8;
+        --verdict-bg: #111111;
+        --line-idle: #e2e2df;
+        --mono: "JetBrains Mono", ui-monospace, monospace;
+        --sans: "Space Grotesk", system-ui, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        background: var(--canvas);
+        color: var(--text);
+        font-family: var(--sans);
+        min-height: 100vh;
+        padding: 28px 32px 48px;
+      }
+
+      .page {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      /* ---- preview chrome ---- */
+      .preview-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 22px;
+        padding: 10px 14px;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--muted);
+      }
+
+      .preview-bar strong {
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      .preview-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .btn {
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        padding: 7px 12px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: #fff;
+        color: var(--text);
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+
+      .btn:hover {
+        background: var(--output-bg);
+      }
+      .btn.active {
+        background: var(--spine);
+        color: #fff;
+        border-color: var(--spine);
+      }
+      .btn-primary {
+        background: var(--spine);
+        color: #fff;
+        border-color: var(--spine);
+      }
+      .btn-primary:hover {
+        background: #333;
+      }
+
+      /* ---- header ---- */
+      .header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 20px;
+        flex-wrap: wrap;
+      }
+
+      .header-left {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .logo {
+        width: 38px;
+        height: 38px;
+        border-radius: 9px;
+        background: var(--spine);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: none;
+      }
+
+      .logo svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      .title {
+        font-size: 22px;
+        font-weight: 600;
+        letter-spacing: -0.3px;
+        line-height: 1.2;
+      }
+
+      .subtitle {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 3px;
+        letter-spacing: 0.02em;
+      }
+
+      .header-meta {
+        display: flex;
+        align-items: center;
+        gap: 22px;
+        flex-wrap: wrap;
+      }
+
+      .meta-block {
+        text-align: right;
+      }
+
+      .meta-label {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: #a8a8a3;
+        letter-spacing: 0.14em;
+      }
+
+      .meta-value {
+        font-family: var(--mono);
+        font-size: 13px;
+        color: #222;
+        font-weight: 500;
+        margin-top: 2px;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-family: var(--mono);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        border: 1px solid;
+        white-space: nowrap;
+      }
+
+      .pill-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex: none;
+      }
+
+      .pill.running {
+        background: var(--spine);
+        color: #fff;
+        border-color: var(--spine);
+      }
+      .pill.running .pill-dot {
+        background: #fff;
+        animation: liveblink 1.2s infinite;
+      }
+
+      .pill.waiting {
+        background: var(--approval-bg);
+        color: var(--approval);
+        border-color: var(--approval-border);
+      }
+      .pill.waiting .pill-dot {
+        background: var(--approval);
+        animation: apulse 1.5s infinite;
+      }
+
+      .pill.complete {
+        background: #fff;
+        color: var(--spine);
+        border-color: #d7d7d3;
+      }
+      .pill.complete .pill-dot {
+        background: var(--spine);
+      }
+
+      .progress-track {
+        margin-top: 18px;
+        height: 3px;
+        background: #e0e0db;
+        border-radius: 2px;
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: var(--spine);
+        border-radius: 2px;
+        width: 0%;
+        transition: width 0.5s ease;
+      }
+
+      /* ---- body layout ---- */
+      .body {
+        display: flex;
+        gap: 28px;
+        margin-top: 26px;
+        align-items: flex-start;
+      }
+
+      .spine {
+        flex: 1;
+        min-width: 0;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 8px 22px 18px;
+      }
+
+      .sidebar {
+        width: 352px;
+        flex: none;
+        position: sticky;
+        top: 20px;
+      }
+
+      .sidebar-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+
+      /* ---- spine row ---- */
+      .spine-row {
+        display: flex;
+        align-items: stretch;
+      }
+
+      .spine-rail {
+        position: relative;
+        width: 54px;
+        flex: none;
+      }
+
+      .spine-line-top,
+      .spine-line-bot {
+        position: absolute;
+        left: 27px;
+        width: 2px;
+        background: var(--line-idle);
+      }
+
+      .spine-line-top {
+        top: 0;
+        height: 30px;
+      }
+      .spine-line-bot {
+        top: 30px;
+        bottom: 0;
+      }
+
+      .spine-line-top.active,
+      .spine-line-bot.active {
+        background: var(--spine);
+      }
+
+      .spine-dot-wrap {
+        position: absolute;
+        top: 20px;
+        left: 17px;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2;
+      }
+
+      .spine-dot {
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+      }
+
+      .spine-dot.idle {
+        width: 12px;
+        height: 12px;
+        background: #fff;
+        border: 2px solid #d2d2cd;
+      }
+
+      .spine-dot.running {
+        width: 14px;
+        height: 14px;
+        background: #fff;
+        border: 2px solid var(--spine);
+        animation: liveblink 1.2s infinite;
+      }
+
+      .spine-dot.done {
+        width: 18px;
+        height: 18px;
+        background: var(--spine);
+        border: 2px solid var(--spine);
+      }
+
+      .spine-dot.waiting {
+        width: 14px;
+        height: 14px;
+        background: var(--approval-bg);
+        border: 2px solid var(--approval);
+        animation: apulse 1.5s infinite;
+      }
+
+      .spine-dot.done svg {
+        width: 10px;
+        height: 10px;
+      }
+
+      .spine-card {
+        flex: 1;
+        min-width: 0;
+        padding: 14px 14px 16px;
+        border-radius: 8px;
+        transition: background 0.2s;
+      }
+
+      .spine-card.clickable {
+        cursor: pointer;
+      }
+      .spine-card.clickable:hover {
+        background: rgba(0, 0, 0, 0.02);
+      }
+      .spine-card.expanded {
+        background: #f7f7f5;
+      }
+
+      .card-top {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+      }
+
+      .icon-box {
+        width: 30px;
+        height: 30px;
+        border-radius: 7px;
+        border: 1px solid var(--border);
+        background: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: none;
+        font-size: 14px;
+      }
+
+      .icon-box.done {
+        background: var(--spine);
+        border-color: var(--spine);
+        color: #fff;
+      }
+      .icon-box.running {
+        border-color: var(--spine);
+      }
+      .icon-box.waiting {
+        background: var(--approval-bg);
+        border-color: var(--approval-border);
+        color: var(--approval);
+      }
+      .icon-box.idle {
+        opacity: 0.45;
+      }
+
+      .card-title-row {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .node-num {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--muted-light);
+        font-weight: 500;
+      }
+
+      .node-name {
+        font-size: 14.5px;
+        font-weight: 600;
+        letter-spacing: -0.1px;
+      }
+
+      .node-name.idle {
+        color: #b8b8b3;
+        font-weight: 500;
+      }
+
+      .node-sub {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+
+      .card-status-col {
+        flex: none;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 3px;
+        margin-left: auto;
+      }
+
+      .status-chip {
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        padding: 3px 7px;
+        border-radius: 4px;
+      }
+
+      .status-chip.done {
+        background: #ececea;
+        color: #555;
+      }
+      .status-chip.running {
+        background: var(--spine);
+        color: #fff;
+      }
+      .status-chip.waiting {
+        background: var(--approval-bg);
+        color: var(--approval);
+        border: 1px solid var(--approval-border);
+      }
+      .status-chip.idle {
+        color: var(--muted-light);
+      }
+
+      .latency {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--muted-light);
+      }
+
+      .thinking {
+        margin-top: 9px;
+        margin-left: 43px;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: #6f6f6b;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+
+      .dots {
+        display: inline-flex;
+        gap: 3px;
+      }
+      .dots span {
+        width: 3.5px;
+        height: 3.5px;
+        border-radius: 50%;
+        background: #6f6f6b;
+        animation: blink 1.1s infinite;
+      }
+      .dots span:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      .dots span:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+
+      .output-row {
+        margin-top: 9px;
+        margin-left: 43px;
+        padding: 8px 11px;
+        background: var(--output-bg);
+        border: 1px solid #eceae6;
+        border-radius: 5px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        flex-wrap: wrap;
+      }
+
+      .output-arrow {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--spine);
+      }
+
+      .output-text {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--text);
+        font-weight: 500;
+      }
+
+      .output-route {
+        margin-left: auto;
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.1em;
+        color: #b6b6b1;
+      }
+
+      .wait-note {
+        margin-top: 9px;
+        margin-left: 43px;
+        padding: 9px 11px;
+        background: var(--approval-bg);
+        border: 1px solid var(--approval-border);
+        border-radius: 5px;
+        font-family: var(--mono);
+        font-size: 11.5px;
+        color: #92400e;
+        line-height: 1.45;
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+      }
+
+      .wait-note-icon {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--approval);
+        color: #fff;
+        font-size: 11px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: none;
+        margin-top: 1px;
+      }
+
+      /* ---- detail expand ---- */
+      .detail-panel {
+        margin-top: 10px;
+        margin-left: 43px;
+        padding: 12px 14px;
+        background: #fff;
+        border: 1px solid var(--border-soft);
+        border-radius: 6px;
+        display: none;
+      }
+
+      .detail-panel.open {
+        display: block;
+      }
+
+      .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .detail-item {
+        padding: 8px 10px;
+        background: var(--output-bg);
+        border-radius: 5px;
+      }
+
+      .detail-item dt {
+        font-family: var(--mono);
+        font-size: 9.5px;
+        letter-spacing: 0.12em;
+        color: var(--muted);
+        text-transform: uppercase;
+      }
+
+      .detail-item dd {
+        font-size: 13px;
+        font-weight: 500;
+        margin-top: 3px;
+      }
+
+      .detail-hint {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--muted);
+        margin-top: 10px;
+        line-height: 1.5;
+      }
+
+      /* ---- intake / terminal ---- */
+      .intake-tag {
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.16em;
+        color: #b0b0ac;
+      }
+
+      .terminal-name {
+        font-size: 14.5px;
+        font-weight: 600;
+      }
+      .terminal-name.idle {
+        color: #b8b8b3;
+        font-weight: 500;
+      }
+      .terminal-name.done {
+        color: var(--text);
+      }
+
+      /* ---- verdict ---- */
+      .verdict {
+        margin-top: 10px;
+        margin-left: 54px;
+        padding: 14px 16px;
+        background: var(--verdict-bg);
+        border-radius: 8px;
+        display: none;
+      }
+
+      .verdict.visible {
+        display: block;
+      }
+
+      .verdict-label {
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.16em;
+        color: #8a8a85;
+      }
+
+      .verdict-text {
+        font-size: 13.5px;
+        color: #fff;
+        margin-top: 5px;
+        line-height: 1.45;
+      }
+
+      /* ---- sidebar ---- */
+      .sidebar-head {
+        padding: 16px 18px 14px;
+        border-bottom: 1px solid var(--border-soft);
+        display: flex;
+        align-items: center;
+        gap: 11px;
+      }
+
+      .brain-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: 7px;
+        background: var(--spine);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: none;
+        color: #fff;
+        font-size: 15px;
+      }
+
+      .sidebar-title {
+        font-size: 14.5px;
+        font-weight: 600;
+        letter-spacing: -0.1px;
+      }
+      .sidebar-sub {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--muted);
+        margin-top: 1px;
+      }
+
+      .orch-state {
+        padding: 15px 18px;
+        border-bottom: 1px solid var(--border-soft);
+      }
+
+      .orch-row {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+
+      .orch-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        flex: none;
+        background: #c2c2bd;
+      }
+
+      .orch-dot.live {
+        background: var(--spine);
+        animation: liveblink 1.2s infinite;
+      }
+      .orch-dot.paused {
+        background: var(--approval);
+        animation: apulse 1.5s infinite;
+      }
+
+      .orch-label {
+        font-family: var(--mono);
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text);
+      }
+
+      .orch-sub {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 6px;
+      }
+
+      .activity {
+        padding: 14px 18px 17px;
+      }
+
+      .activity-label {
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.16em;
+        color: #b0b0ac;
+        margin-bottom: 11px;
+      }
+
+      .log-list {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        max-height: 340px;
+        overflow-y: auto;
+      }
+
+      .log-row {
+        display: flex;
+        gap: 9px;
+        align-items: flex-start;
+      }
+
+      .log-time {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--muted-faint);
+        flex: none;
+        width: 46px;
+      }
+
+      .log-glyph {
+        font-family: var(--mono);
+        font-size: 12px;
+        flex: none;
+        width: 14px;
+        text-align: center;
+      }
+
+      .log-glyph.out {
+        color: var(--spine);
+        font-weight: 600;
+      }
+      .log-glyph.in {
+        color: var(--spine);
+      }
+      .log-glyph.warn {
+        color: var(--approval);
+        font-weight: 600;
+      }
+      .log-glyph.sys {
+        color: var(--muted-light);
+      }
+
+      .log-text {
+        font-family: var(--mono);
+        font-size: 11px;
+        line-height: 1.4;
+        color: #9a9a95;
+      }
+
+      .log-text.strong {
+        color: var(--text-secondary);
+        font-weight: 500;
+      }
+      .log-text.warn {
+        color: #92400e;
+      }
+
+      .sidebar-foot {
+        padding: 12px 18px;
+        background: var(--output-bg);
+        border-top: 1px solid var(--border-soft);
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: #9a9a95;
+        line-height: 1.5;
+      }
+
+      /* ---- animations ---- */
+      @keyframes liveblink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.35;
+        }
+      }
+
+      @keyframes apulse {
+        0%,
+        100% {
+          box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.45);
+        }
+        50% {
+          box-shadow: 0 0 0 5px rgba(217, 119, 6, 0);
+        }
+      }
+
+      @keyframes blink {
+        0%,
+        100% {
+          opacity: 0.25;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+
+      @media (max-width: 900px) {
+        body {
+          padding: 16px;
+        }
+        .body {
+          flex-direction: column;
+        }
+        .sidebar {
+          width: 100%;
+          position: static;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="preview-bar">
+        <div>
+          <strong>Demo preview</strong> — Case 00001079 (ProBook 15X battery). 6
+          live nodes. Use <em>Show complete</em>, <em>Paused on approval</em>,
+          or <em>Replay workflow</em>.
+        </div>
+        <div class="preview-controls">
+          <button class="btn" data-speed="1.4">Calm</button>
+          <button class="btn active" data-speed="1">Normal</button>
+          <button class="btn" data-speed="0.62">Fast</button>
+          <button class="btn btn-primary" id="replay">Replay workflow</button>
+          <button class="btn" id="show-complete">Show complete</button>
+          <button class="btn" id="show-paused">Paused on approval</button>
+        </div>
+      </div>
+
+      <header class="header">
+        <div class="header-left">
+          <div class="logo" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">
+              <circle cx="12" cy="6" r="3" />
+              <line x1="12" y1="9" x2="12" y2="21" />
+              <circle cx="12" cy="14" r="2" fill="#fff" />
+              <circle cx="12" cy="20" r="2" fill="none" />
+            </svg>
+          </div>
+          <div>
+            <h1 class="title">Orchestration Console</h1>
+            <p class="subtitle">
+              read-only observability · LangGraph · 6 nodes
+            </p>
+          </div>
+        </div>
+        <div class="header-meta">
+          <div class="meta-block">
+            <div class="meta-label">CASE</div>
+            <div class="meta-value" id="case-num">00001079</div>
+          </div>
+          <div class="meta-block">
+            <div class="meta-label">SOURCE</div>
+            <div class="meta-value">Web</div>
+          </div>
+          <div class="meta-block">
+            <div class="meta-label">ELAPSED</div>
+            <div class="meta-value" id="elapsed">0:00</div>
+          </div>
+          <div class="meta-block">
+            <div class="meta-label">NODES</div>
+            <div class="meta-value" id="progress-text">0 / 6</div>
+          </div>
+          <div class="pill running" id="status-pill">
+            <span class="pill-dot"></span>
+            <span id="pill-label">RUNNING</span>
+          </div>
+        </div>
+      </header>
+
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-bar"></div>
+      </div>
+
+      <div class="body">
+        <main class="spine" id="spine">
+          <!-- Intake -->
+          <div class="spine-row" data-step="intake">
+            <div class="spine-rail">
+              <div class="spine-line-bot active" style="top: 30px"></div>
+              <div class="spine-dot-wrap">
+                <div class="spine-dot done">
+                  <svg viewBox="0 0 12 12" fill="none">
+                    <path
+                      d="M2.5 6l2.5 2.5 4.5-5"
+                      stroke="#fff"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </div>
+              </div>
+            </div>
+            <div class="spine-card">
+              <div class="card-top">
+                <div class="icon-box done">📁</div>
+                <div>
+                  <div class="card-title-row">
+                    <span class="node-name">Case received</span>
+                  </div>
+                  <div class="node-sub">
+                    Web → Salesforce Case · ProBook 15X battery replacement
+                  </div>
+                </div>
+                <div class="card-status-col">
+                  <span class="status-chip done">DONE</span>
+                </div>
+              </div>
+              <div style="margin-top: 10px; margin-left: 43px">
+                <span class="intake-tag">INTAKE → ORCHESTRATOR</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Nodes rendered by JS -->
+          <div id="nodes-container"></div>
+
+          <!-- Terminal -->
+          <div class="spine-row" data-step="terminal">
+            <div class="spine-rail">
+              <div class="spine-line-top" id="term-line-top"></div>
+              <div class="spine-dot-wrap">
+                <div class="spine-dot idle" id="term-dot"></div>
+              </div>
+            </div>
+            <div class="spine-card">
+              <div class="card-top">
+                <div class="icon-box idle" id="term-icon">✓</div>
+                <div>
+                  <div class="terminal-name idle" id="term-name">
+                    Case handled
+                  </div>
+                  <div class="node-sub">operational intelligence logged</div>
+                </div>
+                <div class="card-status-col">
+                  <span class="status-chip idle" id="term-status">PENDING</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="verdict" id="verdict">
+            <div class="verdict-label">ORCHESTRATOR VERDICT</div>
+            <div class="verdict-text" id="verdict-text">
+              Normal priority · high business risk · parts available ·
+              technician scheduled · human approval granted. 6 / 6 nodes
+              complete.
+            </div>
+          </div>
+        </main>
+
+        <aside class="sidebar">
+          <div class="sidebar-card">
+            <div class="sidebar-head">
+              <div class="brain-icon">🧠</div>
+              <div>
+                <div class="sidebar-title">Orchestrator</div>
+                <div class="sidebar-sub">the brain · routes every handoff</div>
+              </div>
+            </div>
+            <div class="orch-state">
+              <div class="orch-row">
+                <span class="orch-dot" id="orch-dot"></span>
+                <span class="orch-label" id="orch-label">Idle</span>
+              </div>
+              <div class="orch-sub" id="orch-sub">waiting for trigger</div>
+            </div>
+            <div class="activity">
+              <div class="activity-label">ACTIVITY</div>
+              <div class="log-list" id="log-list"></div>
+            </div>
+            <div class="sidebar-foot">
+              Approvals route via email / Salesforce. This console only reflects
+              state — nothing is actioned here.
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <script>
+      const NODE_COUNT = 6;
+
+      const STEPS = [
+        {
+          n: "01",
+          name: "Routing & Triage",
+          sub: "priority · severity · route",
+          output: "NORMAL · confirm local stock availability",
+          latency: "1.3s",
+          icon: "🔍",
+          details: [
+            { l: "Priority", v: "normal" },
+            { l: "Provider", v: "openai" },
+            { l: "Model", v: "gpt-4o-mini" },
+            { l: "Summary", v: "ProBook 15X battery replacement" }
+          ]
+        },
+        {
+          n: "02",
+          name: "Customer History",
+          sub: "account · warranty · incidents",
+          output: "standard tier · repeat failure ×10",
+          latency: "0.8s",
+          icon: "👤",
+          details: [
+            { l: "Business risk", v: "high" },
+            { l: "Repeat", v: "10 in 30d" },
+            { l: "Open incidents", v: "10" },
+            { l: "Warranty", v: "unknown" }
+          ]
+        },
+        {
+          n: "03",
+          name: "Knowledge Base",
+          sub: "approved steps · safe guidance",
+          output: "Battery Health Check Procedure · 2 sources",
+          latency: "1.1s",
+          icon: "📖",
+          details: [
+            { l: "Sources", v: "2 found" },
+            { l: "Confidence", v: "medium" },
+            { l: "Provider", v: "openai" },
+            { l: "Latency", v: "1094 ms" }
+          ]
+        },
+        {
+          n: "04",
+          name: "Parts & Logistics",
+          sub: "inventory · reserve · ETA",
+          output: "SP-BATT-15X available · WH-AUS-001 · ETA 12–20h",
+          latency: "1.1s",
+          icon: "📦",
+          details: [
+            { l: "Part", v: "SP-BATT-15X" },
+            { l: "Warehouse", v: "WH-AUS-001" },
+            { l: "Ship-to", v: "Austin, TX" },
+            { l: "Readiness", v: "ready" }
+          ]
+        },
+        {
+          n: "05",
+          name: "Scheduling",
+          sub: "technician · skill · location",
+          output: "SR-A1 · Tomorrow 11:00–13:00 PDT",
+          latency: "0.9s",
+          icon: "📅",
+          details: [
+            { l: "Technician", v: "SR-A1" },
+            { l: "Territory", v: "North America" },
+            { l: "Skills", v: "Laptop Hardware, Battery/Power" },
+            { l: "Parts gate", v: "ETA considered" }
+          ]
+        },
+        {
+          n: "06",
+          name: "Compliance & Guardrail",
+          sub: "entitlement · policy · approval",
+          output: "Approved · risk 40 / medium · 3 rules",
+          latency: "3.4s",
+          icon: "🛡️",
+          guardrail: true,
+          details: [
+            { l: "Outcome", v: "Human approved" },
+            { l: "Risk", v: "40 / medium" },
+            { l: "Rules", v: "3 triggered" },
+            { l: "Channel", v: "salesforce_approval" }
+          ]
+        }
+      ];
+
+      const nodesContainer = document.getElementById("nodes-container");
+      let speed = 1;
+      let timers = [];
+      let elapsedIv = null;
+      let runStart = 0;
+      let statuses = new Array(NODE_COUNT).fill("queued");
+      let log = [];
+      let complete = false;
+      let expandedNode = null;
+
+      function renderNodes() {
+        nodesContainer.innerHTML = STEPS.map((step, i) => {
+          const st = statuses[i];
+          const done = st === "done";
+          const running = st === "running";
+          const waiting = st === "waiting";
+          const reached = done || running || waiting || st === "assigned";
+          const prevReached =
+            i === 0
+              ? true
+              : ["done", "running", "waiting", "assigned"].includes(
+                  statuses[i - 1]
+                );
+          const lineTopActive = prevReached && reached;
+          const lineBotActive = done;
+          const dotClass = done
+            ? "done"
+            : running
+              ? "running"
+              : waiting
+                ? "waiting"
+                : reached
+                  ? "running"
+                  : "idle";
+          const iconClass = done
+            ? "done"
+            : running
+              ? "running"
+              : waiting
+                ? "waiting"
+                : "idle";
+          const nameClass = reached ? "" : "idle";
+          const statusLabel = done
+            ? "DONE"
+            : running
+              ? "RUNNING"
+              : waiting
+                ? "WAITING"
+                : "QUEUED";
+          const statusClass = done
+            ? "done"
+            : running
+              ? "running"
+              : waiting
+                ? "waiting"
+                : "idle";
+          const dotInner = done
+            ? '<svg viewBox="0 0 12 12" fill="none"><path d="M2.5 6l2.5 2.5 4.5-5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+            : "";
+          const expanded = expandedNode === i;
+
+          return `
+        <div class="spine-row" data-node="${i}">
+          <div class="spine-rail">
+            <div class="spine-line-top ${lineTopActive ? "active" : ""}"></div>
+            <div class="spine-line-bot ${lineBotActive ? "active" : ""}"></div>
+            <div class="spine-dot-wrap">
+              <div class="spine-dot ${dotClass}">${dotInner}</div>
+            </div>
+          </div>
+          <div class="spine-card clickable ${expanded ? "expanded" : ""}" data-expand="${i}">
+            <div class="card-top">
+              <div class="icon-box ${iconClass}">${step.icon}</div>
+              <div style="flex:1;min-width:0">
+                <div class="card-title-row">
+                  <span class="node-num">${step.n}</span>
+                  <span class="node-name ${nameClass}">${step.name}</span>
+                </div>
+                <div class="node-sub">${step.sub}</div>
+              </div>
+              <div class="card-status-col">
+                <span class="status-chip ${statusClass}">${statusLabel}</span>
+                ${done ? `<span class="latency">${step.latency}</span>` : ""}
+              </div>
+            </div>
+            ${running ? `<div class="thinking">analysing request <span class="dots"><span></span><span></span><span></span></span></div>` : ""}
+            ${
+              done
+                ? `
+              <div class="output-row">
+                <span class="output-arrow">↳</span>
+                <span class="output-text">${step.output}</span>
+                <span class="output-route">→ ORCHESTRATOR</span>
+              </div>`
+                : ""
+            }
+            ${
+              waiting && step.guardrail
+                ? `
+              <div class="wait-note">
+                <span class="wait-note-icon">!</span>
+                <span>Approval requested — routed to <b>account-manager email / Salesforce</b>. Not actioned in this console; the flow resumes once it clears.</span>
+              </div>`
+                : ""
+            }
+            <div class="detail-panel ${expanded ? "open" : ""}">
+              <div style="font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--muted)">NODE DETAIL (expand in React app)</div>
+              <div class="detail-grid">
+                ${step.details.map((d) => `<div class="detail-item"><dt>${d.l}</dt><dd>${d.v}</dd></div>`).join("")}
+              </div>
+              <p class="detail-hint">In production, full trace JSON and execution artifacts live here — collapsed by default.</p>
+            </div>
+          </div>
+        </div>`;
+        }).join("");
+
+        nodesContainer.querySelectorAll("[data-expand]").forEach((el) => {
+          el.addEventListener("click", () => {
+            const idx = Number(el.dataset.expand);
+            expandedNode = expandedNode === idx ? null : idx;
+            renderNodes();
+          });
+        });
+      }
+
+      function formatElapsed(ms) {
+        const s = Math.floor(ms / 1000);
+        return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+      }
+
+      function updateHeader() {
+        const doneCount = statuses.filter((s) => s === "done").length;
+        document.getElementById("progress-text").textContent =
+          `${doneCount} / ${NODE_COUNT}`;
+        document.getElementById("progress-bar").style.width =
+          `${(doneCount / NODE_COUNT) * 100}%`;
+        const pill = document.getElementById("status-pill");
+        const label = document.getElementById("pill-label");
+        if (complete) {
+          pill.className = "pill complete";
+          label.textContent = "COMPLETE";
+        } else if (statuses.includes("waiting")) {
+          pill.className = "pill waiting";
+          label.textContent = "WAITING · APPROVAL";
+        } else {
+          pill.className = "pill running";
+          label.textContent = "RUNNING";
+        }
+      }
+
+      function setOrch(state, activeName) {
+        const dot = document.getElementById("orch-dot");
+        const label = document.getElementById("orch-label");
+        const sub = document.getElementById("orch-sub");
+        dot.className = "orch-dot";
+        switch (state) {
+          case "dispatching":
+            label.textContent = "Dispatching →";
+            sub.textContent = "handing case to " + activeName;
+            dot.classList.add("live");
+            break;
+          case "awaiting":
+            label.textContent = "Awaiting node…";
+            sub.textContent = activeName + " is reasoning";
+            dot.classList.add("live");
+            break;
+          case "receiving":
+            label.textContent = "Receiving ←";
+            sub.textContent = "output from " + activeName;
+            break;
+          case "paused":
+            label.textContent = "Paused";
+            sub.textContent = "awaiting external approval";
+            dot.classList.add("paused");
+            break;
+          case "complete":
+            label.textContent = "Run complete";
+            sub.textContent =
+              NODE_COUNT + " / " + NODE_COUNT + " nodes settled";
+            break;
+          default:
+            label.textContent = "Idle";
+            sub.textContent = "waiting for trigger";
+        }
+      }
+
+      function renderLog() {
+        const list = document.getElementById("log-list");
+        list.innerHTML = log
+          .map((e) => {
+            const glyphClass =
+              e.kind === "out"
+                ? "out"
+                : e.kind === "warn"
+                  ? "warn"
+                  : e.kind === "sys"
+                    ? "sys"
+                    : "in";
+            const textClass =
+              e.kind === "out" || e.kind === "in"
+                ? "strong"
+                : e.kind === "warn"
+                  ? "warn"
+                  : "";
+            const glyph =
+              e.kind === "out"
+                ? "→"
+                : e.kind === "in"
+                  ? "←"
+                  : e.kind === "warn"
+                    ? "!"
+                    : "•";
+            return `<div class="log-row"><span class="log-time">${e.time}</span><span class="log-glyph ${glyphClass}">${glyph}</span><span class="log-text ${textClass}">${e.text}</span></div>`;
+          })
+          .join("");
+        list.scrollTop = list.scrollHeight;
+      }
+
+      function addLog(kind, text) {
+        const t = formatElapsed(Date.now() - runStart);
+        log.push({ kind, text, time: t });
+        renderLog();
+      }
+
+      function push(fn, ms) {
+        timers.push(setTimeout(fn, ms));
+      }
+
+      function clear() {
+        timers.forEach(clearTimeout);
+        timers = [];
+        if (elapsedIv) clearInterval(elapsedIv);
+      }
+
+      function setTerminal(done) {
+        document
+          .getElementById("term-line-top")
+          .classList.toggle("active", done);
+        const dot = document.getElementById("term-dot");
+        const icon = document.getElementById("term-icon");
+        const name = document.getElementById("term-name");
+        const status = document.getElementById("term-status");
+        if (done) {
+          dot.className = "spine-dot done";
+          dot.innerHTML =
+            '<svg viewBox="0 0 12 12" fill="none"><path d="M2.5 6l2.5 2.5 4.5-5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+          icon.className = "icon-box done";
+          name.className = "terminal-name done";
+          status.className = "status-chip done";
+          status.textContent = "DONE";
+        } else {
+          dot.className = "spine-dot idle";
+          dot.innerHTML = "";
+          icon.className = "icon-box idle";
+          name.className = "terminal-name idle";
+          status.className = "status-chip idle";
+          status.textContent = "PENDING";
+        }
+      }
+
+      function flow(i) {
+        const f = speed;
+        if (i >= STEPS.length) {
+          finish();
+          return;
+        }
+        const step = STEPS[i];
+        statuses[i] = "assigned";
+        renderNodes();
+        updateHeader();
+        setOrch("dispatching", step.name);
+        addLog("out", "dispatch → " + step.name);
+        push(() => {
+          statuses[i] = "running";
+          renderNodes();
+          setOrch("awaiting", step.name);
+          push(() => {
+            if (step.guardrail) {
+              statuses[i] = "waiting";
+              renderNodes();
+              setOrch("paused");
+              addLog("warn", "approval requested → email / Salesforce");
+              push(() => {
+                statuses[i] = "done";
+                renderNodes();
+                updateHeader();
+                setOrch("receiving", step.name);
+                addLog("in", "approval cleared (external) ← " + step.name);
+                push(() => flow(i + 1), 420 * f);
+              }, 3400 * f);
+            } else {
+              statuses[i] = "done";
+              renderNodes();
+              updateHeader();
+              setOrch("receiving", step.name);
+              addLog("in", "received ← " + step.name);
+              push(() => flow(i + 1), 600 * f);
+            }
+          }, 1150 * f);
+        }, 440 * f);
+      }
+
+      function finish() {
+        complete = true;
+        setOrch("complete");
+        addLog("sys", "case handled · intelligence logged");
+        setTerminal(true);
+        document.getElementById("verdict").classList.add("visible");
+        updateHeader();
+        if (elapsedIv) clearInterval(elapsedIv);
+      }
+
+      function start() {
+        clear();
+        statuses = new Array(NODE_COUNT).fill("queued");
+        log = [];
+        complete = false;
+        expandedNode = null;
+        runStart = Date.now();
+        renderNodes();
+        renderLog();
+        updateHeader();
+        setOrch("idle");
+        setTerminal(false);
+        document.getElementById("verdict").classList.remove("visible");
+        document.getElementById("elapsed").textContent = "0:00";
+        elapsedIv = setInterval(() => {
+          document.getElementById("elapsed").textContent = formatElapsed(
+            Date.now() - runStart
+          );
+        }, 500);
+        push(() => flow(0), 600);
+      }
+
+      function showComplete() {
+        clear();
+        statuses = new Array(NODE_COUNT).fill("done");
+        log = [
+          { time: "0:02", kind: "out", text: "dispatch → Routing & Triage" },
+          { time: "0:04", kind: "in", text: "received ← Routing & Triage" },
+          { time: "0:06", kind: "out", text: "dispatch → Customer History" },
+          { time: "0:08", kind: "in", text: "received ← Customer History" },
+          { time: "0:10", kind: "out", text: "dispatch → Knowledge Base" },
+          { time: "0:12", kind: "in", text: "received ← Knowledge Base" },
+          { time: "0:14", kind: "out", text: "dispatch → Parts & Logistics" },
+          { time: "0:16", kind: "in", text: "received ← Parts & Logistics" },
+          { time: "0:18", kind: "out", text: "dispatch → Scheduling" },
+          { time: "0:20", kind: "in", text: "received ← Scheduling" },
+          {
+            time: "0:22",
+            kind: "warn",
+            text: "approval requested → email / Salesforce"
+          },
+          {
+            time: "0:26",
+            kind: "in",
+            text: "approval cleared (external) ← Compliance & Guardrail"
+          },
+          {
+            time: "0:28",
+            kind: "sys",
+            text: "case handled · intelligence logged"
+          }
+        ];
+        complete = true;
+        runStart = Date.now() - 28000;
+        document.getElementById("elapsed").textContent = "0:28";
+        document.getElementById("verdict-text").textContent =
+          "Normal priority · high business risk · parts available · technician scheduled · human approval granted. 6 / 6 nodes complete.";
+        renderNodes();
+        renderLog();
+        updateHeader();
+        setOrch("complete");
+        setTerminal(true);
+        document.getElementById("verdict").classList.add("visible");
+      }
+
+      function showPausedApproval() {
+        clear();
+        statuses = ["done", "done", "done", "done", "done", "waiting"];
+        log = [
+          { time: "0:02", kind: "out", text: "dispatch → Routing & Triage" },
+          { time: "0:04", kind: "in", text: "received ← Routing & Triage" },
+          { time: "0:06", kind: "out", text: "dispatch → Customer History" },
+          { time: "0:08", kind: "in", text: "received ← Customer History" },
+          { time: "0:10", kind: "out", text: "dispatch → Knowledge Base" },
+          { time: "0:12", kind: "in", text: "received ← Knowledge Base" },
+          { time: "0:14", kind: "out", text: "dispatch → Parts & Logistics" },
+          { time: "0:16", kind: "in", text: "received ← Parts & Logistics" },
+          { time: "0:18", kind: "out", text: "dispatch → Scheduling" },
+          { time: "0:20", kind: "in", text: "received ← Scheduling" },
+          {
+            time: "0:22",
+            kind: "out",
+            text: "dispatch → Compliance & Guardrail"
+          },
+          {
+            time: "0:24",
+            kind: "warn",
+            text: "approval requested → email / Salesforce"
+          }
+        ];
+        complete = false;
+        expandedNode = 5;
+        runStart = Date.now() - 24000;
+        document.getElementById("elapsed").textContent = "0:24";
+        document.getElementById("verdict-text").textContent =
+          "Awaiting human approval — risk 40 (medium). CUSTOMER_RISK_HIGH · REPEAT_INCIDENT · KB_REQUIRED_APPROVAL.";
+        renderNodes();
+        renderLog();
+        updateHeader();
+        setOrch("paused");
+        setTerminal(false);
+        document.getElementById("verdict").classList.remove("visible");
+      }
+
+      document.querySelectorAll("[data-speed]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document
+            .querySelectorAll("[data-speed]")
+            .forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          speed = Number(btn.dataset.speed);
+        });
+      });
+
+      document.getElementById("replay").addEventListener("click", start);
+      document
+        .getElementById("show-complete")
+        .addEventListener("click", showComplete);
+      document
+        .getElementById("show-paused")
+        .addEventListener("click", showPausedApproval);
+
+      renderNodes();
+      showComplete();
+    </script>
+  </body>
+</html>

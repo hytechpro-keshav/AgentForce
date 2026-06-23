@@ -1824,24 +1824,24 @@ export function OrchestrationPanel({
       aria-label="Orchestration operations console"
     >
       <section className="space-y-4 rounded-xl border bg-card p-5 text-card-foreground shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Engineering operations console
             </p>
-            <h2 className="text-2xl font-semibold text-foreground">
-              {snapshot.caseNumber ? `Case ${snapshot.caseNumber}` : "Workflow"}
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Read-only engineering view of Node 1 triage, Node 2 customer
-              context, Node 3 knowledge guidance, Node 4 parts &amp; logistics,
-              Node 5 scheduling, and Node 6 compliance &amp; guardrail.
-            </p>
+            <div className="flex shrink-0 items-center gap-2">
+              <StatusBadge status={snapshot.status} />
+              {headerControl}
+            </div>
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <StatusBadge status={snapshot.status} />
-            {headerControl}
-          </div>
+          <h2 className="text-2xl font-semibold text-foreground">
+            {snapshot.caseNumber ? `Case ${snapshot.caseNumber}` : "Workflow"}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Read-only engineering view of Node 1 triage, Node 2 customer
+            context, Node 3 knowledge guidance, Node 4 parts &amp; logistics,
+            Node 5 scheduling, and Node 6 compliance &amp; guardrail.
+          </p>
         </div>
 
         <div className="grid gap-3 md:grid-cols-3">
@@ -2012,7 +2012,7 @@ function StopAiControl({
   };
 
   return (
-    <div className="flex flex-col items-end gap-1.5">
+    <div className="relative shrink-0">
       <button
         type="button"
         onClick={() => {
@@ -2027,7 +2027,7 @@ function StopAiControl({
       </button>
 
       {mode === "confirm" || mode === "working" ? (
-        <div className="w-72 rounded-md border bg-card p-3 text-left text-xs shadow-sm">
+        <div className="absolute right-0 top-full z-20 mt-1.5 w-72 rounded-md border bg-card p-3 text-left text-xs shadow-sm">
           <p className="text-foreground">
             Stops future AI runs and pauses resume on this Case. Does{" "}
             <strong>not</strong> undo a Salesforce approval already pending, and
@@ -2056,7 +2056,7 @@ function StopAiControl({
       ) : null}
 
       {mode === "login" ? (
-        <div className="w-72 rounded-md border bg-card p-3 text-left text-xs shadow-sm">
+        <div className="absolute right-0 top-full z-20 mt-1.5 w-72 rounded-md border bg-card p-3 text-left text-xs shadow-sm">
           <p className="text-foreground">
             Enter the operator access code to take over this Case.
           </p>
@@ -2124,6 +2124,10 @@ export function OrchestrationView({
         cache: "no-store"
       });
       if (!response.ok) {
+        if (response.status === 404 && caseId) {
+          // Case may exist before the async SF trigger creates a workflow.
+          return;
+        }
         setError(
           response.status === 404
             ? "Workflow not found."

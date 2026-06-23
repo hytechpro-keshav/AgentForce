@@ -27,8 +27,22 @@ export function loadDemoCaseScenarioCatalog(): DemoCaseScenarioCatalog {
   if (cachedCatalog) {
     return cachedCatalog;
   }
-  const catalogPath = join(__dirname, "../../data/demo-case-scenarios.json");
-  const raw = readFileSync(catalogPath, "utf8");
+  const candidates = [
+    join(__dirname, "../../../data/demo-case-scenarios.json"),
+    join(__dirname, "../../data/demo-case-scenarios.json")
+  ];
+  let raw: string | undefined;
+  for (const catalogPath of candidates) {
+    try {
+      raw = readFileSync(catalogPath, "utf8");
+      break;
+    } catch {
+      continue;
+    }
+  }
+  if (!raw) {
+    throw new Error("Demo case scenario catalog not found on disk.");
+  }
   cachedCatalog = JSON.parse(raw) as DemoCaseScenarioCatalog;
   return cachedCatalog;
 }
