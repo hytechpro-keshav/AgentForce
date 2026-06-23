@@ -1,2916 +1,2148 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Orchestration Console</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Orchestration Console · Case 00001079</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <style>
-      *,
-      *::before,
-      *::after {
-        margin: 0;
-        padding: 0;
+      /* ---- design tokens (carried over from the approved mockup) ---- */
+      :root {
+        --page: #f1f0ed;
+        --card: #fbfbfa;
+        --line: #e6e6e2;
+        --ink: #141414;
+        --mute: #a2a29d;
+        --faint: #bcbcb6;
+        --label: #a8a8a3;
+        --black: #111;
+        --out-bg: #f4f4f1;
+        --out-bd: #eceae6;
+        --spine: #e2e2df;
+        --amber-tx: #b45309;
+        --amber-dot: #d97706;
+        --amber-bg: #fdf3e7;
+        --amber-bd: #f0cd9a;
+        --mono: "JetBrains Mono", ui-monospace, monospace;
+        --grot: "Space Grotesk", system-ui, sans-serif;
+      }
+      * {
         box-sizing: border-box;
       }
-
-      :root {
-        --bg: #f1f0ed;
-        --card: #ffffff;
-        --border: #e8e7e2;
-        --border-light: #f0eeea;
-        --text-1: #111111;
-        --text-2: #444444;
-        --text-3: #777777;
-        --text-4: #999999;
-        --green: #16a34a;
-        --green-bg: #dcfce7;
-        --green-text: #15803d;
-        --orange: #ea580c;
-        --orange-bg: #fff7ed;
-        --blue: #1d4ed8;
-        --blue-bg: #dbeafe;
-        --purple: #7c3aed;
-        --purple-bg: #ede9fe;
-        --amber: #b45309;
-        --amber-bg: #fef3c7;
-        --teal: #0891b2;
-        --teal-bg: #e0f2fe;
-        --red: #dc2626;
-        --red-bg: #fee2e2;
-        --tag-bg: #f0efeb;
-      }
-
+      html,
       body {
-        font-family:
-          -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
-          sans-serif;
-        background: var(--bg);
-        color: var(--text-1);
-        font-size: 13.5px;
-        line-height: 1.55;
-        padding: 28px 20px 60px;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: var(--page);
+        font-family: var(--grot);
+        -webkit-font-smoothing: antialiased;
+        color: var(--ink);
       }
 
-      /* ── Page header ── */
-      .page-header {
-        max-width: 980px;
-        margin: 0 auto 20px;
+      @keyframes ipulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(17, 17, 17, 0.3);
+        }
+        70% {
+          box-shadow: 0 0 0 7px rgba(17, 17, 17, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(17, 17, 17, 0);
+        }
       }
-      .page-header h1 {
-        font-size: 22px;
-        font-weight: 600;
-        letter-spacing: -0.3px;
-        margin-bottom: 4px;
+      @keyframes apulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.34);
+        }
+        70% {
+          box-shadow: 0 0 0 7px rgba(217, 119, 6, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(217, 119, 6, 0);
+        }
       }
-      .page-header p {
-        font-size: 12.5px;
-        color: var(--text-3);
+      @keyframes blink {
+        0%,
+        100% {
+          opacity: 0.2;
+        }
+        50% {
+          opacity: 1;
+        }
       }
-
-      /* ── Card ── */
-      .card {
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 20px 22px;
-        max-width: 980px;
-        margin: 0 auto 14px;
-      }
-
-      /* ── Console header card ── */
-      .console-top {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 14px;
-      }
-      .console-label {
-        font-size: 10.5px;
-        font-weight: 600;
-        letter-spacing: 0.08em;
-        color: var(--text-3);
-        text-transform: uppercase;
-      }
-      .console-actions {
-        display: flex;
-        gap: 8px;
-      }
-      .btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        font-size: 12px;
-        font-weight: 500;
-        border-radius: 6px;
-        padding: 5px 12px;
-        border: 1px solid;
-        cursor: pointer;
-        background: transparent;
-      }
-      .btn-done {
-        color: var(--green);
-        border-color: var(--green);
-      }
-      .btn-stop {
-        color: var(--orange);
-        border-color: var(--orange);
-      }
-      .btn-done::before {
-        content: "✓";
-        font-size: 11px;
-      }
-      .btn-stop::before {
-        content: "■";
-        font-size: 9px;
+      @keyframes liveblink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.25;
+        }
       }
 
-      .case-title {
-        font-size: 22px;
-        font-weight: 700;
-        margin-bottom: 4px;
+      .page {
+        min-height: 100vh;
+        background: var(--page);
       }
-      .case-subtitle {
-        font-size: 12px;
-        color: var(--text-3);
-        margin-bottom: 18px;
-      }
-
-      .status-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 1px;
-        background: var(--border);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        overflow: hidden;
-        margin-bottom: 14px;
-      }
-      .status-cell {
-        background: var(--card);
-        padding: 12px 14px;
-      }
-      .status-cell-label {
-        font-size: 10px;
-        font-weight: 600;
-        letter-spacing: 0.08em;
-        color: var(--text-4);
-        text-transform: uppercase;
-        margin-bottom: 4px;
-      }
-      .status-cell-value {
-        font-size: 14px;
-        font-weight: 600;
-        color: var(--text-1);
-      }
-      .status-cell-sub {
-        font-size: 11.5px;
-        color: var(--text-3);
-        margin-top: 2px;
-      }
-      .status-cell-sub a {
-        color: var(--blue);
-        text-decoration: none;
+      .wrap {
+        max-width: 1240px;
+        margin: 0 auto;
+        padding: 26px 30px 48px;
       }
 
-      .console-note {
-        background: #fafaf8;
-        border: 1px solid var(--border-light);
-        border-radius: 6px;
-        padding: 8px 12px;
-        font-size: 11.5px;
-        color: var(--text-3);
-      }
-
-      /* ── Verdict card ── */
-      .verdict-header {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 10.5px;
-        font-weight: 600;
-        letter-spacing: 0.08em;
-        color: var(--text-3);
-        text-transform: uppercase;
-        margin-bottom: 8px;
-      }
-      .verdict-icon {
-        font-size: 13px;
-      }
-      .verdict-headline {
-        font-size: 16px;
-        font-weight: 600;
-        color: var(--text-1);
-        line-height: 1.4;
-        margin-bottom: 10px;
-      }
-      .verdict-summary {
-        font-size: 13px;
-        color: var(--text-2);
-        margin-bottom: 14px;
-      }
-      .verdict-tags {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        margin-bottom: 18px;
-      }
-      .tag {
-        background: var(--tag-bg);
-        border-radius: 5px;
-        padding: 3px 9px;
-        font-size: 11.5px;
-        color: var(--text-2);
-      }
-      .tag strong {
-        color: var(--text-1);
-      }
-      .tag .tag-val-green {
-        color: var(--green);
-        font-weight: 600;
-      }
-      .tag .tag-val-blue {
-        color: var(--blue);
-        font-weight: 600;
-      }
-      .tag .tag-val-orange {
-        color: var(--orange);
-        font-weight: 600;
-      }
-      .tag .tag-val-red {
-        color: var(--red);
-        font-weight: 600;
-      }
-
-      .rec-steps-label {
-        font-size: 10px;
-        font-weight: 600;
-        letter-spacing: 0.08em;
-        color: var(--text-4);
-        text-transform: uppercase;
-        margin-bottom: 8px;
-      }
-      .rec-steps-list {
-        padding-left: 18px;
-      }
-      .rec-steps-list li {
-        font-size: 13px;
-        color: var(--text-2);
-        margin-bottom: 4px;
-      }
-      .verdict-footer {
-        margin-top: 14px;
-        padding: 8px 12px;
-        background: #fafaf8;
-        border: 1px solid var(--border-light);
-        border-radius: 6px;
-        font-size: 11.5px;
-        color: var(--text-4);
-        font-style: italic;
-      }
-
-      /* ── Workflow stages ── */
-      .stages-top {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 14px;
-      }
-      .stages-label {
-        font-size: 10.5px;
-        font-weight: 600;
-        letter-spacing: 0.08em;
-        color: var(--text-3);
-        text-transform: uppercase;
-        margin-bottom: 2px;
-      }
-      .stages-title {
-        font-size: 17px;
-        font-weight: 600;
-      }
-      .badge-done {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        font-size: 11.5px;
-        font-weight: 600;
-        color: var(--green);
-        background: var(--green-bg);
-        border-radius: 20px;
-        padding: 3px 10px;
-      }
-      .badge-done::before {
-        content: "✓";
-      }
-      .badge-completed {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        font-size: 11.5px;
-        font-weight: 600;
-        color: var(--green);
-      }
-      .badge-completed::before {
-        content: "✓";
-        font-size: 10px;
-      }
-      .badge-running {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        font-size: 11.5px;
-        font-weight: 600;
-        color: var(--blue);
-      }
-
-      .nodes-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1px;
-        background: var(--border);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        overflow: hidden;
-      }
-      .node-card {
-        background: var(--card);
-        padding: 14px 16px;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-      }
-      .node-card-head {
+      /* header */
+      .top {
         display: flex;
         align-items: flex-start;
         justify-content: space-between;
-        gap: 8px;
+        gap: 24px;
+        flex-wrap: wrap;
       }
-      .node-card-name {
-        font-size: 13.5px;
-        font-weight: 600;
-      }
-      .node-card-desc {
-        font-size: 12px;
-        color: var(--text-3);
-      }
-      .node-card-steps {
-        font-size: 11.5px;
-        color: var(--text-4);
-        margin-top: 2px;
-      }
-
-      /* ── Split layout ── */
-      .split-layout {
-        max-width: 980px;
-        margin: 0 auto;
-        display: grid;
-        grid-template-columns: 3fr 2fr;
-        gap: 14px;
-        align-items: start;
-      }
-
-      /* ── Trace panel ── */
-      .trace-panel {
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        overflow: hidden;
-      }
-      .trace-panel-head {
+      .brand {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        padding: 14px 18px;
-        border-bottom: 1px solid var(--border);
+        gap: 13px;
       }
-      .trace-panel-label {
-        font-size: 10px;
-        font-weight: 600;
-        letter-spacing: 0.08em;
-        color: var(--text-4);
-        text-transform: uppercase;
-        margin-bottom: 2px;
-      }
-      .trace-panel-title {
-        font-size: 16px;
-        font-weight: 600;
-      }
-      .toggle-btn {
-        font-size: 11.5px;
-        color: var(--text-3);
+      .logo {
+        width: 34px;
+        height: 34px;
+        border-radius: 7px;
+        background: var(--black);
         display: flex;
         align-items: center;
-        gap: 5px;
-        cursor: pointer;
-        user-select: none;
-        border: none;
-        background: none;
-        padding: 0;
+        justify-content: center;
+        flex: none;
       }
-      .toggle-btn svg {
+      .logo span {
         width: 13px;
         height: 13px;
+        border: 2px solid #fff;
+        border-radius: 3px;
       }
-
-      /* ── Step card ── */
-      .step-card {
-        border-bottom: 1px solid var(--border-light);
+      .title {
+        font-size: 18px;
+        font-weight: 600;
+        letter-spacing: -0.3px;
       }
-      .step-card:last-child {
-        border-bottom: none;
+      .subtitle {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: #94948f;
+        margin-top: 1px;
+        letter-spacing: 0.02em;
       }
-
-      .step-header {
+      .stats {
         display: flex;
         align-items: center;
-        gap: 8px;
-        padding: 11px 18px 8px;
+        gap: 22px;
+        flex-wrap: wrap;
       }
-      .step-type {
+      .stat {
+        text-align: right;
+      }
+      .stat .k {
+        font-family: var(--mono);
         font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        border-radius: 4px;
-        padding: 2px 6px;
-        white-space: nowrap;
-        flex-shrink: 0;
+        color: var(--label);
+        letter-spacing: 0.14em;
       }
-      .type-triage {
-        background: var(--teal-bg);
-        color: var(--teal);
-      }
-      .type-customer {
-        background: var(--purple-bg);
-        color: var(--purple);
-      }
-      .type-knowledge {
-        background: var(--green-bg);
-        color: var(--green);
-      }
-      .type-parts {
-        background: var(--amber-bg);
-        color: var(--amber);
-      }
-      .type-scheduling {
-        background: var(--blue-bg);
-        color: var(--blue);
-      }
-      .type-guardrail {
-        background: var(--red-bg);
-        color: var(--red);
-      }
-
-      .step-desc {
+      .stat .v {
+        font-family: var(--mono);
         font-size: 13px;
+        color: #222;
         font-weight: 500;
-        color: var(--text-1);
-        flex: 1;
       }
-
-      .step-status {
+      .pill {
         display: inline-flex;
         align-items: center;
-        gap: 4px;
-        font-size: 11.5px;
-        font-weight: 600;
-        white-space: nowrap;
-        flex-shrink: 0;
-      }
-      .step-status.done {
-        color: var(--green);
-      }
-      .step-status.assigned {
-        color: var(--blue);
-      }
-      .step-status.running {
-        color: var(--orange);
-      }
-
-      .step-seq {
-        font-size: 10.5px;
-        color: var(--text-4);
-        padding: 0 18px 6px;
-      }
-
-      .step-fields {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1px;
-        background: var(--border-light);
-        margin: 0 18px;
-        border: 1px solid var(--border-light);
-        border-radius: 6px;
-        overflow: hidden;
-        margin-bottom: 8px;
-      }
-      .step-fields.cols-1 {
-        grid-template-columns: 1fr;
-      }
-      .step-field {
-        background: #fafaf8;
-        padding: 7px 10px;
-      }
-      .step-field-label {
-        font-size: 9.5px;
+        gap: 7px;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-family: var(--mono);
+        font-size: 11px;
         font-weight: 600;
         letter-spacing: 0.08em;
-        color: var(--text-4);
-        text-transform: uppercase;
-        margin-bottom: 2px;
+        border: 1px solid var(--black);
+        background: var(--black);
+        color: #fff;
       }
-      .step-field-value {
-        font-size: 12.5px;
-        color: var(--text-1);
+      .pill .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #fff;
+        animation: liveblink 1.2s infinite;
+      }
+      .pill.complete {
+        background: #fff;
+        color: var(--black);
+        border-color: #d7d7d3;
+      }
+      .pill.complete .dot {
+        background: var(--black);
+        animation: none;
+      }
+      .pill.paused {
+        background: var(--amber-bg);
+        color: var(--amber-tx);
+        border-color: var(--amber-bd);
+      }
+      .pill.paused .dot {
+        background: var(--amber-dot);
+        animation: apulse 1.5s infinite;
       }
 
-      /* ── Trace accordion ── */
-      .trace-accordion-trigger {
+      /* progress */
+      .progress {
+        margin-top: 18px;
+        height: 3px;
+        background: #e0e0db;
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      .progress .fill {
+        height: 100%;
+        width: 0%;
+        background: var(--black);
+        border-radius: 2px;
+        transition:
+          width 0.5s ease,
+          background 0.3s;
+      }
+
+      /* body */
+      .body {
+        display: flex;
+        gap: 28px;
+        margin-top: 26px;
+        align-items: flex-start;
+      }
+      main.spine {
+        flex: 1;
+        min-width: 0;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 8px 22px 18px;
+      }
+
+      /* spine rows */
+      .row {
+        display: flex;
+        align-items: stretch;
+      }
+      .rail {
+        position: relative;
+        width: 54px;
+        flex: none;
+      }
+      .rail .line {
+        position: absolute;
+        left: 27px;
+        width: 2px;
+        background: var(--spine);
+      }
+      .rail .line.top {
+        top: 0;
+        height: 30px;
+      }
+      .rail .line.bot {
+        top: 30px;
+        bottom: 0;
+      }
+      .rail .line.on {
+        background: var(--black);
+      }
+      .rail .knot {
+        position: absolute;
+        top: 20px;
+        left: 17px;
+        width: 20px;
+        height: 20px;
         display: flex;
         align-items: center;
-        gap: 6px;
-        padding: 7px 18px 10px;
-        cursor: pointer;
-        user-select: none;
-        font-size: 12.5px;
-        color: var(--text-3);
-        border: none;
-        background: none;
-        width: 100%;
-        text-align: left;
+        justify-content: center;
+        z-index: 2;
       }
-      .trace-accordion-trigger:hover {
-        color: var(--text-2);
+      .dot {
+        border-radius: 50%;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s;
+        background: #fff;
+        border: 2px solid #d2d2cd;
+        width: 12px;
+        height: 12px;
       }
-      .trace-arrow {
-        display: inline-block;
-        font-size: 9px;
-        transition: transform 0.18s ease;
+      .dot.assigned {
+        width: 14px;
+        height: 14px;
+        border-color: var(--black);
       }
-      .trace-arrow.open {
-        transform: rotate(90deg);
+      .dot.running {
+        width: 15px;
+        height: 15px;
+        border-color: var(--black);
+        animation: ipulse 1.5s infinite;
       }
-
-      .trace-accordion-body {
-        display: none;
-        margin: 0 18px 12px;
-        border: 1px solid #e2e1dc;
-        border-radius: 7px;
-        overflow: hidden;
-        background: #f8f7f4;
+      .dot.waiting {
+        width: 15px;
+        height: 15px;
+        border-color: var(--amber-dot);
+        animation: apulse 1.5s infinite;
       }
-      .trace-accordion-body.open {
+      .dot.done {
+        width: 18px;
+        height: 18px;
+        background: var(--black);
+        border-color: var(--black);
+      }
+      .dot .mini {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
         display: block;
       }
 
-      .trace-section {
+      .cellpad {
+        flex: 1;
+        min-width: 0;
+        padding: 14px 14px 16px;
+      }
+
+      .card {
+        flex: 1;
+        min-width: 0;
+        margin: 5px 0;
         padding: 12px 14px;
-        border-bottom: 1px solid #e8e7e2;
+        border-radius: 8px;
+        transition: all 0.35s;
+        background: transparent;
+        border: 1px solid transparent;
+        opacity: 0.5;
       }
-      .trace-section:last-child {
-        border-bottom: none;
+      .card.reached {
+        opacity: 1;
       }
-      .trace-section-label {
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        color: var(--text-4);
-        text-transform: uppercase;
-        margin-bottom: 7px;
+      .card.active {
+        background: #fff;
+        border-color: var(--line);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      }
+      .card.guardwait {
+        border-color: var(--amber-bd);
+      }
+      body.settled .card.done .chead {
+        cursor: pointer;
+      }
+      body.settled .card.done:hover {
+        background: #fff;
+        border-color: #dededa;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      }
+
+      .chead {
         display: flex;
         align-items: center;
-        gap: 5px;
+        gap: 11px;
       }
-
-      .trace-reasoning {
-        font-size: 12.5px;
-        color: var(--text-2);
-        line-height: 1.6;
-      }
-
-      .trace-tool-call {
-        background: #1e1e1e;
+      .ibox {
+        width: 30px;
+        height: 30px;
+        border: 1px solid #e6e6e3;
         border-radius: 6px;
-        padding: 10px 12px;
-        margin-bottom: 6px;
-        font-family: "SF Mono", "Fira Code", "Consolas", monospace;
-        font-size: 11.5px;
+        background: transparent;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--faint);
+        flex: none;
       }
-      .trace-tool-call:last-child {
-        margin-bottom: 0;
+      .card.reached .ibox {
+        background: #fff;
+        color: var(--black);
       }
-      .trace-tool-name {
-        color: #e5c07b;
-        font-weight: 600;
-        margin-bottom: 4px;
+      .cmid {
+        flex: 1;
+        min-width: 0;
       }
-      .trace-tool-label {
-        color: #7f848e;
-        font-size: 10.5px;
-        margin-top: 4px;
-      }
-      .trace-tool-args {
-        color: #98c379;
-        word-break: break-all;
-      }
-      .trace-tool-result {
-        color: #61afef;
-        word-break: break-all;
-      }
-      .trace-tool-error {
-        color: #e06c75;
-      }
-
-      .trace-meta-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
+      .cnum-name {
+        display: flex;
+        align-items: baseline;
         gap: 8px;
       }
-
-      .trace-meta-label {
-        font-size: 10px;
-        color: var(--text-4);
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
+      .cnum {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--faint);
+        font-weight: 500;
       }
-      .trace-meta-value {
-        font-size: 12.5px;
+      .cname {
+        font-family: var(--grot);
+        font-size: 15px;
         font-weight: 600;
-        color: var(--text-1);
-        margin-top: 1px;
+        letter-spacing: -0.1px;
+        color: #a0a09c;
       }
-      .trace-meta-value.none {
-        color: var(--text-4);
-        font-weight: 400;
-        font-style: italic;
+      .card.reached .cname {
+        color: var(--ink);
       }
-
-      .trace-no-llm {
-        font-size: 12px;
-        color: var(--text-4);
-        font-style: italic;
+      .csub {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        color: var(--mute);
+        margin-top: 2px;
       }
-
-      /* ── Outputs panel ── */
-      .outputs-panel {
+      .cright {
+        flex: none;
         display: flex;
         flex-direction: column;
-        gap: 14px;
+        align-items: flex-end;
+        gap: 3px;
       }
-
-      .node-output {
-        background: var(--card);
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 16px 18px;
-      }
-      .node-output-head {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 4px;
-      }
-      .node-output-label {
+      .status {
+        font-family: var(--mono);
         font-size: 10px;
         font-weight: 600;
-        letter-spacing: 0.08em;
-        color: var(--text-4);
-        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: #b6b6b1;
       }
-      .node-output-title {
-        font-size: 16px;
-        font-weight: 700;
-        margin-bottom: 6px;
+      .status.done,
+      .status.running {
+        color: var(--black);
       }
-      .node-output-sub {
-        font-size: 12px;
-        color: var(--text-3);
-        margin-bottom: 10px;
+      .status.assigned {
+        color: #5a5a56;
       }
-
-      .badge-approved {
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.04em;
-        background: var(--green-bg);
-        color: var(--green);
-        border-radius: 4px;
-        padding: 2px 8px;
+      .status.waiting {
+        color: var(--amber-tx);
       }
-      .badge-priority {
-        font-size: 11px;
-        font-weight: 600;
-        background: var(--tag-bg);
-        color: var(--text-2);
-        border-radius: 4px;
-        padding: 2px 8px;
-      }
-      .badge-medium {
-        background: #fef3c7;
-        color: #b45309;
-      }
-      .badge-approval {
-        background: var(--red-bg);
-        color: var(--red);
-      }
-      .badge-kb-aligned {
-        background: var(--green-bg);
-        color: var(--green);
+      .lat {
+        font-family: var(--mono);
         font-size: 10.5px;
-        font-weight: 700;
-        border-radius: 4px;
-        padding: 1px 6px;
+        color: var(--faint);
       }
 
-      .output-grid {
+      .thinking {
+        margin-top: 9px;
+        margin-left: 43px;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: #6f6f6b;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .thinking .dots {
+        display: inline-flex;
+        gap: 3px;
+      }
+      .thinking .dots i {
+        width: 3.5px;
+        height: 3.5px;
+        border-radius: 50%;
+        background: #6f6f6b;
+        animation: blink 1.1s infinite;
+      }
+      .thinking .dots i:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      .thinking .dots i:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+
+      .output {
+        margin-top: 9px;
+        margin-left: 43px;
+        padding: 8px 11px;
+        background: var(--out-bg);
+        border: 1px solid var(--out-bd);
+        border-radius: 5px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+      .output .arr {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--black);
+      }
+      .output .txt {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: #1a1a1a;
+        font-weight: 500;
+      }
+      .output .to {
+        margin-left: auto;
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.1em;
+        color: #b6b6b1;
+        white-space: nowrap;
+      }
+      .chev {
+        margin-left: 8px;
+        font-family: var(--mono);
+        font-size: 12px;
+        color: #b6b6b1;
+        transition: transform 0.25s;
+        display: none;
+      }
+      body.settled .card.done .chev {
+        display: inline;
+      }
+      .card.open .chev {
+        transform: rotate(180deg);
+      }
+
+      .waitnote {
+        margin-top: 9px;
+        margin-left: 43px;
+        padding: 9px 11px;
+        background: var(--amber-bg);
+        border: 1px solid var(--amber-bd);
+        border-radius: 6px;
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--amber-tx);
+        line-height: 1.5;
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+      }
+      .waitnote .bang {
+        flex: none;
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        background: var(--amber-dot);
+        color: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: 700;
+        margin-top: 1px;
+      }
+
+      /* accordion (the "agent detailed thinking") */
+      .accordion {
+        margin-left: 43px;
+        overflow: hidden;
+        max-height: 0;
+        transition: max-height 0.4s ease;
+      }
+      .card.open .accordion {
+        max-height: 2600px;
+      }
+      .acc-inner {
+        padding: 14px 0 4px;
+      }
+      .acc-summary {
+        font-family: var(--grot);
+        font-size: 13px;
+        color: #3a3a37;
+        line-height: 1.55;
+        margin-bottom: 14px;
+      }
+      .grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 10px;
-        margin-bottom: 10px;
+        margin-bottom: 14px;
       }
-      .output-grid.cols-1 {
-        grid-template-columns: 1fr;
+      .field {
+        border: 1px solid #ececea;
+        border-radius: 6px;
+        padding: 9px 11px;
+        background: #fff;
       }
-      .output-cell-label {
+      .field .fk {
+        font-family: var(--mono);
         font-size: 10px;
-        font-weight: 600;
-        letter-spacing: 0.07em;
-        color: var(--text-4);
+        letter-spacing: 0.1em;
+        color: var(--label);
         text-transform: uppercase;
-        margin-bottom: 2px;
       }
-      .output-cell-value {
-        font-size: 14px;
-        font-weight: 700;
-        color: var(--text-1);
+      .field .fv {
+        font-family: var(--grot);
+        font-size: 13.5px;
+        font-weight: 600;
+        margin-top: 3px;
       }
-      .output-cell-sub {
-        font-size: 11.5px;
-        color: var(--text-3);
-        margin-top: 1px;
+      .field .fh {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--mute);
+        margin-top: 3px;
+        line-height: 1.4;
       }
 
-      .output-divider {
-        border: none;
-        border-top: 1px solid var(--border-light);
-        margin: 10px 0;
+      .block {
+        border: 1px solid #ececea;
+        border-radius: 7px;
+        padding: 11px 12px;
+        background: #fff;
+        margin-bottom: 14px;
       }
-
-      .output-text-label {
+      .block .bt {
+        font-family: var(--mono);
         font-size: 10px;
-        font-weight: 600;
-        letter-spacing: 0.07em;
-        color: var(--text-4);
+        letter-spacing: 0.13em;
+        color: #b0b0ac;
         text-transform: uppercase;
-        margin-bottom: 5px;
+        margin-bottom: 9px;
       }
-      .output-text-body {
+      .item {
+        padding: 9px 0;
+        border-top: 1px solid #f1f1ee;
+      }
+      .item:first-of-type {
+        border-top: none;
+        padding-top: 0;
+      }
+      .item .it-top {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .item .it-title {
+        font-family: var(--grot);
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .item .it-meta {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--mute);
+        margin-top: 3px;
+        line-height: 1.5;
+      }
+      .item .it-desc {
+        font-family: var(--grot);
         font-size: 12.5px;
-        color: var(--text-2);
-        margin-bottom: 6px;
+        color: #4a4a46;
+        margin-top: 4px;
+        line-height: 1.5;
+      }
+      .tag {
+        font-family: var(--mono);
+        font-size: 9px;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        padding: 2px 7px;
+        border-radius: 20px;
+        background: #f0efeb;
+        color: #777771;
+        text-transform: uppercase;
+      }
+      .tag.amber {
+        background: var(--amber-bg);
+        color: var(--amber-tx);
+      }
+      .tag.ink {
+        background: #111;
+        color: #fff;
       }
 
-      .output-pill-row {
+      .chips {
         display: flex;
         flex-wrap: wrap;
-        gap: 5px;
-        margin-bottom: 6px;
+        gap: 7px;
+        margin-bottom: 14px;
       }
-      .output-pill {
+      .chip {
+        font-family: var(--mono);
         font-size: 11px;
+        background: #f1f1ee;
+        border: 1px solid #e8e8e4;
+        border-radius: 6px;
+        padding: 5px 9px;
+        color: #5a5a56;
+      }
+      .chip b {
+        color: #1a1a1a;
         font-weight: 600;
-        letter-spacing: 0.03em;
-        background: #f0efeb;
-        color: var(--text-2);
-        border-radius: 4px;
-        padding: 2px 8px;
-      }
-      .pill-red {
-        background: var(--red-bg);
-        color: var(--red);
-      }
-      .pill-orange {
-        background: var(--amber-bg);
-        color: var(--amber);
-      }
-      .pill-green {
-        background: var(--green-bg);
-        color: var(--green);
       }
 
-      .output-source {
+      .steps {
+        margin: 0 0 12px;
+        padding-left: 20px;
+      }
+      .steps li {
+        font-family: var(--grot);
+        font-size: 13px;
+        color: #3a3a37;
+        line-height: 1.7;
+      }
+
+      /* execution trace inside accordion */
+      .trace {
+        border-top: 1px solid #ececea;
+        padding-top: 12px;
+      }
+      .trace .tlabel {
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.16em;
+        color: #b0b0ac;
+        text-transform: uppercase;
+        margin-bottom: 11px;
+      }
+      .tstep {
+        position: relative;
+        padding: 0 0 14px 22px;
+      }
+      .tstep:before {
+        content: "";
+        position: absolute;
+        left: 4px;
+        top: 14px;
+        bottom: 0;
+        width: 1.5px;
+        background: #e2e2df;
+      }
+      .tstep:last-child:before {
+        display: none;
+      }
+      .tstep .tknot {
+        position: absolute;
+        left: 0;
+        top: 4px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--black);
+      }
+      .tstep.assigned .tknot {
+        background: #fff;
+        border: 2px solid var(--black);
+      }
+      .tstep .th {
         display: flex;
-        align-items: flex-start;
-        gap: 7px;
-        padding: 8px 0;
-        border-bottom: 1px solid var(--border-light);
-        font-size: 12px;
+        align-items: baseline;
+        gap: 8px;
+        flex-wrap: wrap;
       }
-      .output-source:last-child {
-        border-bottom: none;
+      .tstep .tn {
+        font-family: var(--mono);
+        font-size: 9.5px;
+        color: var(--faint);
+        letter-spacing: 0.1em;
       }
-      .output-source-icon {
-        color: var(--text-4);
+      .tstep .tt {
+        font-family: var(--grot);
+        font-size: 13px;
+        font-weight: 600;
+        color: #1d1d1b;
+      }
+      .tstep .tst {
+        font-family: var(--mono);
+        font-size: 9px;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        color: #8a8a85;
+        text-transform: uppercase;
+      }
+      .tstep .tfields {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 14px;
+        margin-top: 6px;
+      }
+      .tstep .tf {
+        font-family: var(--mono);
         font-size: 11px;
-        flex-shrink: 0;
+        color: var(--mute);
+      }
+      .tstep .tf b {
+        color: #2a2a27;
+        font-weight: 600;
+      }
+
+      /* terminal verdict */
+      .verdict {
+        margin-top: 11px;
+        margin-left: 43px;
+        padding: 11px 13px;
+        background: var(--black);
+        border-radius: 6px;
+      }
+      .verdict .vk {
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        color: #8a8a85;
+      }
+      .verdict .vh {
+        font-family: var(--grot);
+        font-size: 13.5px;
+        color: #fff;
+        margin-top: 5px;
+        line-height: 1.45;
+      }
+      .verdict .vmeta {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: #9a9a95;
+        margin-top: 7px;
+      }
+
+      /* right: orchestrator */
+      aside.orch {
+        width: 352px;
+        flex: none;
+        position: sticky;
+        top: 20px;
+      }
+      .opanel {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .ohead {
+        padding: 16px 18px 14px;
+        border-bottom: 1px solid #ececea;
+        display: flex;
+        align-items: center;
+        gap: 11px;
+      }
+      .ohead .oico {
+        width: 30px;
+        height: 30px;
+        border-radius: 7px;
+        background: var(--black);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: none;
+      }
+      .ohead .ot {
+        font-size: 14.5px;
+        font-weight: 600;
+        letter-spacing: -0.1px;
+      }
+      .ohead .os {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--mute);
         margin-top: 1px;
       }
-      .output-source-name {
+      .ostate {
+        padding: 15px 18px;
+        border-bottom: 1px solid #ececea;
+      }
+      .ostate .row1 {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+      .ostate .odot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: #c2c2bd;
+        flex: none;
+      }
+      .ostate .olabel {
+        font-family: var(--mono);
+        font-size: 13px;
         font-weight: 500;
-        color: var(--text-1);
+        color: #1a1a1a;
       }
-      .output-source-meta {
+      .ostate .osub {
+        font-family: var(--mono);
         font-size: 11px;
-        color: var(--text-4);
-      }
-
-      .part-plan-card {
-        border: 1px solid var(--border);
-        border-radius: 7px;
-        padding: 10px 12px;
-        font-size: 12px;
-      }
-      .part-plan-head {
-        display: flex;
-        align-items: center;
-        gap: 7px;
-        font-weight: 600;
-        margin-bottom: 5px;
-      }
-      .part-plan-detail {
-        color: var(--text-3);
-        margin-bottom: 2px;
-      }
-
-      .tech-card {
-        border: 1px solid var(--border);
-        border-radius: 7px;
-        padding: 9px 11px;
-        margin-bottom: 6px;
-      }
-      .tech-card:last-child {
-        margin-bottom: 0;
-      }
-      .tech-card-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 3px;
-      }
-      .tech-card-name {
-        font-weight: 600;
-        font-size: 12.5px;
-      }
-      .tech-rank {
-        font-size: 11px;
-        font-weight: 700;
-        color: var(--blue);
-      }
-      .tech-skills {
-        font-size: 11.5px;
-        color: var(--text-3);
-        margin-bottom: 3px;
-      }
-      .tech-detail {
-        font-size: 11.5px;
-        color: var(--text-3);
-      }
-
-      .output-json-toggle {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        font-size: 12px;
-        color: var(--text-3);
-        cursor: pointer;
-        margin-top: 8px;
-        border: none;
-        background: none;
-        padding: 0;
-        text-align: left;
-      }
-      .output-json-toggle .arrow {
-        font-size: 9px;
-        transition: transform 0.15s;
-      }
-      .output-json-toggle .arrow.open {
-        transform: rotate(90deg);
-      }
-      .output-json-body {
-        display: none;
+        color: var(--mute);
         margin-top: 6px;
-        background: #1e1e1e;
-        border-radius: 6px;
-        padding: 10px 12px;
-        font-family: "SF Mono", "Fira Code", monospace;
-        font-size: 11px;
-        color: #abb2bf;
-        white-space: pre-wrap;
-        word-break: break-all;
-        max-height: 200px;
-        overflow-y: auto;
       }
-      .output-json-body.open {
-        display: block;
+      .oactivity {
+        padding: 14px 18px 17px;
       }
-
-      .verdict-note {
-        font-size: 11px;
-        color: var(--text-4);
-        margin-top: 8px;
-        font-style: italic;
+      .oactivity .at {
+        font-family: var(--mono);
+        font-size: 10px;
+        letter-spacing: 0.16em;
+        color: #b0b0ac;
+        margin-bottom: 11px;
       }
-
-      .node-next-step {
-        font-size: 12.5px;
-        color: var(--text-2);
-        margin-bottom: 10px;
-      }
-      .node-next-step strong {
-        color: var(--blue);
-      }
-
-      .rec-action-row {
+      .logrow {
         display: flex;
+        gap: 9px;
         align-items: flex-start;
-        gap: 7px;
-        padding: 7px 9px;
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        margin-bottom: 6px;
+        margin-bottom: 7px;
       }
-      .rec-action-name {
-        font-size: 12.5px;
-        font-weight: 600;
+      .logrow .lt {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: #c2c2bd;
+        flex: none;
+        width: 46px;
+      }
+      .logrow .lg {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        flex: none;
+        width: 12px;
+        text-align: center;
+        color: var(--faint);
+      }
+      .logrow .lx {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: #9a9a95;
+        line-height: 1.45;
         flex: 1;
       }
-      .rec-action-desc {
-        font-size: 11.5px;
-        color: var(--text-3);
-        margin-top: 2px;
+      .logrow.out .lg {
+        color: var(--black);
+      }
+      .logrow.out .lx {
+        color: #3a3a37;
+        font-weight: 500;
+      }
+      .logrow.in .lg {
+        color: var(--black);
+      }
+      .logrow.in .lx {
+        color: #1a1a1a;
+        font-weight: 600;
+      }
+      .logrow.warn .lg {
+        color: var(--amber-dot);
+      }
+      .logrow.warn .lx {
+        color: var(--amber-tx);
+        font-weight: 600;
+      }
+      .ofoot {
+        padding: 12px 18px;
+        background: var(--out-bg);
+        border-top: 1px solid #ececea;
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: #9a9a95;
+        line-height: 1.5;
       }
 
-      .approval-reason {
-        font-size: 12.5px;
-        color: var(--text-2);
-        margin-bottom: 3px;
-      }
-      .approval-reason::before {
-        content: "• ";
-      }
-
-      @media (max-width: 720px) {
-        .split-layout {
-          grid-template-columns: 1fr;
+      @media (max-width: 920px) {
+        .body {
+          flex-direction: column;
         }
-        .nodes-grid {
-          grid-template-columns: 1fr;
-        }
-        .status-grid {
-          grid-template-columns: 1fr;
-        }
-        .trace-meta-grid {
-          grid-template-columns: 1fr 1fr;
+        aside.orch {
+          width: 100%;
+          position: static;
         }
       }
     </style>
   </head>
   <body>
-    <!-- ═══════════════════════════════════════════════════
-     PAGE HEADER
-════════════════════════════════════════════════════ -->
-    <div class="page-header">
-      <h1>Orchestration Console</h1>
-      <p>
-        Live, read-only engineering view of Node 1 triage, Node 2 customer
-        context, Node 3 knowledge guidance, Node 4 parts logistics, Node 5
-        scheduling, and Node 6 compliance &amp; guardrail.
-      </p>
-    </div>
-
-    <!-- ═══════════════════════════════════════════════════
-     ENGINEERING OPERATIONS CONSOLE CARD
-════════════════════════════════════════════════════ -->
-    <div class="card">
-      <div class="console-top">
-        <span class="console-label">Engineering Operations Console</span>
-        <div class="console-actions">
-          <button class="btn btn-done">Done</button>
-          <button class="btn btn-stop">Stop AI</button>
-        </div>
-      </div>
-
-      <div class="case-title">Case 00001079</div>
-      <div class="case-subtitle">
-        Read-only engineering view of Node 1 triage, Node 2 customer context,
-        Node 3 knowledge guidance, Node 4 parts &amp; logistics, Node 5
-        scheduling, and Node 6 compliance &amp; guardrail.
-      </div>
-
-      <div class="status-grid">
-        <div class="status-cell">
-          <div class="status-cell-label">Current Stage</div>
-          <div class="status-cell-value">Guardrail finished</div>
-          <div class="status-cell-sub">Completed stages: 6/6</div>
-        </div>
-        <div class="status-cell">
-          <div class="status-cell-label">Workflow ID</div>
-          <div
-            class="status-cell-value"
-            style="font-size: 12px; word-break: break-all"
-          >
-            wf-c79ee03d-a8fa-4316-9517-a9b4872833a4
-          </div>
-          <div class="status-cell-sub">
-            Latest node: Node 6 · Compliance &amp; Guardrail
-          </div>
-        </div>
-        <div class="status-cell">
-          <div class="status-cell-label">Write-Back</div>
-          <div class="status-cell-value">Applied</div>
-          <div class="status-cell-sub">Approval gate enabled</div>
-        </div>
-      </div>
-
-      <div class="console-note">
-        This view exposes sanitized execution artifacts, state transitions, and
-        read-only node outputs. Approvals remain outside this console.
-      </div>
-    </div>
-
-    <!-- ═══════════════════════════════════════════════════
-     ORCHESTRATOR VERDICT
-════════════════════════════════════════════════════ -->
-    <div class="card">
-      <div class="verdict-header">
-        <span class="verdict-icon">✦</span>
-        Orchestrator Verdict
-      </div>
-      <div class="verdict-headline">
-        Normal priority case · high business risk · knowledge guidance available
-        · parts available · technician scheduled · human approval granted
-      </div>
-      <div class="verdict-summary">
-        Triage recommends normal priority with high business risk. Knowledge
-        base returned 2 matching source(s). Parts plan: SP-BATT-15X is available
-        at WH-AUS-001. Scheduling: SR-A1 proposed for Tomorrow 11:00–13:00 PDT
-        (after parts arrive). Guardrail required human approval (risk 40,
-        medium); approver approved. The recommended priority was written back to
-        the Case.
-      </div>
-
-      <div class="verdict-tags">
-        <div class="tag">
-          Guardrail outcome: <strong class="tag-val-green">Approved</strong>
-        </div>
-        <div class="tag">Risk score: <strong>40</strong></div>
-        <div class="tag">
-          Risk level: <strong class="tag-val-orange">medium</strong>
-        </div>
-        <div class="tag">Triggered rules: <strong>3</strong></div>
-        <div class="tag">
-          Approval channel:
-          <strong class="tag-val-blue">salesforce_approval</strong>
-        </div>
-        <div class="tag">Priority: <strong>normal</strong></div>
-        <div class="tag">
-          Business risk: <strong class="tag-val-red">high</strong>
-        </div>
-        <div class="tag">Warranty: <strong>unknown</strong></div>
-      </div>
-
-      <div class="rec-steps-label">Recommended Steps</div>
-      <ol class="rec-steps-list">
-        <li>
-          Human approval granted — proceed with fulfillment and scheduling.
-        </li>
-        <li>Confirm local stock availability for battery replacement part.</li>
-        <li>Battery wear level may exceed acceptable limits.</li>
-        <li>Dispatch SP-BATT-15X from WH-AUS-001.</li>
-        <li>
-          Confirm appointment for SR-A1 on Tomorrow 11:00–13:00 PDT (after parts
-          arrive).
-        </li>
-        <li>Confirm the Case priority reflects the applied write-back.</li>
-      </ol>
-
-      <div class="verdict-footer">
-        Human-readable summary for operators. Generated from triage, customer
-        context, and knowledge findings — downstream automation uses the typed
-        channels, not this text.
-      </div>
-    </div>
-
-    <!-- ═══════════════════════════════════════════════════
-     WORKFLOW STAGES
-════════════════════════════════════════════════════ -->
-    <div class="card">
-      <div class="stages-top">
-        <div>
-          <div class="stages-label">Workflow Stages</div>
-          <div class="stages-title">Current and completed stages</div>
-        </div>
-        <span class="badge-done">Done</span>
-      </div>
-
-      <div class="nodes-grid">
-        <div class="node-card">
-          <div class="node-card-head">
-            <div class="node-card-name">Node 1 · Triage</div>
-            <span class="badge-completed">Completed</span>
-          </div>
-          <div class="node-card-desc">
-            Reads the Case context, runs AI triage, and applies the approved
-            write-back.
-          </div>
-          <div class="node-card-steps">4 steps emitted</div>
-        </div>
-        <div class="node-card">
-          <div class="node-card-head">
-            <div class="node-card-name">Node 2 · Customer Context</div>
-            <span class="badge-completed">Completed</span>
-          </div>
-          <div class="node-card-desc">
-            Reads customer history, assembles the context package, and writes it
-            to workflow state.
-          </div>
-          <div class="node-card-steps">5 steps emitted</div>
-        </div>
-        <div class="node-card">
-          <div class="node-card-head">
-            <div class="node-card-name">Node 3 · Knowledge Base</div>
-            <span class="badge-completed">Completed</span>
-          </div>
-          <div class="node-card-desc">
-            Builds a targeted RAG query, retrieves approved troubleshooting
-            guidance, and writes knowledge findings to workflow state.
-          </div>
-          <div class="node-card-steps">4 steps emitted</div>
-        </div>
-        <div class="node-card">
-          <div class="node-card-head">
-            <div class="node-card-name">Node 4 · Parts &amp; Logistics</div>
-            <span class="badge-completed">Completed</span>
-          </div>
-          <div class="node-card-desc">
-            Selects the fulfillment warehouse from the Case ship-to, reads live
-            inventory, and plans part availability and multi-segment ETA.
-          </div>
-          <div class="node-card-steps">3 steps emitted</div>
-        </div>
-        <div class="node-card">
-          <div class="node-card-head">
-            <div class="node-card-name">Node 5 · Scheduling</div>
-            <span class="badge-completed">Completed</span>
-          </div>
-          <div class="node-card-desc">
-            Ranks technicians by skill, territory, and availability, and
-            proposes the earliest service window after parts ETA.
-          </div>
-          <div class="node-card-steps">3 steps emitted</div>
-        </div>
-        <div class="node-card">
-          <div class="node-card-head">
-            <div class="node-card-name">
-              Node 6 · Compliance &amp; Guardrail
+    <div class="page">
+      <div class="wrap">
+        <!-- HEADER -->
+        <header class="top">
+          <div class="brand">
+            <div class="logo"><span></span></div>
+            <div>
+              <div class="title">Orchestration Console</div>
+              <div class="subtitle">
+                read‑only observability · LangGraph · 6 nodes
+              </div>
             </div>
-            <span class="badge-completed">Completed</span>
           </div>
-          <div class="node-card-desc">
-            Evaluates composite policy across all upstream channels and
-            determines whether to auto-approve, pause for human sign-off,
-            reject, or escalate.
+          <div class="stats">
+            <div class="stat">
+              <div class="k">CASE</div>
+              <div class="v">00001079</div>
+            </div>
+            <div class="stat">
+              <div class="k">SOURCE</div>
+              <div class="v">Web · Salesforce</div>
+            </div>
+            <div class="stat">
+              <div class="k">ELAPSED</div>
+              <div class="v" id="elapsed">0:00</div>
+            </div>
+            <div class="stat">
+              <div class="k">NODES</div>
+              <div class="v" id="progress">0 / 6</div>
+            </div>
+            <div class="pill" id="pill">
+              <span class="dot"></span><span id="pillLabel">RUNNING</span>
+            </div>
           </div>
-          <div class="node-card-steps">1 step emitted</div>
+        </header>
+
+        <!-- PROGRESS -->
+        <div class="progress"><div class="fill" id="fill"></div></div>
+
+        <!-- BODY -->
+        <div class="body">
+          <!-- LEFT: SPINE -->
+          <main class="spine" id="spine">
+            <!-- origin -->
+            <div class="row">
+              <div class="rail">
+                <div class="line bot on"></div>
+                <div class="knot"><span class="dot done"></span></div>
+              </div>
+              <div class="cellpad">
+                <div class="chead">
+                  <div
+                    class="ibox"
+                    data-icon="inbox"
+                    style="background: #fff; color: #111"
+                  ></div>
+                  <div class="cmid">
+                    <div class="cname" style="color: #141414">
+                      Case received
+                    </div>
+                    <div class="csub">
+                      Web → Salesforce Case · ProBook 15X · battery
+                    </div>
+                  </div>
+                  <span class="status" style="color: #b0b0ac">INTAKE</span>
+                </div>
+              </div>
+            </div>
+            <!-- node rows injected here -->
+            <div id="nodes"></div>
+            <!-- terminal -->
+            <div class="row">
+              <div class="rail">
+                <div class="line top" id="termLine"></div>
+                <div class="knot"><span class="dot" id="termDot"></span></div>
+              </div>
+              <div class="cellpad" style="padding-bottom: 8px">
+                <div class="chead" id="termHead">
+                  <div class="ibox" data-icon="flag" id="termIbox"></div>
+                  <div class="cmid">
+                    <div class="cname" id="termName">Case handled</div>
+                    <div class="csub">
+                      operational intelligence logged · write‑back applied
+                    </div>
+                  </div>
+                  <span class="status" id="termStatus">PENDING</span>
+                  <span class="chev" id="termChev">⌄</span>
+                </div>
+                <div id="verdictWrap"></div>
+                <div class="accordion" id="termAcc">
+                  <div class="acc-inner" id="termAccInner"></div>
+                </div>
+              </div>
+            </div>
+          </main>
+
+          <!-- RIGHT: ORCHESTRATOR -->
+          <aside class="orch">
+            <div class="opanel">
+              <div class="ohead">
+                <div class="oico" data-icon="brain"></div>
+                <div style="flex: 1">
+                  <div class="ot">Orchestrator</div>
+                  <div class="os">the brain · routes every handoff</div>
+                </div>
+              </div>
+              <div class="ostate">
+                <div class="row1">
+                  <span class="odot" id="odot"></span
+                  ><span class="olabel" id="olabel">Idle</span>
+                </div>
+                <div class="osub" id="osub">waiting for trigger</div>
+              </div>
+              <div class="oactivity">
+                <div class="at">ACTIVITY</div>
+                <div id="log"></div>
+              </div>
+              <div class="ofoot">
+                Approvals route via account‑manager email / Salesforce. This
+                console only reflects state — nothing is actioned here.
+              </div>
+            </div>
+          </aside>
         </div>
       </div>
     </div>
-
-    <!-- ═══════════════════════════════════════════════════
-     SPLIT LAYOUT — TRACE + OUTPUTS
-════════════════════════════════════════════════════ -->
-    <div class="split-layout">
-      <!-- ── LEFT: Execution Trace ── -->
-      <div class="trace-panel">
-        <div class="trace-panel-head">
-          <div>
-            <div class="trace-panel-label">
-              Agent Reasoning / Execution Trace
-            </div>
-            <div class="trace-panel-title">Structured execution details</div>
-          </div>
-          <button class="toggle-btn" id="auditToggle" onclick="toggleAudit()">
-            <svg
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-            >
-              <circle cx="10" cy="10" r="8" />
-              <path d="M10 6v4l3 3" />
-            </svg>
-            Auditable artifacts only
-          </button>
-        </div>
-
-        <!-- Step 1 -->
-        <div class="step-card">
-          <div class="step-header">
-            <span class="step-type type-triage">Triage</span>
-            <span class="step-desc">Triage assigned for case 00001079.</span>
-            <span class="step-status assigned">◉ Assigned</span>
-          </div>
-          <div class="step-seq">Sequence 1</div>
-          <button class="trace-accordion-trigger" onclick="toggleTrace(this)">
-            <span class="trace-arrow">▶</span> Agent Reasoning / Execution Trace
-          </button>
-          <div class="trace-accordion-body">
-            <div class="trace-section">
-              <div class="trace-section-label">🤔 Reasoning</div>
-              <div class="trace-reasoning">
-                Deterministic step — no LLM inference required. Workflow
-                initialized with caseId <code>500g500000cCRTBAA4</code>.
-                Orchestrator received the TRIAGE dispatch signal and assigned
-                this run to the Node 1 pipeline. State checkpoint created.
-              </div>
-            </div>
-            <div class="trace-section">
-              <div class="trace-section-label">⚙ Model Details</div>
-              <div class="trace-meta-grid">
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Model</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Provider</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Latency</div>
-                  <div class="trace-meta-value">&lt; 5 ms</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Tokens</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 2 -->
-        <div class="step-card">
-          <div class="step-header">
-            <span class="step-type type-triage">Triage</span>
-            <span class="step-desc">Reading Case context from Salesforce.</span>
-            <span class="step-status done">✓ Done</span>
-          </div>
-          <div class="step-seq">Sequence 2</div>
-          <div class="step-fields">
-            <div class="step-field">
-              <div class="step-field-label">Case Number</div>
-              <div class="step-field-value">00001079</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Reported Priority</div>
-              <div class="step-field-value">normal</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Status</div>
-              <div class="step-field-value">New</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Origin</div>
-              <div class="step-field-value">Web</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Account Linked</div>
-              <div class="step-field-value">Yes</div>
-            </div>
-          </div>
-          <button class="trace-accordion-trigger" onclick="toggleTrace(this)">
-            <span class="trace-arrow">▶</span> Agent Reasoning / Execution Trace
-          </button>
-          <div class="trace-accordion-body">
-            <div class="trace-section">
-              <div class="trace-section-label">🤔 Reasoning</div>
-              <div class="trace-reasoning">
-                Querying Salesforce via SOQL to retrieve the full Case record
-                for case number 00001079. Extracting Subject, Description,
-                Status, Priority, Origin, and linked Account ID. The case
-                subject indicates a battery capacity degradation issue on a
-                ProBook 15X device. Account is linked — customer context
-                enrichment will proceed in Node 2.
-              </div>
-            </div>
-            <div class="trace-section">
-              <div class="trace-section-label">🔧 Tool Calls</div>
-              <div class="trace-tool-call">
-                <div class="trace-tool-name">salesforce_soql_query</div>
-                <div class="trace-tool-label">Args</div>
-                <div class="trace-tool-args">
-                  SELECT Id, CaseNumber, Subject, Description, Status, Priority,
-                  Origin, AccountId FROM Case WHERE CaseNumber = '00001079'
-                </div>
-                <div class="trace-tool-label">Result</div>
-                <div class="trace-tool-result">
-                  {"CaseNumber":"00001079","Subject":"Battery not holding charge
-                  - ProBook
-                  15X","Status":"New","Priority":"normal","Origin":"Web","AccountId":"001Qy000004ZXXXIAU"}
-                </div>
-              </div>
-            </div>
-            <div class="trace-section">
-              <div class="trace-section-label">⚙ Model Details</div>
-              <div class="trace-meta-grid">
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Model</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Provider</div>
-                  <div class="trace-meta-value">openai</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Latency</div>
-                  <div class="trace-meta-value">42 ms</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Fallback</div>
-                  <div class="trace-meta-value">No</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 3 -->
-        <div class="step-card">
-          <div class="step-header">
-            <span class="step-type type-triage">Triage</span>
-            <span class="step-desc">Running AI triage.</span>
-            <span class="step-status done">✓ Done</span>
-          </div>
-          <div class="step-seq">Sequence 3</div>
-          <div class="step-fields">
-            <div class="step-field">
-              <div class="step-field-label">Recommended Priority</div>
-              <div class="step-field-value">normal</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Provider</div>
-              <div class="step-field-value">openai</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Model</div>
-              <div class="step-field-value">gpt-4o-mini</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Latency</div>
-              <div class="step-field-value">1285 ms</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Fallback</div>
-              <div class="step-field-value">No</div>
-            </div>
-          </div>
-          <button class="trace-accordion-trigger" onclick="toggleTrace(this)">
-            <span class="trace-arrow">▶</span> Agent Reasoning / Execution Trace
-          </button>
-          <div class="trace-accordion-body">
-            <div class="trace-section">
-              <div class="trace-section-label">🤔 Reasoning</div>
-              <div class="trace-reasoning">
-                The case describes a battery capacity issue on a ProBook 15X
-                laptop — a hardware replacement scenario, not a critical service
-                outage or data loss event. No active SLA contract was found on
-                the account. The customer has had prior incidents (11 prior
-                cases visible from context) but this specific request appears to
-                be routine wear-and-replace. Assigning 'normal' priority. No
-                escalation flags triggered at this stage. If parts are
-                unavailable beyond 48 h or the battery falls under an active
-                recall, the guardrail node may escalate.
-              </div>
-            </div>
-            <div class="trace-section">
-              <div class="trace-section-label">📤 Raw LLM Output</div>
-              <div class="trace-tool-call">
-                <div class="trace-tool-args">
-                  {"priority":"normal","confidence":"high","notes":"Standard
-                  battery wear-and-replace request. No SLA breach indicators
-                  detected. Customer account is active with prior service
-                  history. Recommend normal queue with parts availability check
-                  before scheduling."}
-                </div>
-              </div>
-            </div>
-            <div class="trace-section">
-              <div class="trace-section-label">⚙ Model Details</div>
-              <div class="trace-meta-grid">
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Model</div>
-                  <div class="trace-meta-value">gpt-4o-mini</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Provider</div>
-                  <div class="trace-meta-value">openai</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Latency</div>
-                  <div class="trace-meta-value">1285 ms</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Fallback</div>
-                  <div class="trace-meta-value">No</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 4 -->
-        <div class="step-card">
-          <div class="step-header">
-            <span class="step-type type-customer">Customer Context</span>
-            <span class="step-desc"
-              >Reading customer profile and entitlements.</span
-            >
-            <span class="step-status done">✓ Done</span>
-          </div>
-          <div class="step-seq">Sequence 4</div>
-          <div class="step-fields">
-            <div class="step-field">
-              <div class="step-field-label">Read Source</div>
-              <div class="step-field-value">soql</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Customer Tier</div>
-              <div class="step-field-value">standard</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">SLA Class</div>
-              <div class="step-field-value">none</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Warranty</div>
-              <div class="step-field-value">unknown</div>
-            </div>
-          </div>
-          <button class="trace-accordion-trigger" onclick="toggleTrace(this)">
-            <span class="trace-arrow">▶</span> Agent Reasoning / Execution Trace
-          </button>
-          <div class="trace-accordion-body">
-            <div class="trace-section">
-              <div class="trace-section-label">🤔 Reasoning</div>
-              <div class="trace-reasoning">
-                Querying Salesforce for the linked Account's entitlement
-                records, SLA class, and contract tier. Account
-                001Qy000004ZXXXIAU resolves to a standard-tier customer with no
-                active SLA contract and no warranty entitlement on file.
-                Warranty status is 'unknown' — the asset may be out of original
-                coverage period or no asset record is registered. This will
-                factor into the guardrail risk score.
-              </div>
-            </div>
-            <div class="trace-section">
-              <div class="trace-section-label">🔧 Tool Calls</div>
-              <div class="trace-tool-call">
-                <div class="trace-tool-name">salesforce_soql_query</div>
-                <div class="trace-tool-label">Args</div>
-                <div class="trace-tool-args">
-                  SELECT SlaProcessId, ContractTier__c, WarrantyStatus__c FROM
-                  Account WHERE Id = '001Qy000004ZXXXIAU'
-                </div>
-                <div class="trace-tool-label">Result</div>
-                <div class="trace-tool-result">
-                  {"ContractTier__c":"standard","SlaProcessId":null,"WarrantyStatus__c":"unknown"}
-                </div>
-              </div>
-            </div>
-            <div class="trace-section">
-              <div class="trace-section-label">⚙ Model Details</div>
-              <div class="trace-meta-grid">
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Model</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Provider</div>
-                  <div class="trace-meta-value">openai</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Latency</div>
-                  <div class="trace-meta-value">38 ms</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Fallback</div>
-                  <div class="trace-meta-value">No</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 5 -->
-        <div class="step-card">
-          <div class="step-header">
-            <span class="step-type type-customer">Customer Context</span>
-            <span class="step-desc"
-              >Reading installed assets and service history.</span
-            >
-            <span class="step-status done">✓ Done</span>
-          </div>
-          <div class="step-seq">Sequence 5</div>
-          <div class="step-fields">
-            <div class="step-field">
-              <div class="step-field-label">Read Source</div>
-              <div class="step-field-value">soql</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Installed Assets</div>
-              <div class="step-field-value">0</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Prior Cases</div>
-              <div class="step-field-value">11</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Degraded Sources</div>
-              <div class="step-field-value">0</div>
-            </div>
-          </div>
-          <button class="trace-accordion-trigger" onclick="toggleTrace(this)">
-            <span class="trace-arrow">▶</span> Agent Reasoning / Execution Trace
-          </button>
-          <div class="trace-accordion-body">
-            <div class="trace-section">
-              <div class="trace-section-label">🤔 Reasoning</div>
-              <div class="trace-reasoning">
-                Querying Asset and Case history tables for the account. No
-                registered Asset records found — the device (ProBook 15X /
-                AV-LP-15X-PRO) is not formally tracked in Salesforce inventory
-                for this account. Service history shows 11 prior Cases, of which
-                10 are currently open — a strong repeat-failure signal. All SOQL
-                queries returned valid results; no degraded sources.
-              </div>
-            </div>
-            <div class="trace-section">
-              <div class="trace-section-label">🔧 Tool Calls</div>
-              <div class="trace-tool-call">
-                <div class="trace-tool-name">salesforce_soql_query</div>
-                <div class="trace-tool-label">Args</div>
-                <div class="trace-tool-args">
-                  SELECT COUNT() FROM Asset WHERE AccountId =
-                  '001Qy000004ZXXXIAU'
-                </div>
-                <div class="trace-tool-label">Result</div>
-                <div class="trace-tool-result">{"totalSize":0}</div>
-              </div>
-              <div class="trace-tool-call" style="margin-top: 6px">
-                <div class="trace-tool-name">salesforce_soql_query</div>
-                <div class="trace-tool-label">Args</div>
-                <div class="trace-tool-args">
-                  SELECT Id, Status FROM Case WHERE AccountId =
-                  '001Qy000004ZXXXIAU' AND Id != '500g500000cCRTBAA4'
-                </div>
-                <div class="trace-tool-label">Result</div>
-                <div class="trace-tool-result">
-                  {"totalSize":11,"openCount":10}
-                </div>
-              </div>
-            </div>
-            <div class="trace-section">
-              <div class="trace-section-label">⚙ Model Details</div>
-              <div class="trace-meta-grid">
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Model</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Provider</div>
-                  <div class="trace-meta-value">openai</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Latency</div>
-                  <div class="trace-meta-value">55 ms</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Fallback</div>
-                  <div class="trace-meta-value">No</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 6 -->
-        <div class="step-card">
-          <div class="step-header">
-            <span class="step-type type-customer">Customer Context</span>
-            <span class="step-desc">Analyzing customer history.</span>
-            <span class="step-status done">✓ Done</span>
-          </div>
-          <div class="step-seq">Sequence 6</div>
-          <div class="step-fields">
-            <div class="step-field">
-              <div class="step-field-label">Business Risk</div>
-              <div class="step-field-value">high</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Risk Confidence</div>
-              <div class="step-field-value">high</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Model</div>
-              <div class="step-field-value">gpt-4o-mini</div>
-            </div>
-          </div>
-          <button class="trace-accordion-trigger" onclick="toggleTrace(this)">
-            <span class="trace-arrow">▶</span> Agent Reasoning / Execution Trace
-          </button>
-          <div class="trace-accordion-body">
-            <div class="trace-section">
-              <div class="trace-section-label">🤔 Reasoning</div>
-              <div class="trace-reasoning">
-                Analyzing the aggregated customer history against the business
-                risk rubric. This customer has 10 open incidents — a clear
-                repeat-failure pattern. No SLA entitlement and no warranty cover
-                are on file. The account is not flagged as strategic. Despite
-                the absence of formal SLA, the volume of unresolved incidents
-                creates a high churn risk signal. Assigning business_risk=HIGH
-                with confidence=HIGH. This will trigger the CUSTOMER_RISK_HIGH
-                and REPEAT_INCIDENT guardrail policy rules in Node 6.
-              </div>
-            </div>
-            <div class="trace-section">
-              <div class="trace-section-label">📤 Raw LLM Output</div>
-              <div class="trace-tool-call">
-                <div class="trace-tool-args">
-                  {"business_risk":"high","risk_confidence":"high","risk_signals":["repeat-failure","10
-                  open
-                  incidents"],"strategic_account":false,"churn_risk":"elevated"}
-                </div>
-              </div>
-            </div>
-            <div class="trace-section">
-              <div class="trace-section-label">⚙ Model Details</div>
-              <div class="trace-meta-grid">
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Model</div>
-                  <div class="trace-meta-value">gpt-4o-mini</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Provider</div>
-                  <div class="trace-meta-value">openai</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Latency</div>
-                  <div class="trace-meta-value">887 ms</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Tokens</div>
-                  <div class="trace-meta-value">412</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 7 -->
-        <div class="step-card">
-          <div class="step-header">
-            <span class="step-type type-customer">Customer Context</span>
-            <span class="step-desc">Building customer context package.</span>
-            <span class="step-status done">✓ Done</span>
-          </div>
-          <div class="step-seq">Sequence 7</div>
-          <div class="step-fields">
-            <div class="step-field">
-              <div class="step-field-label">Assets Found</div>
-              <div class="step-field-value">0</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Repeat Incidents</div>
-              <div class="step-field-value">10</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Business Risk</div>
-              <div class="step-field-value">high</div>
-            </div>
-          </div>
-          <button class="trace-accordion-trigger" onclick="toggleTrace(this)">
-            <span class="trace-arrow">▶</span> Agent Reasoning / Execution Trace
-          </button>
-          <div class="trace-accordion-body">
-            <div class="trace-section">
-              <div class="trace-section-label">🤔 Reasoning</div>
-              <div class="trace-reasoning">
-                Assembling the typed CustomerContextChannel from the individual
-                query results. Merging: tier=standard, sla=none,
-                warranty=unknown, assets=0, prior_cases=11, open_incidents=10,
-                business_risk=high, strategic=false, repeat_failure=true. This
-                package will be written to the LangGraph state checkpoint and
-                made available to all downstream nodes (knowledge, parts,
-                scheduling, guardrail).
-              </div>
-            </div>
-            <div class="trace-section">
-              <div class="trace-section-label">⚙ Model Details</div>
-              <div class="trace-meta-grid">
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Model</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Provider</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Latency</div>
-                  <div class="trace-meta-value">&lt; 5 ms</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Tokens</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 8 -->
-        <div class="step-card">
-          <div class="step-header">
-            <span class="step-type type-customer">Customer Context</span>
-            <span class="step-desc">Writing customer findings to state.</span>
-            <span class="step-status done">✓ Done</span>
-          </div>
-          <div class="step-seq">Sequence 8</div>
-          <div class="step-fields">
-            <div class="step-field">
-              <div class="step-field-label">Customer Tier</div>
-              <div class="step-field-value">standard</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">SLA Class</div>
-              <div class="step-field-value">none</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Warranty</div>
-              <div class="step-field-value">unknown</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Repeat Failure</div>
-              <div class="step-field-value">Yes</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Strategic</div>
-              <div class="step-field-value">No</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Business Risk</div>
-              <div class="step-field-value">high</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Risk Confidence</div>
-              <div class="step-field-value">high</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Degraded</div>
-              <div class="step-field-value">No</div>
-            </div>
-          </div>
-          <button class="trace-accordion-trigger" onclick="toggleTrace(this)">
-            <span class="trace-arrow">▶</span> Agent Reasoning / Execution Trace
-          </button>
-          <div class="trace-accordion-body">
-            <div class="trace-section">
-              <div class="trace-section-label">🤔 Reasoning</div>
-              <div class="trace-reasoning">
-                Persisting the CustomerContextChannel to the LangGraph state via
-                the checkpointer. State write is idempotent — if this step is
-                replayed, the same values will be written. Node 2 is now
-                complete. All downstream nodes will read from this checkpoint
-                rather than querying Salesforce again.
-              </div>
-            </div>
-            <div class="trace-section">
-              <div class="trace-section-label">⚙ Model Details</div>
-              <div class="trace-meta-grid">
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Model</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Provider</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Latency</div>
-                  <div class="trace-meta-value">8 ms</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Tokens</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 9 -->
-        <div class="step-card">
-          <div class="step-header">
-            <span class="step-type type-knowledge">Knowledge</span>
-            <span class="step-desc"
-              >Constructing targeted knowledge query.</span
-            >
-            <span class="step-status done">✓ Done</span>
-          </div>
-          <div class="step-seq">Sequence 9</div>
-          <div class="step-fields">
-            <div class="step-field">
-              <div class="step-field-label">Query</div>
-              <div class="step-field-value">
-                Constructed from Case + customer context
-              </div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Namespace</div>
-              <div class="step-field-value">customer-self-service</div>
-            </div>
-          </div>
-          <button class="trace-accordion-trigger" onclick="toggleTrace(this)">
-            <span class="trace-arrow">▶</span> Agent Reasoning / Execution Trace
-          </button>
-          <div class="trace-accordion-body">
-            <div class="trace-section">
-              <div class="trace-section-label">🤔 Reasoning</div>
-              <div class="trace-reasoning">
-                Synthesizing the RAG search query from Case subject and the
-                customer context package. Case subject: "Battery not holding
-                charge - ProBook 15X". Asset model: AV-LP-15X-PRO. Relevant
-                context signals: repeat-failure, battery degradation.
-                Constructed query terms:
-                <em
-                  >battery degradation ProBook 15X capacity loss replacement
-                  procedure</em
-                >. Target namespace: customer-self-service (approved
-                troubleshooting content).
-              </div>
-            </div>
-            <div class="trace-section">
-              <div class="trace-section-label">⚙ Model Details</div>
-              <div class="trace-meta-grid">
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Model</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Provider</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Latency</div>
-                  <div class="trace-meta-value">&lt; 5 ms</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Tokens</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 10 -->
-        <div class="step-card">
-          <div class="step-header">
-            <span class="step-type type-knowledge">Knowledge</span>
-            <span class="step-desc">Searching approved knowledge base.</span>
-            <span class="step-status done">✓ Done</span>
-          </div>
-          <div class="step-seq">Sequence 10</div>
-          <div class="step-fields">
-            <div class="step-field">
-              <div class="step-field-label">Namespace</div>
-              <div class="step-field-value">customer-self-service</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Top K</div>
-              <div class="step-field-value">5</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Score Threshold</div>
-              <div class="step-field-value">0.65</div>
-            </div>
-          </div>
-          <button class="trace-accordion-trigger" onclick="toggleTrace(this)">
-            <span class="trace-arrow">▶</span> Agent Reasoning / Execution Trace
-          </button>
-          <div class="trace-accordion-body">
-            <div class="trace-section">
-              <div class="trace-section-label">🤔 Reasoning</div>
-              <div class="trace-reasoning">
-                Running a vector similarity search against the Pinecone
-                customer-self-service namespace. Query embedded using
-                text-embedding-3-small (openai). Retrieved 5 candidates; 2
-                exceeded the 0.65 score threshold. 3 candidates scored below
-                threshold and were discarded. The 2 retained articles both
-                address ProBook 15X battery degradation and replacement
-                procedures.
-              </div>
-            </div>
-            <div class="trace-section">
-              <div class="trace-section-label">🔧 Tool Calls</div>
-              <div class="trace-tool-call">
-                <div class="trace-tool-name">pinecone_query</div>
-                <div class="trace-tool-label">Args</div>
-                <div class="trace-tool-args">
-                  {"namespace":"customer-self-service","topK":5,"filter":{},"vector":"[embedded
-                  query vector]"}
-                </div>
-                <div class="trace-tool-label">Result</div>
-                <div class="trace-tool-result">
-                  {"matches":[{"id":"rag-4862cb30-d662-4dba-ad12-a95b2fdf54cd","score":0.63},{"id":"rag-8811ae12-cc01-41f3-9981-b3c02aa10002","score":0.60},...]}
-                </div>
-              </div>
-            </div>
-            <div class="trace-section">
-              <div class="trace-section-label">⚙ Model Details</div>
-              <div class="trace-meta-grid">
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Embedding</div>
-                  <div class="trace-meta-value">text-embedding-3-small</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Provider</div>
-                  <div class="trace-meta-value">openai</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Latency</div>
-                  <div class="trace-meta-value">212 ms</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Tokens</div>
-                  <div class="trace-meta-value">64</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 11 -->
-        <div class="step-card">
-          <div class="step-header">
-            <span class="step-type type-knowledge">Knowledge</span>
-            <span class="step-desc"
-              >Found 2 matching troubleshooting guides.</span
-            >
-            <span class="step-status done">✓ Done</span>
-          </div>
-          <div class="step-seq">Sequence 11</div>
-          <div class="step-fields">
-            <div class="step-field">
-              <div class="step-field-label">Status</div>
-              <div class="step-field-value">ANSWERED</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Sources Found</div>
-              <div class="step-field-value">2</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Provider</div>
-              <div class="step-field-value">openai</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Latency (ms)</div>
-              <div class="step-field-value">1094</div>
-            </div>
-          </div>
-          <button class="trace-accordion-trigger" onclick="toggleTrace(this)">
-            <span class="trace-arrow">▶</span> Agent Reasoning / Execution Trace
-          </button>
-          <div class="trace-accordion-body">
-            <div class="trace-section">
-              <div class="trace-section-label">🤔 Reasoning</div>
-              <div class="trace-reasoning">
-                Two knowledge articles exceeded the retrieval threshold. Article
-                1: "Battery Health Check Procedure for Warranty Assessment"
-                (score 0.63, version 2026.06.10) — describes diagnostic steps
-                and replacement criteria. Article 2: "Battery Drains Rapidly on
-                AeroVolt ProBook 15X" (score 0.60, version 2026.06.10) —
-                confirms SP-BATT-15X as the replacement SKU. Synthesizing
-                guidance: recommended action is 'replace part',
-                confidence=MEDIUM. Action requires KB_REQUIRED_APPROVAL per
-                guardrail policy because the guidance confidence did not reach
-                HIGH.
-              </div>
-            </div>
-            <div class="trace-section">
-              <div class="trace-section-label">📤 Raw LLM Output</div>
-              <div class="trace-tool-call">
-                <div class="trace-tool-args">
-                  {"status":"ANSWERED","guidance_confidence":"medium","recommended_action":"replace
-                  part","approval_required":true,"reason":"KB confidence medium
-                  — human sign-off required per
-                  policy","sources":["rag-4862cb30-d662-4dba-ad12-a95b2fdf54cd","rag-8811ae12-cc01-41f3-9981-b3c02aa10002"]}
-                </div>
-              </div>
-            </div>
-            <div class="trace-section">
-              <div class="trace-section-label">⚙ Model Details</div>
-              <div class="trace-meta-grid">
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Model</div>
-                  <div class="trace-meta-value">gpt-4o-mini</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Provider</div>
-                  <div class="trace-meta-value">openai</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Latency</div>
-                  <div class="trace-meta-value">1094 ms</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Tokens</div>
-                  <div class="trace-meta-value">678</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 12 -->
-        <div class="step-card">
-          <div class="step-header">
-            <span class="step-type type-knowledge">Knowledge</span>
-            <span class="step-desc">Writing knowledge findings to state.</span>
-            <span class="step-status done">✓ Done</span>
-          </div>
-          <div class="step-seq">Sequence 12</div>
-          <div class="step-fields">
-            <div class="step-field">
-              <div class="step-field-label">Status</div>
-              <div class="step-field-value">ANSWERED</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Eligible</div>
-              <div class="step-field-value">Yes</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Degraded</div>
-              <div class="step-field-value">No</div>
-            </div>
-          </div>
-          <button class="trace-accordion-trigger" onclick="toggleTrace(this)">
-            <span class="trace-arrow">▶</span> Agent Reasoning / Execution Trace
-          </button>
-          <div class="trace-accordion-body">
-            <div class="trace-section">
-              <div class="trace-section-label">🤔 Reasoning</div>
-              <div class="trace-reasoning">
-                Persisting the KnowledgeGuidanceChannel to the LangGraph state
-                checkpoint. Eligible=true (above threshold, status=ANSWERED),
-                degraded=false (all sources returned cleanly). The
-                KB_REQUIRED_APPROVAL flag will be read by Node 6 guardrail when
-                evaluating the composite policy matrix.
-              </div>
-            </div>
-            <div class="trace-section">
-              <div class="trace-section-label">⚙ Model Details</div>
-              <div class="trace-meta-grid">
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Model</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Provider</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Latency</div>
-                  <div class="trace-meta-value">6 ms</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Tokens</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 13 -->
-        <div class="step-card">
-          <div class="step-header">
-            <span class="step-type type-parts">Parts &amp; Logistics</span>
-            <span class="step-desc"
-              >Selecting fulfillment warehouse and reading live inventory.</span
-            >
-            <span class="step-status done">✓ Done</span>
-          </div>
-          <div class="step-seq">Sequence 13</div>
-          <div class="step-fields">
-            <div class="step-field">
-              <div class="step-field-label">Ship-to</div>
-              <div class="step-field-value">Austin, TX</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Asset Model</div>
-              <div class="step-field-value">AV-LP-15X-PRO</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Suggested Parts</div>
-              <div class="step-field-value">1</div>
-            </div>
-          </div>
-          <button class="trace-accordion-trigger" onclick="toggleTrace(this)">
-            <span class="trace-arrow">▶</span> Agent Reasoning / Execution Trace
-          </button>
-          <div class="trace-accordion-body">
-            <div class="trace-section">
-              <div class="trace-section-label">🤔 Reasoning</div>
-              <div class="trace-reasoning">
-                Resolved the ship-to location as Austin, TX from the Case
-                contact address. Queried the live inventory API for SP-BATT-15X
-                at all warehouses serving the Austin metro region. WH-AUS-001
-                returned 25 units in stock with an ETA of 12–20 hours to
-                customer site. KB cross-check confirmed: the knowledge articles
-                reference SP-BATT-15X as the correct SKU for AV-LP-15X-PRO —
-                aligned, no divergence.
-              </div>
-            </div>
-            <div class="trace-section">
-              <div class="trace-section-label">🔧 Tool Calls</div>
-              <div class="trace-tool-call">
-                <div class="trace-tool-name">inventory_query</div>
-                <div class="trace-tool-label">Args</div>
-                <div class="trace-tool-args">
-                  {"sku":"SP-BATT-15X","ship_to_region":"austin-tx","include_eta":true}
-                </div>
-                <div class="trace-tool-label">Result</div>
-                <div class="trace-tool-result">
-                  {"warehouse":"WH-AUS-001","qty":25,"eta_hours":"12-20","status":"available"}
-                </div>
-              </div>
-            </div>
-            <div class="trace-section">
-              <div class="trace-section-label">⚙ Model Details</div>
-              <div class="trace-meta-grid">
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Model</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Provider</div>
-                  <div class="trace-meta-value">openai</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Latency</div>
-                  <div class="trace-meta-value">143 ms</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Fallback</div>
-                  <div class="trace-meta-value">No</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 14 -->
-        <div class="step-card">
-          <div class="step-header">
-            <span class="step-type type-parts">Parts &amp; Logistics</span>
-            <span class="step-desc"
-              >Planned 1 part(s) — fulfillment ready.</span
-            >
-            <span class="step-status done">✓ Done</span>
-          </div>
-          <div class="step-seq">Sequence 14</div>
-          <div class="step-fields">
-            <div class="step-field">
-              <div class="step-field-label">Status</div>
-              <div class="step-field-value">PLANNED</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Fulfillment</div>
-              <div class="step-field-value">ready</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Parts</div>
-              <div class="step-field-value">1</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">KB Cross-check</div>
-              <div class="step-field-value">ALIGNED</div>
-            </div>
-          </div>
-          <button class="trace-accordion-trigger" onclick="toggleTrace(this)">
-            <span class="trace-arrow">▶</span> Agent Reasoning / Execution Trace
-          </button>
-          <div class="trace-accordion-body">
-            <div class="trace-section">
-              <div class="trace-section-label">🤔 Reasoning</div>
-              <div class="trace-reasoning">
-                Fulfillment plan finalized: 1 × SP-BATT-15X from WH-AUS-001. KB
-                cross-check status is ALIGNED — the knowledge articles and the
-                inventory system both point to the same SKU with no divergence.
-                Fulfillment readiness is 'ready', confidence 'high'. Writing
-                PartsLogisticsChannel to state. Scheduling (Node 5) will gate
-                its technician window on the 12–20 h parts ETA.
-              </div>
-            </div>
-            <div class="trace-section">
-              <div class="trace-section-label">⚙ Model Details</div>
-              <div class="trace-meta-grid">
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Model</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Provider</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Latency</div>
-                  <div class="trace-meta-value">7 ms</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Tokens</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 15 -->
-        <div class="step-card">
-          <div class="step-header">
-            <span class="step-type type-scheduling">Scheduling</span>
-            <span class="step-desc"
-              >Ranking technicians by skill and availability.</span
-            >
-            <span class="step-status done">✓ Done</span>
-          </div>
-          <div class="step-seq">Sequence 15</div>
-          <div class="step-fields">
-            <div class="step-field">
-              <div class="step-field-label">Skills Required</div>
-              <div class="step-field-value">Laptop Hardware, Battery/Power</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Territory</div>
-              <div class="step-field-value">North America</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Candidates Evaluated</div>
-              <div class="step-field-value">2</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Top Technician</div>
-              <div class="step-field-value">SR-A1</div>
-            </div>
-          </div>
-          <button class="trace-accordion-trigger" onclick="toggleTrace(this)">
-            <span class="trace-arrow">▶</span> Agent Reasoning / Execution Trace
-          </button>
-          <div class="trace-accordion-body">
-            <div class="trace-section">
-              <div class="trace-section-label">🤔 Reasoning</div>
-              <div class="trace-reasoning">
-                Queried the scheduling service for technicians with skills
-                [Laptop Hardware, Battery/Power] in the North America territory
-                who have availability after the parts ETA (Tomorrow ~09:00 PDT).
-                Two candidates returned: SR-A1 (rank 0.81) and SR-A2 (rank 0.7).
-                SR-A1 ranked higher due to closer secondary territory alignment
-                and earlier first-available slot. Both are secondary-role North
-                America technicians — no primary-territory techs are available
-                before the ETA window.
-              </div>
-            </div>
-            <div class="trace-section">
-              <div class="trace-section-label">🔧 Tool Calls</div>
-              <div class="trace-tool-call">
-                <div class="trace-tool-name">scheduling_rank_technicians</div>
-                <div class="trace-tool-label">Args</div>
-                <div class="trace-tool-args">
-                  {"skills":["Laptop
-                  Hardware","Battery/Power"],"territory":"north-america","available_after":"2026-06-24T09:00:00Z","top_k":5}
-                </div>
-                <div class="trace-tool-label">Result</div>
-                <div class="trace-tool-result">
-                  {"technicians":[{"id":"SR-A1","rank":0.81,"earliest":"2026-06-24T18:00:00Z"},{"id":"SR-A2","rank":0.7,"earliest":"2026-06-24T16:00:00Z"}]}
-                </div>
-              </div>
-            </div>
-            <div class="trace-section">
-              <div class="trace-section-label">⚙ Model Details</div>
-              <div class="trace-meta-grid">
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Model</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Provider</div>
-                  <div class="trace-meta-value">openai</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Latency</div>
-                  <div class="trace-meta-value">98 ms</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Fallback</div>
-                  <div class="trace-meta-value">No</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 16 -->
-        <div class="step-card">
-          <div class="step-header">
-            <span class="step-type type-scheduling">Scheduling</span>
-            <span class="step-desc"
-              >Proposed service window after parts ETA.</span
-            >
-            <span class="step-status done">✓ Done</span>
-          </div>
-          <div class="step-seq">Sequence 16</div>
-          <div class="step-fields">
-            <div class="step-field">
-              <div class="step-field-label">Proposed Window</div>
-              <div class="step-field-value">Tomorrow 11:00–13:00 PDT</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Readiness</div>
-              <div class="step-field-value">schedulable</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Parts Gate</div>
-              <div class="step-field-value">after parts arrive</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Technician</div>
-              <div class="step-field-value">SR-A1</div>
-            </div>
-          </div>
-          <button class="trace-accordion-trigger" onclick="toggleTrace(this)">
-            <span class="trace-arrow">▶</span> Agent Reasoning / Execution Trace
-          </button>
-          <div class="trace-accordion-body">
-            <div class="trace-section">
-              <div class="trace-section-label">🤔 Reasoning</div>
-              <div class="trace-reasoning">
-                SR-A1's first available slot is Tomorrow 18:00 UTC (11:00 PDT).
-                Parts ETA from WH-AUS-001 is 12–20 hours, so parts should arrive
-                by ~07:00 PDT at the latest. The 11:00 PDT appointment window
-                provides a 4-hour buffer after the latest-case ETA. Service
-                window: Tomorrow 11:00–13:00 PDT. This slot is proposed, not
-                confirmed — the guardrail outcome and any required approval must
-                be resolved before the ServiceAppointment write-back.
-              </div>
-            </div>
-            <div class="trace-section">
-              <div class="trace-section-label">⚙ Model Details</div>
-              <div class="trace-meta-grid">
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Model</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Provider</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Latency</div>
-                  <div class="trace-meta-value">&lt; 5 ms</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Tokens</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Step 17 -->
-        <div class="step-card">
-          <div class="step-header">
-            <span class="step-type type-guardrail">Guardrail</span>
-            <span class="step-desc"
-              >Evaluating composite policy across all channels.</span
-            >
-            <span class="step-status done">✓ Done</span>
-          </div>
-          <div class="step-seq">Sequence 17</div>
-          <div class="step-fields">
-            <div class="step-field">
-              <div class="step-field-label">Risk Score</div>
-              <div class="step-field-value">40 / MEDIUM</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Triggered Rules</div>
-              <div class="step-field-value">3</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Outcome</div>
-              <div class="step-field-value">Approved (human)</div>
-            </div>
-            <div class="step-field">
-              <div class="step-field-label">Approval Channel</div>
-              <div class="step-field-value">salesforce_approval</div>
-            </div>
-          </div>
-          <button class="trace-accordion-trigger" onclick="toggleTrace(this)">
-            <span class="trace-arrow">▶</span> Agent Reasoning / Execution Trace
-          </button>
-          <div class="trace-accordion-body">
-            <div class="trace-section">
-              <div class="trace-section-label">🤔 Reasoning</div>
-              <div class="trace-reasoning">
-                Composite policy matrix evaluated across 5 upstream channels:
-                triage (priority=normal), customerContext (risk=high,
-                repeat=true), knowledgeGuidance (confidence=medium,
-                approval_required=true), partsLogistics (status=PLANNED,
-                aligned=true), scheduling (schedulable=true). Three rules fired:
-                CUSTOMER_RISK_HIGH (+15 pts), REPEAT_INCIDENT (+10 pts),
-                KB_REQUIRED_APPROVAL (+15 pts). Total risk score: 40 (MEDIUM
-                threshold). Policy required human sign-off via Salesforce
-                Approval Process. Approver reviewed and approved. Outcome:
-                APPROVED. Verdict written to state.
-              </div>
-            </div>
-            <div class="trace-section">
-              <div class="trace-section-label">📤 Raw Policy Output</div>
-              <div class="trace-tool-call">
-                <div class="trace-tool-args">
-                  {"risk_score":40,"risk_level":"MEDIUM","outcome":"approved","approval_channel":"salesforce_approval","triggered_rules":["CUSTOMER_RISK_HIGH","REPEAT_INCIDENT","KB_REQUIRED_APPROVAL"],"approval_reasons":["Customer
-                  business risk is high.","Repeat incident on this
-                  account.","Knowledge action requires approval."]}
-                </div>
-              </div>
-            </div>
-            <div class="trace-section">
-              <div class="trace-section-label">⚙ Model Details</div>
-              <div class="trace-meta-grid">
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Model</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Provider</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Latency</div>
-                  <div class="trace-meta-value">18 ms</div>
-                </div>
-                <div class="trace-meta-item">
-                  <div class="trace-meta-label">Tokens</div>
-                  <div class="trace-meta-value none">—</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <!-- /trace-panel -->
-
-      <!-- ── RIGHT: Node Outputs ── -->
-      <div class="outputs-panel">
-        <!-- NODE 1 -->
-        <div class="node-output">
-          <div class="node-output-head">
-            <div class="node-output-label">Node 1 Output</div>
-            <span class="badge-priority">priority: normal</span>
-          </div>
-          <div class="node-output-title">Triage result</div>
-          <div class="node-output-sub">
-            Routine battery replacement needed for ProBook 15X due to degraded
-            capacity.
-          </div>
-          <div class="node-next-step">
-            <strong>Next step:</strong> Confirm local stock availability for
-            battery replacement part.
-          </div>
-          <div class="output-grid">
-            <div>
-              <div class="output-cell-label">Provider</div>
-              <div
-                class="output-cell-value"
-                style="font-size: 13px; font-weight: 500"
-              >
-                openai
-              </div>
-            </div>
-            <div>
-              <div class="output-cell-label">Model</div>
-              <div
-                class="output-cell-value"
-                style="font-size: 13px; font-weight: 500"
-              >
-                gpt-4o-mini
-              </div>
-            </div>
-            <div>
-              <div class="output-cell-label">Fallback</div>
-              <div
-                class="output-cell-value"
-                style="font-size: 13px; font-weight: 500"
-              >
-                No
-              </div>
-            </div>
-            <div>
-              <div class="output-cell-label">Latency</div>
-              <div
-                class="output-cell-value"
-                style="font-size: 13px; font-weight: 500"
-              >
-                1285 ms
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- NODE 2 -->
-        <div class="node-output">
-          <div class="node-output-head">
-            <div class="node-output-label">Node 2 Output</div>
-            <span class="badge-approved">Completed</span>
-          </div>
-          <div class="node-output-title">Customer context package</div>
-          <div class="node-output-sub">eligible</div>
-          <div class="output-grid">
-            <div>
-              <div class="output-cell-label">Business Risk</div>
-              <div class="output-cell-value">high (high)</div>
-              <div class="output-cell-sub">
-                Risk signals: repeat-failure, 10 open
-              </div>
-            </div>
-            <div>
-              <div class="output-cell-label">Repeat Failure</div>
-              <div class="output-cell-value">Triggered</div>
-              <div class="output-cell-sub">10 incidents in 30 days</div>
-            </div>
-            <div>
-              <div class="output-cell-label">Strategic Account</div>
-              <div class="output-cell-value">No</div>
-              <div class="output-cell-sub">Strategic flag: no</div>
-            </div>
-            <div>
-              <div class="output-cell-label">Assets Found</div>
-              <div class="output-cell-value">0 assets</div>
-              <div class="output-cell-sub">Models: 0</div>
-            </div>
-            <div>
-              <div class="output-cell-label">Open Incidents</div>
-              <div class="output-cell-value">10</div>
-              <div class="output-cell-sub">10 open incidents</div>
-            </div>
-            <div>
-              <div class="output-cell-label">Prior Escalations</div>
-              <div class="output-cell-value">0</div>
-              <div class="output-cell-sub">0 prior escalations</div>
-            </div>
-            <div>
-              <div class="output-cell-label">SLA</div>
-              <div class="output-cell-value">none</div>
-              <div class="output-cell-sub">
-                No active entitlement on the account
-              </div>
-            </div>
-            <div>
-              <div class="output-cell-label">Warranty</div>
-              <div class="output-cell-value">unknown</div>
-              <div class="output-cell-sub">
-                No warranty/entitlement record for the asset
-              </div>
-            </div>
-          </div>
-          <button class="output-json-toggle" onclick="toggleJson(this)">
-            <span class="arrow">▶</span> Customer context package JSON
-          </button>
-          <div class="output-json-body">
-            {"tier":"standard","sla_class":"none","warranty":"unknown","assets":0,"prior_cases":11,"open_incidents":10,"business_risk":"high","risk_confidence":"high","strategic":false,"repeat_failure":true,"degraded":false}
-          </div>
-        </div>
-
-        <!-- NODE 3 -->
-        <div class="node-output">
-          <div class="node-output-head">
-            <div class="node-output-label">Node 3 Output</div>
-            <span class="badge-approved">Completed</span>
-          </div>
-          <div class="node-output-title">Knowledge guidance</div>
-          <div class="node-output-sub">
-            Knowledge retrieval executed for this workflow.
-          </div>
-          <div class="output-grid">
-            <div>
-              <div class="output-cell-label">Status</div>
-              <div class="output-cell-value">ANSWERED</div>
-              <div class="output-cell-sub">Degraded: No</div>
-            </div>
-            <div>
-              <div class="output-cell-label">Sources Found</div>
-              <div class="output-cell-value">2</div>
-              <div class="output-cell-sub">
-                Retrieval id: rag-4862cb30-d662-4dba-ad12-a95b2fdf54cd
-              </div>
-            </div>
-            <div>
-              <div class="output-cell-label">Guidance Confidence</div>
-              <div class="output-cell-value">medium</div>
-              <div class="output-cell-sub">Graded from retrieval signals</div>
-            </div>
-            <div>
-              <div class="output-cell-label">Provider</div>
-              <div
-                class="output-cell-value"
-                style="font-size: 13px; font-weight: 500"
-              >
-                openai
-              </div>
-            </div>
-            <div>
-              <div class="output-cell-label">Latency</div>
-              <div class="output-cell-value">1094 ms</div>
-              <div class="output-cell-sub">Embeddings: openai</div>
-            </div>
-          </div>
-          <hr class="output-divider" />
-          <div class="output-text-label">Recommended Actions</div>
-          <div class="rec-action-row">
-            <div style="flex: 1">
-              <div class="rec-action-name">replace part</div>
-              <div class="rec-action-desc">
-                Battery wear level may exceed acceptable limits
-              </div>
-            </div>
-            <span
-              class="badge-medium"
-              style="
-                font-size: 10.5px;
-                font-weight: 700;
-                border-radius: 4px;
-                padding: 2px 7px;
-              "
-              >MEDIUM</span
-            >
-            <span
-              class="badge-approval"
-              style="
-                font-size: 10.5px;
-                font-weight: 700;
-                border-radius: 4px;
-                padding: 2px 7px;
-                background: #fee2e2;
-                color: #dc2626;
-              "
-              >APPROVAL</span
-            >
-          </div>
-          <hr class="output-divider" />
-          <div class="output-text-label">Recommended Guidance</div>
-          <div class="output-text-body">
-            The battery of the ProBook 15X may need replacement due to repeated
-            issues and potential degradation.
-          </div>
-          <hr class="output-divider" />
-          <div class="output-text-label">Sources (2)</div>
-          <div class="output-source">
-            <span class="output-source-icon">⇒</span>
-            <div>
-              <div class="output-source-name">
-                Battery Health Check Procedure for Warranty Assessment
-              </div>
-              <div class="output-source-meta">
-                Score: 63 · Version: 2026.06.10
-              </div>
-            </div>
-          </div>
-          <div class="output-source">
-            <span class="output-source-icon">⇒</span>
-            <div>
-              <div class="output-source-name">
-                Battery Drains Rapidly on AeroVolt ProBook 15X
-              </div>
-              <div class="output-source-meta">
-                Score: 60 · Version: 2026.06.10
-              </div>
-            </div>
-          </div>
-          <button class="output-json-toggle" onclick="toggleJson(this)">
-            <span class="arrow">▶</span> Knowledge guidance JSON
-          </button>
-          <div class="output-json-body">
-            {"status":"ANSWERED","guidance_confidence":"medium","recommended_action":"replace
-            part","approval_required":true,"sources":["rag-4862cb30-d662-4dba-ad12-a95b2fdf54cd","rag-8811ae12-cc01-41f3-9981-b3c02aa10002"],"degraded":false,"eligible":true}
-          </div>
-        </div>
-
-        <!-- NODE 4 -->
-        <div class="node-output">
-          <div class="node-output-head">
-            <div class="node-output-label">Node 4 Output</div>
-            <span class="badge-approved">Completed</span>
-          </div>
-          <div class="node-output-title">Parts &amp; logistics</div>
-          <div class="node-output-sub">
-            Fulfillment planning executed for this workflow.
-          </div>
-          <div class="output-grid">
-            <div>
-              <div class="output-cell-label">Status</div>
-              <div class="output-cell-value">PLANNED</div>
-              <div class="output-cell-sub">Degraded: No</div>
-            </div>
-            <div>
-              <div class="output-cell-label">Fulfillment Readiness</div>
-              <div class="output-cell-value">ready</div>
-              <div class="output-cell-sub">Confidence: high</div>
-            </div>
-            <div>
-              <div class="output-cell-label">Parts Planned</div>
-              <div class="output-cell-value">1</div>
-            </div>
-            <div>
-              <div class="output-cell-label">KB Warehouse Cross-check</div>
-              <div class="output-cell-value">ALIGNED</div>
-              <div class="output-cell-sub">
-                Aligned 1 · Divergent 0 · Undocumented 0
-              </div>
-            </div>
-          </div>
-          <hr class="output-divider" />
-          <div class="output-text-label">Part Plans (1)</div>
-          <div class="part-plan-card">
-            <div class="part-plan-head">
-              SP-BATT-15X · 6 Cell Battery Pack
-              <span class="badge-kb-aligned">KB aligned</span>
-            </div>
-            <div class="part-plan-detail">
-              Availability: available · none · ETA 12–20 hours
-            </div>
-            <div class="part-plan-detail">Fulfillment WH: WH-AUS-001</div>
-            <div class="part-plan-detail" style="margin-top: 4px; color: #444">
-              25 in stock at fulfillment warehouse WH-AUS-001; ready to reserve.
-            </div>
-          </div>
-        </div>
-
-        <!-- NODE 5 -->
-        <div class="node-output">
-          <div class="node-output-head">
-            <div class="node-output-label">Node 5 Output</div>
-            <span class="badge-approved">Completed</span>
-          </div>
-          <div class="node-output-title">Scheduling</div>
-          <div class="node-output-sub">
-            Technician ranking and service-window planning executed for this
-            workflow.
-          </div>
-          <div class="output-grid">
-            <div>
-              <div class="output-cell-label">Readiness</div>
-              <div class="output-cell-value">schedulable</div>
-              <div class="output-cell-sub">Confidence: high</div>
-            </div>
-            <div>
-              <div class="output-cell-label">Recommended Technician</div>
-              <div class="output-cell-value">SR-A1</div>
-              <div class="output-cell-sub">
-                Skills: Laptop Hardware, Battery/Power
-              </div>
-            </div>
-            <div>
-              <div class="output-cell-label">Proposed Window</div>
-              <div class="output-cell-value">Tomorrow 11:00–13:00 PDT</div>
-              <div class="output-cell-sub">
-                Basis: technician_availability gated on parts ETA
-              </div>
-            </div>
-            <div>
-              <div class="output-cell-label">Parts Readiness Seen</div>
-              <div class="output-cell-value">ready</div>
-              <div class="output-cell-sub">Parts ETA considered in gating</div>
-            </div>
-          </div>
-          <hr class="output-divider" />
-          <div class="output-text-label">Ranked Technicians (2)</div>
-          <div class="tech-card">
-            <div class="tech-card-head">
-              <div class="tech-card-name">
-                #1 · SR-A1 · North America (secondary)
-              </div>
-              <span class="tech-rank">rank 0.81</span>
-            </div>
-            <div class="tech-skills">
-              Skills: Laptop Hardware, Battery/Power
-            </div>
-            <div class="tech-detail">Earliest 2026-06-24T18:00:00.000Z</div>
-            <div class="tech-detail" style="margin-top: 3px; color: #555">
-              Matches Laptop Hardware, Battery/Power; secondary member of North
-              America; available within the planning horizon.
-            </div>
-          </div>
-          <div class="tech-card">
-            <div class="tech-card-head">
-              <div class="tech-card-name">
-                #2 · SR-A2 · North America (secondary)
-              </div>
-              <span class="tech-rank">rank 0.7</span>
-            </div>
-            <div class="tech-skills">
-              Skills: Laptop Hardware, Battery/Power
-            </div>
-            <div class="tech-detail">Earliest 2026-06-24T16:00:00.000Z</div>
-            <div class="tech-detail" style="margin-top: 3px; color: #555">
-              Matches Laptop Hardware, Battery/Power; secondary member of North
-              America; available within the planning horizon.
-            </div>
-          </div>
-          <div class="verdict-note">
-            Point-in-time plan: readiness reflects parts availability as of this
-            run. Technician identity is a sanitized reference, never a full
-            name.
-          </div>
-        </div>
-
-        <!-- NODE 6 -->
-        <div class="node-output">
-          <div class="node-output-head">
-            <div class="node-output-label">Node 6 Output</div>
-            <span class="badge-approved">Approved</span>
-          </div>
-          <div class="node-output-title">Compliance &amp; guardrail</div>
-          <div class="output-grid">
-            <div>
-              <div class="output-cell-label">Risk</div>
-              <div class="output-cell-value">40 / MEDIUM</div>
-            </div>
-            <div>
-              <div class="output-cell-label">Triggered Rules</div>
-              <div class="output-cell-value">3</div>
-              <div class="output-cell-sub">
-                Channels: triage, customerContext, knowledgeGuidance,
-                partsLogistics, scheduling
-              </div>
-            </div>
-          </div>
-          <hr class="output-divider" />
-          <div class="output-text-label">Policy Rules Triggered</div>
-          <div class="output-pill-row">
-            <span class="output-pill pill-red">CUSTOMER_RISK_HIGH</span>
-            <span class="output-pill pill-orange">REPEAT_INCIDENT</span>
-            <span class="output-pill pill-orange">KB_REQUIRED_APPROVAL</span>
-          </div>
-          <hr class="output-divider" />
-          <div class="output-text-label">Approval Reasons</div>
-          <div class="approval-reason">Customer business risk is high.</div>
-          <div class="approval-reason">Repeat incident on this account.</div>
-          <div class="approval-reason">Knowledge action requires approval.</div>
-          <div class="verdict-note" style="margin-top: 10px">
-            Deterministic policy over typed channel signals only. Approvals
-            happen out of band — this console is read-only.
-          </div>
-        </div>
-      </div>
-      <!-- /outputs-panel -->
-    </div>
-    <!-- /split-layout -->
 
     <script>
-      function toggleTrace(btn) {
-        const arrow = btn.querySelector(".trace-arrow");
-        const body = btn.nextElementSibling;
-        const isOpen = body.classList.contains("open");
-        body.classList.toggle("open", !isOpen);
-        arrow.classList.toggle("open", !isOpen);
+      /* ============================================================
+   Orchestration Console — real run, Case 00001079.
+   Design preserved from the approved mockup. Content synced from
+   the live orchestrator screens. The "Structured execution
+   details" section is removed; each agent's detailed thinking
+   now lives in a click-to-expand accordion per node.
+   ============================================================ */
+
+      /* ---- icons (SVG path data carried over from the mockup) ---- */
+      const ICONS = {
+        search: '<circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/>',
+        user: '<circle cx="12" cy="8" r="3.4"/><path d="M5.5 19c0-3.6 2.9-5.6 6.5-5.6s6.5 2 6.5 5.6"/>',
+        book: '<path d="M12 6.2c-2-1.3-4-1.6-6-1.4v12.4c2-.2 4 .1 6 1.4 2-1.3 4-1.6 6-1.4V4.8c-2-.2-4 .1-6 1.4z"/><path d="M12 6.2v12.6"/>',
+        box: '<path d="M12 3.2l8 4.4v8.8L12 20.8l-8-4.4V7.6z"/><path d="M4.2 7.7l7.8 4.3 7.8-4.3"/><path d="M12 12v8.6"/>',
+        cal: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9.5h16"/><path d="M8.5 3v4"/><path d="M15.5 3v4"/>',
+        shield:
+          '<path d="M12 3l7 2.8v5c0 4.6-3 7.6-7 9-4-1.4-7-4.4-7-9v-5z"/><path d="M9 12l2 2 4-4"/>',
+        inbox:
+          '<path d="M4 13h4l1.5 2.5h5L16 13h4"/><path d="M4 13l2.5-7h11L20 13v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/>',
+        flag: '<path d="M6 21V4"/><path d="M6 4.5h11l-2 3.5 2 3.5H6"/>'
+      };
+      function svgIcon(key) {
+        return (
+          '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
+          (ICONS[key] || ICONS.search) +
+          "</svg>"
+        );
+      }
+      const CHECK =
+        '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4 4 10-10"/></svg>';
+      const BRAIN =
+        '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="3"/><path d="M12 6v12M6 12h12"/></svg>';
+
+      /* ---- the six real nodes (content from the live console screens) ---- */
+      const NODES = [
+        {
+          n: "01",
+          name: "Triage",
+          icon: "search",
+          sub: "priority · severity · write‑back",
+          output: "Normal priority · ProBook 15X battery",
+          latency: "1285 ms",
+          detail: [
+            {
+              type: "summary",
+              text: "Routine battery replacement needed for ProBook 15X due to degraded capacity. Recommended priority normal — written back to the Case. Next step: confirm local stock availability for the battery replacement part."
+            },
+            {
+              type: "fields",
+              items: [
+                { k: "Priority", v: "normal" },
+                { k: "Provider", v: "openai" },
+                { k: "Model", v: "gpt‑4o‑mini" },
+                { k: "Fallback", v: "No" },
+                { k: "Latency", v: "1285 ms" },
+                { k: "Write‑back", v: "Applied" }
+              ]
+            },
+            {
+              type: "trace",
+              items: [
+                {
+                  label: "Triage assigned for case 00001079",
+                  status: "assigned",
+                  fields: []
+                },
+                {
+                  label: "Reading Case context from Salesforce",
+                  status: "done",
+                  fields: [
+                    { k: "Case", v: "00001079" },
+                    { k: "Reported priority", v: "normal" },
+                    { k: "Status", v: "New" },
+                    { k: "Origin", v: "Web" },
+                    { k: "Account linked", v: "Yes" }
+                  ]
+                },
+                {
+                  label: "Running AI triage",
+                  status: "done",
+                  fields: [
+                    { k: "Recommended priority", v: "normal" },
+                    { k: "Provider", v: "openai" },
+                    { k: "Model", v: "gpt‑4o‑mini" },
+                    { k: "Latency", v: "1285 ms" },
+                    { k: "Fallback", v: "No" }
+                  ]
+                },
+                {
+                  label: "Applying approved write‑back to Case",
+                  status: "done",
+                  fields: [
+                    { k: "Field", v: "Priority" },
+                    { k: "Value", v: "normal" }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          n: "02",
+          name: "Customer Context",
+          icon: "user",
+          sub: "account · warranty · incidents",
+          output: "High business risk · repeat failure ×10",
+          detail: [
+            {
+              type: "summary",
+              text: "Customer context package eligible. Business risk graded high with high confidence; repeat failure triggered with 10 incidents in 30 days. No active entitlement and no warranty record for the asset."
+            },
+            {
+              type: "fields",
+              items: [
+                { k: "Eligible", v: "Yes" },
+                {
+                  k: "Business risk",
+                  v: "high",
+                  h: "Risk signals: repeat‑failure, 10 open"
+                },
+                {
+                  k: "Repeat failure",
+                  v: "Triggered",
+                  h: "10 incidents in 30 days"
+                },
+                { k: "Strategic account", v: "No" },
+                { k: "Assets found", v: "0" },
+                { k: "Open incidents", v: "10" },
+                { k: "Prior escalations", v: "0" },
+                {
+                  k: "SLA",
+                  v: "none",
+                  h: "No active entitlement on the account"
+                },
+                {
+                  k: "Warranty",
+                  v: "unknown",
+                  h: "No warranty/entitlement record for the asset"
+                }
+              ]
+            },
+            {
+              type: "trace",
+              items: [
+                {
+                  label: "Reading customer profile and entitlements",
+                  status: "done",
+                  fields: [
+                    { k: "Read source", v: "soql" },
+                    { k: "Customer tier", v: "standard" },
+                    { k: "SLA class", v: "none" },
+                    { k: "Warranty", v: "unknown" }
+                  ]
+                },
+                {
+                  label: "Reading installed assets and service history",
+                  status: "done",
+                  fields: [
+                    { k: "Read source", v: "soql" },
+                    { k: "Installed assets", v: "0" },
+                    { k: "Prior cases", v: "11" },
+                    { k: "Degraded sources", v: "0" }
+                  ]
+                },
+                {
+                  label: "Analyzing customer history",
+                  status: "done",
+                  fields: [
+                    { k: "Business risk", v: "high" },
+                    { k: "Risk confidence", v: "high" },
+                    { k: "Model", v: "gpt‑4o‑mini" }
+                  ]
+                },
+                {
+                  label: "Building customer context package",
+                  status: "done",
+                  fields: [
+                    { k: "Assets found", v: "0" },
+                    { k: "Repeat incidents", v: "10" },
+                    { k: "Business risk", v: "high" }
+                  ]
+                },
+                {
+                  label: "Writing customer findings to state",
+                  status: "done",
+                  fields: [
+                    { k: "Customer tier", v: "standard" },
+                    { k: "SLA class", v: "none" },
+                    { k: "Warranty", v: "unknown" },
+                    { k: "Repeat failure", v: "Yes" },
+                    { k: "Strategic", v: "No" },
+                    { k: "Risk confidence", v: "high" },
+                    { k: "Degraded", v: "No" }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          n: "03",
+          name: "Knowledge Base",
+          icon: "book",
+          sub: "RAG query · approved guidance",
+          output: "Answered · 2 sources · medium confidence",
+          latency: "1094 ms",
+          detail: [
+            {
+              type: "summary",
+              text: "Knowledge retrieval executed for this workflow. The battery of the ProBook 15X may need replacement due to repeated issues and potential degradation."
+            },
+            {
+              type: "fields",
+              items: [
+                { k: "Status", v: "ANSWERED", h: "Degraded: No" },
+                {
+                  k: "Sources found",
+                  v: "2",
+                  h: "Retrieval id: rag‑4662cb30‑d662‑4dba‑ad12‑a95b2fdf54cd"
+                },
+                {
+                  k: "Guidance confidence",
+                  v: "medium",
+                  h: "Graded from retrieval signals"
+                },
+                { k: "Provider", v: "openai" },
+                { k: "Latency", v: "1094 ms", h: "Embeddings: openai" },
+                { k: "Eligible", v: "Yes" }
+              ]
+            },
+            {
+              type: "list",
+              title: "Recommended action",
+              items: [
+                {
+                  title: "replace part",
+                  tags: [{ t: "medium" }, { t: "approval", cls: "amber" }],
+                  desc: "Battery wear level may exceed acceptable limits."
+                }
+              ]
+            },
+            {
+              type: "list",
+              title: "Sources (2)",
+              items: [
+                {
+                  title:
+                    "Battery Health Check Procedure for Warranty Assessment",
+                  meta: "Score 63 · Version 2026.06.10"
+                },
+                {
+                  title: "Battery Drains Rapidly on AeroVolt ProBook 15X",
+                  meta: "Score 60 · Version 2026.06.10"
+                }
+              ]
+            },
+            {
+              type: "trace",
+              items: [
+                {
+                  label: "Constructing targeted knowledge query",
+                  status: "done",
+                  fields: [
+                    {
+                      k: "Query",
+                      v: "Constructed from Case + customer context"
+                    },
+                    { k: "Namespace", v: "customer‑self‑service" }
+                  ]
+                },
+                {
+                  label: "Searching approved knowledge base",
+                  status: "done",
+                  fields: [
+                    { k: "Namespace", v: "customer‑self‑service" },
+                    { k: "TopK", v: "5" },
+                    { k: "Score threshold", v: "0.65" }
+                  ]
+                },
+                {
+                  label: "Found 2 matching troubleshooting guides",
+                  status: "done",
+                  fields: [
+                    { k: "Status", v: "ANSWERED" },
+                    { k: "Sources found", v: "2" },
+                    { k: "Provider", v: "openai" },
+                    { k: "Latency", v: "1094 ms" }
+                  ]
+                },
+                {
+                  label: "Writing knowledge findings to state",
+                  status: "done",
+                  fields: [
+                    { k: "Status", v: "ANSWERED" },
+                    { k: "Eligible", v: "Yes" },
+                    { k: "Degraded", v: "No" }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          n: "04",
+          name: "Parts & Logistics",
+          icon: "box",
+          sub: "warehouse · inventory · ETA",
+          output: "SP‑BATT‑15X ready · WH‑AUS‑001",
+          detail: [
+            {
+              type: "summary",
+              text: "Fulfillment planning executed for this workflow. SP‑BATT‑15X 6 Cell Battery Pack is available at WH‑AUS‑001 — 25 in stock, ready to reserve. KB warehouse cross‑check aligned."
+            },
+            {
+              type: "fields",
+              items: [
+                { k: "Status", v: "PLANNED", h: "Degraded: No" },
+                {
+                  k: "Fulfillment readiness",
+                  v: "ready",
+                  h: "Confidence: high"
+                },
+                { k: "Parts planned", v: "1" },
+                {
+                  k: "KB cross‑check",
+                  v: "ALIGNED",
+                  h: "Aligned 1 · Divergent 0 · Undocumented 0"
+                }
+              ]
+            },
+            {
+              type: "list",
+              title: "Part plans (1)",
+              items: [
+                {
+                  title: "SP‑BATT‑15X · 6 Cell Battery Pack",
+                  tags: [{ t: "KB aligned" }],
+                  meta: "Availability: available · ETA 12–20 hours · Fulfillment WH: WH‑AUS‑001",
+                  desc: "25 in stock at fulfillment warehouse WH‑AUS‑001; ready to reserve."
+                }
+              ]
+            },
+            {
+              type: "trace",
+              items: [
+                {
+                  label:
+                    "Selecting fulfillment warehouse and reading live inventory",
+                  status: "done",
+                  fields: [
+                    { k: "Ship‑to", v: "Austin, TX" },
+                    { k: "Asset model", v: "AV‑LP‑15X‑PRO" },
+                    { k: "Suggested parts", v: "1" }
+                  ]
+                },
+                {
+                  label: "Planned 1 part(s) — fulfillment ready",
+                  status: "done",
+                  fields: [
+                    { k: "Status", v: "PLANNED" },
+                    { k: "Fulfillment", v: "ready" },
+                    { k: "Parts", v: "1" },
+                    { k: "KB cross‑check", v: "ALIGNED" }
+                  ]
+                },
+                {
+                  label: "Writing fulfillment plan to state",
+                  status: "done",
+                  fields: [
+                    { k: "Warehouse", v: "WH‑AUS‑001" },
+                    { k: "Readiness", v: "ready" }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          n: "05",
+          name: "Scheduling",
+          icon: "cal",
+          sub: "technician · skill · window",
+          output: "SR‑A1 · Tomorrow 11:00–13:00 PDT",
+          detail: [
+            {
+              type: "summary",
+              text: "Technician ranking and service‑window planning executed. SR‑A1 proposed for Tomorrow 11:00–13:00 PDT, gated on parts ETA. Schedulable with high confidence."
+            },
+            {
+              type: "fields",
+              items: [
+                { k: "Readiness", v: "schedulable", h: "Confidence: high" },
+                {
+                  k: "Recommended technician",
+                  v: "SR‑A1",
+                  h: "Skills: Laptop Hardware, Battery/Power"
+                },
+                {
+                  k: "Proposed window",
+                  v: "Tomorrow 11:00–13:00 PDT",
+                  h: "after parts arrive"
+                },
+                {
+                  k: "Parts readiness seen",
+                  v: "ready",
+                  h: "Parts ETA considered in gating"
+                }
+              ]
+            },
+            {
+              type: "list",
+              title: "Ranked technicians (2)",
+              items: [
+                {
+                  title: "#1 · SR‑A1 · North America (secondary)",
+                  tags: [{ t: "rank 0.81" }],
+                  meta: "Skills: Laptop Hardware, Battery/Power · Earliest 2026‑06‑24T18:00:00Z",
+                  desc: "matches Laptop Hardware, Battery/Power; secondary member of North America; available within the planning horizon."
+                },
+                {
+                  title: "#2 · SR‑A2 · North America (secondary)",
+                  tags: [{ t: "rank 0.70" }],
+                  meta: "Skills: Laptop Hardware, Battery/Power · Earliest 2026‑06‑24T16:00:00Z",
+                  desc: "matches Laptop Hardware, Battery/Power; secondary member of North America; available within the planning horizon."
+                }
+              ]
+            },
+            {
+              type: "note",
+              text: "Point‑in‑time plan: readiness reflects parts availability as of this run. Technician identity is a sanitized reference, never a full name."
+            },
+            {
+              type: "trace",
+              items: [
+                {
+                  label: "Ranking technicians by skill and territory",
+                  status: "done",
+                  fields: [
+                    { k: "Considered", v: "2" },
+                    { k: "Top", v: "SR‑A1" },
+                    { k: "Rank", v: "0.81" }
+                  ]
+                },
+                {
+                  label: "Proposing earliest service window after parts ETA",
+                  status: "done",
+                  fields: [
+                    { k: "Window", v: "Tomorrow 11:00–13:00 PDT" },
+                    {
+                      k: "Basis",
+                      v: "technician_availability · gated on parts ETA"
+                    }
+                  ]
+                },
+                {
+                  label: "Writing scheduling plan to state",
+                  status: "done",
+                  fields: [
+                    { k: "Readiness", v: "schedulable" },
+                    { k: "Technician", v: "SR‑A1" }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          n: "06",
+          name: "Compliance & Guardrail",
+          icon: "shield",
+          sub: "entitlement · policy · approval",
+          output: "Approved · risk 40/medium · human sign‑off",
+          guardrail: true,
+          detail: [
+            {
+              type: "summary",
+              text: "Composite policy evaluated across all upstream channels. Human approval required (risk 40, medium); approver approved. Approvals happen out of band — this console is read‑only."
+            },
+            {
+              type: "fields",
+              items: [
+                { k: "Outcome", v: "Approved" },
+                { k: "Risk", v: "40 / MEDIUM" },
+                {
+                  k: "Triggered rules",
+                  v: "3",
+                  h: "Channels: triage, customerContext, knowledgeGuidance, partsLogistics, scheduling"
+                },
+                { k: "Approval channel", v: "salesforce_approval" }
+              ]
+            },
+            {
+              type: "chips",
+              items: [
+                { k: "CUSTOMER_RISK_HIGH" },
+                { k: "REPEAT_INCIDENT" },
+                { k: "KB_REQUIRED_APPROVAL" }
+              ]
+            },
+            {
+              type: "list",
+              title: "Approval reasons",
+              items: [
+                { title: "Customer business risk is high." },
+                { title: "Repeat incident on this account." },
+                { title: "Knowledge action requires approval." }
+              ]
+            },
+            {
+              type: "trace",
+              items: [
+                {
+                  label:
+                    "Evaluated composite policy and routed for human approval",
+                  status: "done",
+                  fields: [
+                    { k: "Outcome", v: "Approved" },
+                    { k: "Risk", v: "40 medium" },
+                    { k: "Channel", v: "salesforce_approval" }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ];
+
+      /* ---- the orchestrator verdict (terminal accordion) ---- */
+      const VERDICT = {
+        headline:
+          "Normal priority · high business risk · approved with human sign‑off. 6 / 6 nodes complete.",
+        meta: "wf‑c79ee03d‑a8fa‑4316‑9517‑a9b4872833a4 · write‑back applied",
+        summary:
+          "Triage recommends normal priority with high business risk. Knowledge base returned 2 matching source(s). Parts plan: SP‑BATT‑15X is available at WH‑AUS‑001. Scheduling: SR‑A1 proposed for Tomorrow 11:00–13:00 PDT (after parts arrive). Guardrail required human approval (risk 40, medium); approver approved. The recommended priority was written back to the Case.",
+        chips: [
+          { k: "Guardrail outcome", v: "Approved" },
+          { k: "Risk score", v: "40" },
+          { k: "Risk level", v: "medium" },
+          { k: "Triggered rules", v: "3" },
+          { k: "Approval channel", v: "salesforce_approval" },
+          { k: "Priority", v: "normal" },
+          { k: "Business risk", v: "high" },
+          { k: "Warranty", v: "unknown" }
+        ],
+        steps: [
+          "Human approval granted — proceed with fulfillment and scheduling.",
+          "Confirm local stock availability for battery replacement part.",
+          "Battery wear level may exceed acceptable limits.",
+          "Dispatch SP‑BATT‑15X from WH‑AUS‑001.",
+          "Confirm appointment for SR‑A1 on Tomorrow 11:00–13:00 PDT (after parts arrive).",
+          "Confirm the Case priority reflects the applied write‑back."
+        ]
+      };
+
+      /* ============================================================
+   Accordion content rendering (the "agent detailed thinking")
+   ============================================================ */
+      function esc(s) {
+        return String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
       }
 
-      function toggleJson(btn) {
-        const arrow = btn.querySelector(".arrow");
-        const body = btn.nextElementSibling;
-        const isOpen = body.classList.contains("open");
-        body.classList.toggle("open", !isOpen);
-        arrow.classList.toggle("open", !isOpen);
+      function renderFields(items) {
+        return (
+          '<div class="grid">' +
+          items
+            .map(
+              (f) =>
+                '<div class="field"><div class="fk">' +
+                esc(f.k) +
+                '</div><div class="fv">' +
+                esc(f.v) +
+                "</div>" +
+                (f.h ? '<div class="fh">' + esc(f.h) + "</div>" : "") +
+                "</div>"
+            )
+            .join("") +
+          "</div>"
+        );
+      }
+      function renderList(sec) {
+        return (
+          '<div class="block"><div class="bt">' +
+          esc(sec.title) +
+          "</div>" +
+          sec.items
+            .map((it) => {
+              const tags = (it.tags || [])
+                .map(
+                  (t) =>
+                    '<span class="tag ' +
+                    (t.cls || "") +
+                    '">' +
+                    esc(t.t) +
+                    "</span>"
+                )
+                .join("");
+              return (
+                '<div class="item"><div class="it-top"><span class="it-title">' +
+                esc(it.title) +
+                "</span>" +
+                tags +
+                "</div>" +
+                (it.meta
+                  ? '<div class="it-meta">' + esc(it.meta) + "</div>"
+                  : "") +
+                (it.desc
+                  ? '<div class="it-desc">' + esc(it.desc) + "</div>"
+                  : "") +
+                "</div>"
+              );
+            })
+            .join("") +
+          "</div>"
+        );
+      }
+      function renderChips(items) {
+        return (
+          '<div class="chips">' +
+          items
+            .map(
+              (c) =>
+                '<span class="chip">' +
+                esc(c.k) +
+                (c.v ? ": <b>" + esc(c.v) + "</b>" : "") +
+                "</span>"
+            )
+            .join("") +
+          "</div>"
+        );
+      }
+      function renderNote(text) {
+        return (
+          '<div class="ofoot" style="border:1px solid #ececea;border-radius:7px;margin-bottom:14px;">' +
+          esc(text) +
+          "</div>"
+        );
+      }
+      function renderTrace(items) {
+        return (
+          '<div class="trace"><div class="tlabel">Execution trace · agent reasoning</div>' +
+          items
+            .map((s, i) => {
+              const fields = (s.fields || [])
+                .map(
+                  (f) =>
+                    '<span class="tf">' +
+                    esc(f.k) +
+                    " <b>" +
+                    esc(f.v) +
+                    "</b></span>"
+                )
+                .join("");
+              return (
+                '<div class="tstep ' +
+                (s.status || "done") +
+                '"><span class="tknot"></span>' +
+                '<div class="th"><span class="tn">SEQ ' +
+                (i + 1) +
+                '</span><span class="tt">' +
+                esc(s.label) +
+                '</span><span class="tst">' +
+                esc(s.status || "done") +
+                "</span></div>" +
+                (fields ? '<div class="tfields">' + fields + "</div>" : "") +
+                "</div>"
+              );
+            })
+            .join("") +
+          "</div>"
+        );
+      }
+      function renderSteps(items) {
+        return (
+          '<ol class="steps">' +
+          items.map((s) => "<li>" + esc(s) + "</li>").join("") +
+          "</ol>"
+        );
+      }
+      function renderDetail(detail) {
+        return detail
+          .map((sec) => {
+            if (sec.type === "summary")
+              return '<div class="acc-summary">' + esc(sec.text) + "</div>";
+            if (sec.type === "fields") return renderFields(sec.items);
+            if (sec.type === "list") return renderList(sec);
+            if (sec.type === "chips") return renderChips(sec.items);
+            if (sec.type === "note") return renderNote(sec.text);
+            if (sec.type === "steps") return renderSteps(sec.items);
+            if (sec.type === "trace") return renderTrace(sec.items);
+            return "";
+          })
+          .join("");
       }
 
-      function toggleAudit() {
-        const steps = document.querySelectorAll(".step-fields");
-        const btn = document.getElementById("auditToggle");
-        const isHidden = steps[0] && steps[0].style.display === "none";
-        steps.forEach((s) => (s.style.display = isHidden ? "" : "none"));
-        btn.style.opacity = isHidden ? "1" : "0.6";
+      /* ============================================================
+   Build the spine (one row per node), then animate once.
+   ============================================================ */
+      const elNodes = document.getElementById("nodes");
+      NODES.forEach((node) => {
+        const row = document.createElement("div");
+        row.className = "row";
+        row.innerHTML =
+          '<div class="rail">' +
+          '<div class="line top"></div>' +
+          '<div class="line bot"></div>' +
+          '<div class="knot"><span class="dot"></span></div>' +
+          "</div>" +
+          '<div class="card">' +
+          '<div class="chead">' +
+          '<div class="ibox">' +
+          svgIcon(node.icon) +
+          "</div>" +
+          '<div class="cmid">' +
+          '<div class="cnum-name"><span class="cnum">' +
+          node.n +
+          '</span><span class="cname">' +
+          esc(node.name) +
+          "</span></div>" +
+          '<div class="csub">' +
+          esc(node.sub) +
+          "</div>" +
+          "</div>" +
+          '<div class="cright"><span class="status">QUEUED</span><span class="lat"></span></div>' +
+          '<span class="chev">⌄</span>' +
+          "</div>" +
+          '<div class="body-slot"></div>' +
+          '<div class="accordion"><div class="acc-inner">' +
+          renderDetail(node.detail) +
+          "</div></div>" +
+          "</div>";
+        elNodes.appendChild(row);
+        node._card = row.querySelector(".card");
+        node._head = row.querySelector(".chead");
+        node._dot = row.querySelector(".dot");
+        node._lineTop = row.querySelector(".line.top");
+        node._lineBot = row.querySelector(".line.bot");
+        node._status = row.querySelector(".status");
+        node._lat = row.querySelector(".lat");
+        node._slot = row.querySelector(".body-slot");
+      });
+
+      /* paint icons declared via data-icon (intake, terminal, brain) */
+      document.querySelectorAll("[data-icon]").forEach((d) => {
+        const k = d.getAttribute("data-icon");
+        d.innerHTML = k === "brain" ? BRAIN : svgIcon(k);
+      });
+
+      /* dynamic refs */
+      const R = {
+        elapsed: document.getElementById("elapsed"),
+        fill: document.getElementById("fill"),
+        pill: document.getElementById("pill"),
+        pillLabel: document.getElementById("pillLabel"),
+        odot: document.getElementById("odot"),
+        olabel: document.getElementById("olabel"),
+        osub: document.getElementById("osub"),
+        log: document.getElementById("log"),
+        termDot: document.getElementById("termDot"),
+        termLine: document.getElementById("termLine"),
+        termIbox: document.getElementById("termIbox"),
+        termName: document.getElementById("termName"),
+        termStatus: document.getElementById("termStatus"),
+        termHead: document.getElementById("termHead"),
+        termChev: document.getElementById("termChev"),
+        termAcc: document.getElementById("termAcc"),
+        termAccInner: document.getElementById("termAccInner"),
+        verdictWrap: document.getElementById("verdictWrap"),
+        progress: document.getElementById("progress")
+      };
+
+      /* ---- node visual state ---- */
+      function setStatus(node, st) {
+        const c = node._card,
+          d = node._dot;
+        c.classList.remove("reached", "active", "done", "open", "guardwait");
+        d.className = "dot";
+        node._status.className = "status";
+        node._slot.innerHTML = "";
+
+        const reached = st !== "queued";
+        if (reached) c.classList.add("reached");
+        if (st === "assigned" || st === "running" || st === "waiting")
+          c.classList.add("active");
+        if (st === "done") c.classList.add("done");
+        if (st === "waiting" && node.guardrail) c.classList.add("guardwait");
+
+        // spine
+        node._lineTop.classList.toggle("on", reached);
+        node._lineBot.classList.toggle("on", st === "done");
+
+        // dot
+        if (st === "done") {
+          d.classList.add("done");
+          d.innerHTML = CHECK;
+        } else if (st === "running") {
+          d.classList.add("running");
+          d.innerHTML = '<span class="mini" style="background:#111;"></span>';
+        } else if (st === "waiting") {
+          d.classList.add("waiting");
+          d.innerHTML =
+            '<span class="mini" style="background:#d97706;"></span>';
+        } else if (st === "assigned") {
+          d.classList.add("assigned");
+          d.innerHTML = "";
+        } else {
+          d.innerHTML = "";
+        }
+
+        // status label
+        const labels = {
+          queued: "QUEUED",
+          assigned: "ASSIGNED",
+          running: "RUNNING",
+          waiting: "WAITING",
+          done: "DONE"
+        };
+        node._status.classList.add(st);
+        node._status.textContent = labels[st];
+        node._lat.textContent =
+          st === "done" && node.latency ? node.latency : "";
+
+        // body slot: thinking while running, wait note while waiting, output when done
+        if (st === "running") {
+          node._slot.innerHTML =
+            '<div class="thinking">analysing request <span class="dots"><i></i><i></i><i></i></span></div>';
+        } else if (st === "waiting") {
+          node._slot.innerHTML =
+            '<div class="waitnote"><span class="bang">!</span><span>Approval requested — routed to <b>account‑manager email / Salesforce</b>. Not actioned in this console; the flow resumes once it clears.</span></div>';
+        } else if (st === "done") {
+          let html =
+            '<div class="output"><span class="arr">↳</span><span class="txt">' +
+            esc(node.output) +
+            '</span><span class="to">→ ORCHESTRATOR</span></div>';
+          if (node.guardrail) {
+            html +=
+              '<div class="waitnote" style="margin-top:9px;"><span class="bang" style="background:#111;">✓</span><span>Human approval <b>granted</b> (out of band, via Salesforce). Flow resumed and completed.</span></div>';
+          }
+          node._slot.innerHTML = html;
+        }
       }
+
+      /* ---- header pill + progress + orchestrator panel ---- */
+      function setPill(kind) {
+        R.pill.className =
+          "pill" +
+          (kind === "complete"
+            ? " complete"
+            : kind === "paused"
+              ? " paused"
+              : "");
+        R.pillLabel.textContent =
+          kind === "complete"
+            ? "COMPLETE"
+            : kind === "paused"
+              ? "WAITING · APPROVAL"
+              : "RUNNING";
+      }
+      function setProgress(done, paused) {
+        R.progress.textContent = done + " / 6";
+        R.fill.style.width = (done / 6) * 100 + "%";
+        R.fill.style.background = paused ? "#d97706" : "#111";
+      }
+      function setOrch(state, activeName) {
+        let label,
+          sub,
+          color,
+          anim = "none";
+        switch (state) {
+          case "dispatching":
+            label = "Dispatching →";
+            sub = "handing case to " + activeName;
+            color = "#111";
+            anim = "liveblink 1.2s infinite";
+            break;
+          case "awaiting":
+            label = "Awaiting node…";
+            sub = activeName + " is reasoning";
+            color = "#111";
+            anim = "liveblink 1.2s infinite";
+            break;
+          case "receiving":
+            label = "Receiving ←";
+            sub = "output from " + activeName;
+            color = "#111";
+            break;
+          case "paused":
+            label = "Paused";
+            sub = "awaiting external approval";
+            color = "#d97706";
+            anim = "apulse 1.5s infinite";
+            break;
+          case "complete":
+            label = "Run complete";
+            sub = "6 / 6 nodes settled";
+            color = "#111";
+            break;
+          default:
+            label = "Idle";
+            sub = "waiting for trigger";
+            color = "#c2c2bd";
+        }
+        R.olabel.textContent = label;
+        R.osub.textContent = sub;
+        R.odot.style.background = color;
+        R.odot.style.animation = anim;
+      }
+
+      /* ---- activity log ---- */
+      let runStart = 0;
+      function tlabel() {
+        const s = (Date.now() - runStart) / 1000;
+        const m = Math.floor(s / 60),
+          ss = Math.floor(s % 60);
+        return "T+" + m + ":" + String(ss).padStart(2, "0");
+      }
+      function logLine(kind, text) {
+        const glyph =
+          kind === "out"
+            ? "→"
+            : kind === "in"
+              ? "←"
+              : kind === "warn"
+                ? "!"
+                : "•";
+        const row = document.createElement("div");
+        row.className = "logrow " + kind;
+        row.innerHTML =
+          '<span class="lt">' +
+          tlabel() +
+          '</span><span class="lg">' +
+          glyph +
+          '</span><span class="lx">' +
+          esc(text) +
+          "</span>";
+        R.log.appendChild(row);
+      }
+
+      /* ---- elapsed clock ---- */
+      let elapsedIv = null;
+      function fmt(sec) {
+        const m = Math.floor(sec / 60),
+          s = Math.floor(sec % 60);
+        return m + ":" + String(s).padStart(2, "0");
+      }
+
+      /* ============================================================
+   Animate once, then settle.
+   ============================================================ */
+      const T = [];
+      function at(ms, fn) {
+        T.push(setTimeout(fn, ms));
+      }
+
+      function run() {
+        runStart = Date.now();
+        NODES.forEach((n) => setStatus(n, "queued"));
+        setProgress(0, false);
+        setPill("running");
+        setOrch("idle", "");
+        R.log.innerHTML = "";
+        elapsedIv = setInterval(() => {
+          R.elapsed.textContent = fmt((Date.now() - runStart) / 1000);
+        }, 500);
+        logLine("sys", "orchestrator armed · case 00001079");
+
+        let t = 600;
+        let doneCount = 0;
+        NODES.forEach((node, i) => {
+          const last = i === NODES.length - 1;
+          at(t, () => {
+            setStatus(node, "assigned");
+            setOrch("dispatching", node.name);
+            logLine("out", "dispatch → " + node.name);
+          });
+          at(t + 380, () => {
+            setStatus(node, "running");
+            setOrch("awaiting", node.name);
+          });
+          if (node.guardrail) {
+            at(t + 1330, () => {
+              setStatus(node, "waiting");
+              setOrch("paused", node.name);
+              setPill("paused");
+              setProgress(doneCount, true);
+              logLine("warn", "approval requested → email / Salesforce");
+            });
+            at(t + 3500, () => {
+              doneCount++;
+              setStatus(node, "done");
+              setOrch("receiving", node.name);
+              setPill("running");
+              setProgress(doneCount, false);
+              logLine("in", "approval cleared (external) ← " + node.name);
+            });
+            t += 4000;
+          } else {
+            at(t + 1330, () => {
+              doneCount++;
+              setStatus(node, "done");
+              setOrch("receiving", node.name);
+              setProgress(doneCount, false);
+              logLine("in", "received ← " + node.name);
+            });
+            t += 1900;
+          }
+          if (last) at(t, complete);
+        });
+      }
+
+      function complete() {
+        clearInterval(elapsedIv);
+        setProgress(6, false);
+        setPill("complete");
+        setOrch("complete", "");
+        logLine("sys", "case handled · write‑back applied");
+
+        // terminal node → done + verdict box
+        R.termLine.classList.add("on");
+        R.termDot.classList.add("done");
+        R.termDot.innerHTML = CHECK;
+        R.termIbox.style.background = "#fff";
+        R.termIbox.style.color = "#111";
+        R.termName.style.color = "#141414";
+        R.termStatus.classList.add("done");
+        R.termStatus.textContent = "DONE";
+        R.verdictWrap.innerHTML =
+          '<div class="verdict"><div class="vk">ORCHESTRATOR VERDICT</div>' +
+          '<div class="vh">' +
+          esc(VERDICT.headline) +
+          "</div>" +
+          '<div class="vmeta">' +
+          esc(VERDICT.meta) +
+          "</div></div>";
+        R.termAccInner.innerHTML =
+          '<div class="acc-summary">' +
+          esc(VERDICT.summary) +
+          "</div>" +
+          renderChips(VERDICT.chips) +
+          '<div class="tlabel" style="font-family:var(--mono);font-size:10px;letter-spacing:.13em;color:#b0b0ac;text-transform:uppercase;margin:4px 0 8px;">Recommended steps</div>' +
+          renderSteps(VERDICT.steps);
+
+        // enable accordions everywhere
+        document.body.classList.add("settled");
+        R.termChev.style.display = "inline";
+      }
+
+      /* ---- accordion clicks (only once settled) ---- */
+      NODES.forEach((node) => {
+        node._head.addEventListener("click", () => {
+          if (!document.body.classList.contains("settled")) return;
+          if (!node._card.classList.contains("done")) return;
+          node._card.classList.toggle("open");
+        });
+      });
+      R.termHead.addEventListener("click", () => {
+        if (!document.body.classList.contains("settled")) return;
+        const open =
+          R.termAcc.style.maxHeight && R.termAcc.style.maxHeight !== "0px";
+        R.termAcc.style.maxHeight = open ? "0px" : "2600px";
+        R.termChev.style.transform = open ? "none" : "rotate(180deg)";
+      });
+
+      run();
     </script>
   </body>
 </html>
