@@ -115,15 +115,9 @@ ASSERT_STOP_AI="${ASSERT_STOP_AI:-0}"
 # minted. Needs ORCHESTRATOR_GUARDRAIL_APPROVAL_TIMEOUT_ENABLED=true +
 # a short ORCHESTRATOR_GUARDRAIL_APPROVAL_TIMEOUT_SECONDS in the test env.
 ASSERT_APPROVAL_TIMEOUT="${ASSERT_APPROVAL_TIMEOUT:-0}"
-
-# The ASSERT_STOP_AI / ASSERT_APPROVAL_TIMEOUT assertion bodies are wired during
-# the live 6c-c run (they need a control-scoped mint + precise pause-window
-# timing against a real org). Fail loud rather than silently pass if requested
-# before they are wired — see docs/context/node6-6c-stop-ai-lessons.md.
-if [ "${ASSERT_STOP_AI}" = "1" ] || [ "${ASSERT_APPROVAL_TIMEOUT}" = "1" ]; then
-  echo "ERROR: ASSERT_STOP_AI / ASSERT_APPROVAL_TIMEOUT are not yet wired in this harness." >&2
-  echo "       Run the documented 6c-c live proof steps; see docs/context/node6-6c-stop-ai-lessons.md." >&2
-  exit 2
+# When asserting approval timeout, allow extra poll time for the sweep.
+if [[ "${ASSERT_APPROVAL_TIMEOUT}" == "1" && "${POLL_TIMEOUT_SECS}" == "120" ]]; then
+  POLL_TIMEOUT_SECS=180
 fi
 
 : "${SF_CASE_ID:?Set SF_CASE_ID to a Salesforce Case record ID for the triage test.}"
@@ -167,6 +161,18 @@ AGENTFORCE_TOKEN=$(cd "${REPO_ROOT}" && railway run \
     --namespace customer-self-service \
     --ttl-seconds "${JWT_TTL_SECONDS}")
 echo "Agentforce JWT minted (${#AGENTFORCE_TOKEN} chars)."
+
+if [[ "${ASSERT_STOP_AI}" == "1" ]]; then
+  CONTROL_TOKEN=$(cd "${REPO_ROOT}" && railway run \
+    --service "${RAILWAY_SERVICE}" \
+    --environment "${RAILWAY_ENVIRONMENT}" \
+    node "${MINT_JWT}" \
+      --scope "agentforce:orchestrator-read agentforce:orchestrator-control" \
+      --tenant tenant-demo \
+      --namespace customer-self-service \
+      --ttl-seconds "${JWT_TTL_SECONDS}")
+  echo "Control JWT minted (${#CONTROL_TOKEN} chars) for Stop AI."
+fi
 
 # ---------------------------------------------------------------------------
 # 2. Optionally re-ingest the laptop KB corpus
@@ -233,9 +239,13 @@ echo "=== [5] Polling workflow ${workflow_id} (timeout: ${POLL_TIMEOUT_SECS}s) =
 
 deadline=$(( $(date +%s) + POLL_TIMEOUT_SECS ))
 terminal_statuses=("done" "failed" "rejected" "escalated")
+if [[ "${ASSERT_STOP_AI}" == "1" ]]; then
+  terminal_statuses+=("stopped")
+fi
 final_status=""
 snapshot=""
 resume_attempted=0
+stop_attempted=0
 
 while true; do
   now=$(date +%s)
@@ -252,17 +262,41 @@ while true; do
   printf "  [%ds remaining] status=%s\n" "$(( deadline - now ))" "${status}"
 
   if [[ "${status}" == "waiting_approval" && "${resume_attempted}" == "0" ]]; then
-    echo "  Workflow paused for approval — auto-resuming with approved..."
-    resume_response=$(curl -sS -X POST \
-      "${AI_API_BASE_URL}/orchestrator/case-triage/${workflow_id}/resume" \
-      -H "authorization: Bearer ${AGENTFORCE_TOKEN}" \
-      -H "content-type: application/json" \
-      -d "{\"decision\":\"approved\",\"idempotencyKey\":\"smoke-${workflow_id}\"}")
-    resume_status=$(echo "${resume_response}" | node "${PARSE_SNAPSHOT}" --field status 2>/dev/null || echo "unknown")
-    echo "  Resume status: ${resume_status}"
-    resume_attempted=1
-    sleep 3
-    continue
+    if [[ "${ASSERT_STOP_AI}" == "1" && "${stop_attempted}" == "0" ]]; then
+      echo "  Workflow paused for approval — applying Stop AI (ASSERT_STOP_AI)..."
+      stop_response=$(curl -sS -X POST \
+        "${AI_API_BASE_URL}/orchestrator/case-triage/cases/${SF_CASE_ID}/stop" \
+        -H "authorization: Bearer ${CONTROL_TOKEN}" \
+        -H "content-type: application/json" \
+        -d '{"reason":"smoke manual takeover"}')
+      echo "${stop_response}" | jq '.' 2>/dev/null || echo "${stop_response}"
+      stop_status=$(echo "${stop_response}" | jq -r '.status // empty' 2>/dev/null || echo "")
+      [[ "${stop_status}" == "stopped_by_user" ]] || {
+        echo "  FAIL: Stop AI returned unexpected status: ${stop_status}" >&2
+        exit 1
+      }
+      stop_attempted=1
+      sleep 3
+      continue
+    fi
+    if [[ "${ASSERT_APPROVAL_TIMEOUT}" == "1" ]]; then
+      echo "  Workflow paused — waiting for approval timeout sweep (no auto-resume)..."
+      sleep 5
+      continue
+    fi
+    if [[ "${ASSERT_STOP_AI}" != "1" ]]; then
+      echo "  Workflow paused for approval — auto-resuming with approved..."
+      resume_response=$(curl -sS -X POST \
+        "${AI_API_BASE_URL}/orchestrator/case-triage/${workflow_id}/resume" \
+        -H "authorization: Bearer ${AGENTFORCE_TOKEN}" \
+        -H "content-type: application/json" \
+        -d "{\"decision\":\"approved\",\"idempotencyKey\":\"smoke-${workflow_id}\"}")
+      resume_status=$(echo "${resume_response}" | node "${PARSE_SNAPSHOT}" --field status 2>/dev/null || echo "unknown")
+      echo "  Resume status: ${resume_status}"
+      resume_attempted=1
+      sleep 3
+      continue
+    fi
   fi
 
   for t in "${terminal_statuses[@]}"; do
@@ -320,6 +354,9 @@ guardrail_risk_level=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field gua
 guardrail_routing_method=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field guardrail.approvalRouting.method)
 guardrail_routing_sent_at=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field guardrail.approvalRouting.sentAt)
 guardrail_routing_external_ref=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field guardrail.approvalRouting.externalRef)
+snapshot_stopped_at=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field stoppedAt)
+snapshot_stop_reason=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field stopReason)
+write_back_applied=$(echo "${snapshot}" | node "${PARSE_SNAPSHOT}" --field writeBackApplied)
 
 errors=0
 
@@ -338,8 +375,8 @@ if [[ "${parts_eligible}" != "true" ]]; then
   echo "  Parts eligibility reason: ${parts_eligibility_reason}"
 fi
 
-[[ "${final_status}" == "done" || "${final_status}" == "escalated" || "${final_status}" == "rejected" ]] || {
-  echo "  FAIL: Expected terminal status done|escalated|rejected, got ${final_status}" >&2
+[[ "${final_status}" == "done" || "${final_status}" == "escalated" || "${final_status}" == "rejected" || "${final_status}" == "stopped" ]] || {
+  echo "  FAIL: Expected terminal status done|escalated|rejected|stopped, got ${final_status}" >&2
   (( errors++ ))
 }
 [[ "${triage_priority}" != "absent" && "${triage_priority}" != "null" ]] || {
@@ -360,17 +397,23 @@ fi
 
 # Node 6 always runs (no feature flag) — every settled workflow must carry a
 # valid composite guardrail decision, proving evaluateGuardrail replaced the
-# prototype gate on this deployment.
-echo "  Guardrail outcome:       ${guardrail_outcome}"
-echo "  Guardrail risk:          ${guardrail_risk_score} (${guardrail_risk_level})"
-[[ "${guardrail_outcome}" == "autoApprove" || "${guardrail_outcome}" == "requireHumanApproval" || "${guardrail_outcome}" == "reject" || "${guardrail_outcome}" == "escalate" ]] || {
-  echo "  FAIL: Node 6 produced no valid guardrail outcome (got ${guardrail_outcome}); evaluateGuardrail may not be deployed" >&2
-  (( errors++ ))
-}
-[[ "${guardrail_risk_score}" =~ ^[0-9]+$ ]] || {
-  echo "  FAIL: Node 6 guardrail risk score missing/non-numeric: ${guardrail_risk_score}" >&2
-  (( errors++ ))
-}
+# prototype gate on this deployment. Skip when the 6c proofs settle on
+# stopped/timeout terminals where guardrail may be null (interrupt-before-commit).
+if [[ "${ASSERT_STOP_AI}" == "1" && "${final_status}" == "stopped" ]] || \
+   [[ "${ASSERT_APPROVAL_TIMEOUT}" == "1" && "${final_status}" == "escalated" ]]; then
+  echo "  Guardrail on ${final_status} snapshot: (null expected — interrupt-before-commit or timeout settle)"
+else
+  echo "  Guardrail outcome:       ${guardrail_outcome}"
+  echo "  Guardrail risk:          ${guardrail_risk_score} (${guardrail_risk_level})"
+  [[ "${guardrail_outcome}" == "autoApprove" || "${guardrail_outcome}" == "requireHumanApproval" || "${guardrail_outcome}" == "reject" || "${guardrail_outcome}" == "escalate" ]] || {
+    echo "  FAIL: Node 6 produced no valid guardrail outcome (got ${guardrail_outcome}); evaluateGuardrail may not be deployed" >&2
+    (( errors++ ))
+  }
+  [[ "${guardrail_risk_score}" =~ ^[0-9]+$ ]] || {
+    echo "  FAIL: Node 6 guardrail risk score missing/non-numeric: ${guardrail_risk_score}" >&2
+    (( errors++ ))
+  }
+fi
 
 if [[ "${ASSERT_PARTS_ELIGIBLE}" == "1" ]]; then
   [[ "${parts_eligible}" == "true" ]] || {
@@ -597,6 +640,91 @@ if [[ "${ASSERT_GUARDRAIL_SF}" == "1" ]]; then
   fi
 fi
 
+# Node 6 Phase 6c (RC-1) — Stop AI during waiting_approval (S2).
+# Stops before auto-resume; asserts the stopped terminal with no write-back.
+if [[ "${ASSERT_STOP_AI}" == "1" ]]; then
+  echo "  Snapshot stoppedAt:      ${snapshot_stopped_at}"
+  echo "  Snapshot stopReason:     ${snapshot_stop_reason}"
+  echo "  Write-back applied:      ${write_back_applied}"
+  [[ "${stop_attempted}" == "1" ]] || {
+    echo "  FAIL: Expected the workflow to pause at waiting_approval before Stop AI was applied" >&2
+    (( errors++ ))
+  }
+  [[ "${final_status}" == "stopped" ]] || {
+    echo "  FAIL: Expected workflow status=stopped after Stop AI, got ${final_status}" >&2
+    (( errors++ ))
+  }
+  [[ "${snapshot_stopped_at}" != "absent" && "${snapshot_stopped_at}" != "null" && -n "${snapshot_stopped_at}" ]] || {
+    echo "  FAIL: Expected snapshot.stoppedAt to be set after Stop AI" >&2
+    (( errors++ ))
+  }
+  [[ "${write_back_applied}" == "false" ]] || {
+    echo "  FAIL: Expected writeBackApplied=false after Stop AI (no write-back on stopped terminal), got ${write_back_applied}" >&2
+    (( errors++ ))
+  }
+  # Late resume must no-op — the stopped snapshot is terminal.
+  if [[ "${stop_attempted}" == "1" ]]; then
+    late_resume=$(curl -sS -X POST \
+      "${AI_API_BASE_URL}/orchestrator/case-triage/${workflow_id}/resume" \
+      -H "authorization: Bearer ${AGENTFORCE_TOKEN}" \
+      -H "content-type: application/json" \
+      -d "{\"decision\":\"approved\",\"idempotencyKey\":\"smoke-late-${workflow_id}\"}")
+    late_status=$(echo "${late_resume}" | node "${PARSE_SNAPSHOT}" --field status 2>/dev/null || echo "unknown")
+    echo "  Late resume status:      ${late_status}"
+    [[ "${late_status}" == "stopped" ]] || {
+      echo "  FAIL: Late resume after Stop AI should stay stopped, got ${late_status}" >&2
+      (( errors++ ))
+    }
+  fi
+  # SF field check when sf CLI is available (degrade-safe).
+  if command -v sf >/dev/null 2>&1; then
+    sf_orch_status=$(sf data query --target-org AgentForce --query \
+      "SELECT AI_Orchestration_Status__c FROM Case WHERE Id = '${SF_CASE_ID}'" \
+      --json 2>/dev/null | jq -r '.result.records[0].AI_Orchestration_Status__c // empty' || echo "")
+    if [[ -n "${sf_orch_status}" ]]; then
+      echo "  SF AI_Orchestration_Status: ${sf_orch_status}"
+      [[ "${sf_orch_status}" == "stopped_by_user" ]] || {
+        echo "  FAIL: Expected Case AI_Orchestration_Status__c=stopped_by_user, got ${sf_orch_status}" >&2
+        (( errors++ ))
+      }
+    else
+      echo "  WARN: Could not read AI_Orchestration_Status__c from SF (field may not be deployed)"
+    fi
+  fi
+fi
+
+# Node 6 Phase 6c (N6-R1) — approval timeout auto-escalate (S3).
+if [[ "${ASSERT_APPROVAL_TIMEOUT}" == "1" ]]; then
+  echo "  Snapshot stoppedAt:      ${snapshot_stopped_at}"
+  echo "  Write-back applied:      ${write_back_applied}"
+  [[ "${resume_attempted}" == "0" ]] || {
+    echo "  FAIL: Timeout proof must not auto-resume at waiting_approval" >&2
+    (( errors++ ))
+  }
+  [[ "${final_status}" == "escalated" ]] || {
+    echo "  FAIL: Expected workflow status=escalated after approval timeout, got ${final_status} (check ORCHESTRATOR_GUARDRAIL_APPROVAL_TIMEOUT_ENABLED + short SLA on Railway)" >&2
+    (( errors++ ))
+  }
+  [[ "${write_back_applied}" == "false" ]] || {
+    echo "  FAIL: Expected writeBackApplied=false after timeout escalate, got ${write_back_applied}" >&2
+    (( errors++ ))
+  }
+  if command -v sf >/dev/null 2>&1; then
+    sf_guardrail_status=$(sf data query --target-org AgentForce --query \
+      "SELECT AI_Guardrail_Status__c FROM Case WHERE Id = '${SF_CASE_ID}'" \
+      --json 2>/dev/null | jq -r '.result.records[0].AI_Guardrail_Status__c // empty' || echo "")
+    if [[ -n "${sf_guardrail_status}" ]]; then
+      echo "  SF AI_Guardrail_Status:  ${sf_guardrail_status}"
+      [[ "${sf_guardrail_status}" == "escalated" ]] || {
+        echo "  FAIL: Expected Case AI_Guardrail_Status__c=escalated after timeout, got ${sf_guardrail_status}" >&2
+        (( errors++ ))
+      }
+    else
+      echo "  WARN: Could not read AI_Guardrail_Status__c from SF"
+    fi
+  fi
+fi
+
 if (( errors > 0 )); then
   echo ""
   echo "All-nodes test FAILED with ${errors} error(s)." >&2
@@ -621,4 +749,10 @@ if [[ "${ASSERT_GUARDRAIL_EMAIL}" == "1" ]]; then
 fi
 if [[ "${ASSERT_GUARDRAIL_SF}" == "1" ]]; then
   echo "  Node 6 (6b+ SF approval):   method=${guardrail_routing_method}, externalRef=${guardrail_routing_external_ref}"
+fi
+if [[ "${ASSERT_STOP_AI}" == "1" ]]; then
+  echo "  Node 6 (6c Stop AI):        status=${final_status}, stoppedAt=${snapshot_stopped_at}, writeBack=${write_back_applied}"
+fi
+if [[ "${ASSERT_APPROVAL_TIMEOUT}" == "1" ]]; then
+  echo "  Node 6 (6c timeout):      status=${final_status}, guardrail=${guardrail_outcome}"
 fi

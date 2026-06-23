@@ -217,6 +217,48 @@ private class AgentforceGuardrailApprovalCallbackTest {
   }
 
   @IsTest
+  static void rejectedCaseCallsBackOnce() {
+    Id caseId = seedCase('rejected', WORKFLOW_ID, RESUME_TOKEN);
+    CallbackMock mock = new CallbackMock();
+    Test.setMock(HttpCalloutMock.class, mock);
+
+    Test.startTest();
+    List<AgentforceGuardrailApprovalCallback.CallbackResult> results = AgentforceGuardrailApprovalCallback.dispatch(
+      requestFor(caseId)
+    );
+    Test.stopTest();
+
+    System.assertEquals(true, results[0].enqueued, 'Enqueued the callout.');
+    System.assertEquals(1, mock.count, 'Exactly one callout.');
+    Map<String, Object> body = (Map<String, Object>) JSON.deserializeUntyped(
+      mock.lastBody
+    );
+    System.assertEquals('rejected', body.get('decision'), 'Decision passed.');
+  }
+
+  @IsTest
+  static void malformedCaseIdIsSkipped() {
+    AgentforceGuardrailApprovalCallback.CallbackRequest input = new AgentforceGuardrailApprovalCallback.CallbackRequest();
+    input.caseId = 'not-a-valid-salesforce-id';
+    CallbackMock mock = new CallbackMock();
+    Test.setMock(HttpCalloutMock.class, mock);
+
+    Test.startTest();
+    List<AgentforceGuardrailApprovalCallback.CallbackResult> results = AgentforceGuardrailApprovalCallback.dispatch(
+      new List<AgentforceGuardrailApprovalCallback.CallbackRequest>{ input }
+    );
+    Test.stopTest();
+
+    System.assertEquals(1, results.size(), 'One result per request.');
+    System.assertEquals(
+      false,
+      results[0].enqueued,
+      'Malformed id not enqueued.'
+    );
+    System.assertEquals(0, mock.count, 'No callout for malformed id.');
+  }
+
+  @IsTest
   static void emptyRequestIsNoOp() {
     Test.startTest();
     List<AgentforceGuardrailApprovalCallback.CallbackResult> results = AgentforceGuardrailApprovalCallback.dispatch(

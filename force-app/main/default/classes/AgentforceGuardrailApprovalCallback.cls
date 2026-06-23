@@ -150,12 +150,12 @@ public with sharing class AgentforceGuardrailApprovalCallback {
     // Most-recent completed approval step per Case (ascending → last wins).
     Map<Id, ProcessInstanceStep> latestStep = new Map<Id, ProcessInstanceStep>();
     for (ProcessInstanceStep step : [
-      SELECT ProcessInstance.TargetObjectId, ActorId, StepStatus, CompletedDate
+      SELECT ProcessInstance.TargetObjectId, ActorId, StepStatus, SystemModstamp
       FROM ProcessInstanceStep
       WHERE
         ProcessInstance.TargetObjectId IN :needsStamp
         AND StepStatus IN ('Approved', 'Rejected')
-      ORDER BY CompletedDate ASC NULLS FIRST
+      ORDER BY SystemModstamp ASC NULLS FIRST
     ]) {
       latestStep.put(step.ProcessInstance.TargetObjectId, step);
     }
@@ -189,7 +189,7 @@ public with sharing class AgentforceGuardrailApprovalCallback {
         new Case(
           Id = caseId,
           AI_Guardrail_Approver__c = actor == null ? null : actor.Alias,
-          AI_Guardrail_Decision_At__c = step.CompletedDate
+          AI_Guardrail_Decision_At__c = step.SystemModstamp
         )
       );
     }

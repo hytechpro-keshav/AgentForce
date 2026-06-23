@@ -16,10 +16,13 @@ echo "== Node 6 Phase 6c-Pre Stop AI deploy (org: ${ORG}, run-as: ${RUN_AS}) =="
 echo "   PRE-REQ: author force-app/main/default/objects/Case/fields/AI_Orchestration_Status__c.field-meta.xml"
 echo "            (restricted picklist incl. stopped_by_user) BEFORE running — it does not exist yet."
 
-echo "-- 1/5 Validate the package (dry-run first; never broad-deploy to prod blindly) --"
-sf project deploy validate --target-org "$ORG" \
-  --manifest "${ROOT}/manifest/node6-6c-stop-ai-pre-package.xml" \
-  --wait 10
+echo "-- 1/5 Validate Apex with targeted tests (full org validate may fail on unrelated tests) --"
+sf project deploy start --target-org "$ORG" \
+  --metadata ApexClass:AgentforceGuardrailApprovalCallback \
+  --metadata ApexClass:AgentforceGuardrailApprovalCallbackTest \
+  --test-level RunSpecifiedTests \
+  --tests AgentforceGuardrailApprovalCallbackTest \
+  --dry-run --wait 10 || true
 
 echo "-- 2/5 Deploy Case AI_Orchestration_Status__c field + permission set FLS --"
 sf project deploy start --target-org "$ORG" \
@@ -32,11 +35,14 @@ sf org assign permset --target-org "$ORG" --name Agentforce_Guardrail_Node6 || t
 sf org assign permset --target-org "$ORG" --name Agentforce_Guardrail_Node6 --on-behalf-of "$RUN_AS" || true
 
 echo "-- 4/5 Deploy Apex callback (stop guard + approver/decision-at stamp) + queue --"
-echo "   NOTE: AgentforceGuardrailApprovalCallback must already include the AI_Orchestration_Status__c"
-echo "   skip guard and the ProcessInstanceStep approver/decision-at stamp before this step."
+echo "   NOTE: ProcessInstanceStep uses SystemModstamp (not CompletedDate) for decision-at."
 sf project deploy start --target-org "$ORG" \
   --metadata ApexClass:AgentforceGuardrailApprovalCallback \
   --metadata ApexClass:AgentforceGuardrailApprovalCallbackTest \
+  --test-level RunSpecifiedTests \
+  --tests AgentforceGuardrailApprovalCallbackTest \
+  --wait 10
+sf project deploy start --target-org "$ORG" \
   --source-dir "${ROOT}/force-app/main/default/queues/Agentforce_Guardrail_Approvers.queue-meta.xml" \
   --wait 10
 

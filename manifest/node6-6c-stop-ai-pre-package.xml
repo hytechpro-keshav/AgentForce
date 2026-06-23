@@ -39,11 +39,9 @@
         <members>Agentforce_Guardrail_Approvers</members>
         <name>Queue</name>
     </types>
-    <!-- Retrieve-then-edit; uncomment after the demo Case layout is in source:
     <types>
         <members>Case-Case Layout</members>
         <name>Layout</name>
     </types>
-    -->
     <version>66.0</version>
 </Package>

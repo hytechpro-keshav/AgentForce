@@ -1,8 +1,8 @@
 # Node 6 — Phase 6c Hardening + Stop AI — Lessons
 
 > Phase 6c adds operator **Stop AI** manual takeover (RC-1), approval **timeout → auto-escalate** (N6-R1), the Stop-AI guard at the guardrail interrupt + callback (N6-R2), and the Salesforce approver/decision stamps + Approval History layout polish.
-> Status: **IMPLEMENTED — code-complete + unit-green (2026-06-22)**; live org deploy/proof pending. Gotchas captured below.
-> Companions: [`node-6-guardrail-6c-stop-ai-phase-plan.md`](../orchestrator/node-6-guardrail-6c-stop-ai-phase-plan.md), [`node6-sf-approval-lessons.md`](./node6-sf-approval-lessons.md).
+> Status: **LIVE PROOF COMPLETE (2026-06-23)** — SF 6c-Pre deployed, Railway deployed, smoke green, S1–S5 proven (S4/S5 on Case 00001065).
+> Companions: [`node-6-guardrail-6c-stop-ai-phase-plan.md`](../orchestrator/node-6-guardrail-6c-stop-ai-phase-plan.md), [`node6-6c-stop-ai-live-proof.md`](../testing/node6-6c-stop-ai-live-proof.md), [`node6-sf-approval-lessons.md`](./node6-sf-approval-lessons.md).
 
 ## Expected traps (from planning — confirm/expand during implementation)
 
@@ -15,35 +15,93 @@
 
 ## What actually shipped (2026-06-22)
 
-**Backend + metadata code-complete and unit-green; live org deploy/proof pending.**
+**Backend + metadata code-complete, unit-green, and live-proven on org `AgentForce`.**
 
-### 6c-Pre (Salesforce metadata — authored, deploy/validate pending org)
+### 6c-Pre (Salesforce metadata — deployed 2026-06-22)
 
-- `Case.AI_Orchestration_Status__c` **created** (restricted picklist `active`/`stopped_by_user`/`suppressed`, `active` default) — mirrors `AI_Guardrail_Status__c`. Added to `Agentforce_Guardrail_Node6` perm set.
-- `AgentforceGuardrailApprovalCallback`: stop guard in `buildPayload` (`AI_Orchestration_Status__c == stopped_by_user` → `return null`, drops the resume callout) + **approver/decision-at stamp** in `dispatch` from `ProcessInstanceStep`.
-  - **Stamp gotchas (confirmed):** `ProcessInstanceStep.Actor` is polymorphic — `Actor.Alias` is NOT safely queryable; resolve `ActorId.getSObjectType() == User.SObjectType` then a second `User` query for `Alias` (PII-safe). Stamp only when both audit fields are blank (first-decision-wins) so the approver-only `update` never changes `AI_Guardrail_Status__c` and never re-fires the `ISCHANGED(AI_Guardrail_Status__c)`-gated callback Flow → no recursion / double callout.
-  - `ProcessInstanceStep` cannot be inserted in a unit test → the populated stamp path is **live-only proof (6c-c S4)**; the unit test covers the degrade-safe no-step path + the stop guard.
-- Handoff Flow: net-new `<filterFormula>NOT(ISPICKVAL({!$Record.AI_Orchestration_Status__c}, "stopped_by_user"))</filterFormula>` in `<start>` (Create-triggered, so it only bites a Case created already-stopped — necessary but not sufficient; the real enforcement is the NestJS `/triggers` 409).
-- **Layout: NOT source-controlled** — no `*.layout-meta.xml` in the repo. Approval History on the Case page is a manual/retrieve-then-edit org step (runbook debt), per plan §4.3 fallback. Manifest leaves the `Layout` member commented.
-- **SF CLI in this WSL env is broken** (`/mnt/c/...` EIO on `sf org list`) → `sf project deploy validate` must be run by the operator via `scripts/sf/node6-6c-stop-ai-pre-deploy.sh`.
+- `Case.AI_Orchestration_Status__c` **created** (restricted picklist `active`/`stopped_by_user`/`suppressed`, `active` default). Deploy ID `0Afg500000APvyHCAT`.
+- `AgentforceGuardrailApprovalCallback`: stop guard in `buildPayload` + approver/decision-at stamp in `dispatch` from `ProcessInstanceStep`. Deploy ID `0Afg500000AQ9MuCAL`.
+  - **Deploy bug found at validate:** `ProcessInstanceStep` has **no `CompletedDate`** — use `SystemModstamp` for `AI_Guardrail_Decision_At__c` (fixed before deploy).
+  - **Coverage:** org validate runs all local tests and failed on unrelated suites; use `--test-level RunSpecifiedTests --tests AgentforceGuardrailApprovalCallbackTest` (8 tests, ≥75% coverage after adding `rejectedCaseCallsBackOnce` + `malformedCaseIdIsSkipped`).
+  - **Stamp gotchas (confirmed):** `ProcessInstanceStep.Actor` is polymorphic — resolve `ActorId.getSObjectType() == User.SObjectType` then query `User.Alias`. First-decision-wins when audit fields blank.
+- Handoff Flow `<filterFormula>` stop guard deployed. Deploy ID `0Afg500000AQTDVCA5`.
+- **Layout: NOT source-controlled** — Approval History is a manual org step (S5 pending).
 
-### 6c-a / RC-1a / 6c-b / RC-8a (NestJS — code-complete, all unit tests green)
+### 6c-a / RC-1a / 6c-b / RC-8a (NestJS — live on Railway 2026-06-22)
 
-- New `stopped` lifecycle status — terminal, distinct from `rejected` (operator takeover ≠ guardrail rejection). Added to `NODE_LIFECYCLE_STATUSES` + `TERMINAL_LIFECYCLE_STATUSES`; grep confirmed no other status switch needed a `stopped` arm.
-- **Degrade-safe field read:** `AI_Orchestration_Status__c` is read via a **best-effort SOQL** (`queryCaseRow`), NOT added to the main REST `fields=` list — an unknown field there 400s the whole Case read. Missing field / failed read → `undefined` → treated as `active` (never blocks orchestration).
-- Stop check at the **top of `evaluateGuardrail`** (before policy/interrupt/submit) → returns `status: "stopped"` directly; router branches on `state.status === "stopped"` (NOT an `ApprovalDecision`) to a dedicated `stopped` terminal node.
-- `/triggers` returns **409 `orchestration_stopped`** (before `createAssigned`) when the Case is stopped.
-- **RC-1a stop:** `POST …/cases/:caseId/stop` + new scope `agentforce:orchestrator-control`; degrade-safe Case PATCH (`writeOrchestrationStop`) + snapshot settle (`appendEvent("stopped")` flips status; `stoppedAt`/`stopReason` columns added to the store + Postgres repo). Non-terminal → flip to `stopped`; already-terminal → just stamp `stoppedAt`. **Late-resume backstop:** `stopped` is terminal, so `resume()` short-circuits — no graph touch, the paused `MemorySaver` thread is left orphaned (harmless).
-- **6c-b timeout:** implemented as a **self-managed, `.unref()`'d `setInterval`** (`GuardrailApprovalTimeoutService`), NOT `@Cron` — `@nestjs/schedule` is not a dependency and a plain interval keeps `sweep()` directly unit-testable. Settles stale `waiting_approval` directly on the snapshot + Case (`writeGuardrailStatus`), **never `resume()`**, **mints no SF token**; idempotent via a `timedOut` Set + the terminal guard. Config defaults OFF (`ORCHESTRATOR_GUARDRAIL_APPROVAL_TIMEOUT_*`).
-- **RC-8a session:** `POST /auth/operator-orchestration/session` mirrors `customer-chat-session` — mints a short-TTL JWT with `orchestrator-read` + `orchestrator-control` (NEVER `orchestrator-approval`), returned in the body. The Next.js BFF sets the httpOnly cookie (avoids the cross-domain cookie problem); the stop proxy reads it server-side. The static read-only view token cannot call `/stop` (lacks control scope).
+- `stopped` terminal distinct from `rejected`; degrade-safe `AI_Orchestration_Status__c` read via best-effort SOQL.
+- Stop check at top of `evaluateGuardrail`; `/triggers` → **409 `orchestration_stopped`**.
+- `POST …/cases/:caseId/stop` + `agentforce:orchestrator-control`; snapshot `stoppedAt`/`stopReason`.
+- Timeout: `setInterval` sweep (not `@Cron`); config was OFF until live proof — then `ORCHESTRATOR_GUARDRAIL_APPROVAL_TIMEOUT_ENABLED=true`, `TIMEOUT_SECONDS=60`, `SCAN_SECONDS=30` on Railway.
+- RC-8a operator session + BFF cookie.
 
-### RC-1b (React — code-complete, unit-green)
+### RC-1b (React — deployed 2026-06-22)
 
-- `stopped` threaded through `lib/orchestration.ts` (`ORCHESTRATION_STATUSES`, `STATUS_META`, `isTerminalStatus`, `isStatus`, `sanitizeSnapshot` `stoppedAt`/`stopReason`) and `OrchestrationView.tsx` (`STATUS_ICON`, `STAGE_META`, guardrail `stageStatus`, stopped banner).
-- `OrchestrationPanel` stays pure — the Stop-AI control (button + confirm + inline operator login) lives in the stateful container and is passed via an optional `headerControl` slot. Proxies: `POST /api/orchestrator/case/[caseId]/stop` (reads cookie) + `POST /api/orchestrator/operator-session` (sets cookie).
+- Stop AI button + operator login + proxies on `react-chat-window` Railway.
 
-### Still pending (needs the org / live run)
+## Live proof findings (2026-06-22)
 
-- `sf project deploy validate` + deploy of 6c-Pre metadata; Approval History layout retrieve-then-edit.
-- Live smoke S1–S5 (`ASSERT_STOP_AI`, `ASSERT_APPROVAL_TIMEOUT`) against a Case that lands `requireHumanApproval` (e.g. the 00001060 recipe — NOT 00001050/00001054).
-- Railway env flips: `ORCHESTRATOR_GUARDRAIL_APPROVAL_TIMEOUT_ENABLED`, `ORCHESTRATOR_OPERATOR_ACCESS_CODE`, and the `orchestrator-control` scope on the operator session client.
+### S1 — Stop before interrupt ✅
+
+| Field                  | Value                                                                                               |
+| ---------------------- | --------------------------------------------------------------------------------------------------- |
+| Case                   | `500g500000bxYpxAAE` (00001062)                                                                     |
+| Stop response          | `{ status: "stopped_by_user", workflowId: "wf-33e22a75-…", stoppedAt: "2026-06-22T12:52:56.308Z" }` |
+| `/triggers` after stop | **HTTP 409** `{ error: "orchestration_stopped", caseId: "…" }`                                      |
+
+### S2 — Stop during `waiting_approval` ✅ (smoke `ASSERT_STOP_AI=1`)
+
+| Field                           | Value                                                                                           |
+| ------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Case                            | `500g500000bxZCXAA2` (00001064)                                                                 |
+| workflowId                      | `wf-9ea68129-bb94-4cd7-b0ef-2e31f7bd678e`                                                       |
+| Stop API                        | `{ status: "stopped_by_user", workflowId, stoppedAt: "2026-06-22T12:54:45.992Z" }`              |
+| Snapshot                        | `status=stopped`, `stoppedAt` set, `stopReason=smoke manual takeover`, `writeBackApplied=false` |
+| `guardrail` on stopped snapshot | **`null`** — expected (interrupt commits guardrail after pause; same R2 family as 6b+)          |
+| Late `resume(approved)`         | `status=stopped` (no write-back)                                                                |
+| SF `AI_Orchestration_Status__c` | `stopped_by_user`                                                                               |
+
+### S3 — Approval timeout ✅ (smoke `ASSERT_APPROVAL_TIMEOUT=1`)
+
+| Field                       | Value                                                                             |
+| --------------------------- | --------------------------------------------------------------------------------- |
+| Case                        | `500g500000bxdODAAY`                                                              |
+| workflowId                  | `wf-a6893141-a383-4dbe-bf1e-5d1f222f34fa` (prior run) / timeout rerun on new Case |
+| Wait                        | ~88s from `waiting_approval` → `escalated` (60s SLA + 30s scan)                   |
+| Snapshot                    | `status=escalated`, `writeBackApplied=false`, `guardrail=null`                    |
+| SF `AI_Guardrail_Status__c` | `escalated`                                                                       |
+| SF callback token           | Not minted (timeout path bypasses `resume()`)                                     |
+
+### S4 — SF approver/decision stamps ✅ (2026-06-23)
+
+| Field                         | Value                           |
+| ----------------------------- | ------------------------------- |
+| Case                          | 00001065 (`500g500000bxZ65AAE`) |
+| `AI_Guardrail_Status__c`      | `approved`                      |
+| `AI_Guardrail_Approver__c`    | `MChaudha`                      |
+| `AI_Guardrail_Decision_At__c` | `2026-06-23T06:06:12.000+0000`  |
+
+Approved via **Queues → Agentforce Guardrail Approvers** (Items to Approve not in App Launcher search — use queue or direct work-item link).
+
+### S5 — Approval History layout ✅ (2026-06-23)
+
+Edited existing **Case Layout** (not a new layout) → Related Lists → **Approval History**. Case 00001065 shows:
+
+- _Approval Request Submitted_ — Submitted — Keshav chaudhary — 6/22/2026 5:54 AM
+- _Guardrail Approver_ — **Approved** — Agentforce Guardrail Approvers — 6/22/2026 11:06 PM
+
+Layout change retrieved to source: `force-app/main/default/layouts/Case-Case Layout.layout-meta.xml` (`RelatedProcessHistoryList` = Approval History).
+
+### Smoke harness notes
+
+- `ASSERT_STOP_AI=1` skips auto-resume at `waiting_approval`, mints control JWT, calls `/stop`, asserts `stopped` terminal + SF field.
+- `ASSERT_APPROVAL_TIMEOUT=1` skips auto-resume, waits for sweep, asserts `escalated` + SF `AI_Guardrail_Status__c=escalated`.
+- Always-on `guardrail.outcome` assertion skipped for `stopped`/`timeout-escalated` terminals where `guardrail` is null on the snapshot.
+- Railway must deploy 6c code before `/stop` exists — pre-deploy returned **404**.
+
+### Deviations preserved (do not “fix”)
+
+- `setInterval` sweep, not `@Cron`
+- `AI_Orchestration_Status__c` via best-effort SOQL (not REST `fields=` list)
+- Session token in response body → Next.js BFF cookie
+- Apex approver stamp via `User.Alias` + `SystemModstamp` (not `CompletedDate`) + first-decision-wins
