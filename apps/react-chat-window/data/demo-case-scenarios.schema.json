@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DemoCaseScenarioCatalog",
+  "type": "object",
+  "required": ["catalogVersion", "generatedAt", "orgAlias", "scenarios"],
+  "properties": {
+    "catalogVersion": { "type": "string" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "orgAlias": { "type": "string" },
+    "inventorySnapshot": { "type": "object" },
+    "scenarios": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/scenario" }
+    }
+  },
+  "definitions": {
+    "scenario": {
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "shortDescription",
+        "form",
+        "expectedOutcome"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "shortDescription": { "type": "string" },
+        "story": { "type": "string" },
+        "category": { "type": "array", "items": { "type": "string" } },
+        "badges": { "type": "object" },
+        "expectedOutcome": { "type": "object" },
+        "inventoryBasis": { "type": "object" },
+        "form": { "$ref": "#/definitions/form" },
+        "provenance": { "type": "object" }
+      }
+    },
+    "form": {
+      "type": "object",
+      "required": [
+        "subject",
+        "description",
+        "status",
+        "origin",
+        "priority",
+        "accountLookup",
+        "assetLookup",
+        "shipTo"
+      ],
+      "properties": {
+        "subject": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string" },
+        "origin": { "type": "string" },
+        "priority": { "type": "string" },
+        "accountLookup": {
+          "type": "object",
+          "properties": { "name": { "type": "string" } }
+        },
+        "contactLookup": {
+          "type": "object",
+          "properties": { "email": { "type": "string" } }
+        },
+        "assetLookup": {
+          "type": "object",
+          "properties": { "serialNumber": { "type": "string" } }
+        },
+        "suppliedName": { "type": "string" },
+        "suppliedEmail": { "type": "string" },
+        "shipTo": {
+          "type": "object",
+          "required": ["city", "state", "country"],
+          "properties": {
+            "city": { "type": "string" },
+            "state": { "type": "string" },
+            "country": { "type": "string" }
+          }
+        },
+        "partCodes": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

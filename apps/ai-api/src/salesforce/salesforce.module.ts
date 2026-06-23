@@ -3,6 +3,7 @@ import { Module } from "@nestjs/common";
 import { AppConfigModule } from "../config/app-config.module";
 import { SalesforceAuthService } from "./salesforce-auth.service";
 import { SalesforceCaseGateway } from "./salesforce-case.gateway";
+import { SalesforceCaseWriteGateway } from "./salesforce-case-write.gateway";
 import { SalesforceCustomerGateway } from "./salesforce-customer.gateway";
 import { SalesforceFulfillmentGateway } from "./salesforce-fulfillment.gateway";
 import { SalesforceGuardrailApprovalGateway } from "./salesforce-guardrail-approval.gateway";
@@ -24,6 +25,7 @@ import { SalesforceSchedulingWriteGateway } from "./salesforce-scheduling-write.
   providers: [
     SalesforceAuthService,
     SalesforceCaseGateway,
+    SalesforceCaseWriteGateway,
     SalesforceCustomerGateway,
     SalesforceInventoryGateway,
     SalesforceFulfillmentGateway,
@@ -33,6 +35,7 @@ import { SalesforceSchedulingWriteGateway } from "./salesforce-scheduling-write.
   ],
   exports: [
     SalesforceCaseGateway,
+    SalesforceCaseWriteGateway,
     SalesforceCustomerGateway,
     SalesforceInventoryGateway,
     SalesforceFulfillmentGateway,

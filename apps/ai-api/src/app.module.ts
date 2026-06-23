@@ -3,6 +3,7 @@ import { Module } from "@nestjs/common";
 import { AgentsModule } from "./agents/agents.module";
 import { AuthModule } from "./auth/auth.module";
 import { ChatModule } from "./chat/chat.module";
+import { DemoCaseCreateModule } from "./demo/demo-case-create.module";
 import { AppConfigModule } from "./config/app-config.module";
 import { HealthModule } from "./health/health.module";
 import { LlmModule } from "./llm/llm.module";
@@ -19,6 +20,7 @@ import { RagModule } from "./rag/rag.module";
     LlmModule,
     HealthModule,
     ChatModule,
+    DemoCaseCreateModule,
     AgentsModule,
     RagModule,
     OpenAiCompatibleModule,

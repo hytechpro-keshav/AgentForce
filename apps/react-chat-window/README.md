@@ -113,6 +113,26 @@ Feature components:
   reason / urgency / case-reference fields backed by `/chat/escalate`.
 - [`SourceList`](components/SourceList.tsx) — customer-safe source citations.
 - [`ChatShell`](components/ChatShell.tsx) — gating: login → chat.
+- [`DemoCaseCreateForm`](components/DemoCaseCreateForm.tsx) — scenario picker +
+  Case form for `/demo/case-create`.
+
+## Demo Case create (`/demo/case-create`)
+
+Engineering/demo surface to create a **real Salesforce Case** and redirect to
+`/orchestration?caseId=…`. This is separate from customer chat — no Case write
+on `/` or `EscalationDialog`.
+
+| Env (react-chat-window)         | Required           | Description                                                                        |
+| ------------------------------- | ------------------ | ---------------------------------------------------------------------------------- |
+| `DEMO_CASE_CREATE_ENABLED`      | yes (to enable)    | Must be `true` to allow POST `/api/demo/cases`.                                    |
+| `AI_API_DEMO_CASE_CREATE_TOKEN` | yes (when enabled) | Opaque bearer for NestJS `POST /demo/cases` (scope `agentforce:demo-case-create`). |
+| `DEMO_CASE_CREATE_RATE_LIMIT_*` | no                 | Per-IP rate limit (defaults 10/min).                                               |
+
+On **ai-api**, set `DEMO_CASE_CREATE_ENABLED=true` and register the token SHA-256
+in `AI_API_AGENTFORCE_BEARERS_JSON` with scope `agentforce:demo-case-create`.
+
+Scenario catalog: [`data/demo-case-scenarios.json`](data/demo-case-scenarios.json).
+Refresh inventory snapshot: `./scripts/sf/generate-demo-case-scenarios.sh AgentForce`.
 
 ## Security posture
 

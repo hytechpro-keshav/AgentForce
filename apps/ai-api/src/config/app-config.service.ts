@@ -427,6 +427,10 @@ export interface OrchestratorConfig {
   guardrailApproval: OrchestratorGuardrailApprovalConfig;
 }
 
+export interface DemoCaseCreateConfig {
+  enabled: boolean;
+}
+
 export interface AppRuntimeConfig {
   port: number;
   nodeEnv: string;
@@ -453,6 +457,7 @@ export interface AppRuntimeConfig {
   openAiGateway: OpenAiCompatibleGatewayConfig;
   salesforceConnection: SalesforceConnectionConfig;
   orchestrator: OrchestratorConfig;
+  demoCaseCreate: DemoCaseCreateConfig;
 }
 
 @Injectable()
@@ -482,6 +487,7 @@ export class AppConfigService {
   readonly openAiGateway: OpenAiCompatibleGatewayConfig;
   readonly salesforceConnection: SalesforceConnectionConfig;
   readonly orchestrator: OrchestratorConfig;
+  readonly demoCaseCreate: DemoCaseCreateConfig;
 
   constructor() {
     const config = AppConfigService.load(process.env);
@@ -510,6 +516,7 @@ export class AppConfigService {
     this.openAiGateway = config.openAiGateway;
     this.salesforceConnection = config.salesforceConnection;
     this.orchestrator = config.orchestrator;
+    this.demoCaseCreate = config.demoCaseCreate;
   }
 
   get isHealthBridgeKeyConfigured(): boolean {
@@ -602,6 +609,7 @@ export class AppConfigService {
     );
     const salesforceConnection = AppConfigService.loadSalesforceConnection(env);
     const orchestrator = AppConfigService.loadOrchestrator(env);
+    const demoCaseCreate = AppConfigService.loadDemoCaseCreate(env);
 
     return {
       port: AppConfigService.parsePort(env.PORT),
@@ -628,7 +636,8 @@ export class AppConfigService {
       rag,
       openAiGateway,
       salesforceConnection,
-      orchestrator
+      orchestrator,
+      demoCaseCreate
     };
   }
 
@@ -2140,6 +2149,18 @@ export class AppConfigService {
         env.AI_API_ORCHESTRATOR_PARTS_WRITES_ENABLED,
         false,
         "AI_API_ORCHESTRATOR_PARTS_WRITES_ENABLED"
+      )
+    };
+  }
+
+  private static loadDemoCaseCreate(
+    env: NodeJS.ProcessEnv
+  ): DemoCaseCreateConfig {
+    return {
+      enabled: AppConfigService.parseBooleanFlag(
+        env.DEMO_CASE_CREATE_ENABLED,
+        false,
+        "DEMO_CASE_CREATE_ENABLED"
       )
     };
   }

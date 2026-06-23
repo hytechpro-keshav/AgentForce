@@ -1,0 +1,667 @@
+{
+  "$schema": "./demo-case-scenarios.schema.json",
+  "catalogVersion": "1.0.0",
+  "generatedAt": "2026-06-23T07:27:14.000Z",
+  "orgAlias": "AgentForce",
+  "inventorySnapshot": {
+    "warehouses": [
+      {
+        "externalReference": "WH-AUS-001",
+        "name": "Austin Fulfillment Center - Alpha Dock",
+        "locationType": "Warehouse",
+        "region": "North America"
+      },
+      {
+        "externalReference": "WH-FRA-004",
+        "name": "Frankfurt Logistics Center - Hall 4",
+        "locationType": "Warehouse",
+        "region": "Europe"
+      },
+      {
+        "externalReference": "WH-JCY-003",
+        "name": "Jersey City Distribution Hub - Secaucus WH",
+        "locationType": "Warehouse",
+        "region": "North America"
+      },
+      {
+        "externalReference": "WH-SJO-002",
+        "name": "San Jose Spare Parts & Warranty Depot",
+        "locationType": "Plant",
+        "region": "North America"
+      }
+    ],
+    "productItems": [
+      {
+        "productCode": "SP-BATT-15X",
+        "productName": "6 Cell Battery Pack",
+        "warehouseReference": "WH-AUS-001",
+        "quantityOnHand": 25
+      },
+      {
+        "productCode": "SP-BATT-15X",
+        "productName": "6 Cell Battery Pack",
+        "warehouseReference": "WH-SJO-002",
+        "quantityOnHand": 75
+      },
+      {
+        "productCode": "SP-CHG-65W",
+        "productName": "65W USB-C Power Adapter",
+        "warehouseReference": "WH-JCY-003",
+        "quantityOnHand": 200
+      },
+      {
+        "productCode": "SP-DISP-15X-FHD",
+        "productName": "15.6 inch FHD Display Panel",
+        "warehouseReference": "WH-SJO-002",
+        "quantityOnHand": 40
+      },
+      {
+        "productCode": "SP-FAN-15X",
+        "productName": "Cooling Fan Assembly",
+        "warehouseReference": "WH-FRA-004",
+        "quantityOnHand": 60
+      },
+      {
+        "productCode": "SP-HEAT-15X",
+        "productName": "Heat Sink Assembly",
+        "warehouseReference": "WH-FRA-004",
+        "quantityOnHand": 35
+      },
+      {
+        "productCode": "SP-HINGE-15X",
+        "productName": "Display Hinge Kit",
+        "warehouseReference": "WH-FRA-004",
+        "quantityOnHand": 80
+      },
+      {
+        "productCode": "SP-KBD-15X",
+        "productName": "Backlit Keyboard Assembly",
+        "warehouseReference": "WH-SJO-002",
+        "quantityOnHand": 55
+      },
+      {
+        "productCode": "SP-MB-15X",
+        "productName": "Motherboard Replacement Unit",
+        "warehouseReference": "WH-SJO-002",
+        "quantityOnHand": 10
+      },
+      {
+        "productCode": "SP-RAM-16-DDR5",
+        "productName": "16GB DDR5 RAM Module",
+        "warehouseReference": "WH-AUS-001",
+        "quantityOnHand": 150
+      },
+      {
+        "productCode": "SP-SSD-1TB-NVME",
+        "productName": "1TB NVMe SSD",
+        "warehouseReference": "WH-AUS-001",
+        "quantityOnHand": 120
+      },
+      {
+        "productCode": "SP-TPAD-15X",
+        "productName": "Touchpad Assembly",
+        "warehouseReference": "WH-SJO-002",
+        "quantityOnHand": 45
+      },
+      {
+        "productCode": "SP-WIFI-6E",
+        "productName": "WiFi 6E Adapter",
+        "warehouseReference": "WH-AUS-001",
+        "quantityOnHand": 90
+      },
+      {
+        "productCode": "SP-TEST-OOS",
+        "productName": "Test OOS Spare Part",
+        "warehouseReference": null,
+        "quantityOnHand": 0
+      }
+    ],
+    "serviceResources": [
+      {
+        "name": "A1 Techinican",
+        "skills": [
+          {
+            "label": "Battery/Power",
+            "level": 8
+          },
+          {
+            "label": "Laptop Hardware",
+            "level": 9
+          },
+          {
+            "label": "Motherboard",
+            "level": 9
+          },
+          {
+            "label": "Thermal/Cooling",
+            "level": 6
+          }
+        ]
+      },
+      {
+        "name": "A2 Techinican",
+        "skills": [
+          {
+            "label": "Battery/Power",
+            "level": 5
+          },
+          {
+            "label": "Display",
+            "level": 8
+          },
+          {
+            "label": "Laptop Hardware",
+            "level": 7
+          },
+          {
+            "label": "Thermal/Cooling",
+            "level": 7
+          }
+        ]
+      }
+    ],
+    "serviceTerritories": ["Abypro", "North America"]
+  },
+  "scenarios": [
+    {
+      "id": "same-day-battery-fix",
+      "label": "Same-day battery fix",
+      "shortDescription": "Routine battery replacement with local Austin stock. Technician books and guardrail auto-approves.",
+      "story": "A university laptop needs a standard battery swap. Parts are on the shelf in Austin and a field tech is available the same week.",
+      "category": ["node1", "node4", "node5", "node6"],
+      "badges": {
+        "parts": "Local stock",
+        "scheduling": "Book appointment",
+        "guardrail": "Auto-approve"
+      },
+      "expectedOutcome": {
+        "node4": {
+          "fulfillmentReadiness": "ready",
+          "exceptionType": "none"
+        },
+        "node5": {
+          "appointmentStatus": "booked"
+        },
+        "node6": {
+          "outcome": "autoApprove"
+        },
+        "summary": "ready \u2192 booked \u2192 autoApprove \u2192 done"
+      },
+      "inventoryBasis": {
+        "parts": [
+          {
+            "code": "SP-BATT-15X",
+            "warehouse": "WH-AUS-001",
+            "qty": 25
+          }
+        ],
+        "fulfillmentWarehouse": "WH-AUS-001",
+        "shipToResolvesTo": "WH-AUS-001"
+      },
+      "form": {
+        "subject": "ProBook 15X routine battery replacement - local Austin stock",
+        "description": "Routine maintenance: AeroVolt ProBook 15X asset SN-PRO15X-2026-0041A battery capacity degraded below 40%. Standard replacement with spare part SP-BATT-15X only. Local stock expected at WH-AUS-001. Product AV-LP-15X-PRO.",
+        "status": "New",
+        "origin": "Web",
+        "priority": "Medium",
+        "accountLookup": {
+          "name": "University of Arizona"
+        },
+        "contactLookup": {
+          "email": "jane_gray@uoa.edu"
+        },
+        "assetLookup": {
+          "serialNumber": "SN-PRO15X-2026-0041A"
+        },
+        "suppliedName": "Jane Grey",
+        "suppliedEmail": "jane_gray@uoa.edu",
+        "shipTo": {
+          "city": "Austin",
+          "state": "TX",
+          "country": "US"
+        },
+        "partCodes": ["SP-BATT-15X"]
+      },
+      "provenance": {
+        "liveCaseReference": "00001054",
+        "notes": "Proven autoApprove path on org AgentForce."
+      }
+    },
+    {
+      "id": "display-transfer",
+      "label": "Display repair \u2014 warehouse transfer",
+      "shortDescription": "Display panel only at San Jose. Austin ship-to plans inter-warehouse transfer into fulfillment WH.",
+      "story": "The laptop screen is black but an external monitor works. The replacement panel must transfer from San Jose to Austin before service.",
+      "category": ["node1", "node4", "node5", "node6"],
+      "badges": {
+        "parts": "Inter-warehouse transfer",
+        "scheduling": "ETA-constrained",
+        "guardrail": "May require approval"
+      },
+      "expectedOutcome": {
+        "node4": {
+          "fulfillmentReadiness": "inter_warehouse_transfer",
+          "transferRoute": "WH-SJO-002 \u2192 WH-AUS-001"
+        },
+        "node5": {
+          "appointmentStatus": "booked",
+          "partsEtaConstrained": true
+        },
+        "node6": {
+          "outcome": "requireHumanApproval or autoApprove"
+        },
+        "summary": "transfer plan \u2192 (approval) \u2192 ProductTransfer write"
+      },
+      "inventoryBasis": {
+        "parts": [
+          {
+            "code": "SP-DISP-15X-FHD",
+            "warehouse": "WH-SJO-002",
+            "qty": 40
+          }
+        ],
+        "fulfillmentWarehouse": "WH-AUS-001",
+        "shipToResolvesTo": "WH-AUS-001",
+        "note": "List SP-DISP-15X-FHD only \u2014 extra part codes change the plan."
+      },
+      "form": {
+        "subject": "ProBook 15X display flickering - transfer required",
+        "description": "Customer reports AeroVolt ProBook 15X asset serial SN-PRO15X-2026-0041A powers on but the internal display stays black with no backlight. External monitor via USB-C dock works normally. Replace spare part SP-DISP-15X-FHD. Product AV-LP-15X-PRO.",
+        "status": "New",
+        "origin": "Web",
+        "priority": "High",
+        "accountLookup": {
+          "name": "Aptivance tech"
+        },
+        "contactLookup": {
+          "email": "jason.l@ablypro.com"
+        },
+        "assetLookup": {
+          "serialNumber": "SN-PRO15X-2026-0041A"
+        },
+        "suppliedName": "Jason Luu",
+        "suppliedEmail": "jason.l@ablypro.com",
+        "shipTo": {
+          "city": "Austin",
+          "state": "TX",
+          "country": "US"
+        },
+        "partCodes": ["SP-DISP-15X-FHD"]
+      },
+      "provenance": {
+        "runbook": "docs/testing/node4-orchestrator-case-scenarios.md Scenario B"
+      }
+    },
+    {
+      "id": "manager-approval-mixed-parts",
+      "label": "Mixed parts \u2014 manager approval",
+      "shortDescription": "Battery local at Austin plus charger from Jersey City. Partial fulfillment pauses for Salesforce approval.",
+      "story": "Field service needs a battery and power adapter. One part is local; the other ships from a remote warehouse \u2014 medium risk triggers human approval.",
+      "category": ["node1", "node4", "node5", "node6"],
+      "badges": {
+        "parts": "Partial (local + remote)",
+        "scheduling": "Book after approval",
+        "guardrail": "Require approval"
+      },
+      "expectedOutcome": {
+        "node4": {
+          "fulfillmentReadiness": "partial"
+        },
+        "node5": {
+          "appointmentStatus": "provisional"
+        },
+        "node6": {
+          "outcome": "requireHumanApproval"
+        },
+        "summary": "partial \u2192 waiting_approval \u2192 approve in SF \u2192 done"
+      },
+      "inventoryBasis": {
+        "parts": [
+          {
+            "code": "SP-BATT-15X",
+            "warehouse": "WH-AUS-001",
+            "qty": 25
+          },
+          {
+            "code": "SP-CHG-65W",
+            "warehouse": "WH-JCY-003",
+            "qty": 200
+          }
+        ],
+        "fulfillmentWarehouse": "WH-AUS-001",
+        "shipToResolvesTo": "WH-AUS-001"
+      },
+      "form": {
+        "subject": "ProBook 15X battery and charger - mixed warehouse fulfillment",
+        "description": "Field service needs SP-BATT-15X locally and SP-CHG-65W from remote warehouse for AeroVolt ProBook 15X asset SN-GUARDRAIL-SMOKE-001. Product AV-LP-15X-PRO.",
+        "status": "New",
+        "origin": "Web",
+        "priority": "Medium",
+        "accountLookup": {
+          "name": "SF Guardrail Smoke Co"
+        },
+        "contactLookup": {
+          "email": "guardrail.smoke@example.com"
+        },
+        "assetLookup": {
+          "serialNumber": "SN-GUARDRAIL-SMOKE-001"
+        },
+        "suppliedName": "Guardrail Smoke",
+        "suppliedEmail": "guardrail.smoke@example.com",
+        "shipTo": {
+          "city": "Austin",
+          "state": "TX",
+          "country": "US"
+        },
+        "partCodes": ["SP-BATT-15X", "SP-CHG-65W"]
+      },
+      "provenance": {
+        "liveCaseReference": "00001060 recipe",
+        "runbook": "docs/testing/node6-6c-stop-ai-live-proof.md \u00a7F"
+      }
+    },
+    {
+      "id": "backorder-critical-part",
+      "label": "Critical part \u2014 backorder",
+      "shortDescription": "Test SKU has zero stock network-wide. Planner requests backorder and ProductRequest after approval.",
+      "story": "A specialty test part is completely out of stock everywhere. The workflow must block fulfillment and open a backorder.",
+      "category": ["node1", "node4", "node6"],
+      "badges": {
+        "parts": "Backorder",
+        "scheduling": "Blocked",
+        "guardrail": "May require approval"
+      },
+      "expectedOutcome": {
+        "node4": {
+          "fulfillmentReadiness": "blocked",
+          "exceptionType": "backorder"
+        },
+        "node5": {
+          "appointmentStatus": "blocked"
+        },
+        "node6": {
+          "outcome": "requireHumanApproval or escalate"
+        },
+        "summary": "backorder \u2192 (approval) \u2192 ProductRequest write"
+      },
+      "inventoryBasis": {
+        "parts": [
+          {
+            "code": "SP-TEST-OOS",
+            "warehouse": null,
+            "qty": 0
+          }
+        ],
+        "fulfillmentWarehouse": "WH-AUS-001",
+        "shipToResolvesTo": "WH-AUS-001",
+        "note": "SP-TEST-OOS Product2 exists with zero ProductItem rows."
+      },
+      "form": {
+        "subject": "Critical part unavailable - backorder test",
+        "description": "Need test spare part SP-TEST-OOS for asset SN-PRO15X-2026-0041A. No stock at any warehouse. Product AV-LP-15X-PRO.",
+        "status": "New",
+        "origin": "Web",
+        "priority": "High",
+        "accountLookup": {
+          "name": "Aptivance tech"
+        },
+        "contactLookup": {
+          "email": "jason.l@ablypro.com"
+        },
+        "assetLookup": {
+          "serialNumber": "SN-PRO15X-2026-0041A"
+        },
+        "suppliedName": "Jason Luu",
+        "suppliedEmail": "jason.l@ablypro.com",
+        "shipTo": {
+          "city": "Austin",
+          "state": "TX",
+          "country": "US"
+        },
+        "partCodes": ["SP-TEST-OOS"]
+      },
+      "provenance": {
+        "runbook": "docs/testing/node4-orchestrator-case-scenarios.md Scenario C",
+        "seedScript": "scripts/sf/node4-seed-oos-sku.sh"
+      }
+    },
+    {
+      "id": "eu-thermal-repair",
+      "label": "EU thermal repair",
+      "shortDescription": "Overheating ProBook needs fan and heat sink from Frankfurt fulfillment warehouse.",
+      "story": "A European customer reports thermal shutdowns. Cooling parts are stocked in Frankfurt and ship-to resolves to the EU hub.",
+      "category": ["node1", "node3", "node4", "node5"],
+      "badges": {
+        "parts": "EU local stock",
+        "scheduling": "Book appointment",
+        "guardrail": "Policy-dependent"
+      },
+      "expectedOutcome": {
+        "node4": {
+          "fulfillmentReadiness": "ready",
+          "fulfillmentWarehouse": "WH-FRA-004"
+        },
+        "node5": {
+          "appointmentStatus": "booked"
+        },
+        "node6": {
+          "outcome": "autoApprove or requireHumanApproval"
+        },
+        "summary": "Frankfurt fulfillment \u2192 schedule \u2192 guardrail"
+      },
+      "inventoryBasis": {
+        "parts": [
+          {
+            "code": "SP-FAN-15X",
+            "warehouse": "WH-FRA-004",
+            "qty": 60
+          },
+          {
+            "code": "SP-HEAT-15X",
+            "warehouse": "WH-FRA-004",
+            "qty": 35
+          }
+        ],
+        "fulfillmentWarehouse": "WH-FRA-004",
+        "shipToResolvesTo": "WH-FRA-004"
+      },
+      "form": {
+        "subject": "ProBook 15X overheating - EU thermal service",
+        "description": "AeroVolt ProBook 15X asset SN-PRO15X-2026-0041A shuts down under load due to thermal cutoff. Replace cooling spare parts SP-FAN-15X and SP-HEAT-15X. Product AV-LP-15X-PRO.",
+        "status": "New",
+        "origin": "Web",
+        "priority": "High",
+        "accountLookup": {
+          "name": "Aptivance tech"
+        },
+        "contactLookup": {
+          "email": "jason.l@ablypro.com"
+        },
+        "assetLookup": {
+          "serialNumber": "SN-PRO15X-2026-0041A"
+        },
+        "suppliedName": "Jason Luu",
+        "suppliedEmail": "jason.l@ablypro.com",
+        "shipTo": {
+          "city": "Frankfurt",
+          "state": "HE",
+          "country": "DE"
+        },
+        "partCodes": ["SP-FAN-15X", "SP-HEAT-15X"]
+      },
+      "provenance": {
+        "runbook": ".agents/skills/salesforce-case-create/SKILL.md overheating scenario"
+      }
+    },
+    {
+      "id": "high-risk-escalate",
+      "label": "High-risk display \u2014 escalate",
+      "shortDescription": "Complex display failure with multiple parts and high priority. Guardrail escalates to human supervisor path.",
+      "story": "A critical display outage with rich diagnostic detail and multiple spare parts. Composite risk score triggers immediate escalation instead of pausing for approval.",
+      "category": ["node1", "node3", "node4", "node5", "node6"],
+      "badges": {
+        "parts": "Partial / complex",
+        "scheduling": "Provisional",
+        "guardrail": "Escalate"
+      },
+      "expectedOutcome": {
+        "node4": {
+          "fulfillmentReadiness": "partial or inter_warehouse_transfer"
+        },
+        "node5": {
+          "appointmentStatus": "provisional"
+        },
+        "node6": {
+          "outcome": "escalate"
+        },
+        "summary": "escalate terminal \u2014 no waiting_approval interrupt"
+      },
+      "inventoryBasis": {
+        "parts": [
+          {
+            "code": "SP-DISP-15X-FHD",
+            "warehouse": "WH-SJO-002",
+            "qty": 40
+          },
+          {
+            "code": "SP-HINGE-15X",
+            "warehouse": "WH-FRA-004",
+            "qty": 80
+          }
+        ],
+        "fulfillmentWarehouse": "WH-AUS-001",
+        "shipToResolvesTo": "WH-AUS-001",
+        "note": "Multiple part codes increase planner complexity and guardrail score."
+      },
+      "form": {
+        "subject": "AeroVolt ProBook 15X display not working - validation",
+        "description": "Customer reports AeroVolt ProBook 15X asset serial SN-PRO15X-2026-0041A powers on but the internal display stays black with no backlight. External monitor via USB-C dock works normally. Flashlight test shows no faint image. Issue started after closing the lid yesterday. Relevant product AV-LP-15X-PRO. Likely spare part SP-DISP-15X-FHD. Backup check part SP-HINGE-15X for loose display cable at hinge.",
+        "status": "New",
+        "origin": "Web",
+        "priority": "High",
+        "accountLookup": {
+          "name": "Aptivance tech"
+        },
+        "contactLookup": {
+          "email": "jason.l@ablypro.com"
+        },
+        "assetLookup": {
+          "serialNumber": "SN-PRO15X-2026-0041A"
+        },
+        "suppliedName": "Jason Luu",
+        "suppliedEmail": "jason.l@ablypro.com",
+        "shipTo": {
+          "city": "Austin",
+          "state": "TX",
+          "country": "US"
+        },
+        "partCodes": ["SP-DISP-15X-FHD", "SP-HINGE-15X"]
+      },
+      "provenance": {
+        "liveCaseReference": "00001050",
+        "notes": "Proven escalate@100 on org AgentForce. Not usable for approval-pause demos."
+      }
+    },
+    {
+      "id": "incompatible-keyboard",
+      "label": "Wrong keyboard for laptop model",
+      "shortDescription": "15-inch keyboard requested for a 13-inch Stratos Air asset \u2014 compatibility check should flag mismatch.",
+      "story": "Customer ordered the wrong keyboard assembly. The orchestrator should surface incompatible part guidance before fulfillment proceeds cleanly.",
+      "category": ["node1", "node3", "node4"],
+      "badges": {
+        "parts": "Compatibility risk",
+        "scheduling": "Blocked or deferred",
+        "guardrail": "Policy-dependent"
+      },
+      "expectedOutcome": {
+        "node4": {
+          "fulfillmentReadiness": "blocked or exception"
+        },
+        "node6": {
+          "outcome": "reject, escalate, or requireHumanApproval"
+        },
+        "summary": "incompatible_part or guardrail friction"
+      },
+      "inventoryBasis": {
+        "parts": [
+          {
+            "code": "SP-KBD-15X",
+            "warehouse": "WH-SJO-002",
+            "qty": 55
+          }
+        ],
+        "assetProductCode": "AV-LP-13A-STRAT",
+        "partCompatibleProduct": "AV-LP-15X-PRO",
+        "note": "SP-KBD-15X targets ProBook 15X; asset is Stratos Air 13."
+      },
+      "form": {
+        "subject": "Stratos Air 13 keyboard failure - wrong part ordered",
+        "description": "AeroVolt Stratos Air 13 asset SN-STRAT13-AIR-0112 has several dead keys after liquid spill. Customer ordered spare part SP-KBD-15X for replacement. Product AV-LP-13A-STRAT.",
+        "status": "New",
+        "origin": "Web",
+        "priority": "Medium",
+        "accountLookup": {
+          "name": "Aptivance tech"
+        },
+        "contactLookup": {
+          "email": "jason.l@ablypro.com"
+        },
+        "assetLookup": {
+          "serialNumber": "SN-STRAT13-AIR-0112"
+        },
+        "suppliedName": "Jason Luu",
+        "suppliedEmail": "jason.l@ablypro.com",
+        "shipTo": {
+          "city": "Austin",
+          "state": "TX",
+          "country": "US"
+        },
+        "partCodes": ["SP-KBD-15X"]
+      },
+      "provenance": {
+        "runbook": ".agents/skills/salesforce-case-create/SKILL.md keyboard failure scenario"
+      }
+    },
+    {
+      "id": "custom",
+      "label": "Custom case",
+      "shortDescription": "Start from a blank form and fill in your own subject, description, and ship-to.",
+      "story": "Build a one-off test case for exploratory validation.",
+      "category": ["custom"],
+      "badges": {
+        "parts": "You choose",
+        "scheduling": "Varies",
+        "guardrail": "Varies"
+      },
+      "expectedOutcome": {
+        "summary": "Depends on form content and live org state"
+      },
+      "inventoryBasis": {},
+      "form": {
+        "subject": "",
+        "description": "",
+        "status": "New",
+        "origin": "Web",
+        "priority": "Medium",
+        "accountLookup": {
+          "name": "Aptivance tech"
+        },
+        "contactLookup": {
+          "email": "jason.l@ablypro.com"
+        },
+        "assetLookup": {
+          "serialNumber": "SN-PRO15X-2026-0041A"
+        },
+        "suppliedName": "Jason Luu",
+        "suppliedEmail": "jason.l@ablypro.com",
+        "shipTo": {
+          "city": "Austin",
+          "state": "TX",
+          "country": "US"
+        },
+        "partCodes": []
+      },
+      "provenance": {}
+    }
+  ]
+}
