@@ -28,9 +28,14 @@ import type {
  */
 @Injectable()
 export class OperatorOrchestrationSessionService {
-  /** Read + control, never approval (Node 6 6c plan §1.1, §5.4). */
+  /**
+   * Read + control + step, never approval (Node 6 6c plan §1.1, §5.4; stepped
+   * console Phase 2). `agentforce:orchestrator-step` lets the operator start
+   * and advance a stepped run; `agentforce:orchestrator-approval` is still
+   * never granted here — Stop AI and stepping are not guardrail approve/reject.
+   */
   static readonly SCOPES =
-    "agentforce:orchestrator-read agentforce:orchestrator-control";
+    "agentforce:orchestrator-read agentforce:orchestrator-control agentforce:orchestrator-step";
 
   private readonly logger = new Logger(
     OperatorOrchestrationSessionService.name

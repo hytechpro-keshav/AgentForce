@@ -290,7 +290,20 @@ export interface CaseTriageGraphDeps {
   checkpointer: BaseCheckpointSaver;
 }
 
-export function buildCaseTriageGraph(deps: CaseTriageGraphDeps) {
+export interface CaseTriageGraphCompileOptions {
+  /**
+   * Compile the stepped variant: pause after each upstream stage
+   * ({@link STEP_PAUSE_NODES}) so an operator can advance one stage at a time.
+   * The auto graph omits this and runs end-to-end (pausing only at the
+   * guardrail's own approval interrupt).
+   */
+  stepped?: boolean;
+}
+
+export function buildCaseTriageGraph(
+  deps: CaseTriageGraphDeps,
+  options?: CaseTriageGraphCompileOptions
+) {
   return new StateGraph(CaseTriageState)
     .addNode("readContext", async (state) => {
       const context = await deps.readContext(state.caseId);
@@ -886,10 +899,41 @@ export function buildCaseTriageGraph(deps: CaseTriageGraphDeps) {
     .addEdge("rejected", END)
     .addEdge("escalated", END)
     .addEdge("stopped", END)
-    .compile({ checkpointer: deps.checkpointer });
+    .compile({
+      checkpointer: deps.checkpointer,
+      ...(options?.stepped ? { interruptAfter: [...STEP_PAUSE_NODES] } : {})
+    });
 }
 
 export type CompiledCaseTriageGraph = ReturnType<typeof buildCaseTriageGraph>;
+
+/**
+ * Stepped run mode (Phase 2): the graph nodes after which the stepped graph
+ * variant pauses (`interruptAfter`) so an operator can advance one UI stage at
+ * a time. Each entry is the LAST graph node of a UI stage (Triage ends at
+ * `runTriage`). Node 6 (`evaluateGuardrail`) is intentionally NOT listed — it
+ * keeps its own dynamic human-approval `interrupt()` and terminal routing.
+ */
+export const STEP_PAUSE_NODES = [
+  "runTriage",
+  "customerHistory",
+  "knowledge",
+  "parts",
+  "schedule"
+] as const;
+
+/**
+ * Maps the graph node that is *next to run* after a stepped pause (read from
+ * the checkpoint's `next`) to its UI node id, so the read model can name the
+ * stage awaiting the operator's `advance`.
+ */
+export const STEP_NEXT_NODE_TO_UI: Record<string, OrchestratorNodeId> = {
+  customerHistory: CUSTOMER_HISTORY_NODE_ID,
+  knowledge: KNOWLEDGE_NODE_ID,
+  parts: PARTS_LOGISTICS_NODE_ID,
+  schedule: SCHEDULING_NODE_ID,
+  evaluateGuardrail: GUARDRAIL_NODE_ID
+};
 
 /**
  * Safe, non-PII facts about the Case context read. Deliberately omits

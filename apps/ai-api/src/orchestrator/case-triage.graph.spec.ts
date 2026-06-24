@@ -828,3 +828,83 @@ describe("case-triage graph — Node 6 compliance & guardrail", () => {
     expect(node6Events.length).toBeGreaterThanOrEqual(1);
   });
 });
+
+describe("case-triage graph — stepped mode (Phase 2)", () => {
+  const initialState = (workflowId: string) => ({
+    workflowId,
+    caseId: "500000000000001",
+    caseNumber: "00004242",
+    principalSubject: "orchestrator",
+    approvalRequired: false,
+    writeBackApplied: false,
+    status: "running" as const
+  });
+
+  it("runs Triage then pauses after each upstream stage", async () => {
+    const h = buildDeps({
+      // Force every stage to actually run so the pauses are observable.
+      isCustomerHistoryEligible: jest
+        .fn()
+        .mockReturnValue({ eligible: true, reason: "eligible" })
+    });
+    const graph = buildCaseTriageGraph(h.deps, { stepped: true });
+    const config = { configurable: { thread_id: "wf-step-1" } };
+
+    // Initial invoke auto-runs Triage (readContext + runTriage), then pauses.
+    const afterTriage = (await graph.invoke(
+      initialState("wf-step-1"),
+      config
+    )) as { triage?: unknown; customerContext?: unknown };
+    expect(afterTriage.triage).toBeDefined();
+    expect(afterTriage.customerContext).toBeUndefined();
+    expect((await graph.getState(config)).next).toEqual(["customerHistory"]);
+
+    // One advance runs exactly the next stage (customer history), then pauses.
+    const afterCustomer = (await graph.invoke(null, config)) as {
+      customerContext?: unknown;
+    };
+    expect(afterCustomer.customerContext).toBeDefined();
+    expect((await graph.getState(config)).next).toEqual(["knowledge"]);
+
+    // Each further advance steps one stage at a time toward the guardrail.
+    await graph.invoke(null, config); // knowledge
+    expect((await graph.getState(config)).next).toEqual(["parts"]);
+    await graph.invoke(null, config); // parts
+    expect((await graph.getState(config)).next).toEqual(["schedule"]);
+    await graph.invoke(null, config); // schedule
+    expect((await graph.getState(config)).next).toEqual(["evaluateGuardrail"]);
+  });
+
+  it("completes on the final advance when the guardrail auto-approves", async () => {
+    const h = buildDeps(); // default guardrail outcome is autoApprove
+    const graph = buildCaseTriageGraph(h.deps, { stepped: true });
+    const config = { configurable: { thread_id: "wf-step-2" } };
+
+    await graph.invoke(initialState("wf-step-2"), config); // Triage, pause
+    // Advance through customer → knowledge → parts → schedule → guardrail.
+    for (let i = 0; i < 4; i += 1) {
+      await graph.invoke(null, config);
+    }
+    expect((await graph.getState(config)).next).toEqual(["evaluateGuardrail"]);
+
+    const final = (await graph.invoke(null, config)) as {
+      writeBackApplied?: boolean;
+      __interrupt__?: unknown;
+    };
+    expect(final.__interrupt__).toBeUndefined();
+    expect(final.writeBackApplied).toBe(true);
+    expect((await graph.getState(config)).next).toEqual([]);
+  });
+
+  it("the auto graph never pauses mid-pipeline (unchanged behaviour)", async () => {
+    const h = buildDeps();
+    const graph = buildCaseTriageGraph(h.deps); // no stepped option
+    const config = { configurable: { thread_id: "wf-auto-1" } };
+    const result = (await graph.invoke(initialState("wf-auto-1"), config)) as {
+      writeBackApplied?: boolean;
+    };
+    // Ran end-to-end in one invoke; nothing pending.
+    expect(result.writeBackApplied).toBe(true);
+    expect((await graph.getState(config)).next).toEqual([]);
+  });
+});

@@ -12,6 +12,10 @@ export const NODE_LIFECYCLE_STATUSES = [
   "running",
   "done",
   "waiting_approval",
+  // Stepped run mode (Phase 2): the graph paused after a stage via
+  // `interruptAfter` and is waiting for the operator's next `advance`. Like
+  // `waiting_approval`, it is NON-terminal — the workflow resumes on demand.
+  "awaiting_step",
   "rejected",
   "escalated",
   "stopped",

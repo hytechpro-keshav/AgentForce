@@ -34,6 +34,8 @@ import { KnowledgeQueryBuilder } from "./knowledge-query.builder";
 import {
   buildCaseTriageGraph,
   Command,
+  STEP_NEXT_NODE_TO_UI,
+  type CaseTriageGraphDeps,
   type CaseTriageStateType,
   type CaseTriageTriageInput,
   type CompiledCaseTriageGraph
@@ -41,7 +43,8 @@ import {
 import {
   GUARDRAIL_NODE_ID,
   isTerminalLifecycleStatus,
-  type NodeLifecycleStatus
+  type NodeLifecycleStatus,
+  type OrchestratorNodeId
 } from "./dto/case-triage-lifecycle";
 import type {
   GuardrailApprovalInterrupt,
@@ -131,6 +134,14 @@ export class CaseTriageOrchestratorService {
   private readonly logger = new Logger(CaseTriageOrchestratorService.name);
   private readonly checkpointer = new MemorySaver();
   private readonly graph: CompiledCaseTriageGraph;
+  /**
+   * Stepped variant (Phase 2): same nodes + checkpointer, but pauses after
+   * each upstream stage so an operator can advance one stage at a time. The
+   * set tracks which workflows are stepped so `advance`/`resume` drive the
+   * matching graph; it is in-memory (a stepped run cannot outlive a restart).
+   */
+  private readonly steppedGraph: CompiledCaseTriageGraph;
+  private readonly steppedWorkflows = new Set<string>();
   private readonly processedResumeKeys = new Map<string, string>();
   private principalForRag: AuthPrincipal | undefined;
 
@@ -156,7 +167,7 @@ export class CaseTriageOrchestratorService {
     private readonly guardrailPolicy: GuardrailPolicyService,
     private readonly approvalNotifications: GuardrailApprovalNotificationService
   ) {
-    this.graph = buildCaseTriageGraph({
+    const graphDeps: CaseTriageGraphDeps = {
       readContext: (caseId) => this.gateway.readCaseContext(caseId),
       runTriage: (input) => this.runTriage(input),
       applyWriteBack: (triage, caseId) => this.applyWriteBack(triage, caseId),
@@ -242,7 +253,11 @@ export class CaseTriageOrchestratorService {
           trace
         ),
       checkpointer: this.checkpointer
-    });
+    };
+    this.graph = buildCaseTriageGraph(graphDeps);
+    // Same nodes + checkpointer; pauses after each upstream stage so the
+    // operator can advance one stage at a time. The auto graph is untouched.
+    this.steppedGraph = buildCaseTriageGraph(graphDeps, { stepped: true });
   }
 
   /** True when outbound Salesforce connectivity is configured. */
@@ -302,6 +317,94 @@ export class CaseTriageOrchestratorService {
     };
   }
 
+  /**
+   * Stepped-mode trigger (Phase 2). Like {@link trigger}, but the graph pauses
+   * after each upstream stage: Triage runs automatically, then the operator
+   * advances one stage at a time via {@link advance}. The paused checkpoint
+   * lives in the in-process MemorySaver, so a stepped run cannot survive an
+   * ai-api restart (single-instance / demo scope — see the stepped phase plan).
+   */
+  async triggerStepped(
+    dto: TriggerCaseTriageDto,
+    principal?: AuthPrincipal
+  ): Promise<TriggerCaseTriageAcceptedDto> {
+    const orchestrationStatus = await this.gateway.readOrchestrationStatus(
+      dto.caseId
+    );
+    if (orchestrationStatus === "stopped_by_user") {
+      throw new ConflictException({
+        error: "orchestration_stopped",
+        caseId: dto.caseId
+      });
+    }
+    const workflowId = `wf-${randomUUID()}`;
+    await this.store.createAssigned({
+      workflowId,
+      caseId: dto.caseId,
+      caseNumber: dto.caseNumber
+    });
+    this.steppedWorkflows.add(workflowId);
+    void this.trackOnSalesforce(dto.caseId, workflowId, "assigned");
+    // Auto-run Triage, then pause. Fire-and-forget so the 202 is immediate.
+    void this.runStep(workflowId, dto, principal).catch(() => {
+      this.logger.error(
+        `Unhandled stepped run rejection: workflow=${workflowId}`
+      );
+    });
+    return {
+      workflowId,
+      caseId: dto.caseId,
+      caseNumber: dto.caseNumber,
+      status: "assigned",
+      acceptedAt: new Date().toISOString()
+    };
+  }
+
+  /**
+   * Advance a paused stepped workflow by exactly one stage. Idempotent at the
+   * edges: a terminal workflow returns its snapshot unchanged; a workflow not
+   * paused for a step is a conflict. The guardrail stage either reaches a
+   * terminal outcome or pauses for out-of-band approval (resolved via
+   * {@link resume}, never here).
+   */
+  async advance(workflowId: string): Promise<CaseTriageWorkflowSnapshot> {
+    const existing = await this.store.get(workflowId);
+    if (!existing) {
+      throw new NotFoundException({ error: "workflow_not_found" });
+    }
+    if (isTerminalLifecycleStatus(existing.status)) {
+      return existing;
+    }
+    if (existing.status === "waiting_approval") {
+      throw new ConflictException({
+        error: "awaiting_approval",
+        status: existing.status
+      });
+    }
+    if (existing.status !== "awaiting_step") {
+      throw new ConflictException({
+        error: "not_awaiting_step",
+        status: existing.status
+      });
+    }
+    if (!this.steppedWorkflows.has(workflowId)) {
+      // The paused checkpoint is gone (ai-api restart) or this was never a
+      // stepped run — the graph thread cannot be resumed.
+      throw new ConflictException({ error: "step_state_unavailable" });
+    }
+    const startedAt = Date.now();
+    try {
+      // `null` input resumes the thread from its static `interruptAfter` pause.
+      const result = (await this.steppedGraph.invoke(null, {
+        configurable: { thread_id: workflowId }
+      })) as CaseTriageStateType;
+      await this.settleStep(workflowId, result, startedAt);
+    } catch (err) {
+      await this.fail(workflowId, err);
+    }
+    return this.getSnapshot(workflowId);
+  }
+
   async getSnapshot(workflowId: string): Promise<CaseTriageWorkflowSnapshot> {
     const snapshot = await this.store.get(workflowId);
     if (!snapshot) {
@@ -348,7 +451,12 @@ export class CaseTriageOrchestratorService {
 
     const startedAt = Date.now();
     try {
-      const result = (await this.graph.invoke(
+      // A stepped workflow's guardrail pause lives in the stepped graph's
+      // checkpoint, so resume it there; auto workflows use the auto graph.
+      const graph = this.steppedWorkflows.has(workflowId)
+        ? this.steppedGraph
+        : this.graph;
+      const result = (await graph.invoke(
         new Command({ resume: dto.decision }),
         { configurable: { thread_id: workflowId } }
       )) as CaseTriageStateType;
@@ -625,6 +733,121 @@ export class CaseTriageOrchestratorService {
     await this.trackOnSalesforce(result.caseId, workflowId, "done");
     this.logTelemetry("done", workflowId, result.triage, startedAt);
     this.logCustomerHistoryTelemetry(workflowId, result.customerContext);
+  }
+
+  /**
+   * Stepped-mode initial invoke: runs Triage (readContext + runTriage) then
+   * pauses at the first `interruptAfter`. Mirrors {@link run} but settles a
+   * stepped pause instead of a terminal/approval outcome.
+   */
+  private async runStep(
+    workflowId: string,
+    dto: TriggerCaseTriageDto,
+    principal?: AuthPrincipal
+  ): Promise<void> {
+    const startedAt = Date.now();
+    this.principalForRag = principal;
+    try {
+      const result = (await this.steppedGraph.invoke(
+        {
+          workflowId,
+          caseId: dto.caseId,
+          caseNumber: dto.caseNumber,
+          tenantId: principal?.tenantId,
+          principalSubject: principal?.subject ?? "orchestrator",
+          approvalRequired: false,
+          writeBackApplied: false,
+          status: "running"
+        },
+        { configurable: { thread_id: workflowId } }
+      )) as CaseTriageStateType;
+      await this.settleStep(workflowId, result, startedAt);
+    } catch (err) {
+      await this.fail(workflowId, err);
+    } finally {
+      this.principalForRag = undefined;
+    }
+  }
+
+  /**
+   * Settle a stepped invoke: a guardrail approval pause (dynamic interrupt) or
+   * a terminal outcome routes through {@link settleAfterInvoke} exactly like
+   * the auto run; a static `interruptAfter` pause (more stages to run) records
+   * `awaiting_step` and names the next stage.
+   */
+  private async settleStep(
+    workflowId: string,
+    result: CaseTriageStateType,
+    startedAt: number
+  ): Promise<void> {
+    if (CaseTriageOrchestratorService.isInterrupted(result)) {
+      await this.settleAfterInvoke(workflowId, result, startedAt);
+      return;
+    }
+    const state = await this.steppedGraph.getState({
+      configurable: { thread_id: workflowId }
+    });
+    const nextNode = state.next?.[0];
+    if (nextNode) {
+      await this.settleStepPause(workflowId, result, nextNode);
+      return;
+    }
+    // No pending tasks — the graph reached a terminal node.
+    await this.settleAfterInvoke(workflowId, result, startedAt);
+  }
+
+  /**
+   * Persist the channels produced so far and park the workflow at
+   * `awaiting_step`, naming the stage that will run on the next `advance`.
+   */
+  private async settleStepPause(
+    workflowId: string,
+    result: CaseTriageStateType,
+    nextGraphNode: string
+  ): Promise<void> {
+    const awaitingNode =
+      STEP_NEXT_NODE_TO_UI[nextGraphNode] ?? GUARDRAIL_NODE_ID;
+    // `update` only writes fields that are set, so undefined channels (stages
+    // not yet run) are left untouched.
+    await this.store.update(workflowId, {
+      triage: result.triage,
+      customerContext: result.customerContext,
+      knowledgeGuidance: result.knowledgeGuidance,
+      partsLogistics: result.partsLogistics,
+      scheduling: result.scheduling,
+      guardrail: result.guardrail
+    });
+    await this.store.appendEvent(
+      workflowId,
+      "awaiting_step",
+      `Stage complete — awaiting Run for ${CaseTriageOrchestratorService.stepNodeLabel(
+        awaitingNode
+      )}.`,
+      undefined,
+      awaitingNode,
+      {
+        stepKey: `awaiting_${awaitingNode}`,
+        sections: [
+          {
+            key: "outputs",
+            title: "Outputs",
+            data: { status: "awaiting_step", awaitingNode }
+          }
+        ]
+      }
+    );
+  }
+
+  private static stepNodeLabel(node: OrchestratorNodeId): string {
+    const labels: Record<OrchestratorNodeId, string> = {
+      triage: "Triage",
+      customer_history: "Customer Context",
+      knowledge: "Knowledge Base",
+      parts_logistics: "Parts & Logistics",
+      scheduling: "Scheduling",
+      guardrail: "Compliance & Guardrail"
+    };
+    return labels[node] ?? node;
   }
 
   private async fail(workflowId: string, err: unknown): Promise<void> {

@@ -14,6 +14,8 @@ export const ORCHESTRATION_STATUSES = [
   "running",
   "done",
   "waiting_approval",
+  // Phase 2 stepped mode: graph paused via interruptAfter, operator advances.
+  "awaiting_step",
   "rejected",
   "escalated",
   "stopped",
@@ -404,6 +406,10 @@ export const STATUS_META: Record<OrchestrationStatus, StatusMeta> = {
   waiting_approval: {
     label: "Waiting for approval",
     tone: "bg-amber-100 text-amber-800"
+  },
+  awaiting_step: {
+    label: "Awaiting step",
+    tone: "bg-blue-100 text-blue-700"
   },
   done: { label: "Done", tone: "bg-green-100 text-green-700" },
   rejected: { label: "Rejected", tone: "bg-red-100 text-red-700" },

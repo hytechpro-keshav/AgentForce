@@ -119,6 +119,48 @@ export class CaseTriageOrchestratorController {
   }
 
   /**
+   * Phase 2 — start a STEPPED run from the console. Async like `/triggers`,
+   * but the graph pauses after each stage (Triage runs automatically). Carries
+   * the dedicated `agentforce:orchestrator-step` scope — neither the read view
+   * token nor the approval scope can start a stepped run.
+   */
+  @RequireScopes("agentforce:orchestrator-step")
+  @Post("cases/:caseId/stepped")
+  @HttpCode(202)
+  async triggerStepped(
+    @Param("caseId") caseId: string,
+    @Body() body: TriggerCaseTriageDto,
+    @Req() request: AuthenticatedRequest
+  ): Promise<TriggerCaseTriageAcceptedDto> {
+    if (!this.orchestrator.isReady()) {
+      throw new ServiceUnavailableException({
+        error: "orchestrator_salesforce_not_configured",
+        message:
+          "Outbound Salesforce connectivity is not configured on the AI API."
+      });
+    }
+    // The Case id comes from the path; the body carries the id + optional
+    // case number. Guard that they agree so the path stays authoritative.
+    const id = this.assertCaseId(caseId);
+    if (body.caseId !== id) {
+      throw new BadRequestException({ error: "case_id_mismatch" });
+    }
+    return this.orchestrator.triggerStepped(body, request.authPrincipal);
+  }
+
+  /**
+   * Phase 2 — advance a paused stepped workflow by exactly one stage. Same
+   * `agentforce:orchestrator-step` scope. Returns the updated snapshot.
+   */
+  @RequireScopes("agentforce:orchestrator-step")
+  @Post(":workflowId/advance")
+  async advance(
+    @Param("workflowId") workflowId: string
+  ): Promise<CaseTriageWorkflowSnapshot> {
+    return this.orchestrator.advance(this.assertWorkflowId(workflowId));
+  }
+
+  /**
    * PUBLIC approve/reject confirmation page (6b). The guardrail approval email
    * links land here. The page renders ONLY after the scoped token verifies; it
    * then shows a single Confirm button that POSTs back. The deliberate

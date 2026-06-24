@@ -1,16 +1,19 @@
 "use client";
 
 /**
- * Stepped orchestration console (Phase 1 — replay).
+ * Stepped orchestration console (Phase 2 — real stepping + Phase 1 replay).
  *
- * Renders the approved "spine" design driven by a REAL run. The snapshot is
- * produced by the live orchestrator and fetched through the same read-only
- * proxy the existing console uses; this screen reveals each already-computed
- * stage on demand (Triage auto-reveals once the case is assigned, then each
- * stage has a "Run" button). Nothing here triggers the backend — a stage's
- * "Run" button only becomes active once the backend has actually produced that
- * stage's result. Phase 2 will swap the reveal for a true `/advance` call.
+ * Two modes driven by `snapshot.status`:
  *
+ * **Stepped** (`awaiting_step`): the backend paused after a stage via
+ * `interruptAfter`. Each "Run" button POSTs to `/api/orchestrator/[wfId]/advance`,
+ * which runs exactly one graph node and returns the updated snapshot. The UI
+ * animates the reveal once the backend confirms the data.
+ *
+ * **Replay** (any other status): the backend has already computed all stages.
+ * "Run" reveals the already-computed result locally (no backend call).
+ *
+ * Triage auto-reveals in both modes as soon as its data is available.
  * The existing read-only console (`OrchestrationView`) is left untouched.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -81,6 +84,8 @@ export function SteppedOrchestrationView({
   const [runningIndex, setRunningIndex] = useState<number | null>(null);
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [elapsed, setElapsed] = useState(0);
+  const [advancing, setAdvancing] = useState(false);
+  const [advanceError, setAdvanceError] = useState<string | null>(null);
   const stopped = useRef(false);
   const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -147,6 +152,44 @@ export function SteppedOrchestrationView({
     }, REVEAL_MS);
   }, []);
 
+  /**
+   * Phase 2 — call the `/advance` proxy to run the next graph node on the
+   * backend, then animate the reveal of its result. Used when
+   * `snapshot.status === "awaiting_step"`.
+   */
+  const advanceStep = useCallback(
+    async (index: number) => {
+      if (!snapshot?.workflowId) return;
+      setAdvancing(true);
+      setAdvanceError(null);
+      try {
+        const response = await fetch(
+          `/api/orchestrator/${snapshot.workflowId}/advance`,
+          {
+            method: "POST",
+            headers: { accept: "application/json" },
+            cache: "no-store"
+          }
+        );
+        if (!response.ok) {
+          setAdvanceError(`Advance failed (${response.status}).`);
+          return;
+        }
+        const updated = sanitizeSnapshot(await response.json());
+        if (updated) {
+          setSnapshot(updated);
+          if (isTerminalStatus(updated.status)) stopped.current = true;
+        }
+        startReveal(index);
+      } catch {
+        setAdvanceError("Unable to advance step.");
+      } finally {
+        setAdvancing(false);
+      }
+    },
+    [snapshot?.workflowId, startReveal]
+  );
+
   // Triage auto-runs as soon as the case is assigned (its result is available).
   useEffect(() => {
     if (!vm) return;
@@ -165,6 +208,16 @@ export function SteppedOrchestrationView({
     );
   }
 
+  const displayError = error ?? advanceError;
+
+  // Stepped-mode signals: the backend is paused and waiting for an advance call.
+  const isSteppedRun = snapshot?.status === "awaiting_step";
+  // The node that will run on the next /advance (matches snapshot.node).
+  const stepAwaitingNodeId = snapshot?.node;
+  const awaitingIndex = vm
+    ? vm.nodes.findIndex((n) => n.id === stepAwaitingNodeId)
+    : -1;
+
   const nodeState = (index: number): NodeRenderState => {
     if (index < revealed) return "done";
     if (index === runningIndex) return "running";
@@ -179,7 +232,8 @@ export function SteppedOrchestrationView({
   let pill: "running" | "ready" | "paused" | "complete";
   if (allRevealed && vm.complete && !vm.guardrailWaiting) pill = "complete";
   else if (allRevealed && vm.guardrailWaiting) pill = "paused";
-  else if (runningIndex !== null) pill = "running";
+  else if (runningIndex !== null || advancing) pill = "running";
+  else if (isSteppedRun && awaitingIndex >= 0) pill = "ready";
   else if (frontier?.available) pill = "ready";
   else pill = "running";
 
@@ -187,13 +241,25 @@ export function SteppedOrchestrationView({
     setOpen((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const onRun = (index: number) => {
-    if (runningIndex !== null) return;
+    if (runningIndex !== null || advancing) return;
+    // Stepped mode: the frontier node has not run yet — advance the backend.
+    if (isSteppedRun && index === awaitingIndex) {
+      void advanceStep(index);
+      return;
+    }
+    // Replay mode: the node's data is already computed — reveal locally.
     if (!vm.nodes[index]?.available) return;
     startReveal(index);
   };
 
   return (
     <div className={styles.wrap}>
+      {displayError ? (
+        <div className={styles.state} role="alert">
+          {displayError}
+        </div>
+      ) : null}
+
       {/* HEADER */}
       <header className={styles.top}>
         <div className={styles.brand}>
@@ -268,19 +334,28 @@ export function SteppedOrchestrationView({
           </div>
 
           {/* nodes */}
-          {vm.nodes.map((node, index) => (
-            <NodeRow
-              key={node.id}
-              node={node}
-              index={index}
-              state={nodeState(index)}
-              guardrailWaiting={vm.guardrailWaiting}
-              open={!!open[node.id]}
-              onToggle={() => toggle(node.id)}
-              onRun={() => onRun(index)}
-              runDisabled={runningIndex !== null || !node.available}
-            />
-          ))}
+          {vm.nodes.map((node, index) => {
+            // In stepped mode, the awaiting node is runnable even though its
+            // data hasn't been fetched yet; all other non-available nodes stay
+            // disabled. In replay mode, only available nodes are runnable.
+            const isRunnable = isSteppedRun
+              ? index === awaitingIndex
+              : node.available;
+            return (
+              <NodeRow
+                key={node.id}
+                node={node}
+                index={index}
+                state={nodeState(index)}
+                guardrailWaiting={vm.guardrailWaiting}
+                open={!!open[node.id]}
+                onToggle={() => toggle(node.id)}
+                onRun={() => onRun(index)}
+                runDisabled={runningIndex !== null || advancing || !isRunnable}
+                steppedFrontier={isSteppedRun && index === awaitingIndex}
+              />
+            );
+          })}
 
           {/* terminal */}
           <div className={styles.row}>
@@ -500,7 +575,8 @@ function NodeRow({
   open,
   onToggle,
   onRun,
-  runDisabled
+  runDisabled,
+  steppedFrontier = false
 }: {
   node: SteppedNode;
   index: number;
@@ -510,6 +586,8 @@ function NodeRow({
   onToggle: () => void;
   onRun: () => void;
   runDisabled: boolean;
+  /** True when this node is the awaiting frontier in a real stepped run. */
+  steppedFrontier?: boolean;
 }) {
   const reached = state !== "queued";
   const Icon = NODE_ICON[node.icon];
@@ -593,12 +671,16 @@ function NodeRow({
               disabled={runDisabled}
               onClick={onRun}
             >
-              {node.available ? `Run ${node.name} ▸` : "Waiting for backend…"}
+              {steppedFrontier || node.available
+                ? `Run ${node.name} ▸`
+                : "Waiting for backend…"}
             </button>
             <span className={styles.hint}>
-              {node.available
-                ? "press to reveal this stage"
-                : "this stage has not run yet"}
+              {steppedFrontier
+                ? "sends to backend, then reveals"
+                : node.available
+                  ? "press to reveal this stage"
+                  : "this stage has not run yet"}
             </span>
           </div>
         ) : null}

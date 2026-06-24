@@ -249,3 +249,85 @@ export function steppedSnapshotFixture(
     ...overrides
   };
 }
+
+/**
+ * A snapshot representing a PAUSED stepped run: Triage has run, the graph is
+ * waiting for the operator to advance to Customer History. Returned by the
+ * initial `/triggers/stepped` call (status `awaiting_step`, node
+ * `customer_history`).
+ */
+export function steppedPausedFixture(
+  overrides: Partial<OrchestrationSnapshot> = {}
+): OrchestrationSnapshot {
+  return {
+    workflowId: "wf-c79ee03d-a8fa-4316-9517-a9b4872833a4",
+    node: "customer_history",
+    caseNumber: "00001079",
+    status: "awaiting_step",
+    approvalRequired: false,
+    writeBackApplied: false,
+    triage: {
+      recommendedPriority: "normal",
+      summary: "Routine battery replacement needed for ProBook 15X.",
+      suggestedNextStep: "Confirm local stock availability.",
+      provider: "openai",
+      model: "gpt-4o-mini",
+      fallbackUsed: false,
+      latencyMs: 1285
+    },
+    events: [
+      {
+        node: "triage",
+        status: "assigned",
+        sequence: 1,
+        occurredAt: "t1",
+        safeSummary: "Triage assigned for case 00001079."
+      },
+      {
+        node: "triage",
+        status: "running",
+        sequence: 2,
+        occurredAt: "t2",
+        safeSummary: "Running AI triage.",
+        details: [{ label: "Recommended priority", value: "normal" }]
+      },
+      {
+        node: "customer_history",
+        status: "awaiting_step",
+        sequence: 3,
+        occurredAt: "t3",
+        safeSummary:
+          "Stage complete — awaiting Run for Customer Context."
+      }
+    ],
+    ...overrides
+  };
+}
+
+/**
+ * The response returned by the first `/advance` call: Customer History has now
+ * run, and the graph paused again before Knowledge.
+ */
+export function steppedAfterCustomerHistoryFixture(): OrchestrationSnapshot {
+  return steppedPausedFixture({
+    node: "knowledge",
+    customerContext: {
+      eligible: true,
+      degraded: false,
+      provider: "openai",
+      model: "gpt-4o-mini",
+      latencyMs: 240,
+      package: {
+        customerTier: finding("standard"),
+        slaClass: finding("none"),
+        warrantyStatus: finding("unknown"),
+        repeatIncident: finding({ repeat: true, count: 10, windowDays: 30 }),
+        strategicAccount: finding(false),
+        installedAssets: finding({ totalAssets: 0, modelCount: 0 }),
+        openIncidentCount: finding(10),
+        escalationHistory: finding(0),
+        businessRisk: finding("high", "Risk signals: repeat-failure, 10 open")
+      }
+    }
+  });
+}
