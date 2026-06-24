@@ -16,6 +16,7 @@ import {
   Hand,
   Loader2,
   Link2,
+  SkipForward,
   ShieldAlert,
   ShieldCheck,
   ShieldQuestion,
@@ -48,6 +49,7 @@ import {
 const STATUS_ICON: Record<OrchestrationStatus, typeof CircleDot> = {
   assigned: CircleDot,
   running: Loader2,
+  awaiting_step: SkipForward,
   waiting_approval: ShieldQuestion,
   done: CheckCircle2,
   rejected: XCircle,
@@ -131,6 +133,11 @@ const STAGE_META: Record<
     label: "Running",
     tone: STATUS_META.running.tone,
     icon: Loader2
+  },
+  awaiting_step: {
+    label: "Awaiting step",
+    tone: STATUS_META.awaiting_step.tone,
+    icon: SkipForward
   },
   waiting_approval: {
     label: "Waiting for approval",

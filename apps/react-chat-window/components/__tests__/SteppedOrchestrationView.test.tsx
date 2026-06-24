@@ -137,9 +137,12 @@ describe("SteppedOrchestrationView — Phase 2 (real stepped run)", () => {
       screen.getByRole("button", { name: /Run Customer Context/i })
     );
 
-    // Flush the async advance call + reveal timer.
+    // Flush the async advance call, then the reveal animation timer.
     await act(async () => {
       await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => {
       vi.advanceTimersByTime(REVEAL);
     });
 

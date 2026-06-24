@@ -706,6 +706,7 @@ const ACTIVITY_KIND: Record<OrchestrationStatus, SteppedActivityEntry["kind"]> =
   {
     assigned: "sys",
     running: "out",
+    awaiting_step: "sys",
     done: "in",
     waiting_approval: "warn",
     rejected: "warn",
