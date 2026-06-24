@@ -39,6 +39,8 @@ import {
 } from "@/lib/orchestration";
 import {
   buildSteppedViewModel,
+  computeRevealedProgress,
+  filterActivityForRevealed,
   type SteppedNode,
   type SteppedNodeIcon,
   type SteppedSection,
@@ -167,6 +169,21 @@ export function SteppedOrchestrationView({
     [snapshot]
   );
 
+  // Re-hydrate reveal progress from the snapshot (survives page refresh).
+  useEffect(() => {
+    if (!vm || !snapshot || runningIndex !== null || advancing) return;
+    const fromSnapshot = computeRevealedProgress(vm.nodes, snapshot);
+    setRevealed((current) =>
+      current === 0 ? fromSnapshot : Math.max(current, fromSnapshot)
+    );
+  }, [vm, snapshot, runningIndex, advancing]);
+
+  const visibleActivity = useMemo(
+    () =>
+      vm ? filterActivityForRevealed(vm.activity, vm.nodes, revealed) : [],
+    [vm, revealed]
+  );
+
   const startReveal = useCallback((index: number) => {
     setRunningIndex(index);
     if (revealTimer.current) clearTimeout(revealTimer.current);
@@ -213,14 +230,6 @@ export function SteppedOrchestrationView({
     },
     [snapshot?.workflowId, startReveal]
   );
-
-  // Triage auto-runs as soon as the case is assigned (its result is available).
-  useEffect(() => {
-    if (!vm) return;
-    if (revealed === 0 && runningIndex === null && vm.nodes[0]?.available) {
-      startReveal(0);
-    }
-  }, [vm, revealed, runningIndex, startReveal]);
 
   if (!vm) {
     if (noWorkflowYet && caseId && !pollWorkflowId) {
@@ -529,12 +538,19 @@ export function SteppedOrchestrationView({
                 </span>
               </div>
               <div className={styles.osub}>
-                {orchSub(pill, frontier?.name, vm.guardrailWaiting)}
+                {orchSub(
+                  pill,
+                  isSteppedRun && awaitingIndex >= 0
+                    ? vm.nodes[awaitingIndex]?.name
+                    : frontier?.name,
+                  vm.guardrailWaiting,
+                  isSteppedRun
+                )}
               </div>
             </div>
             <div className={styles.oactivity}>
               <div className={styles.at}>ACTIVITY</div>
-              {vm.activity.map((entry) => (
+              {visibleActivity.map((entry) => (
                 <div
                   key={entry.seq}
                   className={clsx(
@@ -928,12 +944,16 @@ function orchLabel(
 function orchSub(
   pill: "running" | "ready" | "paused" | "complete",
   frontierName: string | undefined,
-  guardrailWaiting: boolean
+  guardrailWaiting: boolean,
+  isSteppedRun = false
 ): string {
   if (pill === "complete") return "all nodes settled";
   if (pill === "paused") return "awaiting external approval";
-  if (pill === "ready")
-    return `press Run to reveal ${frontierName ?? "next stage"}`;
+  if (pill === "ready") {
+    return isSteppedRun
+      ? `press Run to execute ${frontierName ?? "next stage"} on the backend`
+      : `press Run to reveal ${frontierName ?? "next stage"}`;
+  }
   if (guardrailWaiting) return "guardrail awaiting approval";
   return "waiting for the next stage to finish";
 }

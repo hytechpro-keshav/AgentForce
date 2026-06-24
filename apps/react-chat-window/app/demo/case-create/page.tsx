@@ -20,14 +20,11 @@ export default function DemoCaseCreatePage() {
             </h1>
             <p className="max-w-2xl text-muted-foreground">
               Test the full AI service workflow — pick a scenario, create a real
-              Case in Salesforce, and jump straight to the orchestration console
-              as Node 1 through Node 6 progress.
+              Case in Salesforce, and step through each orchestration stage in
+              the stepped console.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <ButtonLink href="/orchestration">Engineering console</ButtonLink>
-            <ButtonLink href="/orchestration/stepped">Stepped console</ButtonLink>
-          </div>
+          <ButtonLink href="/orchestration/stepped">Stepped console</ButtonLink>
         </header>
 
         <DemoCaseCreateForm scenarios={catalog.scenarios} />

@@ -70,10 +70,7 @@ export function DemoCaseCreateForm({ scenarios }: DemoCaseCreateFormProps) {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
-  async function onSubmit(
-    event: React.FormEvent,
-    target: "watch" | "step" = "watch"
-  ) {
+  async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
     setSubmitting(true);
     setError(null);
@@ -116,11 +113,7 @@ export function DemoCaseCreateForm({ scenarios }: DemoCaseCreateFormProps) {
         throw new Error(message ?? "Could not create the demo Case.");
       }
 
-      router.push(
-        target === "step"
-          ? data.steppedOrchestrationUrl
-          : data.orchestrationUrl
-      );
+      router.push(data.steppedOrchestrationUrl);
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -133,10 +126,7 @@ export function DemoCaseCreateForm({ scenarios }: DemoCaseCreateFormProps) {
   }
 
   return (
-    <form
-      onSubmit={(event) => void onSubmit(event, "watch")}
-      className="grid gap-6 lg:grid-cols-[1fr_1.1fr]"
-    >
+    <form onSubmit={onSubmit} className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
       <div className="space-y-4">
         <Card className="border-primary/20 bg-card/80 backdrop-blur">
           <CardHeader>
@@ -329,19 +319,7 @@ export function DemoCaseCreateForm({ scenarios }: DemoCaseCreateFormProps) {
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <Button type="submit" size="lg" disabled={submitting}>
-              {submitting ? "Creating Case…" : "Create case & watch workflow →"}
-            </Button>
-            <Button
-              type="button"
-              size="lg"
-              variant="secondary"
-              disabled={submitting}
-              onClick={(event) => void onSubmit(event, "step")}
-            >
               {submitting ? "Creating Case…" : "Create case & step through →"}
-            </Button>
-            <Button type="button" variant="outline" asChild>
-              <Link href="/orchestration">Open orchestration console</Link>
             </Button>
             <Button type="button" variant="outline" asChild>
               <Link href="/orchestration/stepped">Open stepped console</Link>

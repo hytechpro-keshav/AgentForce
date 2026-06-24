@@ -89,6 +89,7 @@ export interface SteppedVerdict {
 export interface SteppedActivityEntry {
   seq: number;
   kind: "sys" | "out" | "in" | "warn";
+  nodeId: OrchestrationNodeId;
   text: string;
 }
 
@@ -723,8 +724,41 @@ function buildActivity(events: OrchestrationEvent[]): SteppedActivityEntry[] {
     .map((event) => ({
       seq: event.sequence,
       kind: ACTIVITY_KIND[event.status] ?? "sys",
-      text: `${NODE_SHORT[event.node]} · ${event.safeSummary ?? event.status}`
+      nodeId: event.node ?? "triage",
+      text: `${NODE_SHORT[event.node ?? "triage"]} · ${event.safeSummary ?? event.status}`
     }));
+}
+
+/**
+ * How many spine stages should be visible for the current snapshot. On refresh
+ * this re-hydrates client reveal state from real backend progress instead of
+ * resetting to step one.
+ */
+export function computeRevealedProgress(
+  nodes: SteppedNode[],
+  snapshot: Pick<OrchestrationSnapshot, "status" | "node">
+): number {
+  if (snapshot.status === "awaiting_step") {
+    const awaitingIndex = nodes.findIndex((node) => node.id === snapshot.node);
+    return awaitingIndex >= 0 ? awaitingIndex : 0;
+  }
+
+  let count = 0;
+  for (const node of nodes) {
+    if (!node.available) break;
+    count++;
+  }
+  return count;
+}
+
+/** Activity log entries for stages the spine has already revealed. */
+export function filterActivityForRevealed(
+  activity: SteppedActivityEntry[],
+  nodes: SteppedNode[],
+  revealed: number
+): SteppedActivityEntry[] {
+  const revealedIds = new Set(nodes.slice(0, revealed).map((node) => node.id));
+  return activity.filter((entry) => revealedIds.has(entry.nodeId));
 }
 
 /**

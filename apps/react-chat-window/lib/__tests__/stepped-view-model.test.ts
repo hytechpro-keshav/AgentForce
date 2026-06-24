@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { buildSteppedViewModel } from "@/lib/stepped-view-model";
+import {
+  buildSteppedViewModel,
+  computeRevealedProgress,
+  filterActivityForRevealed
+} from "@/lib/stepped-view-model";
 
-import { steppedSnapshotFixture } from "./stepped-fixture";
+import {
+  steppedInProgressTriageFixture,
+  steppedPausedFixture,
+  steppedSnapshotFixture
+} from "./stepped-fixture";
 
 describe("buildSteppedViewModel", () => {
   it("maps all six nodes in order with real outputs", () => {
@@ -100,5 +108,31 @@ describe("buildSteppedViewModel", () => {
     expect(vm.nodes[5].available).toBe(false);
     expect(vm.complete).toBe(false);
     expect(vm.guardrailWaiting).toBe(false);
+  });
+});
+
+describe("computeRevealedProgress", () => {
+  it("pauses at the awaiting node in stepped mode", () => {
+    const vm = buildSteppedViewModel(steppedPausedFixture());
+    expect(computeRevealedProgress(vm.nodes, steppedPausedFixture())).toBe(1);
+  });
+
+  it("reveals every produced stage for terminal or in-flight auto runs", () => {
+    const full = buildSteppedViewModel(steppedSnapshotFixture());
+    expect(computeRevealedProgress(full.nodes, steppedSnapshotFixture())).toBe(6);
+
+    const triageOnly = buildSteppedViewModel(steppedInProgressTriageFixture());
+    expect(
+      computeRevealedProgress(triageOnly.nodes, steppedInProgressTriageFixture())
+    ).toBe(1);
+  });
+});
+
+describe("filterActivityForRevealed", () => {
+  it("keeps activity aligned with revealed spine stages", () => {
+    const vm = buildSteppedViewModel(steppedSnapshotFixture());
+    const filtered = filterActivityForRevealed(vm.activity, vm.nodes, 1);
+    expect(filtered.every((entry) => entry.nodeId === "triage")).toBe(true);
+    expect(filtered.length).toBeGreaterThan(0);
   });
 });

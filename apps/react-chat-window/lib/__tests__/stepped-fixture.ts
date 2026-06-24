@@ -305,6 +305,17 @@ export function steppedPausedFixture(
 }
 
 /**
+ * In-progress auto-run: only Triage has completed on the backend.
+ */
+export function steppedInProgressTriageFixture(): OrchestrationSnapshot {
+  return steppedPausedFixture({
+    status: "running",
+    node: "customer_history",
+    customerContext: undefined
+  });
+}
+
+/**
  * The response returned by the first `/advance` call: Customer History has now
  * run, and the graph paused again before Knowledge.
  */
