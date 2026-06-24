@@ -167,4 +167,6 @@ export class DemoCaseCreateResponseDto {
   caseNumber?: string;
   orchestrationUrl!: string;
   steppedOrchestrationUrl!: string;
+  /** Present when demo create auto-started a stepped run on ai-api. */
+  steppedWorkflowId?: string;
 }

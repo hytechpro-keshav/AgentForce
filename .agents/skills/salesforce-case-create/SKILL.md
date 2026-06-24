@@ -35,7 +35,9 @@ when the async Case trigger is active.
 - **Asset for laptop / Node 4 tests:**
   - serial: `SN-PRO15X-2026-0041A`
   - product: `AV-LP-15X-PRO`
-- **Orchestration console:** `https://react-chat-window-production.up.railway.app/orchestration?caseId=<Case Id>`
+- **Orchestration consoles:**
+  - **Stepped (demo):** `https://react-chat-window-production.up.railway.app/orchestration/stepped?workflowId=<wf-id>` — use after `/demo/case-create` (**Create case & step through**)
+  - **Engineering (read-only):** `https://react-chat-window-production.up.railway.app/orchestration?caseId=<Case Id>`
 - **Demo Case create UI:** `https://react-chat-window-production.up.railway.app/demo/case-create` (requires `DEMO_CASE_CREATE_ENABLED=true` on Railway)
 
 ## Node 4 — scenario quick reference

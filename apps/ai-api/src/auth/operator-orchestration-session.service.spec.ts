@@ -58,4 +58,12 @@ describe("OperatorOrchestrationSessionService", () => {
       service.createSession({ accessCode: "anything" }, "ip-1")
     ).toThrow(ServiceUnavailableException);
   });
+
+  it("mints a trusted demo session without an access code", () => {
+    const service = buildService(undefined);
+    const result = service.createTrustedDemoSession();
+    expect(result.accessToken).toBeTruthy();
+    const claims = jwt.verify(result.accessToken, SECRET) as jwt.JwtPayload;
+    expect(claims.channel).toBe("demo-case-create");
+  });
 });

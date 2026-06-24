@@ -18,6 +18,7 @@ This is a GitHub Copilot workspace skill for this repo. Use it with the installe
 - proving the first node against a real Salesforce Case instead of mock-only data
 - adding a read-only UI in `apps/react-chat-window` that shows safe progress, reasoning summary, and Node 1 output
 - adding focused tests and telemetry for the orchestrator path
+- stepped console UX, demo bootstrap, or per-node advance (`langgraph-stepped-console` skill)
 
 ## Required References
 
@@ -25,6 +26,7 @@ Read these before making changes:
 
 - [AGENTS.md](../../../AGENTS.md)
 - [orchestrator flow](../../../docs/orchestrator/case-triage-orchestrator-flow.md)
+- [stepped console phase plan](../../../docs/orchestrator/stepped-console-phase-plan.md)
 - [frontend chat instructions](../../instructions/frontend-chat.instructions.md)
 - [Nest AI API instructions](../../instructions/nest-ai-api.instructions.md)
 - [LLM provider instructions](../../instructions/llm-provider.instructions.md)

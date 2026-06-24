@@ -118,15 +118,30 @@ Feature components:
 
 ## Demo Case create (`/demo/case-create`)
 
-Engineering/demo surface to create a **real Salesforce Case** and redirect to
-`/orchestration?caseId=…`. This is separate from customer chat — no Case write
-on `/` or `EscalationDialog`.
+Demo surface to create a **real Salesforce Case** and redirect to the **stepped
+orchestration console** (`/orchestration/stepped?workflowId=wf-…`). Separate
+from customer chat — no Case write on `/` or `EscalationDialog`.
 
-| Env (react-chat-window)         | Required           | Description                                                                        |
-| ------------------------------- | ------------------ | ---------------------------------------------------------------------------------- |
-| `DEMO_CASE_CREATE_ENABLED`      | yes (to enable)    | Must be `true` to allow POST `/api/demo/cases`.                                    |
-| `AI_API_DEMO_CASE_CREATE_TOKEN` | yes (when enabled) | Opaque bearer for NestJS `POST /demo/cases` (scope `agentforce:demo-case-create`). |
-| `DEMO_CASE_CREATE_RATE_LIMIT_*` | no                 | Per-IP rate limit (defaults 10/min).                                               |
+The BFF auto-starts a stepped run and sets an `orchestrator_session` httpOnly
+cookie so **Run** buttons work without manual operator sign-in.
+
+| Env (react-chat-window)             | Required           | Description                                                                       |
+| ----------------------------------- | ------------------ | --------------------------------------------------------------------------------- |
+| `DEMO_CASE_CREATE_ENABLED`          | yes (to enable)    | Must be `true` to allow POST `/api/demo/cases`.                                   |
+| `AI_API_DEMO_CASE_CREATE_TOKEN`     | yes (when enabled) | Opaque bearer for NestJS `POST /demo/cases` + `POST /demo/orchestration-session`. |
+| `DEMO_CASE_CREATE_RATE_LIMIT_*`     | no                 | Per-IP rate limit (defaults 10/min).                                              |
+| `ORCHESTRATOR_OPERATOR_ACCESS_CODE` | no (fallback)      | Same as ai-api; only needed for manual sign-in on stepped start panel.            |
+
+## Orchestration consoles
+
+| Route                                    | Component                  | Purpose                                                              |
+| ---------------------------------------- | -------------------------- | -------------------------------------------------------------------- |
+| `/orchestration/stepped?workflowId=wf-…` | `SteppedOrchestrationView` | Demo/operator — manual **Run** per stage (primary after demo create) |
+| `/orchestration?caseId=…`                | `OrchestrationView`        | Engineering read-only timeline + Stop AI                             |
+
+Skill: `.agents/skills/langgraph-stepped-console/SKILL.md` · Phase plan: `docs/orchestrator/stepped-console-phase-plan.md`
+
+## Demo Case create (detail)
 
 On **ai-api**, set `DEMO_CASE_CREATE_ENABLED=true` and register the token SHA-256
 in `AI_API_AGENTFORCE_BEARERS_JSON` with scope `agentforce:demo-case-create`.

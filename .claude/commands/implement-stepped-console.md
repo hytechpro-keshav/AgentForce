@@ -1,0 +1,1 @@
+Read `.github/prompts/implement-stepped-console.prompt.md` and skill `.agents/skills/langgraph-stepped-console/SKILL.md`, then execute the task in `$ARGUMENTS` (or fix the stepped console issue described).

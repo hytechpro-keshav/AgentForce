@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import {
+  attachOperatorSessionCookie
+} from "@/lib/orchestrator-operator-session";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-/** httpOnly cookie holding the operator session JWT (read + control scopes). */
-const SESSION_COOKIE = "orchestrator_session";
 
 function aiApiBaseUrl(): string {
   const url = process.env.AI_API_BASE_URL?.trim();
@@ -84,20 +85,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const maxAge =
-    typeof data.expiresInSeconds === "number" && data.expiresInSeconds > 0
-      ? data.expiresInSeconds
-      : 3600;
   const response = NextResponse.json({
     ok: true,
     expiresAt: data.expiresAt ?? null
   });
-  response.cookies.set(SESSION_COOKIE, data.accessToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge
+  attachOperatorSessionCookie(response, {
+    accessToken: data.accessToken,
+    maxAge:
+      typeof data.expiresInSeconds === "number" && data.expiresInSeconds > 0
+        ? data.expiresInSeconds
+        : 3600
   });
   return response;
 }

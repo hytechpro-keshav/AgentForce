@@ -308,11 +308,39 @@ export function steppedPausedFixture(
  * In-progress auto-run: only Triage has completed on the backend.
  */
 export function steppedInProgressTriageFixture(): OrchestrationSnapshot {
-  return steppedPausedFixture({
-    status: "running",
+  return {
+    workflowId: "wf-c79ee03d-a8fa-4316-9517-a9b4872833a4",
     node: "customer_history",
-    customerContext: undefined
-  });
+    caseNumber: "00001079",
+    status: "running",
+    approvalRequired: false,
+    writeBackApplied: false,
+    triage: {
+      recommendedPriority: "normal",
+      summary: "Routine battery replacement needed for ProBook 15X.",
+      suggestedNextStep: "Confirm local stock availability.",
+      provider: "openai",
+      model: "gpt-4o-mini",
+      fallbackUsed: false,
+      latencyMs: 1285
+    },
+    events: [
+      {
+        node: "triage",
+        status: "assigned",
+        sequence: 1,
+        occurredAt: "t1",
+        safeSummary: "Triage assigned for case 00001079."
+      },
+      {
+        node: "triage",
+        status: "done",
+        sequence: 2,
+        occurredAt: "t2",
+        safeSummary: "Running AI triage."
+      }
+    ]
+  };
 }
 
 /**

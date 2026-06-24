@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildSteppedViewModel,
   computeRevealedProgress,
-  filterActivityForRevealed
+  filterActivityForRevealed,
+  isSteppedSnapshot
 } from "@/lib/stepped-view-model";
 
 import {
@@ -111,20 +112,42 @@ describe("buildSteppedViewModel", () => {
   });
 });
 
+describe("isSteppedSnapshot", () => {
+  it("detects paused stepped runs and ignores auto-trigger full runs", () => {
+    expect(isSteppedSnapshot(steppedPausedFixture())).toBe(true);
+    expect(isSteppedSnapshot(steppedInProgressTriageFixture())).toBe(false);
+    expect(isSteppedSnapshot(steppedSnapshotFixture())).toBe(false);
+  });
+});
+
 describe("computeRevealedProgress", () => {
   it("pauses at the awaiting node in stepped mode", () => {
     const vm = buildSteppedViewModel(steppedPausedFixture());
     expect(computeRevealedProgress(vm.nodes, steppedPausedFixture())).toBe(1);
   });
 
-  it("reveals every produced stage for terminal or in-flight auto runs", () => {
-    const full = buildSteppedViewModel(steppedSnapshotFixture());
-    expect(computeRevealedProgress(full.nodes, steppedSnapshotFixture())).toBe(6);
+  it("reveals every produced stage for a completed stepped run", () => {
+    const completedStepped = steppedSnapshotFixture({
+      events: [
+        ...(steppedSnapshotFixture().events ?? []),
+        {
+          node: "scheduling",
+          status: "awaiting_step",
+          sequence: 99,
+          occurredAt: "t99",
+          safeSummary: "Paused before guardrail."
+        }
+      ]
+    });
+    const full = buildSteppedViewModel(completedStepped);
+    expect(computeRevealedProgress(full.nodes, completedStepped)).toBe(6);
+  });
 
+  it("returns zero for auto-trigger workflows", () => {
     const triageOnly = buildSteppedViewModel(steppedInProgressTriageFixture());
     expect(
       computeRevealedProgress(triageOnly.nodes, steppedInProgressTriageFixture())
-    ).toBe(1);
+    ).toBe(0);
   });
 });
 

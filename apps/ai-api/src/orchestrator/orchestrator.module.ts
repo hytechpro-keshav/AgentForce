@@ -96,6 +96,7 @@ import { OrchestrationStatusStore } from "./orchestration-status.store";
           : new InMemoryOrchestrationStatusRepository(),
       inject: [AppConfigService, PostgresOrchestrationStatusRepository]
     }
-  ]
+  ],
+  exports: [CaseTriageOrchestratorService]
 })
 export class OrchestratorModule {}

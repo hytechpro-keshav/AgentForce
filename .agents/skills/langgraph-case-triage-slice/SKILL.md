@@ -16,6 +16,7 @@ This is a GitHub Copilot workspace skill for this repo. Use it instead of extern
 - defining the four boundary contracts for the slice
 - prototyping async approval pause and resume before building more nodes
 - adding focused tests and telemetry for the orchestrator path
+- stepped console UX, demo bootstrap, or per-node advance (`langgraph-stepped-console` skill)
 
 ## Required References
 
@@ -23,6 +24,7 @@ Read these before making changes:
 
 - [AGENTS.md](../../../AGENTS.md)
 - [orchestrator flow](../../../docs/orchestrator/case-triage-orchestrator-flow.md)
+- [stepped console phase plan](../../../docs/orchestrator/stepped-console-phase-plan.md)
 - [Nest AI API instructions](../../instructions/nest-ai-api.instructions.md)
 - [LLM provider instructions](../../instructions/llm-provider.instructions.md)
 - [security and observability instructions](../../instructions/security-observability.instructions.md)

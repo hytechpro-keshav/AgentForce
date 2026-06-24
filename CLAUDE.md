@@ -50,6 +50,7 @@ Read the relevant `SKILL.md` before doing specialized work in these domains:
 | `langgraph-human-in-the-loop`      | Approval pauses, HITL patterns                                                                          |
 | `langgraph-persistence`            | Checkpointers, state resume                                                                             |
 | `langgraph-case-triage-slice`      | Node 1 case triage orchestrator                                                                         |
+| `langgraph-stepped-console`        | Stepped orchestration console (`/orchestration/stepped`), demo bootstrap, manual advance                |
 | `langgraph-node4-parts-logistics`  | Phase 4a Node 4 Parts & Logistics — see also `docs/orchestrator/new-node-phase-completion-checklist.md` |
 | `langgraph-node5-scheduling`       | Node 5 Scheduling — plan via `/plan-node5-scheduling` before implementation                             |
 | `langgraph-node6-guardrail`        | Node 6 Compliance & Guardrail — composite policy matrix, gate migration, 5c write gate                  |
@@ -85,6 +86,7 @@ These subagents run in isolated context with specialized system prompts. Invoke 
 | `code-review-orchestrator`          | Full cross-cutting code review coordination                             |
 | `release-checker`                   | Release readiness, deployment gates                                     |
 | `case-triage-slice-implementer`     | Node 1 case triage slice implementation                                 |
+| `stepped-console-implementer`       | Stepped orchestration console (`/orchestration/stepped`)                |
 | `node4-parts-logistics-implementer` | Phase 4a Node 4 Parts & Logistics implementation                        |
 | `node5-scheduling-planner`          | Node 5 Scheduling planning before implementation                        |
 | `node5-scheduling-implementer`      | Phase 5a Node 5 Scheduling implementation                               |
@@ -103,6 +105,7 @@ These subagents run in isolated context with specialized system prompts. Invoke 
 | `/create-rag-endpoint`                  | Scaffold a new RAG endpoint                                                 |
 | `/review-agentforce-metadata`           | Deep review of Agentforce metadata                                          |
 | `/implement-case-triage-slice`          | Implement the Node 1 case triage LangGraph slice                            |
+| `/implement-stepped-console`            | Implement or fix the stepped orchestration console and demo bootstrap       |
 | `/implement-node4-parts-logistics`      | Implement Phase 4a Node 4 Parts & Logistics orchestrator slice              |
 | `/plan-node5-scheduling`                | Plan Node 5 Scheduling: architecture, SF readiness, phase plan              |
 | `/node5-pre-salesforce-prep`            | 5-Pre: Skills, NA territory, laptop WorkTypes, Run As FLS                   |

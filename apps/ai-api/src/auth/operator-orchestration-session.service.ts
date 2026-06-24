@@ -72,6 +72,35 @@ export class OperatorOrchestrationSessionService {
       });
     }
 
+    return this.mintSession(ttlSeconds, secret, issuer, audience);
+  }
+
+  /**
+   * Trusted server callers (demo Case create BFF) mint the same operator
+   * console JWT without an access code when they already hold
+   * `agentforce:demo-case-create`.
+   */
+  createTrustedDemoSession(): OperatorOrchestrationSessionResponseDto {
+    const { ttlSeconds } = this.config.operatorOrchestrationSession;
+    const { secret, issuer, audience } = this.config.jwt;
+
+    if (!secret) {
+      throw new ServiceUnavailableException({
+        error: "operator_orchestration_login_unavailable",
+        message: "Operator console login is not configured."
+      });
+    }
+
+    return this.mintSession(ttlSeconds, secret, issuer, audience, "demo-case-create");
+  }
+
+  private mintSession(
+    ttlSeconds: number,
+    secret: string,
+    issuer: string | undefined,
+    audience: string | undefined,
+    channel = "orchestration-console"
+  ): OperatorOrchestrationSessionResponseDto {
     const nowSeconds = Math.floor(Date.now() / 1000);
     const expiresAtSeconds = nowSeconds + ttlSeconds;
     const subject = `operator-console:${randomUUID()}`;
@@ -79,7 +108,7 @@ export class OperatorOrchestrationSessionService {
       sub: subject,
       scope: OperatorOrchestrationSessionService.SCOPES,
       roles: ["operator"],
-      channel: "orchestration-console",
+      channel,
       iat: nowSeconds,
       exp: expiresAtSeconds
     };

@@ -310,19 +310,30 @@ pool teardown). Durable writes are best-effort and never throw into the run.
 
 **Endpoints** (`/orchestrator/case-triage`, each scope-gated):
 
-| Method + path               | Scope                              | Purpose                                                    |
-| --------------------------- | ---------------------------------- | ---------------------------------------------------------- |
-| `POST /triggers`            | `agentforce:orchestrator-triage`   | Async fire-and-forget handoff (HTTP 202).                  |
-| `GET /:workflowId`          | `agentforce:orchestrator-read`     | Read-only status feed for the UI.                          |
-| `GET /cases/:caseId/latest` | `agentforce:orchestrator-read`     | Latest live workflow for a Case Id.                        |
-| `POST /:workflowId/resume`  | `agentforce:orchestrator-approval` | Out-of-band approval (email / Salesforce), **not** the UI. |
+| Method + path                      | Scope                              | Purpose                                                         |
+| ---------------------------------- | ---------------------------------- | --------------------------------------------------------------- |
+| `POST /triggers`                   | `agentforce:orchestrator-triage`   | Async fire-and-forget handoff (HTTP 202).                       |
+| `POST /cases/:caseId/stepped`      | `agentforce:orchestrator-step`     | Start stepped run (Triage auto, then pause at `awaiting_step`). |
+| `POST /:workflowId/advance`        | `agentforce:orchestrator-step`     | Advance one stage in a stepped run.                             |
+| `GET /:workflowId`                 | `agentforce:orchestrator-read`     | Read-only status feed for the UI.                               |
+| `GET /cases/:caseId/latest`        | `agentforce:orchestrator-read`     | Latest live workflow for a Case Id.                             |
+| `POST /:workflowId/resume`         | `agentforce:orchestrator-approval` | Out-of-band approval (email / Salesforce), **not** the UI.      |
+| `POST /demo/cases`                 | `agentforce:demo-case-create`      | Demo Case create + internal `triggerStepped`.                   |
+| `POST /demo/orchestration-session` | `agentforce:demo-case-create`      | Mint operator JWT for stepped console BFF cookie.               |
 
 **Salesforce seam:** outbound `SalesforceModule` (`SalesforceCaseGateway` +
 `SalesforceAuthService`, OAuth 2.0 client-credentials). Trigger handoff Apex:
 `AgentforceCaseTriageOrchestratorTrigger` (Queueable callout via the
-`Agentforce_AI_API_Phase2` Named Credential). UI: read-only
-`/orchestration?workflowId=…` or `/orchestration?caseId=…` in
-`apps/react-chat-window`. Case Id lookup reads the latest workflow from the live
+`Agentforce_AI_API_Phase2` Named Credential).
+
+**React consoles** (`apps/react-chat-window`):
+
+| Route                                        | Surface                 | Notes                                                                                                               |
+| -------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `/orchestration/stepped?workflowId=wf-…`     | **Stepped console**     | Demo/operator manual **Run** per stage; primary path after `/demo/case-create`. Skill: `langgraph-stepped-console`. |
+| `/orchestration?caseId=…` or `?workflowId=…` | **Engineering console** | Read-only timeline, Stop AI. Ignores auto-runs on stepped screen when only `caseId` is used.                        |
+
+Case Id lookup reads the latest workflow from the live
 read model and, on a cache miss after a restart, falls back to the durable
 repository (when `postgres`) so historical Cases still resolve.
 

@@ -15,7 +15,7 @@ Easy to miss (Node 4 lesson):
 
 1. **Final Verdict** — `orchestrator-verdict.synthesizer.ts`: update `headline`, `summary`, `recommendedSteps`, and `highlights`; not only `basis` or one highlight row.
 2. **Tests** — `orchestrator-verdict.synthesizer.spec.ts` fixtures for eligible, skipped, and degraded paths.
-3. **React** — `NODE_META`, stage panel, orchestration page subtitle lists all active nodes.
+3. **React** — `NODE_META`, stage panel, orchestration page subtitle lists all active nodes; **stepped console** spine in `stepped-view-model.ts` when demo-relevant.
 4. **Smoke** — `scripts/smoke/all-3-nodes-deployed.sh` asserts the new node.
 
 Verdict gap prompts: `.github/prompts/analyze-node4-verdict-gap.prompt.md`, `.github/prompts/implement-node4-verdict-rollup.prompt.md`.

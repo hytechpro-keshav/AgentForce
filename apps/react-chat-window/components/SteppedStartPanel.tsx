@@ -94,7 +94,9 @@ export function SteppedStartPanel({ caseId, onStarted }: SteppedStartPanelProps)
       <p className={styles.startTitle}>No orchestration run yet</p>
       <p className={styles.startCopy}>
         Start a stepped run to execute Triage automatically, then advance each
-        stage on demand. Requires an operator access code.
+        stage manually with Run. Automatic orchestration runs are not shown on
+        this screen. From demo Case create you should land here with a stepped
+        run already started; otherwise sign in with the operator access code.
       </p>
       {error ? (
         <p className={styles.startError} role="alert">

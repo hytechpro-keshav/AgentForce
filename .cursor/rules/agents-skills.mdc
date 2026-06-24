@@ -22,6 +22,7 @@ Read the relevant `SKILL.md` before specialized work. Available skills:
 | `langgraph-human-in-the-loop` | interrupt(), approval workflows |
 | `langgraph-cli` | langgraph dev/build/deploy |
 | `langgraph-case-triage-slice` | Case triage walking skeleton |
+| `langgraph-stepped-console` | Stepped orchestration console — manual advance, demo bootstrap |
 | `langgraph-node4-parts-logistics` | Phase 4a Node 4 Parts & Logistics orchestrator slice |
 | `langgraph-node5-scheduling` | Node 5 Scheduling — plan first via `/plan-node5-scheduling`, then implement |
 | `deep-agents-core` | Deep Agents harness |

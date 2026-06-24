@@ -760,6 +760,12 @@
   background: #fff;
   border: 2px solid var(--black);
 }
+.tstepWaiting .tknot {
+  background: var(--amber-dot);
+}
+.tstepWaiting .tst {
+  color: var(--amber-tx);
+}
 .th {
   display: flex;
   align-items: baseline;

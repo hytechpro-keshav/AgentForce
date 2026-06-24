@@ -45,7 +45,9 @@ describe("demo Case create proxy", () => {
     const upstreamBody = JSON.stringify({
       caseId: "500000000000001ABC",
       caseNumber: "00001234",
-      orchestrationUrl: "/orchestration?caseId=500000000000001ABC"
+      orchestrationUrl: "/orchestration?caseId=500000000000001ABC",
+      steppedOrchestrationUrl:
+        "/orchestration/stepped?caseId=500000000000001ABC"
     });
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(upstreamBody, {
@@ -66,6 +68,51 @@ describe("demo Case create proxy", () => {
     const text = await response.text();
     expect(text).not.toContain(CREATE_TOKEN);
     expect(text).toContain("500000000000001ABC");
+  });
+
+  it("auto-starts a stepped run and sets the operator session cookie when configured", async () => {
+    const upstreamBody = JSON.stringify({
+      caseId: "500000000000001ABC",
+      caseNumber: "00001234",
+      steppedWorkflowId: "wf-stepped-demo",
+      steppedOrchestrationUrl:
+        "/orchestration/stepped?workflowId=wf-stepped-demo"
+    });
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(
+      async (input) => {
+        const url = String(input);
+        if (url.endsWith("/demo/cases")) {
+          return new Response(upstreamBody, {
+            status: 201,
+            headers: { "content-type": "application/json" }
+          });
+        }
+        if (url.endsWith("/demo/orchestration-session")) {
+          return new Response(
+            JSON.stringify({
+              accessToken: "operator-jwt",
+              expiresInSeconds: 3600
+            }),
+            { status: 200, headers: { "content-type": "application/json" } }
+          );
+        }
+        throw new Error(`unexpected fetch: ${url}`);
+      }
+    );
+
+    const response = await call({ scenarioId: "same-day-battery-fix" });
+    expect(response.status).toBe(201);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+
+    const body = (await response.json()) as {
+      steppedWorkflowId?: string;
+      steppedOrchestrationUrl?: string;
+    };
+    expect(body.steppedWorkflowId).toBe("wf-stepped-demo");
+    expect(body.steppedOrchestrationUrl).toContain("workflowId=wf-stepped-demo");
+
+    const cookie = response.headers.get("set-cookie") ?? "";
+    expect(cookie).toContain("orchestrator_session=operator-jwt");
   });
 
   it("maps an upstream failure to 503", async () => {

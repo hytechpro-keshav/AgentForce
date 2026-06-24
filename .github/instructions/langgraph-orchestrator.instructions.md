@@ -24,6 +24,10 @@ applyTo:
 - Agent or orchestrator services may call `ModelRouter` or existing agent services; they must not call vendor SDKs directly.
 - Emit safe status events for `assigned`, `running`, `done`, `waiting_approval`, `rejected`, and `failed`. Do not log raw case descriptions, prompts, approval payloads, tokens, or secrets.
 - The UI is read-only observability. It may show safe node progress, concise reasoning summaries, and first-node output, but not hidden raw chain-of-thought and not approval controls.
+- **Two orchestration consoles** in `apps/react-chat-window`:
+  - **Engineering** `/orchestration` — read-only timeline, Stop AI, full node cards (`OrchestrationView.tsx`).
+  - **Stepped** `/orchestration/stepped` — operator demo with manual **Run** per stage (`SteppedOrchestrationView.tsx`). Triage auto-runs; nodes 2–6 use `POST /advance` (`agentforce:orchestrator-step`). See skill `langgraph-stepped-console` and `docs/orchestrator/stepped-console-phase-plan.md`.
+- Demo Case create (`/demo/case-create`) must bootstrap a **stepped** run and redirect to `?workflowId=wf-…` with operator session cookie — not the engineering console.
 - For the first slice UI, prefer extending `apps/react-chat-window` with a focused orchestration progress view that renders live node status plus the sanitized triage result.
 - Add focused tests for DTO validation, orchestration state transitions, auth failures, idempotency, telemetry no-op safety, approval resume behavior, and the Node 1 E2E path against a real Salesforce-connected environment when available.
 - Keep docs aligned with the implemented slice and treat the working code plus boundary contracts as the reference for later nodes.

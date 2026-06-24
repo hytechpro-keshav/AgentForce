@@ -40,28 +40,124 @@ describe("SteppedOrchestrationView", () => {
       <SteppedOrchestrationView
         caseId="500000000000001"
         pollIntervalMs={0}
-        initialSnapshot={steppedInProgressTriageFixture()}
+        initialSnapshot={steppedPausedFixture()}
       />
     );
   }
 
-  it("shows triage complete and gates the next stage when only triage has run", () => {
+  it("completes triage after the backend pauses for customer context", async () => {
+    const running = {
+      ...steppedPausedFixture(),
+      status: "running" as const,
+      node: "triage" as const,
+      triage: undefined,
+      events: steppedPausedFixture().events?.filter(
+        (event) => event.status !== "awaiting_step"
+      )
+    };
+    const paused = steppedPausedFixture();
+    let poll = 0;
+
+    vi.spyOn(global, "fetch").mockImplementation(async () => {
+      poll += 1;
+      const body = poll === 1 ? running : paused;
+      return new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    });
+
+    render(
+      <SteppedOrchestrationView workflowId={WORKFLOW_ID} pollIntervalMs={50} />
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText(/analysing request/i)).toBeInTheDocument();
+
+    await act(async () => {
+      vi.advanceTimersByTime(50);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(REVEAL);
+    });
+
+    expect(screen.getByText(/normal priority/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Run Customer Context/i })
+    ).toBeEnabled();
+  });
+
+  it("plays a triage intro animation before showing the next Run button", () => {
+    render(
+      <SteppedOrchestrationView
+        workflowId={WORKFLOW_ID}
+        pollIntervalMs={0}
+        initialSnapshot={steppedPausedFixture()}
+      />
+    );
+
+    expect(screen.getByText(/analysing request/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Run Customer Context/i })
+    ).not.toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(REVEAL);
+    });
+
+    expect(screen.getByText(/normal priority/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Run Customer Context/i })
+    ).toBeEnabled();
+  });
+
+  it("shows triage complete and gates the next stage in a stepped run", () => {
     mount();
     expect(screen.getByText("00001079")).toBeInTheDocument();
     expect(screen.getByText("Triage")).toBeInTheDocument();
     expect(screen.getByText(/normal priority/i)).toBeInTheDocument();
     expect(screen.getByText("1 / 6")).toBeInTheDocument();
     expect(
-      screen.getAllByRole("button", { name: /Queued/i }).length
-    ).toBeGreaterThan(0);
+      screen.getByRole("button", { name: /Run Customer Context/i })
+    ).toBeEnabled();
   });
 
-  it("hydrates all completed stages from the snapshot on load", () => {
+  it("shows the start panel when only an auto-run workflow exists", () => {
     render(
       <SteppedOrchestrationView
         caseId="500000000000001"
         pollIntervalMs={0}
-        initialSnapshot={steppedSnapshotFixture()}
+        initialSnapshot={steppedInProgressTriageFixture()}
+      />
+    );
+    expect(screen.getByText(/No orchestration run yet/i)).toBeInTheDocument();
+  });
+
+  it("hydrates completed stepped stages from the snapshot on load", () => {
+    const completedStepped = steppedSnapshotFixture({
+      events: [
+        ...(steppedSnapshotFixture().events ?? []),
+        {
+          node: "scheduling",
+          status: "awaiting_step",
+          sequence: 99,
+          occurredAt: "t99",
+          safeSummary: "Paused before guardrail."
+        }
+      ]
+    });
+    render(
+      <SteppedOrchestrationView
+        caseId="500000000000001"
+        pollIntervalMs={0}
+        initialSnapshot={completedStepped}
       />
     );
 
@@ -82,18 +178,18 @@ describe("SteppedOrchestrationView — Phase 2 (real stepped run)", () => {
   function mountStepped() {
     render(
       <SteppedOrchestrationView
-        caseId="500000000000001"
+        workflowId={WORKFLOW_ID}
         pollIntervalMs={0}
         initialSnapshot={steppedPausedFixture()}
       />
     );
+    act(() => {
+      vi.advanceTimersByTime(REVEAL);
+    });
   }
 
   it("shows the Run button enabled for the awaiting node in stepped mode", () => {
     mountStepped();
-    act(() => {
-      vi.advanceTimersByTime(REVEAL);
-    });
 
     const btn = screen.getByRole("button", {
       name: /Run Customer Context/i
@@ -117,9 +213,6 @@ describe("SteppedOrchestrationView — Phase 2 (real stepped run)", () => {
       );
 
     mountStepped();
-    act(() => {
-      vi.advanceTimersByTime(REVEAL);
-    });
 
     fireEvent.click(
       screen.getByRole("button", { name: /Run Customer Context/i })
@@ -157,9 +250,6 @@ describe("SteppedOrchestrationView — Phase 2 (real stepped run)", () => {
     );
 
     mountStepped();
-    act(() => {
-      vi.advanceTimersByTime(REVEAL);
-    });
 
     fireEvent.click(
       screen.getByRole("button", { name: /Run Customer Context/i })

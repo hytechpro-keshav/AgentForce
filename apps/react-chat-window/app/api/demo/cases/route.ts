@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import {
+  attachOperatorSessionCookie,
+  mintOperatorSessionFromDemoToken,
+  mintOperatorSessionFromEnv,
+  triggerSteppedRun
+} from "@/lib/orchestrator-operator-session";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -113,7 +120,58 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const text = await upstream.text();
-  return new NextResponse(text, {
+
+  if (!upstream.ok) {
+    return new NextResponse(text, {
+      status: upstream.status,
+      headers: {
+        "content-type": upstream.headers.get("content-type") ?? "application/json"
+      }
+    });
+  }
+
+  let payload: Record<string, unknown>;
+  try {
+    payload = JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    return new NextResponse(text, {
+      status: upstream.status,
+      headers: {
+        "content-type": upstream.headers.get("content-type") ?? "application/json"
+      }
+    });
+  }
+
+  const caseId =
+    typeof payload.caseId === "string" ? payload.caseId.trim() : "";
+  const steppedWorkflowId =
+    typeof payload.steppedWorkflowId === "string"
+      ? payload.steppedWorkflowId.trim()
+      : "";
+  const session =
+    (await mintOperatorSessionFromDemoToken()) ??
+    (await mintOperatorSessionFromEnv());
+  if (session && caseId) {
+    let workflowId = steppedWorkflowId;
+    if (!workflowId) {
+      const stepped = await triggerSteppedRun(caseId, session.accessToken);
+      workflowId = stepped?.workflowId ?? "";
+    }
+    if (workflowId) {
+      payload = {
+        ...payload,
+        steppedWorkflowId: workflowId,
+        steppedOrchestrationUrl: `/orchestration/stepped?workflowId=${encodeURIComponent(
+          workflowId
+        )}`
+      };
+    }
+    const response = NextResponse.json(payload, { status: upstream.status });
+    attachOperatorSessionCookie(response, session);
+    return response;
+  }
+
+  return new NextResponse(JSON.stringify(payload), {
     status: upstream.status,
     headers: {
       "content-type": upstream.headers.get("content-type") ?? "application/json"

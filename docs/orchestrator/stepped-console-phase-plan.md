@@ -117,16 +117,30 @@ resume }), { thread_id })` runs exactly the next node, pauses again. Guardrail
 
 Make the stepped console discoverable and kick-off friendly without curl:
 
-- `OrchestrationConsoleNav` cross-links `/orchestration` ↔ `/orchestration/stepped`
-  (preserves `caseId` / `workflowId` query params).
-- Demo Case Create returns `steppedOrchestrationUrl` and offers **Create case &
-  step through →** alongside the existing watch-workflow button.
-- `SteppedStartPanel` on the stepped route when `?caseId=` has no workflow yet:
-  operator login + **Start stepped run** POSTs to `/api/orchestrator/case/[id]/stepped`,
-  then replaces the URL with `?workflowId=wf-…` and polls.
+- Demo Case Create returns `steppedOrchestrationUrl` (prefer `?workflowId=wf-…`) and **Create case & step through →** is the primary CTA.
+- `SteppedStartPanel` on the stepped route when `?caseId=` has no stepped workflow yet: **Start stepped run** POSTs to `/api/orchestrator/case/[id]/stepped` (operator session required), then replaces URL with `?workflowId=wf-…`.
+- Engineering ↔ stepped cross-link (`OrchestrationConsoleNav`) remains on `/orchestration` only; the stepped page is standalone (no engineering toggle).
 
-Live proof: create a demo Case → stepped console → sign in → start stepped run →
-advance each stage and confirm real snapshot data appears.
+Live proof: create a demo Case → stepped console → advance each stage and confirm real snapshot data appears.
+
+---
+
+## Phase 2c — Demo bootstrap & auto-run isolation (DONE)
+
+Fix production demo UX without duplicating operator access codes on react-chat-window:
+
+- **ai-api** `POST /demo/cases` calls `triggerStepped` internally and returns `steppedWorkflowId`.
+- **ai-api** `POST /demo/orchestration-session` (scope `demo-case-create`) mints operator JWT for the BFF.
+- **Next.js** `POST /api/demo/cases` attaches `orchestrator_session` cookie via demo token and enriches `steppedOrchestrationUrl` with `workflowId`.
+- **Stepped screen** ignores Salesforce auto-trigger full runs when polling by `caseId` (`isSteppedSnapshot`); only stepped workflows count.
+- **Copy:** queued stages show **Waiting for agent output**; guardrail approval uses **amber WAITING** styling.
+
+---
+
+## Phase 2d — Triage intro & bootstrap polling (DONE)
+
+- Accept `running`/`assigned` snapshots when URL is `?workflowId=…` (no "not a stepped run" flash during triage).
+- Animate **01 Triage RUNNING** → **DONE** before showing **Run Customer Context**; fix stuck `runningIndex` when backend pauses at `customer_history`.
 
 ---
 

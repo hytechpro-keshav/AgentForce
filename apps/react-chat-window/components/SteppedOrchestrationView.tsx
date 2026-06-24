@@ -41,6 +41,7 @@ import {
   buildSteppedViewModel,
   computeRevealedProgress,
   filterActivityForRevealed,
+  isSteppedSnapshot,
   type SteppedNode,
   type SteppedNodeIcon,
   type SteppedSection,
@@ -81,11 +82,21 @@ export function SteppedOrchestrationView({
   initialSnapshot
 }: SteppedOrchestrationViewProps) {
   const router = useRouter();
-  const [snapshot, setSnapshot] = useState<OrchestrationSnapshot | null>(
-    initialSnapshot ?? null
-  );
+  const [snapshot, setSnapshot] = useState<OrchestrationSnapshot | null>(() => {
+    if (!initialSnapshot) return null;
+    if (caseId && !workflowId && !isSteppedSnapshot(initialSnapshot)) return null;
+    return initialSnapshot;
+  });
   const [error, setError] = useState<string | null>(null);
-  const [noWorkflowYet, setNoWorkflowYet] = useState(false);
+  const [noWorkflowYet, setNoWorkflowYet] = useState(
+    () =>
+      Boolean(
+        caseId &&
+          !workflowId &&
+          initialSnapshot &&
+          !isSteppedSnapshot(initialSnapshot)
+      )
+  );
   const [activeWorkflowId, setActiveWorkflowId] = useState<string | undefined>();
   const [revealed, setRevealed] = useState(0);
   const [runningIndex, setRunningIndex] = useState<number | null>(null);
@@ -95,6 +106,8 @@ export function SteppedOrchestrationView({
   const [advanceError, setAdvanceError] = useState<string | null>(null);
   const stopped = useRef(false);
   const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bootstrapPlayed = useRef(false);
+  const triageWasRunning = useRef(false);
 
   const pollWorkflowId = activeWorkflowId ?? workflowId;
   const pollCaseId = pollWorkflowId ? undefined : caseId;
@@ -120,6 +133,15 @@ export function SteppedOrchestrationView({
       }
       const parsed = sanitizeSnapshot(await response.json());
       if (parsed) {
+        // Ignore auto-trigger full runs when polling by Case id only.
+        if (!isSteppedSnapshot(parsed) && pollCaseId) {
+          setNoWorkflowYet(true);
+          return;
+        }
+        if (!isSteppedSnapshot(parsed) && !pollWorkflowId) {
+          setError("This workflow is not a stepped run.");
+          return;
+        }
         setError(null);
         setNoWorkflowYet(false);
         setSnapshot(parsed);
@@ -169,15 +191,6 @@ export function SteppedOrchestrationView({
     [snapshot]
   );
 
-  // Re-hydrate reveal progress from the snapshot (survives page refresh).
-  useEffect(() => {
-    if (!vm || !snapshot || runningIndex !== null || advancing) return;
-    const fromSnapshot = computeRevealedProgress(vm.nodes, snapshot);
-    setRevealed((current) =>
-      current === 0 ? fromSnapshot : Math.max(current, fromSnapshot)
-    );
-  }, [vm, snapshot, runningIndex, advancing]);
-
   const visibleActivity = useMemo(
     () =>
       vm ? filterActivityForRevealed(vm.activity, vm.nodes, revealed) : [],
@@ -192,6 +205,67 @@ export function SteppedOrchestrationView({
       setRevealed((current) => Math.max(current, index + 1));
     }, REVEAL_MS);
   }, []);
+
+  // Re-hydrate reveal progress; play a triage intro animation on fresh workflow loads.
+  useEffect(() => {
+    if (!vm || !snapshot || advancing) return;
+
+    const workflowBound = Boolean(pollWorkflowId);
+    const stepped = isSteppedSnapshot(snapshot);
+    if (!stepped && !workflowBound) return;
+
+    const fromSnapshot = computeRevealedProgress(vm.nodes, snapshot);
+    const triageBootstrapping =
+      workflowBound &&
+      (snapshot.status === "running" || snapshot.status === "assigned") &&
+      (snapshot.node === "triage" || !vm.nodes[0]?.available);
+
+    const triagePausedForNext =
+      snapshot.status === "awaiting_step" &&
+      snapshot.node === "customer_history" &&
+      fromSnapshot >= 1;
+
+    if (triageBootstrapping) {
+      triageWasRunning.current = true;
+      if (runningIndex === null && revealed === 0) {
+        setRunningIndex(0);
+      }
+      return;
+    }
+
+    // Triage finished on the backend — complete the intro even if runningIndex
+    // is still 0 from the bootstrap spinner (must run before the guard below).
+    if (!bootstrapPlayed.current && workflowBound && triagePausedForNext) {
+      bootstrapPlayed.current = true;
+      triageWasRunning.current = false;
+      startReveal(0);
+      return;
+    }
+
+    if (runningIndex !== null) return;
+
+    if (!bootstrapPlayed.current && workflowBound && fromSnapshot > 1) {
+      bootstrapPlayed.current = true;
+      setRevealed(fromSnapshot);
+      return;
+    }
+
+    if (bootstrapPlayed.current || !workflowBound) {
+      setRevealed((current) =>
+        current === 0 && fromSnapshot > 0 && !bootstrapPlayed.current
+          ? fromSnapshot
+          : Math.max(current, fromSnapshot)
+      );
+    }
+  }, [
+    vm,
+    snapshot,
+    runningIndex,
+    advancing,
+    pollWorkflowId,
+    revealed,
+    startReveal
+  ]);
 
   /**
    * Phase 2 — call the `/advance` proxy to run the next graph node on the
@@ -241,7 +315,7 @@ export function SteppedOrchestrationView({
     }
     return (
       <div className={styles.wrap}>
-        <div className={styles.state}>
+        <div className={styles.state} role="status">
           {error ?? "Loading orchestration console…"}
         </div>
       </div>
@@ -274,7 +348,7 @@ export function SteppedOrchestrationView({
   else if (allRevealed && vm.guardrailWaiting) pill = "paused";
   else if (runningIndex !== null || advancing) pill = "running";
   else if (isSteppedRun && awaitingIndex >= 0) pill = "ready";
-  else if (frontier?.available) pill = "ready";
+  else if (isSteppedSnapshot(snapshot!)) pill = "paused";
   else pill = "running";
 
   const toggle = (key: string) =>
@@ -282,14 +356,8 @@ export function SteppedOrchestrationView({
 
   const onRun = (index: number) => {
     if (runningIndex !== null || advancing) return;
-    // Stepped mode: the frontier node has not run yet — advance the backend.
-    if (isSteppedRun && index === awaitingIndex) {
-      void advanceStep(index);
-      return;
-    }
-    // Replay mode: the node's data is already computed — reveal locally.
-    if (!vm.nodes[index]?.available) return;
-    startReveal(index);
+    if (!isSteppedRun || index !== awaitingIndex) return;
+    void advanceStep(index);
   };
 
   return (
@@ -375,12 +443,7 @@ export function SteppedOrchestrationView({
 
           {/* nodes */}
           {vm.nodes.map((node, index) => {
-            // In stepped mode, the awaiting node is runnable even though its
-            // data hasn't been fetched yet; all other non-available nodes stay
-            // disabled. In replay mode, only available nodes are runnable.
-            const isRunnable = isSteppedRun
-              ? index === awaitingIndex
-              : node.available;
+            const isRunnable = isSteppedRun && index === awaitingIndex;
             return (
               <NodeRow
                 key={node.id}
@@ -638,7 +701,10 @@ function NodeRow({
 }) {
   const reached = state !== "queued";
   const Icon = NODE_ICON[node.icon];
-  const showWaitNote = node.guardrail && guardrailWaiting && state === "done";
+  const approvalWaiting = Boolean(
+    node.guardrail && guardrailWaiting && state === "done"
+  );
+  const showWaitNote = approvalWaiting;
 
   return (
     <div className={styles.row}>
@@ -658,7 +724,12 @@ function NodeRow({
           )}
         />
         <div className={styles.knot}>
-          <Dot state={state} />
+          <Dot
+            state={state}
+            approvalWaiting={Boolean(
+              node.guardrail && guardrailWaiting && state === "done"
+            )}
+          />
         </div>
       </div>
       <div
@@ -685,8 +756,15 @@ function NodeRow({
             <div className={styles.csub}>{node.sub}</div>
           </div>
           <div className={styles.cright}>
-            <span className={clsx(styles.status, statusClass(state))}>
-              {statusLabel(state)}
+            <span
+              className={clsx(
+                styles.status,
+                approvalWaiting
+                  ? styles.statusWaiting
+                  : statusClass(state)
+              )}
+            >
+              {approvalWaiting ? "WAITING" : statusLabel(state)}
             </span>
             {state === "done" && node.latency ? (
               <span className={styles.lat}>{node.latency}</span>
@@ -718,16 +796,14 @@ function NodeRow({
               disabled={runDisabled}
               onClick={onRun}
             >
-              {steppedFrontier || node.available
+              {steppedFrontier
                 ? `Run ${node.name} ▸`
-                : "Waiting for backend…"}
+                : "Waiting for agent output"}
             </button>
             <span className={styles.hint}>
               {steppedFrontier
                 ? "sends to backend, then reveals"
-                : node.available
-                  ? "press to reveal this stage"
-                  : "this stage has not run yet"}
+                : "awaiting prior stages to complete"}
             </span>
           </div>
         ) : null}
@@ -735,7 +811,7 @@ function NodeRow({
         {state === "queued" ? (
           <div className={styles.ctl}>
             <button type="button" className={styles.nextbtn} disabled>
-              Queued ▸
+              Waiting for agent output
             </button>
           </div>
         ) : null}
@@ -771,7 +847,16 @@ function NodeRow({
   );
 }
 
-function Dot({ state }: { state: NodeRenderState }) {
+function Dot({
+  state,
+  approvalWaiting = false
+}: {
+  state: NodeRenderState;
+  approvalWaiting?: boolean;
+}) {
+  if (approvalWaiting) {
+    return <span className={clsx(styles.dot, styles.dotWaiting)} />;
+  }
   if (state === "done") {
     return (
       <span className={clsx(styles.dot, styles.dotDone)}>
@@ -863,7 +948,8 @@ function Section({ section }: { section: SteppedSection }) {
           key={i}
           className={clsx(
             styles.tstep,
-            step.status === "assigned" && styles.tstepAssigned
+            step.status === "assigned" && styles.tstepAssigned,
+            step.status === "waiting_approval" && styles.tstepWaiting
           )}
         >
           <span className={styles.tknot} />

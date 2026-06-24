@@ -35,7 +35,7 @@ import { TenantRegistryService } from "./tenant-registry.service";
       useExisting: JwtAuthGuard
     }
   ],
-  exports: [JwtAuthGuard]
+  exports: [JwtAuthGuard, OperatorOrchestrationSessionService]
 })
 export class AuthModule {}
 

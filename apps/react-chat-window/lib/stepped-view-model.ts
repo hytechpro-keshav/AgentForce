@@ -730,18 +730,38 @@ function buildActivity(events: OrchestrationEvent[]): SteppedActivityEntry[] {
 }
 
 /**
+ * True when this workflow was started in stepped mode (manual advance), not
+ * the Salesforce auto-trigger full run.
+ */
+export function isSteppedSnapshot(
+  snapshot: Pick<OrchestrationSnapshot, "status" | "events">
+): boolean {
+  if (snapshot.status === "awaiting_step") return true;
+  return (snapshot.events ?? []).some((event) => event.status === "awaiting_step");
+}
+
+/**
  * How many spine stages should be visible for the current snapshot. On refresh
  * this re-hydrates client reveal state from real backend progress instead of
- * resetting to step one.
+ * resetting to step one. Only applies to stepped-mode workflows.
  */
 export function computeRevealedProgress(
   nodes: SteppedNode[],
-  snapshot: Pick<OrchestrationSnapshot, "status" | "node">
+  snapshot: Pick<OrchestrationSnapshot, "status" | "node" | "events">
 ): number {
   if (snapshot.status === "awaiting_step") {
     const awaitingIndex = nodes.findIndex((node) => node.id === snapshot.node);
     return awaitingIndex >= 0 ? awaitingIndex : 0;
   }
+
+  if (
+    (snapshot.status === "running" || snapshot.status === "assigned") &&
+    snapshot.node === "triage"
+  ) {
+    return 0;
+  }
+
+  if (!isSteppedSnapshot(snapshot)) return 0;
 
   let count = 0;
   for (const node of nodes) {

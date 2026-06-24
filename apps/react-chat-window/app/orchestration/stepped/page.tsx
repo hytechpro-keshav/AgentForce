@@ -1,6 +1,5 @@
 import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
 
-import { OrchestrationConsoleNav } from "@/components/OrchestrationConsoleNav";
 import { SteppedOrchestrationView } from "@/components/SteppedOrchestrationView";
 import { isValidCaseId, isValidWorkflowId } from "@/lib/orchestration";
 
@@ -39,15 +38,8 @@ export default function SteppedOrchestrationPage({
 
   return (
     <main
-      className={`${grotesk.variable} ${mono.variable} mx-auto flex min-h-screen max-w-[1240px] flex-col gap-4 p-6`}
+      className={`${grotesk.variable} ${mono.variable} mx-auto min-h-screen max-w-[1240px] p-6`}
     >
-      <OrchestrationConsoleNav
-        active="stepped"
-        caseId={validCaseId ? caseId : undefined}
-        workflowId={validWorkflowId ? workflowId : undefined}
-        className="self-end"
-      />
-
       {validWorkflowId && workflowId ? (
         <SteppedOrchestrationView workflowId={workflowId} />
       ) : validCaseId && caseId ? (

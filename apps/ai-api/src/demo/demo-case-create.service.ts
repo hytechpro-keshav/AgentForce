@@ -17,12 +17,16 @@ import type {
 } from "./dto/demo-case-create.dto";
 import { SalesforceCaseWriteGateway } from "../salesforce/salesforce-case-write.gateway";
 import { SalesforceGatewayError } from "../salesforce/salesforce-gateway.error";
+import { CaseTriageOrchestratorService } from "../orchestrator/case-triage-orchestrator.service";
 
 @Injectable()
 export class DemoCaseCreateService {
   private readonly logger = new Logger(DemoCaseCreateService.name);
 
-  constructor(private readonly gateway: SalesforceCaseWriteGateway) {}
+  constructor(
+    private readonly gateway: SalesforceCaseWriteGateway,
+    private readonly orchestrator: CaseTriageOrchestratorService
+  ) {}
 
   isReady(): boolean {
     return this.gateway.isConfigured();
@@ -79,15 +83,35 @@ export class DemoCaseCreateService {
         `Demo Case created scenarioId=${dto.scenarioId ?? "custom"} caseId=${result.caseId}`
       );
 
+      let steppedWorkflowId: string | undefined;
+      try {
+        const stepped = await this.orchestrator.triggerStepped({
+          caseId: result.caseId,
+          caseNumber: result.caseNumber
+        });
+        steppedWorkflowId = stepped.workflowId;
+      } catch (error) {
+        this.logger.warn(
+          `Demo stepped bootstrap failed caseId=${result.caseId} reason=${
+            error instanceof Error ? error.message : "unknown"
+          }`
+        );
+      }
+
       return {
         caseId: result.caseId,
         caseNumber: result.caseNumber,
         orchestrationUrl: `/orchestration?caseId=${encodeURIComponent(
           result.caseId
         )}`,
-        steppedOrchestrationUrl: `/orchestration/stepped?caseId=${encodeURIComponent(
-          result.caseId
-        )}`
+        steppedOrchestrationUrl: steppedWorkflowId
+          ? `/orchestration/stepped?workflowId=${encodeURIComponent(
+              steppedWorkflowId
+            )}`
+          : `/orchestration/stepped?caseId=${encodeURIComponent(
+              result.caseId
+            )}`,
+        steppedWorkflowId
       };
     } catch (error) {
       if (error instanceof SalesforceGatewayError) {

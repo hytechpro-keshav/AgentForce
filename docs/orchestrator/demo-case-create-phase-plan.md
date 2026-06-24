@@ -16,18 +16,19 @@ This plan adds:
 1. A rich public page at **`/demo/case-create`** in the React chat window app.
 2. A **scenario catalog JSON** grounded in live org inventory, technician skills, warehouse mappings, and proven Case recipes.
 3. A **server-side Case create API** (NestJS write gateway + Next.js proxy) that resolves Account/Contact/Asset lookups and inserts a Case.
-4. **Immediate redirect** to `/orchestration?caseId={id}` after successful create.
+4. **Immediate redirect** to `/orchestration/stepped?workflowId={wf-id}` after successful create (stepped run auto-started).
 
 Salesforce remains the system of record. The async Case trigger continues to hand off to the NestJS orchestrator. The demo form is **not** the customer chat escalation path — it is a dedicated engineering/demo surface.
 
 ### 1.1 Explicit boundaries
 
-| Surface                   | Role                                                   |
-| ------------------------- | ------------------------------------------------------ |
-| `/demo/case-create`       | Create Case + redirect (this plan)                     |
-| `/orchestration?caseId=…` | Read-only workflow observability (existing)            |
-| `/` customer chat         | RAG chat + escalation acknowledgement only (unchanged) |
-| `EscalationDialog`        | Does not write to Salesforce (unchanged)               |
+| Surface                               | Role                                                      |
+| ------------------------------------- | --------------------------------------------------------- |
+| `/demo/case-create`                   | Create Case + redirect to **stepped** console (this plan) |
+| `/orchestration/stepped?workflowId=…` | Manual per-node demo console (stepped run)                |
+| `/orchestration?caseId=…`             | Read-only engineering workflow observability (existing)   |
+| `/` customer chat                     | RAG chat + escalation acknowledgement only (unchanged)    |
+| `EscalationDialog`                    | Does not write to Salesforce (unchanged)                  |
 
 ---
 

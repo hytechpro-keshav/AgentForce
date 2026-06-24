@@ -48,9 +48,10 @@ Also:
 
 ## React orchestration console
 
-- [ ] `OrchestrationView.tsx` — `NODE_META` entry + stage summary component
+- [ ] `OrchestrationView.tsx` — `NODE_META` entry + stage summary component (engineering console)
+- [ ] **Stepped console** — `lib/stepped-view-model.ts` spine mapping + `SteppedOrchestrationView.tsx` stage row (if the node is part of the 6-node walkthrough). See skill `langgraph-stepped-console`.
 - [ ] `lib/orchestration.ts` — sanitize/parse types for the channel
-- [ ] `app/orchestration/page.tsx` — subtitle mentions **all** active nodes
+- [ ] `app/orchestration/page.tsx` — subtitle mentions **all** active nodes (engineering)
 - [ ] Component tests for new stage card and verdict copy when user-facing
 - [ ] Orchestration console auth: **RC-8 operator login** (target) — until shipped, interim `AI_API_ORCHESTRATOR_VIEW_TOKEN` on Railway `react-chat-window` (mint via `scripts/smoke/phase4-mint-jwt.mjs --scope agentforce:orchestrator-read`; refresh before blaming UI). See [`re-orchestration-backlog.md`](./re-orchestration-backlog.md) § RC-8.
 
@@ -67,8 +68,9 @@ Ask explicitly:
 
 1. Does the **Final Verdict** mention this node's primary finding in headline **and** summary **and** at least one recommended step (when eligible)?
 2. Does the **orchestration console** show the node as a completed stage with detail below the verdict?
-3. Does the **smoke script** fail if this node is skipped or degraded unexpectedly?
-4. Is **re-orchestration** documented (stale triggers, reconcile scope, Stop AI, write-time fresh read) per [`re-orchestration-backlog.md`](./re-orchestration-backlog.md)?
+3. Does the **stepped console** (`/orchestration/stepped`) show the node's collapsed output and accordion when revealed (when in scope for demos)?
+4. Does the **smoke script** fail if this node is skipped or degraded unexpectedly?
+5. Is **re-orchestration** documented (stale triggers, reconcile scope, Stop AI, write-time fresh read) per [`re-orchestration-backlog.md`](./re-orchestration-backlog.md)?
 
 If any answer is no, the phase is not complete — even when the graph node and channel work in isolation.
 
