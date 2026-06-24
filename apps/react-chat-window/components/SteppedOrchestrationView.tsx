@@ -18,6 +18,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
+import { useRouter } from "next/navigation";
 import {
   BookOpen,
   CalendarDays,
@@ -44,6 +45,7 @@ import {
   type SteppedViewModel
 } from "@/lib/stepped-view-model";
 
+import { SteppedStartPanel } from "@/components/SteppedStartPanel";
 import styles from "./SteppedOrchestrationView.module.css";
 
 const NODE_ICON: Record<
@@ -76,10 +78,13 @@ export function SteppedOrchestrationView({
   pollIntervalMs = 2500,
   initialSnapshot
 }: SteppedOrchestrationViewProps) {
+  const router = useRouter();
   const [snapshot, setSnapshot] = useState<OrchestrationSnapshot | null>(
     initialSnapshot ?? null
   );
   const [error, setError] = useState<string | null>(null);
+  const [noWorkflowYet, setNoWorkflowYet] = useState(false);
+  const [activeWorkflowId, setActiveWorkflowId] = useState<string | undefined>();
   const [revealed, setRevealed] = useState(0);
   const [runningIndex, setRunningIndex] = useState<number | null>(null);
   const [open, setOpen] = useState<Record<string, boolean>>({});
@@ -89,18 +94,24 @@ export function SteppedOrchestrationView({
   const stopped = useRef(false);
   const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const pollWorkflowId = activeWorkflowId ?? workflowId;
+  const pollCaseId = pollWorkflowId ? undefined : caseId;
+
   const load = useCallback(async () => {
-    if (!caseId && !workflowId) return;
-    const path = workflowId
-      ? `/api/orchestrator/${workflowId}`
-      : `/api/orchestrator/case/${caseId}`;
+    if (!pollCaseId && !pollWorkflowId) return;
+    const path = pollWorkflowId
+      ? `/api/orchestrator/${pollWorkflowId}`
+      : `/api/orchestrator/case/${pollCaseId}`;
     try {
       const response = await fetch(path, {
         headers: { accept: "application/json" },
         cache: "no-store"
       });
       // Case may exist before its workflow does — keep polling quietly.
-      if (response.status === 404 && caseId) return;
+      if (response.status === 404 && pollCaseId) {
+        setNoWorkflowYet(true);
+        return;
+      }
       if (!response.ok) {
         setError(`Orchestration status unavailable (${response.status}).`);
         return;
@@ -108,23 +119,36 @@ export function SteppedOrchestrationView({
       const parsed = sanitizeSnapshot(await response.json());
       if (parsed) {
         setError(null);
+        setNoWorkflowYet(false);
         setSnapshot(parsed);
         if (isTerminalStatus(parsed.status)) stopped.current = true;
       }
     } catch {
       setError("Unable to reach orchestration status.");
     }
-  }, [caseId, workflowId]);
+  }, [pollCaseId, pollWorkflowId]);
+
+  const handleSteppedStarted = useCallback(
+    (nextWorkflowId: string) => {
+      setNoWorkflowYet(false);
+      setActiveWorkflowId(nextWorkflowId);
+      stopped.current = false;
+      router.replace(
+        `/orchestration/stepped?workflowId=${encodeURIComponent(nextWorkflowId)}`
+      );
+    },
+    [router]
+  );
 
   useEffect(() => {
     if (pollIntervalMs <= 0) return;
-    if (!caseId && !workflowId) return;
+    if (!pollCaseId && !pollWorkflowId) return;
     void load();
     const id = setInterval(() => {
       if (!stopped.current) void load();
     }, pollIntervalMs);
     return () => clearInterval(id);
-  }, [load, pollIntervalMs, caseId, workflowId]);
+  }, [load, pollIntervalMs, pollCaseId, pollWorkflowId]);
 
   useEffect(() => {
     const id = setInterval(() => setElapsed((value) => value + 1), 1000);
@@ -199,6 +223,13 @@ export function SteppedOrchestrationView({
   }, [vm, revealed, runningIndex, startReveal]);
 
   if (!vm) {
+    if (noWorkflowYet && caseId && !pollWorkflowId) {
+      return (
+        <div className={styles.wrap}>
+          <SteppedStartPanel caseId={caseId} onStarted={handleSteppedStarted} />
+        </div>
+      );
+    }
     return (
       <div className={styles.wrap}>
         <div className={styles.state}>

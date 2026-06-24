@@ -57,6 +57,9 @@ describe("DemoCaseCreateService", () => {
     const result = await service.create({ scenarioId: "same-day-battery-fix" });
     expect(result.caseId).toBe("500000000000001ABC");
     expect(result.orchestrationUrl).toContain("500000000000001ABC");
+    expect(result.steppedOrchestrationUrl).toContain(
+      "/orchestration/stepped?caseId="
+    );
     expect(gateway.createCase).toHaveBeenCalled();
   });
 

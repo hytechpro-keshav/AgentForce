@@ -166,4 +166,5 @@ export class DemoCaseCreateResponseDto {
   caseId!: string;
   caseNumber?: string;
   orchestrationUrl!: string;
+  steppedOrchestrationUrl!: string;
 }

@@ -36,8 +36,13 @@ railway_cmd() {
   if [[ -n "${RAILWAY_PROJECT_ID:-}" ]]; then
     project_args=(--project "${RAILWAY_PROJECT_ID}")
   fi
-  RAILWAY_CALLER="${RAILWAY_CALLER}" RAILWAY_AGENT_SESSION="${RAILWAY_AGENT_SESSION}" \
-    railway "${project_args[@]}" "$@"
+  if ((${#project_args[@]} > 0)); then
+    RAILWAY_CALLER="${RAILWAY_CALLER}" RAILWAY_AGENT_SESSION="${RAILWAY_AGENT_SESSION}" \
+      railway "${project_args[@]}" "$@"
+  else
+    RAILWAY_CALLER="${RAILWAY_CALLER}" RAILWAY_AGENT_SESSION="${RAILWAY_AGENT_SESSION}" \
+      railway "$@"
+  fi
 }
 
 require_command() {

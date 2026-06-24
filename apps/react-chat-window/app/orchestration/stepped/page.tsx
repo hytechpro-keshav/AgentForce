@@ -1,5 +1,6 @@
 import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
 
+import { OrchestrationConsoleNav } from "@/components/OrchestrationConsoleNav";
 import { SteppedOrchestrationView } from "@/components/SteppedOrchestrationView";
 import { isValidCaseId, isValidWorkflowId } from "@/lib/orchestration";
 
@@ -20,13 +21,11 @@ const mono = JetBrains_Mono({
 });
 
 /**
- * Stepped orchestration console (Phase 1 — replay).
+ * Stepped orchestration console — replay over a completed run, or real
+ * per-node stepping when started via POST `/stepped` or the start panel.
  *
- * Renders the approved spine design for a real run. Open with `?caseId=500…`
- * for the latest live workflow on that Case, or `?workflowId=wf-…` for a
- * specific workflow. Triage auto-reveals once the case is assigned; each later
- * stage exposes a "Run" button that reveals its real, already-computed result.
- * The existing read-only console at `/orchestration` is left untouched.
+ * Open with `?caseId=500…` or `?workflowId=wf-…`. The read-only engineering
+ * console at `/orchestration` is a separate surface.
  */
 export default function SteppedOrchestrationPage({
   searchParams
@@ -40,8 +39,15 @@ export default function SteppedOrchestrationPage({
 
   return (
     <main
-      className={`${grotesk.variable} ${mono.variable} mx-auto min-h-screen max-w-[1240px] p-6`}
+      className={`${grotesk.variable} ${mono.variable} mx-auto flex min-h-screen max-w-[1240px] flex-col gap-4 p-6`}
     >
+      <OrchestrationConsoleNav
+        active="stepped"
+        caseId={validCaseId ? caseId : undefined}
+        workflowId={validWorkflowId ? workflowId : undefined}
+        className="self-end"
+      />
+
       {validWorkflowId && workflowId ? (
         <SteppedOrchestrationView workflowId={workflowId} />
       ) : validCaseId && caseId ? (

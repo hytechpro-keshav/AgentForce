@@ -59,7 +59,7 @@ shows the waiting note when approval is pending.
 
 ---
 
-## Phase 2 — Real per-node stepping (PLANNED)
+## Phase 2 — Real per-node stepping (DONE)
 
 Generalize the guardrail's proven interrupt/checkpoint pattern into a **stepped
 run mode** so each Run truly executes that node on demand.
@@ -110,3 +110,28 @@ resume }), { thread_id })` runs exactly the next node, pauses again. Guardrail
   behind config/scope, with the auto-run path unchanged.
 - In-memory checkpointer loses paused stepped runs on restart — ship Postgres
   checkpointer before relying on it in production.
+
+---
+
+## Phase 2b — Launchers & start flow (DONE)
+
+Make the stepped console discoverable and kick-off friendly without curl:
+
+- `OrchestrationConsoleNav` cross-links `/orchestration` ↔ `/orchestration/stepped`
+  (preserves `caseId` / `workflowId` query params).
+- Demo Case Create returns `steppedOrchestrationUrl` and offers **Create case &
+  step through →** alongside the existing watch-workflow button.
+- `SteppedStartPanel` on the stepped route when `?caseId=` has no workflow yet:
+  operator login + **Start stepped run** POSTs to `/api/orchestrator/case/[id]/stepped`,
+  then replaces the URL with `?workflowId=wf-…` and polls.
+
+Live proof: create a demo Case → stepped console → sign in → start stepped run →
+advance each stage and confirm real snapshot data appears.
+
+---
+
+## Phase 3 — Production durability (PLANNED)
+
+- Postgres checkpointer for stepped runs (multi-instance / restart-safe).
+- Optional: advance-step operator login inline (currently shares session cookie
+  with start panel / Stop AI login).

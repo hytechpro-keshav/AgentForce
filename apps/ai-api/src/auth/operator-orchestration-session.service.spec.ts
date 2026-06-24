@@ -32,7 +32,7 @@ describe("OperatorOrchestrationSessionService", () => {
 
     expect(result.tokenType).toBe("Bearer");
     expect(result.scope).toBe(
-      "agentforce:orchestrator-read agentforce:orchestrator-control"
+      "agentforce:orchestrator-read agentforce:orchestrator-control agentforce:orchestrator-step"
     );
     expect(result.subject).toMatch(/^operator-console:/);
 
@@ -40,6 +40,7 @@ describe("OperatorOrchestrationSessionService", () => {
     const scopes = String(claims.scope).split(" ");
     expect(scopes).toContain("agentforce:orchestrator-read");
     expect(scopes).toContain("agentforce:orchestrator-control");
+    expect(scopes).toContain("agentforce:orchestrator-step");
     // The browser-reachable session must NEVER carry the approval scope.
     expect(scopes).not.toContain("agentforce:orchestrator-approval");
   });

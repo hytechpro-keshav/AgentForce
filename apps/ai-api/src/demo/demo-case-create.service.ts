@@ -84,6 +84,9 @@ export class DemoCaseCreateService {
         caseNumber: result.caseNumber,
         orchestrationUrl: `/orchestration?caseId=${encodeURIComponent(
           result.caseId
+        )}`,
+        steppedOrchestrationUrl: `/orchestration/stepped?caseId=${encodeURIComponent(
+          result.caseId
         )}`
       };
     } catch (error) {

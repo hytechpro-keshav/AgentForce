@@ -24,7 +24,10 @@ export default function DemoCaseCreatePage() {
               as Node 1 through Node 6 progress.
             </p>
           </div>
-          <ButtonLink href="/orchestration">Orchestration console</ButtonLink>
+          <div className="flex flex-wrap gap-2">
+            <ButtonLink href="/orchestration">Engineering console</ButtonLink>
+            <ButtonLink href="/orchestration/stepped">Stepped console</ButtonLink>
+          </div>
         </header>
 
         <DemoCaseCreateForm scenarios={catalog.scenarios} />

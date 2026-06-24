@@ -16,6 +16,12 @@ import {
   steppedSnapshotFixture
 } from "@/lib/__tests__/stepped-fixture";
 
+const replaceMock = vi.fn();
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: replaceMock })
+}));
+
 const REVEAL = 950;
 
 const WORKFLOW_ID = "wf-c79ee03d-a8fa-4316-9517-a9b4872833a4";
@@ -182,5 +188,72 @@ describe("SteppedOrchestrationView — Phase 2 (real stepped run)", () => {
     });
 
     expect(screen.getByRole("alert")).toHaveTextContent(/advance failed/i);
+  });
+});
+
+describe("SteppedOrchestrationView — start panel", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    cleanup();
+    replaceMock.mockReset();
+  });
+
+  it("shows the start panel when the Case has no workflow yet", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(new Response("", { status: 404 }));
+
+    render(
+      <SteppedOrchestrationView caseId="500000000000001" pollIntervalMs={2500} />
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText(/No orchestration run yet/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Start stepped run/i })
+    ).toBeInTheDocument();
+  });
+
+  it("POSTs to the stepped proxy and updates the URL on success", async () => {
+    const fetchMock = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(new Response("", { status: 404 }))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            workflowId: WORKFLOW_ID,
+            caseId: "500000000000001",
+            status: "assigned"
+          }),
+          { status: 202, headers: { "content-type": "application/json" } }
+        )
+      );
+
+    render(
+      <SteppedOrchestrationView caseId="500000000000001" pollIntervalMs={2500} />
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Start stepped run/i })
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "/api/orchestrator/case/500000000000001/stepped",
+      expect.objectContaining({ method: "POST" })
+    );
+    expect(replaceMock).toHaveBeenCalledWith(
+      `/orchestration/stepped?workflowId=${encodeURIComponent(WORKFLOW_ID)}`
+    );
   });
 });

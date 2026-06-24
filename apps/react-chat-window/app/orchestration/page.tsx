@@ -1,3 +1,4 @@
+import { OrchestrationConsoleNav } from "@/components/OrchestrationConsoleNav";
 import { OrchestrationView } from "@/components/OrchestrationView";
 import { isValidCaseId, isValidWorkflowId } from "@/lib/orchestration";
 
@@ -23,13 +24,20 @@ export default function OrchestrationPage({
 
   return (
     <main className="mx-auto flex min-h-screen max-w-7xl flex-col gap-4 p-6">
-      <div>
-        <h1 className="text-xl font-semibold">Orchestration Console</h1>
-        <p className="text-sm text-muted-foreground">
-          Live, read-only engineering view of Node 1 triage, Node 2 customer
-          context, Node 3 knowledge guidance, Node 4 parts logistics, Node 5
-          scheduling, and Node 6 compliance &amp; guardrail.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-xl font-semibold">Orchestration Console</h1>
+          <p className="text-sm text-muted-foreground">
+            Live, read-only engineering view of Node 1 triage, Node 2 customer
+            context, Node 3 knowledge guidance, Node 4 parts logistics, Node 5
+            scheduling, and Node 6 compliance &amp; guardrail.
+          </p>
+        </div>
+        <OrchestrationConsoleNav
+          active="classic"
+          caseId={validCaseId ? caseId : undefined}
+          workflowId={validWorkflowId ? workflowId : undefined}
+        />
       </div>
 
       {validWorkflowId && workflowId ? (
