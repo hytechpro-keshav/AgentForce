@@ -32,8 +32,14 @@ export function evaluateCustomerHistoryEligibility(
   }
 
   if (policy.eligiblePriorities && policy.eligiblePriorities.length > 0) {
-    // Prefer the triage recommendation; fall back to the reported
-    // priority so the gate still works when triage output is absent.
+    // When an Account is linked, customer read must run regardless of
+    // priority — eligiblePriorities cannot block pre-triage context reads
+    // (the account gate supersedes it; origin gate still applies above).
+    if (context.accountId) {
+      return { eligible: true, reason: "eligible" };
+    }
+    // No account: fall back to priority gate using the supplied hint
+    // (reported priority or triage recommendation).
     const priority = triagePriority ?? context.reportedPriority;
     if (!priority || !policy.eligiblePriorities.includes(priority)) {
       return {

@@ -55,4 +55,26 @@ describe("evaluateCustomerHistoryEligibility", () => {
     expect(result.eligible).toBe(false);
     expect(result.reason).toContain("priority=low");
   });
+
+  it("account-linked Case is eligible regardless of eligiblePriorities (pre-triage gate bypass)", () => {
+    // A Case with accountId + low reportedPriority must still be eligible
+    // when eligiblePriorities is [high, critical] — the accountId gate
+    // supersedes the priority gate so context-informed triage can run.
+    const result = evaluateCustomerHistoryEligibility(
+      context({ accountId: "001000000000001", reportedPriority: "low" }),
+      undefined,
+      { eligiblePriorities: ["high", "critical"] }
+    );
+    expect(result.eligible).toBe(true);
+  });
+
+  it("no-account Case with low priority remains ineligible when eligiblePriorities is set", () => {
+    const result = evaluateCustomerHistoryEligibility(
+      context({ reportedPriority: "low" }),
+      undefined,
+      { eligiblePriorities: ["high", "critical"] }
+    );
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toContain("priority=low");
+  });
 });

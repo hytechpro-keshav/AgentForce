@@ -62,19 +62,20 @@ import type { TriagePriorityDto } from "../agents/dto/triage-case.dto";
 /**
  * LangGraph state for the case-triage orchestrator slice.
  *
- * The chain spans Node 1 (triage), Node 2 (customer history), and
- * Node 3 (knowledge), with one human-in-the-loop interrupt at the
- * write-back gate:
+ * The chain spans Node 1 (triage, which now includes customer history
+ * read before the LLM) and Node 3 (knowledge), with one
+ * human-in-the-loop interrupt at the write-back gate:
  *
- *   START -> readContext -> runTriage -> customerHistory -> knowledge -> gate
- *                                                                        |  \
- *                                                          (approved) writeBack -> END
- *                                                          (rejected) rejected -> END
+ *   START -> readContext -> runTriage -> knowledge -> gate
+ *                                                      |  \
+ *                                        (approved) writeBack -> END
+ *                                        (rejected) rejected -> END
  *
  * The state evolves the Node-1-only shape toward a multi-node
- * `ServiceWorkflowState`: Node 2 writes ONLY its own `customerContext`
- * channel; Node 3 writes ONLY `knowledgeGuidance`; the triage channels
- * stay read-only to both. Nodes 4-8 are intentionally absent.
+ * `ServiceWorkflowState`: `runTriage` writes both `triage` and
+ * `customerContext`; Node 3 writes ONLY `knowledgeGuidance`. The
+ * `customerContext` channel shape is unchanged — Nodes 3-8 read it
+ * without modification. Nodes 4-8 are intentionally absent.
  */
 export const CaseTriageState = Annotation.Root({
   workflowId: Annotation<string>(),
@@ -323,6 +324,110 @@ export function buildCaseTriageGraph(
       };
     })
     .addNode("runTriage", async (state) => {
+      // Customer context read runs BEFORE the triage LLM (Phase A merge).
+      // Uses context.reportedPriority as the triagePriority surrogate —
+      // no AI priority exists yet pre-triage; this value is for
+      // businessRisk grading metadata only.
+      const reportedPriority = state.context?.reportedPriority;
+      const eligibility = deps.isCustomerHistoryEligible(
+        state.context!,
+        reportedPriority
+      );
+
+      let customerContext: CustomerContextChannel;
+
+      if (!eligibility.eligible) {
+        await deps.emitRunning(
+          state.workflowId,
+          "Customer history skipped (not eligible).",
+          [
+            { label: "Eligible", value: "No" },
+            { label: "Reason", value: eligibility.reason }
+          ],
+          CUSTOMER_HISTORY_NODE_ID,
+          buildEligibilitySkipTrace(state, eligibility)
+        );
+        customerContext = {
+          eligible: false,
+          eligibilityReason: eligibility.reason,
+          degraded: false
+        } satisfies CustomerContextChannel;
+      } else {
+        const scope: CustomerReadScope = {
+          accountId: state.context?.accountId ?? "",
+          tenantId: state.tenantId
+        };
+
+        const read = await deps.readCustomerContext(scope);
+
+        await deps.emitRunning(
+          state.workflowId,
+          "Reading customer profile and entitlements.",
+          buildProfileEntitlementDetails(read),
+          CUSTOMER_HISTORY_NODE_ID,
+          buildProfileEntitlementTrace(state, read, reportedPriority)
+        );
+
+        await deps.emitRunning(
+          state.workflowId,
+          "Reading installed assets and service history.",
+          buildReadDetails(read),
+          CUSTOMER_HISTORY_NODE_ID,
+          buildAssetHistoryTrace(read)
+        );
+
+        const synthesis = await deps.synthesizeCustomerHistory({
+          bundle: read.bundle,
+          triagePriority: reportedPriority,
+          externalSignals: read.externalSignals,
+          requestId: state.workflowId,
+          tenantId: state.tenantId,
+          clientId: state.tenantId ?? state.principalSubject
+        });
+
+        await deps.emitRunning(
+          state.workflowId,
+          "Analyzing customer history.",
+          buildAnalysisDetails(synthesis),
+          CUSTOMER_HISTORY_NODE_ID,
+          buildAnalysisTrace(read, reportedPriority, synthesis)
+        );
+
+        const degradedSources = [
+          ...read.bundle.missingSources,
+          ...read.degradedSources
+        ];
+        customerContext = {
+          eligible: true,
+          eligibilityReason: eligibility.reason,
+          degraded: degradedSources.length > 0,
+          degradedSources:
+            degradedSources.length > 0 ? degradedSources : undefined,
+          package: synthesis.package,
+          provider: synthesis.provider,
+          model: synthesis.model,
+          fallbackUsed: synthesis.fallbackUsed,
+          latencyMs: synthesis.latencyMs
+        };
+
+        await deps.emitRunning(
+          state.workflowId,
+          "Building customer context package.",
+          buildPackageSummaryDetails(customerContext),
+          CUSTOMER_HISTORY_NODE_ID,
+          buildPackageAssemblyTrace(customerContext)
+        );
+
+        await deps.emitRunning(
+          state.workflowId,
+          "Writing customer findings to state.",
+          buildPackageDetails(customerContext),
+          CUSTOMER_HISTORY_NODE_ID,
+          buildCustomerContextWriteTrace(customerContext)
+        );
+      }
+
+      // Triage LLM — case-text-only until Phase B adds customerSignals.
       const triage = await deps.runTriage({
         context: state.context!,
         workflowId: state.workflowId,
@@ -336,114 +441,7 @@ export function buildCaseTriageGraph(
         TRIAGE_NODE_ID,
         buildTriageTrace(state, triage)
       );
-      return { triage };
-    })
-    .addNode("customerHistory", async (state) => {
-      // Node 2 is READ-ONLY to Salesforce and NON-interrupting. It reads
-      // the case + triage slices, runs evidence-first synthesis, and
-      // writes ONLY its own `customerContext` channel. Triage is a
-      // weighting hint: if absent the node still runs from Case context
-      // and its own reads (it never hard-fails on missing triage).
-      const triagePriority = state.triage?.recommendedPriority;
-      const eligibility = deps.isCustomerHistoryEligible(
-        state.context!,
-        triagePriority
-      );
-      if (!eligibility.eligible) {
-        // Cost control: skip reads + model call for low-value Cases and
-        // write an empty/low-confidence channel.
-        await deps.emitRunning(
-          state.workflowId,
-          "Customer history skipped (not eligible).",
-          [
-            { label: "Eligible", value: "No" },
-            { label: "Reason", value: eligibility.reason }
-          ],
-          CUSTOMER_HISTORY_NODE_ID,
-          buildEligibilitySkipTrace(state, eligibility)
-        );
-        return {
-          customerContext: {
-            eligible: false,
-            eligibilityReason: eligibility.reason,
-            degraded: false
-          } satisfies CustomerContextChannel
-        };
-      }
-
-      const scope: CustomerReadScope = {
-        accountId: state.context?.accountId ?? "",
-        tenantId: state.tenantId
-      };
-
-      const read = await deps.readCustomerContext(scope);
-
-      await deps.emitRunning(
-        state.workflowId,
-        "Reading customer profile and entitlements.",
-        buildProfileEntitlementDetails(read),
-        CUSTOMER_HISTORY_NODE_ID,
-        buildProfileEntitlementTrace(state, read, triagePriority)
-      );
-
-      await deps.emitRunning(
-        state.workflowId,
-        "Reading installed assets and service history.",
-        buildReadDetails(read),
-        CUSTOMER_HISTORY_NODE_ID,
-        buildAssetHistoryTrace(read)
-      );
-      const synthesis = await deps.synthesizeCustomerHistory({
-        bundle: read.bundle,
-        triagePriority,
-        externalSignals: read.externalSignals,
-        requestId: state.workflowId,
-        tenantId: state.tenantId,
-        clientId: state.tenantId ?? state.principalSubject
-      });
-
-      await deps.emitRunning(
-        state.workflowId,
-        "Analyzing customer history.",
-        buildAnalysisDetails(synthesis),
-        CUSTOMER_HISTORY_NODE_ID,
-        buildAnalysisTrace(read, triagePriority, synthesis)
-      );
-
-      const degradedSources = [
-        ...read.bundle.missingSources,
-        ...read.degradedSources
-      ];
-      const channel: CustomerContextChannel = {
-        eligible: true,
-        eligibilityReason: eligibility.reason,
-        degraded: degradedSources.length > 0,
-        degradedSources:
-          degradedSources.length > 0 ? degradedSources : undefined,
-        package: synthesis.package,
-        provider: synthesis.provider,
-        model: synthesis.model,
-        fallbackUsed: synthesis.fallbackUsed,
-        latencyMs: synthesis.latencyMs
-      };
-
-      await deps.emitRunning(
-        state.workflowId,
-        "Building customer context package.",
-        buildPackageSummaryDetails(channel),
-        CUSTOMER_HISTORY_NODE_ID,
-        buildPackageAssemblyTrace(channel)
-      );
-
-      await deps.emitRunning(
-        state.workflowId,
-        "Writing customer findings to state.",
-        buildPackageDetails(channel),
-        CUSTOMER_HISTORY_NODE_ID,
-        buildCustomerContextWriteTrace(channel)
-      );
-
-      return { customerContext: channel };
+      return { triage, customerContext };
     })
     .addNode("knowledge", async (state) => {
       // Node 3 is READ-ONLY to Salesforce and NON-interrupting. It reads
@@ -873,8 +871,7 @@ export function buildCaseTriageGraph(
     })
     .addEdge(START, "readContext")
     .addEdge("readContext", "runTriage")
-    .addEdge("runTriage", "customerHistory")
-    .addEdge("customerHistory", "knowledge")
+    .addEdge("runTriage", "knowledge")
     .addEdge("knowledge", "parts")
     .addEdge("parts", "schedule")
     .addEdge("schedule", "evaluateGuardrail")
@@ -916,7 +913,6 @@ export type CompiledCaseTriageGraph = ReturnType<typeof buildCaseTriageGraph>;
  */
 export const STEP_PAUSE_NODES = [
   "runTriage",
-  "customerHistory",
   "knowledge",
   "parts",
   "schedule"
@@ -928,7 +924,6 @@ export const STEP_PAUSE_NODES = [
  * stage awaiting the operator's `advance`.
  */
 export const STEP_NEXT_NODE_TO_UI: Record<string, OrchestratorNodeId> = {
-  customerHistory: CUSTOMER_HISTORY_NODE_ID,
   knowledge: KNOWLEDGE_NODE_ID,
   parts: PARTS_LOGISTICS_NODE_ID,
   schedule: SCHEDULING_NODE_ID,

@@ -216,17 +216,19 @@ async function invoke(deps: CaseTriageGraphDeps, workflowId = "wf-graph-1") {
 }
 
 describe("case-triage graph — Node 2 customer history", () => {
-  it("advances readContext -> runTriage -> customerHistory -> evaluateGuardrail -> writeBack", async () => {
+  it("advances readContext -> runTriage(merged) -> knowledge -> evaluateGuardrail -> writeBack", async () => {
     const h = buildDeps();
     const result = await invoke(h.deps);
 
-    // Node 2 ran with the case's Account scope and the triage hint.
+    // Customer read ran inside runTriage with the Account scope.
+    // triagePriority surrogate = context.reportedPriority ("high"), not
+    // triage.recommendedPriority (no AI priority exists pre-triage).
     expect(h.readCustomerContext).toHaveBeenCalledTimes(1);
     expect(h.readCustomerContext.mock.calls[0][0]).toMatchObject({
       accountId: ACCOUNT_ID
     });
     expect(h.synthesize).toHaveBeenCalledTimes(1);
-    expect(h.synthesize.mock.calls[0][0].triagePriority).toBe("critical");
+    expect(h.synthesize.mock.calls[0][0].triagePriority).toBe("high");
 
     // Node 2 wrote ONLY its own channel; Node 1 still completed.
     expect(result.customerContext?.eligible).toBe(true);
@@ -240,8 +242,10 @@ describe("case-triage graph — Node 2 customer history", () => {
     expect(node2Events.length).toBeGreaterThanOrEqual(5);
   });
 
-  it("still runs Node 2 when triage output is absent (triage is a hint)", async () => {
-    // Simulate a degraded triage that yields no usable result.
+  it("still runs customer read when triage LLM returns undefined (degrade-safe)", async () => {
+    // Customer read happens BEFORE the triage LLM in the merged node, so
+    // a degraded triage result does not affect customerContext.
+    // triagePriority surrogate is context.reportedPriority ("high").
     const runTriage = jest
       .fn()
       .mockResolvedValue(undefined as unknown as SanitizedTriageResult);
@@ -249,10 +253,10 @@ describe("case-triage graph — Node 2 customer history", () => {
 
     const result = await invoke(h.deps);
 
-    // Node 2 still reads and synthesizes; the triage hint is undefined.
+    // Customer read ran; triagePriority is the reportedPriority surrogate.
     expect(h.readCustomerContext).toHaveBeenCalledTimes(1);
     expect(h.synthesize).toHaveBeenCalledTimes(1);
-    expect(h.synthesize.mock.calls[0][0].triagePriority).toBeUndefined();
+    expect(h.synthesize.mock.calls[0][0].triagePriority).toBe("high");
     expect(result.customerContext?.eligible).toBe(true);
     expect(result.customerContext?.package).toBeDefined();
   });
@@ -840,9 +844,9 @@ describe("case-triage graph — stepped mode (Phase 2)", () => {
     status: "running" as const
   });
 
-  it("runs Triage then pauses after each upstream stage", async () => {
+  it("runs Triage (with customer read) then pauses after each upstream stage", async () => {
     const h = buildDeps({
-      // Force every stage to actually run so the pauses are observable.
+      // Force customer read to actually run so the merged pause is observable.
       isCustomerHistoryEligible: jest
         .fn()
         .mockReturnValue({ eligible: true, reason: "eligible" })
@@ -850,23 +854,17 @@ describe("case-triage graph — stepped mode (Phase 2)", () => {
     const graph = buildCaseTriageGraph(h.deps, { stepped: true });
     const config = { configurable: { thread_id: "wf-step-1" } };
 
-    // Initial invoke auto-runs Triage (readContext + runTriage), then pauses.
+    // Initial invoke auto-runs Triage (readContext + runTriage, which now
+    // includes customer read + synthesis), then pauses before knowledge.
     const afterTriage = (await graph.invoke(
       initialState("wf-step-1"),
       config
     )) as { triage?: unknown; customerContext?: unknown };
     expect(afterTriage.triage).toBeDefined();
-    expect(afterTriage.customerContext).toBeUndefined();
-    expect((await graph.getState(config)).next).toEqual(["customerHistory"]);
-
-    // One advance runs exactly the next stage (customer history), then pauses.
-    const afterCustomer = (await graph.invoke(null, config)) as {
-      customerContext?: unknown;
-    };
-    expect(afterCustomer.customerContext).toBeDefined();
+    expect(afterTriage.customerContext).toBeDefined();
     expect((await graph.getState(config)).next).toEqual(["knowledge"]);
 
-    // Each further advance steps one stage at a time toward the guardrail.
+    // Each advance steps one stage at a time toward the guardrail.
     await graph.invoke(null, config); // knowledge
     expect((await graph.getState(config)).next).toEqual(["parts"]);
     await graph.invoke(null, config); // parts
@@ -880,9 +878,9 @@ describe("case-triage graph — stepped mode (Phase 2)", () => {
     const graph = buildCaseTriageGraph(h.deps, { stepped: true });
     const config = { configurable: { thread_id: "wf-step-2" } };
 
-    await graph.invoke(initialState("wf-step-2"), config); // Triage, pause
-    // Advance through customer → knowledge → parts → schedule → guardrail.
-    for (let i = 0; i < 4; i += 1) {
+    await graph.invoke(initialState("wf-step-2"), config); // Triage (merged), pause
+    // Advance through knowledge → parts → schedule → guardrail (3 steps).
+    for (let i = 0; i < 3; i += 1) {
       await graph.invoke(null, config);
     }
     expect((await graph.getState(config)).next).toEqual(["evaluateGuardrail"]);

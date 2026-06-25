@@ -736,9 +736,11 @@ export class CaseTriageOrchestratorService {
   }
 
   /**
-   * Stepped-mode initial invoke: runs Triage (readContext + runTriage) then
-   * pauses at the first `interruptAfter`. Mirrors {@link run} but settles a
-   * stepped pause instead of a terminal/approval outcome.
+   * Stepped-mode initial invoke: runs Triage (readContext + runTriage, which
+   * now includes customer context read + synthesis before the triage LLM)
+   * then pauses at the first `interruptAfter` before knowledge. Mirrors
+   * {@link run} but settles a stepped pause instead of a terminal/approval
+   * outcome.
    */
   private async runStep(
     workflowId: string,
