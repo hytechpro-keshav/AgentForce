@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { CASE_ID_PATTERN } from "@/lib/orchestration";
-import { resolveOrchestratorViewToken } from "@/lib/orchestrator-proxy-auth";
+import { resolveOrchestratorReadBearer } from "@/lib/orchestrator-proxy-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,7 +17,7 @@ function aiApiBaseUrl(): string {
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: { caseId: string } }
 ): Promise<NextResponse> {
   const { caseId } = context.params;
@@ -25,7 +25,7 @@ export async function GET(
     return NextResponse.json({ error: "invalid_case_id" }, { status: 400 });
   }
 
-  const viewToken = resolveOrchestratorViewToken();
+  const viewToken = resolveOrchestratorReadBearer(request);
   if (!viewToken) {
     return NextResponse.json(
       {

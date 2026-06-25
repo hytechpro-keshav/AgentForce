@@ -1,12 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { NextRequest } from "next/server";
+
 import { GET } from "@/app/api/orchestrator/[workflowId]/route";
 
 const VALID_WORKFLOW_ID = "wf-9d6b898e-affa-406f-941c-6da4e3437e25";
 const VIEW_TOKEN = "server-side-view-token";
+const SESSION_TOKEN = "operator-session-jwt";
 
-function call(workflowId: string) {
-  return GET({} as never, { params: { workflowId } });
+function call(workflowId: string, sessionCookie?: string) {
+  const request = {
+    cookies: {
+      get: (name: string) =>
+        sessionCookie && name === "orchestrator_session"
+          ? { value: sessionCookie }
+          : undefined
+    }
+  } as NextRequest;
+  return GET(request, { params: { workflowId } });
 }
 
 describe("orchestrator status proxy", () => {
@@ -32,10 +43,23 @@ describe("orchestrator status proxy", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("returns 503 when the view token is not configured", async () => {
+  it("returns 503 when no orchestrator token is configured", async () => {
     delete process.env.AI_API_ORCHESTRATOR_VIEW_TOKEN;
+    delete process.env.AI_API_DEMO_CASE_CREATE_TOKEN;
     const response = await call(VALID_WORKFLOW_ID);
     expect(response.status).toBe(503);
+  });
+
+  it("prefers the operator session cookie over the static view token", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ status: "awaiting_step" }), { status: 200 })
+    );
+
+    const response = await call(VALID_WORKFLOW_ID, SESSION_TOKEN);
+    expect(response.status).toBe(200);
+    expect((fetchSpy.mock.calls[0][1] as RequestInit).headers).toMatchObject({
+      authorization: `Bearer ${SESSION_TOKEN}`
+    });
   });
 
   it("attaches the server-side bearer token and proxies upstream JSON", async () => {

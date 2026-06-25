@@ -894,6 +894,17 @@
   background: #c2c2bd;
   flex: none;
 }
+.odotLive {
+  background: #111;
+  animation: liveblink 1.2s infinite;
+}
+.odotPaused {
+  background: #d97706;
+  animation: apulse 1.5s infinite;
+}
+.odotActive {
+  background: #111;
+}
 .olabel {
   font-family: var(--mono);
   font-size: 13px;
@@ -908,8 +919,6 @@
 }
 .oactivity {
   padding: 14px 18px 17px;
-  max-height: 320px;
-  overflow-y: auto;
 }
 .at {
   font-family: var(--mono);

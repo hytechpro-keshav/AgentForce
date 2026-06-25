@@ -1,12 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { NextRequest } from "next/server";
+
 import { GET } from "@/app/api/orchestrator/case/[caseId]/route";
 
 const VALID_CASE_ID = "500000000000001ABC";
 const VIEW_TOKEN = "server-side-view-token";
+const SESSION_TOKEN = "operator-session-jwt";
 
-function call(caseId: string) {
-  return GET({} as never, { params: { caseId } });
+function call(caseId: string, sessionCookie?: string) {
+  const request = {
+    cookies: {
+      get: (name: string) =>
+        sessionCookie && name === "orchestrator_session"
+          ? { value: sessionCookie }
+          : undefined
+    }
+  } as NextRequest;
+  return GET(request, { params: { caseId } });
 }
 
 describe("orchestrator Case lookup proxy", () => {
@@ -32,24 +43,22 @@ describe("orchestrator Case lookup proxy", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("returns 503 when no orchestrator token is configured", async () => {
+  it("returns 503 when no orchestrator read bearer is configured", async () => {
     delete process.env.AI_API_ORCHESTRATOR_VIEW_TOKEN;
     delete process.env.AI_API_DEMO_CASE_CREATE_TOKEN;
     const response = await call(VALID_CASE_ID);
     expect(response.status).toBe(503);
   });
 
-  it("falls back to AI_API_DEMO_CASE_CREATE_TOKEN when view token is unset", async () => {
-    delete process.env.AI_API_ORCHESTRATOR_VIEW_TOKEN;
-    process.env.AI_API_DEMO_CASE_CREATE_TOKEN = "demo-create-token";
+  it("prefers the operator session cookie over the static view token", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ status: "running" }), { status: 200 })
     );
 
-    const response = await call(VALID_CASE_ID);
+    const response = await call(VALID_CASE_ID, SESSION_TOKEN);
     expect(response.status).toBe(200);
     expect((fetchSpy.mock.calls[0][1] as RequestInit).headers).toMatchObject({
-      authorization: "Bearer demo-create-token"
+      authorization: `Bearer ${SESSION_TOKEN}`
     });
   });
 

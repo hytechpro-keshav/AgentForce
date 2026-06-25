@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildSteppedViewModel,
+  buildVisibleActivity,
   computeRevealedProgress,
   filterActivityForRevealed,
   isSteppedSnapshot
 } from "@/lib/stepped-view-model";
 
 import {
+  steppedAfterCustomerHistoryFixture,
   steppedInProgressTriageFixture,
   steppedPausedFixture,
   steppedSnapshotFixture
@@ -157,5 +159,41 @@ describe("filterActivityForRevealed", () => {
     const filtered = filterActivityForRevealed(vm.activity, vm.nodes, 1);
     expect(filtered.every((entry) => entry.nodeId === "triage")).toBe(true);
     expect(filtered.length).toBeGreaterThan(0);
+  });
+});
+
+describe("buildVisibleActivity", () => {
+  it("collapses the just-finished stage and surfaces frontier pause when awaiting_step", () => {
+    const snapshot = steppedAfterCustomerHistoryFixture();
+    const vm = buildSteppedViewModel(snapshot);
+    const visible = buildVisibleActivity(vm.activity, vm.nodes, 2, snapshot);
+
+    expect(
+      visible.some((entry) => entry.text.includes("Writing customer findings"))
+    ).toBe(false);
+    expect(visible.some((entry) => entry.text.includes("Customer Context · complete"))).toBe(
+      true
+    );
+    expect(
+      visible.some((entry) =>
+        entry.text.includes("Stage complete — awaiting Run for Knowledge Base")
+      )
+    ).toBe(true);
+    expect(
+      visible.some((entry) => entry.text === "Ready to dispatch → Knowledge Base")
+    ).toBe(true);
+    expect(visible[visible.length - 1]?.text).toBe(
+      "Ready to dispatch → Knowledge Base"
+    );
+  });
+
+  it("includes detailed traces for the active node while backend is running", () => {
+    const snapshot = steppedInProgressTriageFixture();
+    const vm = buildSteppedViewModel(snapshot);
+    const visible = buildVisibleActivity(vm.activity, vm.nodes, 0, snapshot);
+
+    expect(visible.some((entry) => entry.text.includes("Running AI triage"))).toBe(
+      true
+    );
   });
 });

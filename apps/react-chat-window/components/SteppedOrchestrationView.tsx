@@ -39,8 +39,8 @@ import {
 } from "@/lib/orchestration";
 import {
   buildSteppedViewModel,
+  buildVisibleActivity,
   computeRevealedProgress,
-  filterActivityForRevealed,
   isSteppedSnapshot,
   type SteppedNode,
   type SteppedNodeIcon,
@@ -104,6 +104,10 @@ export function SteppedOrchestrationView({
   const [elapsed, setElapsed] = useState(0);
   const [advancing, setAdvancing] = useState(false);
   const [advanceError, setAdvanceError] = useState<string | null>(null);
+  const [needsLogin, setNeedsLogin] = useState(false);
+  const [accessCode, setAccessCode] = useState("");
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [loggingIn, setLoggingIn] = useState(false);
   const stopped = useRef(false);
   const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bootstrapPlayed = useRef(false);
@@ -128,11 +132,17 @@ export function SteppedOrchestrationView({
         return;
       }
       if (!response.ok) {
+        if (response.status === 401) {
+          setNeedsLogin(true);
+          setError(null);
+          return;
+        }
         setError(`Orchestration status unavailable (${response.status}).`);
         return;
       }
       const parsed = sanitizeSnapshot(await response.json());
       if (parsed) {
+        setNeedsLogin(false);
         // Ignore auto-trigger full runs when polling by Case id only.
         if (!isSteppedSnapshot(parsed) && pollCaseId) {
           setNoWorkflowYet(true);
@@ -193,8 +203,10 @@ export function SteppedOrchestrationView({
 
   const visibleActivity = useMemo(
     () =>
-      vm ? filterActivityForRevealed(vm.activity, vm.nodes, revealed) : [],
-    [vm, revealed]
+      vm && snapshot
+        ? buildVisibleActivity(vm.activity, vm.nodes, revealed, snapshot)
+        : [],
+    [vm, snapshot, revealed]
   );
 
   const startReveal = useCallback((index: number) => {
@@ -305,11 +317,79 @@ export function SteppedOrchestrationView({
     [snapshot?.workflowId, startReveal]
   );
 
+  const handleOperatorLogin = useCallback(async () => {
+    setLoggingIn(true);
+    setLoginError(null);
+    try {
+      const response = await fetch("/api/orchestrator/operator-session", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ accessCode })
+      });
+      if (!response.ok) {
+        setLoginError(
+          response.status === 401 ? "Invalid access code." : "Login unavailable."
+        );
+        return;
+      }
+      setAccessCode("");
+      setNeedsLogin(false);
+      await load();
+    } catch {
+      setLoginError("Login unavailable.");
+    } finally {
+      setLoggingIn(false);
+    }
+  }, [accessCode, load]);
+
   if (!vm) {
     if (noWorkflowYet && caseId && !pollWorkflowId) {
       return (
         <div className={styles.wrap}>
           <SteppedStartPanel caseId={caseId} onStarted={handleSteppedStarted} />
+        </div>
+      );
+    }
+    if (needsLogin) {
+      return (
+        <div className={styles.wrap}>
+          <div className={styles.startPanel}>
+            <p className={styles.startTitle}>Operator sign-in required</p>
+            <p className={styles.startCopy}>
+              This stepped console needs an operator session to read orchestration
+              status. Sign in with the access code, or start from{" "}
+              <a href="/demo/case-create">demo Case create</a> to mint a session
+              automatically.
+            </p>
+            {loginError ? (
+              <p className={styles.startError} role="alert">
+                {loginError}
+              </p>
+            ) : null}
+            <div className={styles.startLogin}>
+              <label className={styles.startLabel} htmlFor="stepped-view-access-code">
+                Operator access code
+              </label>
+              <input
+                id="stepped-view-access-code"
+                type="password"
+                value={accessCode}
+                onChange={(event) => setAccessCode(event.target.value)}
+                className={styles.startInput}
+                placeholder="Enter access code"
+              />
+              <div className={styles.startActions}>
+                <button
+                  type="button"
+                  className={styles.startPrimary}
+                  disabled={!accessCode.trim() || loggingIn}
+                  onClick={() => void handleOperatorLogin()}
+                >
+                  {loggingIn ? "Signing in…" : "Sign in ▸"}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       );
     }
@@ -359,6 +439,22 @@ export function SteppedOrchestrationView({
     if (!isSteppedRun || index !== awaitingIndex) return;
     void advanceStep(index);
   };
+
+  const orchState = resolveOrchState({
+    pill,
+    advancing,
+    runningIndex,
+    snapshotStatus: snapshot?.status
+  });
+
+  const orchActiveName =
+    advancing || runningIndex !== null
+      ? vm.nodes[runningIndex ?? awaitingIndex]?.name
+      : snapshot?.status === "running" || snapshot?.status === "assigned"
+        ? vm.nodes.find((node) => node.id === snapshot.node)?.name
+        : orchState === "ready" && awaitingIndex >= 0
+          ? vm.nodes[awaitingIndex]?.name
+          : frontier?.name;
 
   return (
     <div className={styles.wrap}>
@@ -593,25 +689,27 @@ export function SteppedOrchestrationView({
             <div className={styles.ostate}>
               <div className={styles.orow1}>
                 <span
-                  className={styles.odot}
-                  style={{ background: pill === "paused" ? "#d97706" : "#111" }}
+                  className={clsx(
+                    styles.odot,
+                    orchState === "dispatching" ||
+                      orchState === "awaiting" ||
+                      orchState === "ready"
+                      ? styles.odotLive
+                      : orchState === "paused"
+                        ? styles.odotPaused
+                        : orchState === "receiving" ||
+                            orchState === "complete"
+                          ? styles.odotActive
+                          : undefined
+                  )}
                 />
-                <span className={styles.olabel}>
-                  {orchLabel(pill, allRevealed)}
-                </span>
+                <span className={styles.olabel}>{orchLabel(orchState)}</span>
               </div>
               <div className={styles.osub}>
-                {orchSub(
-                  pill,
-                  isSteppedRun && awaitingIndex >= 0
-                    ? vm.nodes[awaitingIndex]?.name
-                    : frontier?.name,
-                  vm.guardrailWaiting,
-                  isSteppedRun
-                )}
+                {orchSub(orchState, orchActiveName)}
               </div>
             </div>
-            <div className={styles.oactivity}>
+            <div className={styles.oactivity} aria-label="Orchestrator activity">
               <div className={styles.at}>ACTIVITY</div>
               {visibleActivity.map((entry) => (
                 <div
@@ -1017,29 +1115,72 @@ function logGlyph(kind: "sys" | "out" | "in" | "warn"): string {
         : "•";
 }
 
-function orchLabel(
-  pill: "running" | "ready" | "paused" | "complete",
-  allRevealed: boolean
-): string {
-  if (pill === "complete") return "Run complete";
-  if (pill === "paused") return "Paused";
-  if (pill === "ready") return "Awaiting Next ▸";
-  return allRevealed ? "Settling…" : "Working…";
+function orchLabel(state: OrchUiState): string {
+  switch (state) {
+    case "dispatching":
+      return "Dispatching →";
+    case "awaiting":
+      return "Awaiting node…";
+    case "receiving":
+      return "Receiving ←";
+    case "ready":
+      return "Awaiting Next ▸";
+    case "paused":
+      return "Paused";
+    case "complete":
+      return "Run complete";
+    default:
+      return "Working…";
+  }
 }
 
-function orchSub(
-  pill: "running" | "ready" | "paused" | "complete",
-  frontierName: string | undefined,
-  guardrailWaiting: boolean,
-  isSteppedRun = false
-): string {
-  if (pill === "complete") return "all nodes settled";
-  if (pill === "paused") return "awaiting external approval";
-  if (pill === "ready") {
-    return isSteppedRun
-      ? `press Run to execute ${frontierName ?? "next stage"} on the backend`
-      : `press Run to reveal ${frontierName ?? "next stage"}`;
+function orchSub(state: OrchUiState, activeName?: string): string {
+  const name = activeName ?? "next stage";
+  switch (state) {
+    case "dispatching":
+      return `handing case to ${name}`;
+    case "awaiting":
+      return `${name} is reasoning`;
+    case "receiving":
+      return `output from ${name}`;
+    case "ready":
+      return `press Run to dispatch ${name}`;
+    case "paused":
+      return "awaiting external approval";
+    case "complete":
+      return "all nodes settled";
+    default:
+      return "waiting for the next stage to finish";
   }
-  if (guardrailWaiting) return "guardrail awaiting approval";
-  return "waiting for the next stage to finish";
+}
+
+type OrchUiState =
+  | "dispatching"
+  | "awaiting"
+  | "receiving"
+  | "ready"
+  | "paused"
+  | "complete"
+  | "working";
+
+function resolveOrchState({
+  pill,
+  advancing,
+  runningIndex,
+  snapshotStatus
+}: {
+  pill: "running" | "ready" | "paused" | "complete";
+  advancing: boolean;
+  runningIndex: number | null;
+  snapshotStatus?: OrchestrationSnapshot["status"];
+}): OrchUiState {
+  if (pill === "complete") return "complete";
+  if (pill === "paused") return "paused";
+  if (advancing) return "dispatching";
+  if (runningIndex !== null) return "receiving";
+  if (snapshotStatus === "running" || snapshotStatus === "assigned") {
+    return "awaiting";
+  }
+  if (pill === "ready") return "ready";
+  return "working";
 }

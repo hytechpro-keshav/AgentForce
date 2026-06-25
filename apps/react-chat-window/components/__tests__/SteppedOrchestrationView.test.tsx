@@ -5,7 +5,8 @@ import {
   cleanup,
   fireEvent,
   render,
-  screen
+  screen,
+  within
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -195,6 +196,9 @@ describe("SteppedOrchestrationView — Phase 2 (real stepped run)", () => {
       name: /Run Customer Context/i
     });
     expect(btn).toBeEnabled();
+    expect(
+      screen.getByText(/press Run to dispatch Customer Context/i)
+    ).toBeInTheDocument();
     // Hint text indicates this is a backend call, not a local reveal.
     expect(
       screen.getByText(/sends to backend, then reveals/i)
@@ -237,6 +241,16 @@ describe("SteppedOrchestrationView — Phase 2 (real stepped run)", () => {
     expect(
       screen.getByRole("button", { name: /Run Knowledge Base/i })
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(/press Run to dispatch Knowledge Base/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Ready to dispatch → Knowledge Base/i)
+    ).toBeInTheDocument();
+    const activity = screen.getByLabelText("Orchestrator activity");
+    expect(
+      within(activity).queryByText(/Writing customer findings to state/i)
+    ).not.toBeInTheDocument();
     // Customer Context output from the response is now visible.
     expect(screen.getAllByText(/business risk/i).length).toBeGreaterThan(0);
   });

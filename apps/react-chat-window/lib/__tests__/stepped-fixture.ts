@@ -367,6 +367,50 @@ export function steppedAfterCustomerHistoryFixture(): OrchestrationSnapshot {
         escalationHistory: finding(0),
         businessRisk: finding("high", "Risk signals: repeat-failure, 10 open")
       }
-    }
+    },
+    events: [
+      {
+        node: "triage",
+        status: "assigned",
+        sequence: 1,
+        occurredAt: "t1",
+        safeSummary: "Triage assigned for case 00001079."
+      },
+      {
+        node: "triage",
+        status: "running",
+        sequence: 2,
+        occurredAt: "t2",
+        safeSummary: "Running AI triage."
+      },
+      {
+        node: "customer_history",
+        status: "running",
+        sequence: 3,
+        occurredAt: "t3",
+        safeSummary: "Reading customer profile and entitlements."
+      },
+      {
+        node: "customer_history",
+        status: "running",
+        sequence: 4,
+        occurredAt: "t4",
+        safeSummary: "Analyzing customer history."
+      },
+      {
+        node: "customer_history",
+        status: "running",
+        sequence: 5,
+        occurredAt: "t5",
+        safeSummary: "Writing customer findings to state."
+      },
+      {
+        node: "knowledge",
+        status: "awaiting_step",
+        sequence: 6,
+        occurredAt: "t6",
+        safeSummary: "Stage complete — awaiting Run for Knowledge Base."
+      }
+    ]
   });
 }

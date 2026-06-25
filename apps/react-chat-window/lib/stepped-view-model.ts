@@ -781,6 +781,86 @@ export function filterActivityForRevealed(
   return activity.filter((entry) => revealedIds.has(entry.nodeId));
 }
 
+function isFrontierPauseEntry(entry: SteppedActivityEntry): boolean {
+  return (
+    entry.kind === "sys" && entry.text.includes("Stage complete — awaiting Run")
+  );
+}
+
+function nextSyntheticSeq(
+  activity: SteppedActivityEntry[],
+  offset = 1
+): number {
+  const max = activity.reduce((highest, entry) => Math.max(highest, entry.seq), 0);
+  return max + offset;
+}
+
+/**
+ * Activity log aligned with the orchestrator frontier. When paused at
+ * `awaiting_step`, collapse the just-finished stage to a completion line and
+ * surface frontier pause + dispatch-ready entries instead of trailing in-flight
+ * trace lines from that stage.
+ */
+export function buildVisibleActivity(
+  activity: SteppedActivityEntry[],
+  nodes: SteppedNode[],
+  revealed: number,
+  snapshot: Pick<OrchestrationSnapshot, "status" | "node">
+): SteppedActivityEntry[] {
+  if (snapshot.status === "awaiting_step" && snapshot.node) {
+    const awaitingIndex = nodes.findIndex((node) => node.id === snapshot.node);
+    if (awaitingIndex < 0) {
+      return filterActivityForRevealed(activity, nodes, revealed);
+    }
+
+    const priorIds = new Set(
+      nodes.slice(0, Math.max(0, awaitingIndex - 1)).map((node) => node.id)
+    );
+    const result = activity.filter((entry) => priorIds.has(entry.nodeId));
+
+    const completedNode =
+      awaitingIndex > 0 ? nodes[awaitingIndex - 1] : undefined;
+    if (completedNode) {
+      result.push({
+        seq: nextSyntheticSeq(activity),
+        kind: "in",
+        nodeId: completedNode.id,
+        text: `${NODE_SHORT[completedNode.id]} · complete`
+      });
+    }
+
+    const frontierPauses = activity.filter(
+      (entry) => entry.nodeId === snapshot.node && isFrontierPauseEntry(entry)
+    );
+    result.push(...frontierPauses);
+
+    const frontierName = nodes[awaitingIndex]?.name ?? "next stage";
+    result.push({
+      seq: nextSyntheticSeq([...activity, ...result], 2),
+      kind: "out",
+      nodeId: snapshot.node,
+      text: `Ready to dispatch → ${frontierName}`
+    });
+
+    return result.sort((a, b) => a.seq - b.seq);
+  }
+
+  if (
+    (snapshot.status === "running" || snapshot.status === "assigned") &&
+    snapshot.node
+  ) {
+    const activeIndex = nodes.findIndex((node) => node.id === snapshot.node);
+    const visibleIds = new Set(
+      nodes
+        .slice(0, activeIndex >= 0 ? activeIndex + 1 : revealed)
+        .map((node) => node.id)
+    );
+    return activity.filter((entry) => visibleIds.has(entry.nodeId));
+  }
+
+  return filterActivityForRevealed(activity, nodes, revealed);
+}
+
 /**
  * Transform a sanitized snapshot into the stepped console view model.
  */
