@@ -57,7 +57,11 @@ import type {
   OrchestrationTraceValue,
   SanitizedTriageResult
 } from "./dto/orchestration-status-event";
-import type { TriagePriorityDto } from "../agents/dto/triage-case.dto";
+import type {
+  TriageCustomerSignals,
+  TriagePriorityDto
+} from "../agents/dto/triage-case.dto";
+import { customerContextToTriageSignals } from "./customer-context-to-triage-signals";
 
 /**
  * LangGraph state for the case-triage orchestrator slice.
@@ -108,6 +112,13 @@ export interface CaseTriageTriageInput {
   workflowId: string;
   tenantId?: string;
   principalSubject: string;
+  /**
+   * Phase B — sanitized customer signals derived from the `customerContext`
+   * package (read earlier in the same merged Triage node). Absent when the
+   * customer read was skipped/ineligible/degraded-to-no-package, so triage
+   * runs case-only. Never carries raw records, names, or account ids.
+   */
+  customerSignals?: TriageCustomerSignals;
 }
 
 /**
@@ -427,12 +438,17 @@ export function buildCaseTriageGraph(
         );
       }
 
-      // Triage LLM — case-text-only until Phase B adds customerSignals.
+      // Context-informed triage LLM (Phase B): derive sanitized customer
+      // signals from the package just assembled and pass them alongside the
+      // case text. `undefined` when the customer read was skipped/ineligible
+      // or produced no package — triage then runs case-only (degrade-safe).
+      const customerSignals = customerContextToTriageSignals(customerContext);
       const triage = await deps.runTriage({
         context: state.context!,
         workflowId: state.workflowId,
         tenantId: state.tenantId,
-        principalSubject: state.principalSubject
+        principalSubject: state.principalSubject,
+        customerSignals
       });
       await deps.emitRunning(
         state.workflowId,

@@ -306,6 +306,41 @@ describe("case-triage graph — Node 2 customer history", () => {
       "erp"
     ]);
   });
+
+  it("passes derived customerSignals to the triage dep when the package is populated (Phase B)", async () => {
+    const h = buildDeps();
+
+    await invoke(h.deps);
+
+    expect(h.runTriage).toHaveBeenCalledTimes(1);
+    const signals = h.runTriage.mock.calls[0][0].customerSignals;
+    // Flat, sanitized values mapped from buildSynthesis()'s package.
+    expect(signals).toMatchObject({
+      customerTier: "premium",
+      slaClass: "premium",
+      warrantyStatus: "covered",
+      strategicAccount: true,
+      repeatIncident: { repeat: true, count: 2 },
+      businessRisk: "high",
+      primaryModel: "VX-900",
+      degraded: false
+    });
+    // Only finding values cross the boundary — never the raw package shape.
+    expect(signals).not.toHaveProperty("customerTier.provenance");
+  });
+
+  it("passes undefined customerSignals to the triage dep when the case is ineligible (Phase B)", async () => {
+    const isEligible = jest.fn().mockReturnValue({
+      eligible: false,
+      reason: "priority=low below threshold"
+    });
+    const h = buildDeps({ isCustomerHistoryEligible: isEligible });
+
+    await invoke(h.deps);
+
+    expect(h.runTriage).toHaveBeenCalledTimes(1);
+    expect(h.runTriage.mock.calls[0][0].customerSignals).toBeUndefined();
+  });
 });
 
 describe("case-triage graph — Node 4 parts & logistics", () => {

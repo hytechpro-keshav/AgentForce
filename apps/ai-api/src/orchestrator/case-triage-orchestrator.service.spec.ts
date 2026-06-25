@@ -692,6 +692,30 @@ describe("CaseTriageOrchestratorService", () => {
     expect(serialized).not.toContain("ACCT-99");
   });
 
+  it("forwards the derived customer signals into the triage adapter (Phase B)", async () => {
+    const h = buildHarness("auto", { accountId: "001000000000001" });
+    const accepted = await h.service.trigger({ caseId: "500000000000001" });
+    await waitFor(
+      async () => (await statusOf(h.service, accepted.workflowId)) === "done"
+    );
+
+    // The adapter mapped the (eligible, abstained) customerContext package
+    // onto the triage request — proving the graph → adapter → service seam.
+    expect(h.triage).toHaveBeenCalledTimes(1);
+    const triageRequest = h.triage.mock.calls[0][0];
+    expect(triageRequest.customerSignals).toBeDefined();
+    expect(triageRequest.customerSignals).toMatchObject({
+      customerTier: "unknown",
+      businessRisk: "unknown",
+      repeatIncident: { repeat: false, count: 0 },
+      degraded: true
+    });
+    // Evidence-or-abstain: strategic was not evidenced, so it is omitted.
+    expect(triageRequest.customerSignals).not.toHaveProperty(
+      "strategicAccount"
+    );
+  });
+
   it("durably persists the customer context package for restart resolution", async () => {
     const h = buildHarness("auto", { accountId: "001000000000001" });
     const accepted = await h.service.trigger({ caseId: "500000000000001" });

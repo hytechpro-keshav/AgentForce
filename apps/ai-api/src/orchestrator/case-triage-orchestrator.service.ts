@@ -915,7 +915,10 @@ export class CaseTriageOrchestratorService {
       description: input.context.description.slice(0, 4000),
       reportedPriority: input.context.reportedPriority,
       caseId: input.context.caseId,
-      requestId: input.workflowId
+      requestId: input.workflowId,
+      // Phase B — forward the sanitized customer signals derived in the graph
+      // node. Thin adapter: no Salesforce reads here, just pass-through.
+      customerSignals: input.customerSignals
     };
     const principal: AuthPrincipal = {
       subject: input.principalSubject,

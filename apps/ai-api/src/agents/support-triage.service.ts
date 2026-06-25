@@ -13,11 +13,23 @@ import {
 
 const TRIAGE_SYSTEM_PROMPT = [
   "You are a support triage assistant for Salesforce Agentforce.",
-  "Given a customer case subject and description, return ONLY a JSON object",
-  "with keys: priority (one of low, normal, high, critical), summary",
-  "(<=160 chars), and nextStep (<=160 chars). Do not include names, email",
-  "addresses, phone numbers, payment data, account numbers, service addresses,",
-  "or other direct identifiers in summary or nextStep. No prose, no markdown."
+  "Given a customer case subject and description, and OPTIONALLY a sanitized",
+  "customer-context block, return ONLY a JSON object with keys: priority (one",
+  "of low, normal, high, critical), summary (<=160 chars), and nextStep",
+  "(<=160 chars).",
+  "When a customer-context block is present, weigh it when choosing priority:",
+  "a strategic account combined with a repeat failure, or a premium SLA",
+  "combined with high business risk, can justify RAISING priority above what",
+  "the case text alone implies. Raise only when such evidence is present — do",
+  "not inflate priority by default.",
+  "Write the summary in plain English so it covers BOTH the case issue AND the",
+  "customer stakes (e.g. tier, SLA, repeat failure, business risk) in one line.",
+  'When no customer-context block is present, or it has "degraded": true, base',
+  "priority primarily on the case text and reported priority and do not invent",
+  "customer facts that are not given.",
+  "Do not include names, email addresses, phone numbers, payment data, account",
+  "numbers, service addresses, or other direct identifiers in summary or",
+  "nextStep. No prose, no markdown."
 ].join(" ");
 
 @Injectable()
@@ -30,12 +42,24 @@ export class SupportTriageService {
   ): Promise<TriageCaseResponseDto> {
     const safeSubject = redactSensitiveText(request.subject);
     const safeDescription = redactSensitiveText(request.description);
+    // Phase B — append the sanitized customer-context block when present.
+    // The signals are already non-PII, but route the assembled text through
+    // the redactor as defense-in-depth before it reaches the model.
+    const customerSignalsBlock = request.customerSignals
+      ? redactSensitiveText(
+          [
+            "Customer context (sanitized, use for priority and summary only):",
+            JSON.stringify(request.customerSignals)
+          ].join("\n")
+        )
+      : undefined;
     const userContent = [
       `Subject: ${safeSubject}`,
       `Description: ${safeDescription}`,
       request.reportedPriority
         ? `Reported priority: ${request.reportedPriority}`
-        : undefined
+        : undefined,
+      customerSignalsBlock
     ]
       .filter(Boolean)
       .join("\n");
