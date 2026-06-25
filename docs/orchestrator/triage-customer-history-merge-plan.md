@@ -4,9 +4,36 @@
 >
 > **Constraint:** minimize churn. Do **not** renumber Nodes 3-8. Do **not** break the `customerContext` channel, Knowledge, Parts, Scheduling, or Guardrail consumers.
 
+## 0. Product intent (plain English)
+
+**The agent is still called Triage.** Nothing is renamed to "merged triage" or "customer context" in the operator UI.
+
+Triage is the **front door** of the service workflow. When a Case arrives, Triage must understand **both**:
+
+1. **The case** — what the customer reported, how they described urgency.
+2. **The customer** — who they are, tier, SLA, warranty, equipment, repeat issues, open incidents, business risk.
+
+Only after Triage has the full picture does it decide **priority** and write a **complete plain-English summary** that covers the issue **and** the customer. That summary is what operators, demo viewers, and every later agent (Knowledge, Parts, Scheduling, Guardrail) start from — so the workflow moves forward with shared context instead of a blind priority label followed by a separate customer lookup.
+
+**Flow in one sentence:** _read case → read customer → think (priority + unified summary) → hand off to Knowledge and the rest._
+
+The structured `customerContext` channel stays in workflow state for downstream nodes; the UI just stops treating it as a separate stage.
+
 ## 1. Executive summary
 
-Today Triage is **customer-blind** and runs **before** Customer History: the graph spine is `readContext → runTriage → customerHistory → knowledge → …`, and `runTriage` only sees the redacted Case subject/description/reportedPriority. The `customerHistory` node runs _after_ triage, consumes `triage.recommendedPriority` as a weighting hint, and is the **sole writer** of the `customerContext` channel that Knowledge, Scheduling, Guardrail, and the Final Verdict all read. The merge inverts that data flow: one **Triage** node that reads customer context _first_, then runs a **context-informed** triage LLM, while still emitting the **byte-compatible `customerContext` channel** unchanged. The good news is the seam is clean — context read, synthesis, and eligibility already exist as independently-callable deps wired into the graph, the graph node-id (`customerHistory`) is already decoupled from the UI node-id (`customer_history`/`triage`), and the spine is strictly linear so populating `customerContext` inside the merged node (before the `knowledge` edge) keeps every downstream consumer safe. The real work is four-fold: (a) extend the triage seam to _accept_ sanitized customer signals (new optional DTO field + prompt block — the only genuine contract change), (b) re-sequence eligibility/synthesis to run on `context.reportedPriority` instead of an AI priority that no longer exists yet, (c) collapse two stepped stages into one and repoint the load-bearing `snapshot.node === 'customer_history'` UI gate to `'knowledge'`, and (d) update docs that explicitly argue for the _opposite_ ordering. The single highest-value decision is to **keep `customer_history` as an internal event/trace tag in the `OrchestratorNodeId` enum** (so persisted events, `channelBasis`, the backend lifecycle union, and `Record<OrchestratorNodeId>` exhaustiveness all stay valid) while folding its **operator-facing** stage into one Triage accordion — this is the low-churn path that honors "do not renumber Nodes 3-8." The riskiest assumption is that "populate `customerContext` unchanged" is byte-identical: it is **not**, because synthesis loses its `triagePriority` weighting hint — de-risked by passing `context.reportedPriority` as the surrogate (zero behavior change under the default permissive policy).
+Today Triage is **customer-blind** and runs **before** Customer History: the graph spine is `readContext → runTriage → customerHistory → knowledge → …`, and `runTriage` only sees the redacted Case subject/description/reportedPriority. The `customerHistory` node runs _after_ triage, consumes `triage.recommendedPriority` as a weighting hint, and is the **sole writer** of the `customerContext` channel that Knowledge, Scheduling, Guardrail, and the Final Verdict all read.
+
+The merge inverts that data flow inside the existing **`runTriage` graph node** (operator-facing name: **Triage**): read customer context _first_, synthesize the structured package, then run a **context-informed** triage LLM that sets priority and produces a **complete summary** (case + customer). The node still emits the **byte-compatible `customerContext` channel** unchanged so downstream agents need no contract changes.
+
+The good news is the seam is clean — context read, synthesis, and eligibility already exist as independently-callable deps wired into the graph, the graph node id `customerHistory` is already decoupled from the UI node id (`customer_history` / `triage`), and the spine is strictly linear so populating `customerContext` inside `runTriage` (before the `knowledge` edge) keeps every downstream consumer safe.
+
+The real work is four-fold: (a) extend the triage seam to _accept_ sanitized customer signals (new optional DTO field + prompt block), (b) **fix eligibility** so priority gating cannot skip customer read before context-informed triage (see §5), (c) collapse two stepped UI stages into one **Triage** accordion and repoint the load-bearing `snapshot.node === 'customer_history'` gate to `'knowledge'`, and (d) update docs that argue for the old ordering.
+
+**Naming rule:** graph node stays `runTriage`; UI label stays **Triage** / **Node 1 · Triage**; never introduce `mergedTriage` in code or copy.
+
+**Enum rule:** keep `customer_history` as an internal event/trace tag only (low churn); remove it from the visible operator spine.
+
+**Resolved product defaults** (see §13): context-informed triage **may change** priority; stepped console uses **one** Triage stage then Knowledge; eligibility gates on **account + origin**, not pre-triage priority.
 
 ## 2. Current vs target
 
@@ -22,24 +49,24 @@ flowchart TB
     cG -.reads risk/warranty/strategic/repeat.-> cCH
   end
 
-  subgraph TGT["TARGET — one Triage node, context read first, context-informed priority"]
+  subgraph TGT["TARGET — Triage understands case + customer, then hands off"]
     direction TB
     tS([START]) --> tRC[readContext]
-    tRC --> tMERGE
-    subgraph tMERGE["mergedTriage (one graph node, UI 'Triage')"]
+    tRC --> tRT
+    subgraph tRT["runTriage — operator UI: Triage"]
       direction TB
-      e[eligibility on context.reportedPriority] --> rd[readCustomerContext] --> sy["synthesizeCustomerHistory\n(LLM: businessRisk grade)\nwrites customerContext"] --> tr["context-informed triage LLM\n(+ sanitized customerSignals)\nwrites triage + customerBrief"]
+      e["eligibility\n(account + origin, NOT priority)"] --> rd[readCustomerContext] --> sy["synthesizeCustomerHistory\nwrites customerContext"] --> tr["context-informed triage LLM\npriority + complete summary\ncase + customer in plain English"]
     end
-    tMERGE --> tK[knowledge] --> tP[parts] --> tSc[schedule] --> tG[evaluateGuardrail] --> tE([END])
-    tK -.reads customerContext.-> tMERGE
-    tSc -.reads slaClass.-> tMERGE
-    tG -.reads risk/warranty/strategic/repeat.-> tMERGE
+    tRT --> tK[knowledge] --> tP[parts] --> tSc[schedule] --> tG[evaluateGuardrail] --> tE([END])
+    tK -.reads customerContext.-> tRT
+    tSc -.reads slaClass.-> tRT
+    tG -.reads risk/warranty/strategic/repeat.-> tRT
   end
 
-  CUR ==>|"invert data flow • keep customerContext channel • keep Nodes 3-8"| TGT
+  CUR ==>|"customer context feeds Triage first • same channel for downstream • Nodes 3-8 unchanged"| TGT
 ```
 
-**Stepped console:** first pause moves from after `customerHistory` (`next=['customerHistory']`) to after the merged node (`next=['knowledge']`); the first operator advance after auto-run Triage becomes **"Run Knowledge Base"**, not "Run Customer Context."
+**Stepped console:** today the workflow pauses twice before Knowledge (after case-only triage, then after customer history). After merge it pauses **once** after full Triage (`runTriage` includes customer read + synthesis + context-informed LLM). First operator advance becomes **"Run Knowledge Base"**, not "Run Customer Context."
 
 ## 3. The one gating decision (read this before anything else)
 
@@ -68,15 +95,45 @@ These are **independent**, and that resolves the apparent contradiction: the mer
 
 ## 5. Target architecture (minimal diff)
 
-**Graph:** `readContext → mergedTriage → knowledge → …`. Inside `mergedTriage`: eligibility (on `context.reportedPriority`) → `readCustomerContext` → `synthesizeCustomerHistory` (writes `customerContext`, incl. businessRisk grade LLM) → **context-informed** triage LLM (gets sanitized signals incl. graded risk; writes `triage` + optional `customerBrief`). Returns `{ triage, customerContext }`. Remove the `customerHistory` graph node + its two edges; drop `'customerHistory'` from `STEP_PAUSE_NODES`/`STEP_NEXT_NODE_TO_UI` so the first stepped pause lands with `next=['knowledge']`.
+**Graph:** `readContext → runTriage → knowledge → …` (graph node name unchanged; operator UI: **Triage**).
 
-**Contracts (extend, don't replace):** `CustomerContextChannel`/`CustomerContextPackage` unchanged. Add **optional** `customerSignals?` to the triage request DTO and optional `customerBrief?` to the triage result. Keep `customer_history` node-id as an event tag.
+Inside **`runTriage`** the graph node orchestrates sub-steps in this order:
 
-**Triage prompt:** inject a sanitized signal block (tier, SLA, warranty, repeat, strategic, open-incidents, businessRisk) only when present; extend the system prompt to weigh signals; route through existing `redactSensitiveText`. Reuse the single `ModelRouter.chat()` seam via the orchestrator `runTriage()` adapter — do not duplicate.
+1. **Eligibility** — gate on **account linked + origin** (see below); do **not** gate customer read on `eligiblePriorities` before triage (that would skip context for "normal" Cases that should be bumped).
+2. **`readCustomerContext`** — Salesforce + adapter reads (telemetry tagged `customer_history`).
+3. **`synthesizeCustomerHistory`** — evidence-first package + businessRisk grade → writes `customerContext` channel.
+4. **Context-informed triage LLM** — receives sanitized `customerSignals` + case text → writes `triage` (priority, **complete summary** covering case + customer, suggested next step).
 
-**UI:** one **Triage** accordion (priority badge + case summary + customer brief; expandable structured findings). Drop the separate Customer Context stage; one stepped advance completes merged triage; repoint the `:237` gate to `'knowledge'`. Final Verdict still rolls up triage + customer-context highlights.
+Returns `{ triage, customerContext }`. Remove the separate `customerHistory` graph node + its two edges; drop `'customerHistory'` from `STEP_PAUSE_NODES`/`STEP_NEXT_NODE_TO_UI` so the first stepped pause lands with `next=['knowledge']`.
 
-**Docs:** merge agent-1 + agent-2 briefs into `agent-triage-brief.md`; deprecate agent-2 with a pointer; rewrite flow §3 and node-2 §2/§13 to show customer read inside Triage. Do **not** renumber Nodes 3-8.
+**Implementation seam (pick one, don't split):**
+
+- **`runTriage` graph node** — orchestrates eligibility → read → synthesize → `deps.runTriage(signals)` (same pattern as today's `customerHistory` node).
+- **`orchestrator.runTriage()`** — stays a **thin** adapter: map DTO + call `SupportTriageService`; do **not** put Salesforce reads here.
+
+**Eligibility policy change (required):**
+
+| Policy knob          | Today                                           | After merge                                                                                                                 |
+| -------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `eligibleOrigins`    | unchanged                                       | unchanged                                                                                                                   |
+| `eligiblePriorities` | uses AI triage priority (post–case-only triage) | **Remove from pre-triage gate** OR only skip the businessRisk LLM, **never** skip customer read when `accountId` is present |
+| No account on Case   | skip customer read                              | skip customer read (degrade-safe; triage runs on case text only)                                                            |
+
+Synthesis metadata still receives `context.reportedPriority` as the `triagePriority` surrogate (for businessRisk grading only).
+
+**Contracts (extend, don't replace):** `CustomerContextChannel`/`CustomerContextPackage` unchanged. Add **optional** `customerSignals?` to the triage request DTO. Optional `customerBrief?` on triage result is **polish only** — Phase C can render the complete summary from `triage.summary` + structured findings from `customerContext.package` without a new field. Keep `customer_history` node-id as an internal event tag.
+
+**Triage prompt (Phase B):** inject a sanitized signal block (tier, SLA, warranty, repeat, strategic, open-incidents, businessRisk) when present; instruct the model to produce a **complete summary** in plain English that weaves case issue + customer stakes; priority may be adjusted when evidence supports it; fall back to `reportedPriority` when degraded. Route through `redactSensitiveText`. Single `ModelRouter.chat()` seam.
+
+**UI — one Triage card, complete summary:**
+
+- **Priority badge** — context-informed when signals exist.
+- **Summary** — one plain-English block: what the issue is **and** who the customer is / what's at stake (not two separate cards).
+- **Expandable detail** — structured customer findings (tier, SLA, warranty, repeat, etc.) inside the same Triage accordion.
+- Drop the separate "Customer Context" stage; repoint `SteppedOrchestrationView.tsx:237` gate to `'knowledge'`.
+- Downstream agents and Final Verdict still read `customerContext` from snapshot — they get richer input because Triage already assembled it.
+
+**Docs:** merge agent-1 + agent-2 briefs into `agent-triage-brief.md` (single **Triage Agent** story); deprecate agent-2 with a pointer; rewrite flow §3 and node-2 §2/§13. Do **not** renumber Nodes 3-8.
 
 ## 6. File-by-file change list (S / M / L)
 
@@ -89,7 +146,7 @@ These are **independent**, and that resolves the apparent contradiction: the mer
 | `apps/ai-api/src/agents/support-triage.service.ts`                 | Inject sanitized `customerSignals` block into prompt user-content (`:31-54`) when present; extend `TRIAGE_SYSTEM_PROMPT` (`:14-21`); route new content through `redactSensitiveText`; reuse single `ModelRouter.chat()` seam (`:56`)                                                                                                                                                                                                    | **M**      |
 | `apps/ai-api/src/agents/dto/triage-case.dto.ts`                    | Add **optional** `customerSignals?: TriageCustomerSignals` to `TriageCaseRequestDto` (`:15-40`) with class-validator decorators; optionally `customerBrief?` on `TriageCaseResponseDto`                                                                                                                                                                                                                                                 | **M**      |
 | `apps/ai-api/src/orchestrator/dto/orchestration-status-event.ts`   | Add optional `customerBrief?: string` to `SanitizedTriageResult` (`:87-95`)                                                                                                                                                                                                                                                                                                                                                             | **S**      |
-| `apps/ai-api/src/orchestrator/customer-history.eligibility.ts`     | No signature change (already `triagePriority ?? context.reportedPriority` at `:37`); caller now supplies `reportedPriority`                                                                                                                                                                                                                                                                                                             | **S**      |
+| `apps/ai-api/src/orchestrator/customer-history.eligibility.ts`     | Post-merge caller passes `undefined` for priority gate when `accountId` present; or split policy so `eligiblePriorities` no longer skips customer **read** (only optional LLM skip). Update tests.                                                                                                                                                                                                                                      | **M**      |
 | `apps/ai-api/src/orchestrator/dto/customer-context.ts`             | **UNCHANGED** (the invariant); optional home for `customerBrief` only if not placed on the triage result                                                                                                                                                                                                                                                                                                                                | **S/none** |
 | `apps/ai-api/src/orchestrator/dto/case-triage-lifecycle.ts`        | **KEEP** `CUSTOMER_HISTORY_NODE_ID` + union member (`:52-65`) — low churn                                                                                                                                                                                                                                                                                                                                                               | **none**   |
 
@@ -98,7 +155,7 @@ These are **independent**, and that resolves the apparent contradiction: the mer
 | File                                      | Change                                                                                                                                                                                                                                                                                                                                              | Size  |
 | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
 | `components/SteppedOrchestrationView.tsx` | **Repoint the load-bearing gate** `snapshot.node === 'customer_history'` (`:237`) → `'knowledge'`; `'6 nodes'` header (`:476`) → `'5 nodes'`; Run-button label is data-driven (auto-becomes "Run Knowledge Base")                                                                                                                                   | **M** |
-| `lib/stepped-view-model.ts`               | Remove `customer_history` from `NODE_DEFS` spine (`:118-171`); fold `buildCustomerContext` (`:250-340`) into `buildTriage` detail; keep `builders`/`payloadPresent`/`NODE_SHORT` keys (enum retained); `computeRevealedProgress` is index-based (auto-corrects)                                                                                     | **M** |
+| `lib/stepped-view-model.ts`               | Remove `customer_history` from `NODE_DEFS` spine (`:118-171`); update Triage `sub` to reflect case + customer (e.g. `priority · case · customer context`); fold `buildCustomerContext` (`:250-340`) into `buildTriage` detail; keep `builders`/`payloadPresent`/`NODE_SHORT` keys (enum retained)                                                   | **M** |
 | `components/OrchestrationView.tsx`        | Merge `NODE_META` Node 1+2 into one Triage entry (`:61-101`); drop `customer_history` from `STAGE_NODES` + `/6`→`/5` (`:406-420`, `:1858`); fold `CustomerContextSummary` (`:1461-1579`) into `TriageSummary`; single Triage card in `OrchestrationPanel` (`:1886-1904`); fix `displayNode` fallback (`:360-381`); update intro copy (`:1848-1851`) | **L** |
 | `lib/orchestration.ts`                    | **KEEP** `customer_history` in `ORCHESTRATION_NODE_IDS` (`:26-34`) and the `customerContext` interface/sanitizer (`:106-116`) — only spine presentation changes                                                                                                                                                                                     | **S** |
 | `app/orchestration/page.tsx`              | Reword subtitle (`:31`) — fold Node 2 into Node 1 **without** renumbering Nodes 3-6                                                                                                                                                                                                                                                                 | **S** |
@@ -134,7 +191,7 @@ These are **independent**, and that resolves the apparent contradiction: the mer
 
 **Behavioral (no signature change, caller change only):**
 
-- `evaluateCustomerHistoryEligibility(context, triagePriority, policy)` — `triagePriority` arg now sourced from `context.reportedPriority` (the surrogate). Synthesis likewise receives `reportedPriority` as the `triagePriority` input.
+- `evaluateCustomerHistoryEligibility` — post-merge: when `accountId` is present, customer read runs regardless of `eligiblePriorities`; priority-based gating must not block context-informed triage. Synthesis receives `context.reportedPriority` as the `triagePriority` surrogate for businessRisk grading only.
 - **Metadata isolation:** `customerContext.provider/model/fallbackUsed/latencyMs` continue to describe the **businessRisk** model call; triage model meta stays on the triage result — the merged node must **not** cross-contaminate them.
 - **Channel-object-on-skip:** the merged node must still return a `customerContext` object (even `{eligible:false, degraded:false}`) so Guardrail `deriveChannelBasis` and Verdict `basis[]` keep listing `'customerContext'`.
 
@@ -157,7 +214,7 @@ bash scripts/smoke/all-3-nodes-deployed.sh
 
 - Graph spec ordering title (`:219`) → `readContext → runTriage(merged) → knowledge`; stepped pause sequence (`:843-897`) → after merged node `customerContext` is **defined** and `getState().next === ['knowledge']`; advance loop count 4→3.
 - `synthesize` receives `triagePriority` (`:228-258`) → now receives `context.reportedPriority` surrogate.
-- Eligibility spec (`:42-57`) → semantics shift from "uses triage priority" to "uses reported priority" (no completed AI priority exists pre-triage).
+- Eligibility spec — add: account-linked Case with `reportedPriority: low` still eligible for customer read when `eligiblePriorities: [high, critical]` (must not skip read).
 - Stepped UI: "Run Customer Context" assertions (`SteppedOrchestrationView.test.tsx:94-256`) → first post-triage Run is "Run Knowledge Base"; `/6`→`/5`; spine order (`stepped-view-model.test.ts:22-29`) drops `customer_history`.
 
 **Scenarios that must stay green (constraint guards) + new ones:**
@@ -168,17 +225,18 @@ bash scripts/smoke/all-3-nodes-deployed.sh
 
 ## 9. Risk register
 
-| Risk                                                                                                           | Severity | Mitigation                                                                                                              |
-| -------------------------------------------------------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `SteppedOrchestrationView.tsx:237` gate not repointed → triage intro spinner hangs forever                     | **High** | Repoint `'customer_history'`→`'knowledge'`; assert in component test                                                    |
-| "customerContext unchanged" is **not** byte-identical (synthesis loses AI-priority hint)                       | **High** | Pass `context.reportedPriority` as surrogate (0 change under default permissive policy); before/after fixture assertion |
-| `STEP_PAUSE_NODES` still lists removed `customerHistory` → `interruptAfter` references a dead node             | **High** | Edit `STEP_PAUSE_NODES` + `STEP_NEXT_NODE_TO_UI` in lockstep with the graph                                             |
-| Deleting `customer_history` enum member → `Record<OrchestratorNodeId>` exhaustiveness cascade across both apps | **Med**  | **Keep** the enum member as an event tag (recommended path)                                                             |
-| Priority inflation (everything Critical once signals added)                                                    | **Med**  | Deterministic guardrails in prompt; fall back to reported priority when evidence is degraded/absent                     |
-| Triage model meta overwrites `customerContext.provider/model/latency`                                          | **Med**  | Keep the two model metadata sets separate                                                                               |
-| Docs assert opposite ordering rationales (node-2 §2 vs merged brief)                                           | **Med**  | Consciously rewrite node-2 §2/§13; deprecate agent-2 with pointer                                                       |
-| Latency: two sequential LLM calls (risk grade + triage) in one node/step                                       | **Low**  | Accept for v1; read+grade already happen today, just re-sequenced                                                       |
-| Stepped checkpoint of a pre-merge thread resumes into a dead node                                              | **Low**  | In-memory `MemorySaver` is lost on restart; no durable demo threads to migrate                                          |
+| Risk                                                                                                           | Severity | Mitigation                                                                                          |
+| -------------------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------- |
+| `SteppedOrchestrationView.tsx:237` gate not repointed → triage intro spinner hangs forever                     | **High** | Repoint `'customer_history'`→`'knowledge'`; assert in component test                                |
+| `eligiblePriorities` skips customer read for "normal" Cases that need context-informed bump                    | **High** | Gate eligibility on account + origin; never skip read when `accountId` present (§5)                 |
+| Phase A without Phase B — priority still case-only until prompt ships                                          | **Low**  | Acceptable interim; complete summary in UI can still show customer findings from package            |
+| `STEP_PAUSE_NODES` still lists removed `customerHistory` → `interruptAfter` references a dead node             | **High** | Edit `STEP_PAUSE_NODES` + `STEP_NEXT_NODE_TO_UI` in lockstep with the graph                         |
+| Deleting `customer_history` enum member → `Record<OrchestratorNodeId>` exhaustiveness cascade across both apps | **Med**  | **Keep** the enum member as an event tag (recommended path)                                         |
+| Priority inflation (everything Critical once signals added)                                                    | **Med**  | Deterministic guardrails in prompt; fall back to reported priority when evidence is degraded/absent |
+| Triage model meta overwrites `customerContext.provider/model/latency`                                          | **Med**  | Keep the two model metadata sets separate                                                           |
+| Docs assert opposite ordering rationales (node-2 §2 vs merged brief)                                           | **Med**  | Consciously rewrite node-2 §2/§13; deprecate agent-2 with pointer                                   |
+| Latency: two sequential LLM calls (risk grade + triage) in one node/step                                       | **Low**  | Accept for v1; read+grade already happen today, just re-sequenced                                   |
+| Stepped checkpoint of a pre-merge thread resumes into a dead node                                              | **Low**  | In-memory `MemorySaver` is lost on restart; no durable demo threads to migrate                      |
 
 ## 10. Non-goals
 
@@ -197,19 +255,30 @@ bash scripts/smoke/all-3-nodes-deployed.sh
 
 ## 12. Acceptance criteria
 
-- [ ] One operator-facing **Triage** stage (not two).
+- [ ] Operator-facing name is **Triage** only (no "merged", no separate Customer Context stage).
+- [ ] Triage reads customer context **before** setting priority (when account is linked).
+- [ ] UI shows a **complete plain-English summary** — case issue + customer stakes in one place.
 - [ ] Priority reflects customer context when evidence exists; falls back to reported priority when degraded.
-- [ ] Plain-English case + customer brief visible without opening a separate Node 2.
 - [ ] `customerContext` channel still present in snapshot for Knowledge/Scheduling/Guardrail/Verdict.
 - [ ] No renumbering of Nodes 3-8.
 - [ ] Focused tests pass; no full-suite requirement.
 
-## 13. Open questions for product owner (max 3)
+## 13. Product decisions (resolved)
 
-1. **Priority authority:** may context-informed triage _change_ the final priority value (e.g. strategic + repeat-failure bumps Normal→High), or only annotate it? Affects the gated write-back and Guardrail rules.
-2. **AI-priority weighting:** accept the simple `reportedPriority` surrogate for customer-history eligibility/synthesis (zero change under today's permissive policy), or invest in a cheap two-pass pre-triage to preserve AI-derived priority weighting (extra latency/cost)?
-3. **Stepped demo cadence:** confirm the merged Triage is **one** operator advance (customer read happens inside the auto-run Triage stage; visible stage count drops 6→5, Nodes 3-6 keep their numbers) rather than retaining a separate "Run Customer Context" step for demo narrative.
+1. **Priority authority:** **Yes** — context-informed Triage may change priority (e.g. strategic + repeat-failure bumps Normal→High). Write-back uses the merged triage result.
+2. **Eligibility:** **Do not** use `eligiblePriorities` to skip customer read before triage. Gate on account + origin; use `reportedPriority` only as synthesis metadata surrogate.
+3. **Stepped demo:** **One** Triage stage (customer read inside auto-run Triage); first manual advance is Knowledge. Visible stages 6→5; Nodes 3-6 keep their numbers.
 
 ## 14. Recommended implement-prompt stub (Phase A)
 
-> **Implement the Triage + Customer History merge — Phase A (backend structural).** Read skills `langgraph-case-triage-slice`, `langgraph-fundamentals`, `langgraph-stepped-console` and this plan. In `case-triage.graph.ts`: fold the `customerHistory` node (`:341-447`) into the triage path so eligibility→readCustomerContext→synthesizeCustomerHistory run **before** the triage LLM; replace edges `runTriage→customerHistory→knowledge` (`:876-877`) with `runTriage→knowledge`; the merged node returns `{triage, customerContext}`; drop `'customerHistory'` from `STEP_PAUSE_NODES` (`:917-923`) and `STEP_NEXT_NODE_TO_UI` (`:930-936`). In `case-triage-orchestrator.service.ts`: source eligibility/synthesis `triagePriority` from `context.reportedPriority`; keep both customer-read + synthesis telemetry spans. **Keep** `CUSTOMER_HISTORY_NODE_ID` as an event tag; do **not** touch `CustomerContextChannel/Package` or Nodes 3-8. Update `case-triage.graph.spec.ts` (ordering + stepped pause `next=['knowledge']`, advance loop 4→3), `case-triage-orchestrator.service.spec.ts`, `customer-history.eligibility.spec.ts`. Run `npm run ai-api:typecheck` + the focused `--testPathPattern` set. Do not start Phase B until A is green. Then proceed B (context-informed DTO+prompt), C (UI collapse + repoint `SteppedOrchestrationView.tsx:237`→`'knowledge'`), D (docs/briefs/smoke), E (validation) per §11.
+> **Implement the Triage + Customer History merge — Phase A (backend structural).** Read skills `langgraph-case-triage-slice`, `langgraph-fundamentals`, `langgraph-stepped-console` and `docs/orchestrator/triage-customer-history-merge-plan.md` §0 and §5.
+>
+> **Naming:** graph node stays `runTriage`; operator UI stays **Triage** — never rename to `mergedTriage`.
+>
+> In `case-triage.graph.ts`: fold `customerHistory` logic (`:341-447`) into the **`runTriage` node** so eligibility → readCustomerContext → synthesizeCustomerHistory run **before** the triage LLM; replace edges `runTriage→customerHistory→knowledge` with `runTriage→knowledge`; node returns `{triage, customerContext}`; drop `'customerHistory'` from `STEP_PAUSE_NODES` and `STEP_NEXT_NODE_TO_UI`.
+>
+> **Eligibility:** when `accountId` is present, do not let `eligiblePriorities` skip customer read (§5).
+>
+> Graph node orchestrates sub-steps; `orchestrator.runTriage()` stays a thin LLM adapter. Keep `CUSTOMER_HISTORY_NODE_ID` as an event tag for read/synthesis telemetry. Do not touch `CustomerContextChannel/Package` or Nodes 3-8.
+>
+> Update graph spec, orchestrator service spec, eligibility spec. Run focused `ai-api:typecheck` + tests. Phase B adds context-informed prompt + complete summary; Phase C collapses UI to one Triage card.
