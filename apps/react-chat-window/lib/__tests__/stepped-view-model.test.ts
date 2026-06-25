@@ -16,12 +16,11 @@ import {
 } from "./stepped-fixture";
 
 describe("buildSteppedViewModel", () => {
-  it("maps all six nodes in order with real outputs", () => {
+  it("maps all five spine nodes in order with real outputs", () => {
     const vm = buildSteppedViewModel(steppedSnapshotFixture());
 
     expect(vm.nodes.map((node) => node.id)).toEqual([
       "triage",
-      "customer_history",
       "knowledge",
       "parts_logistics",
       "scheduling",
@@ -31,25 +30,34 @@ describe("buildSteppedViewModel", () => {
 
     expect(vm.nodes[0].output).toBe("normal priority");
     expect(vm.nodes[0].latency).toBe("1285 ms");
-    expect(vm.nodes[1].output).toContain("high business risk");
-    expect(vm.nodes[2].output).toContain("ANSWERED");
-    expect(vm.nodes[3].output).toContain("SP-BATT-15X");
-    expect(vm.nodes[4].output).toContain("SR-A1");
-    expect(vm.nodes[5].output).toContain("Approval required");
+    expect(vm.nodes[1].output).toContain("ANSWERED");
+    expect(vm.nodes[2].output).toContain("SP-BATT-15X");
+    expect(vm.nodes[3].output).toContain("SR-A1");
+    expect(vm.nodes[4].output).toContain("Approval required");
   });
 
-  it("builds the triage accordion with summary, fields, and execution trace", () => {
+  it("builds the triage accordion with summary, triage fields, customer fields, and trace", () => {
     const vm = buildSteppedViewModel(steppedSnapshotFixture());
     const triage = vm.nodes[0];
 
     const types = triage.detail.map((section) => section.type);
-    expect(types).toEqual(["summary", "fields", "trace"]);
+    // summary + triage fields + customer context fields + trace
+    expect(types).toEqual(["summary", "fields", "fields", "trace"]);
 
-    const fields = triage.detail.find((s) => s.type === "fields");
-    expect(fields && fields.type === "fields" && fields.items).toEqual(
+    const triageFields = triage.detail.find((s) => s.type === "fields");
+    expect(triageFields && triageFields.type === "fields" && triageFields.items).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ k: "Priority", v: "normal" }),
         expect.objectContaining({ k: "Model", v: "gpt-4o-mini" })
+      ])
+    );
+
+    // Customer context fields folded in
+    const allFields = triage.detail.filter((s) => s.type === "fields");
+    const customerFields = allFields[1];
+    expect(customerFields && customerFields.type === "fields" && customerFields.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ k: "Business risk", v: "high" })
       ])
     );
 
@@ -64,7 +72,7 @@ describe("buildSteppedViewModel", () => {
     expect(vm.guardrailWaiting).toBe(true);
     expect(vm.complete).toBe(true);
 
-    const fired = vm.nodes[5].detail.find((s) => s.type === "chips");
+    const fired = vm.nodes[4].detail.find((s) => s.type === "chips");
     expect(
       fired && fired.type === "chips" && fired.items.map((c) => c.k)
     ).toEqual(["CUSTOMER_RISK_HIGH", "KB_REQUIRED_APPROVAL"]);
@@ -87,7 +95,7 @@ describe("buildSteppedViewModel", () => {
     const vm = buildSteppedViewModel(
       steppedSnapshotFixture({
         status: "running",
-        node: "customer_history",
+        node: "knowledge",
         customerContext: undefined,
         knowledgeGuidance: undefined,
         partsLogistics: undefined,
@@ -107,8 +115,8 @@ describe("buildSteppedViewModel", () => {
     );
 
     expect(vm.nodes[0].available).toBe(true);
-    expect(vm.nodes[1].available).toBe(false);
-    expect(vm.nodes[5].available).toBe(false);
+    expect(vm.nodes[1].available).toBe(false); // knowledge
+    expect(vm.nodes[4].available).toBe(false); // guardrail
     expect(vm.complete).toBe(false);
     expect(vm.guardrailWaiting).toBe(false);
   });
@@ -142,7 +150,7 @@ describe("computeRevealedProgress", () => {
       ]
     });
     const full = buildSteppedViewModel(completedStepped);
-    expect(computeRevealedProgress(full.nodes, completedStepped)).toBe(6);
+    expect(computeRevealedProgress(full.nodes, completedStepped)).toBe(5);
   });
 
   it("returns zero for auto-trigger workflows", () => {
@@ -171,19 +179,19 @@ describe("buildVisibleActivity", () => {
     expect(
       visible.some((entry) => entry.text.includes("Writing customer findings"))
     ).toBe(false);
-    expect(visible.some((entry) => entry.text.includes("Customer Context · complete"))).toBe(
+    expect(visible.some((entry) => entry.text.includes("Knowledge Base · complete"))).toBe(
       true
     );
     expect(
       visible.some((entry) =>
-        entry.text.includes("Stage complete — awaiting Run for Knowledge Base")
+        entry.text.includes("Stage complete — awaiting Run for Parts & Logistics")
       )
     ).toBe(true);
     expect(
-      visible.some((entry) => entry.text === "Ready to dispatch → Knowledge Base")
+      visible.some((entry) => entry.text === "Ready to dispatch → Parts & Logistics")
     ).toBe(true);
     expect(visible[visible.length - 1]?.text).toBe(
-      "Ready to dispatch → Knowledge Base"
+      "Ready to dispatch → Parts & Logistics"
     );
   });
 

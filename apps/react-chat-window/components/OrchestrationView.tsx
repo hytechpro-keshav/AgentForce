@@ -66,7 +66,7 @@ const NODE_META: Record<
     label: "Node 1 · Triage",
     shortLabel: "Triage",
     description:
-      "Reads the Case context, runs AI triage, and applies the approved write-back."
+      "Reads the Case context and customer history, runs context-informed AI triage, and applies the approved write-back."
   },
   customer_history: {
     label: "Node 2 · Customer Context",
@@ -371,9 +371,6 @@ function displayNode(snapshot: OrchestrationSnapshot): OrchestrationNodeId {
     if (stageStatus(snapshot, "knowledge") !== "pending") {
       return "knowledge";
     }
-    if (stageStatus(snapshot, "customer_history") !== "pending") {
-      return "customer_history";
-    }
     return "triage";
   }
   const lastEvent = snapshot.events.at(-1);
@@ -405,7 +402,6 @@ function currentStageSummary(snapshot: OrchestrationSnapshot): string {
 
 const STAGE_NODES: OrchestrationNodeId[] = [
   "triage",
-  "customer_history",
   "knowledge",
   "parts_logistics",
   "scheduling",
@@ -978,6 +974,10 @@ function TriageSummary({ snapshot }: { snapshot: OrchestrationSnapshot }) {
           </dd>
         </div>
       </dl>
+
+      {snapshot.customerContext ? (
+        <CustomerContextSummary customerContext={snapshot.customerContext} />
+      ) : null}
     </section>
   );
 }
@@ -1480,11 +1480,11 @@ function CustomerContextSummary({
   const warranty = customerFindingValue(customerContext, "warrantyStatus");
 
   return (
-    <section className="space-y-3 rounded-xl border bg-card p-5 text-card-foreground shadow-sm">
+    <section className="space-y-3 rounded-xl border bg-background p-4">
       <div className="flex items-center justify-between gap-2">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Node 2 output
+            Customer context
           </p>
           <h2 className="text-lg font-semibold">Customer context package</h2>
         </div>
@@ -1845,8 +1845,8 @@ export function OrchestrationPanel({
             {snapshot.caseNumber ? `Case ${snapshot.caseNumber}` : "Workflow"}
           </h2>
           <p className="text-sm text-muted-foreground">
-            Read-only engineering view of Node 1 triage, Node 2 customer
-            context, Node 3 knowledge guidance, Node 4 parts &amp; logistics,
+            Read-only engineering view of Node 1 triage (including customer
+            context), Node 3 knowledge guidance, Node 4 parts &amp; logistics,
             Node 5 scheduling, and Node 6 compliance &amp; guardrail.
           </p>
         </div>
@@ -1855,7 +1855,7 @@ export function OrchestrationPanel({
           <SummaryCard
             label="Current stage"
             value={currentStageSummary(snapshot)}
-            supporting={`Completed stages: ${completedStages(snapshot)}/6`}
+            supporting={`Completed stages: ${completedStages(snapshot)}/5`}
           />
           <SummaryCard
             label="Workflow id"
@@ -1890,7 +1890,6 @@ export function OrchestrationPanel({
         </div>
         <div className="space-y-4">
           <TriageSummary snapshot={snapshot} />
-          <CustomerContextSummary customerContext={snapshot.customerContext} />
           <KnowledgeGuidanceSummary
             knowledgeGuidance={snapshot.knowledgeGuidance}
           />

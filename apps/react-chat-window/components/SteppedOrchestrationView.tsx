@@ -234,7 +234,7 @@ export function SteppedOrchestrationView({
 
     const triagePausedForNext =
       snapshot.status === "awaiting_step" &&
-      snapshot.node === "customer_history" &&
+      snapshot.node === "knowledge" &&
       fromSnapshot >= 1;
 
     if (triageBootstrapping) {
@@ -473,7 +473,7 @@ export function SteppedOrchestrationView({
           <div>
             <div className={styles.title}>Orchestration Console</div>
             <div className={styles.subtitle}>
-              read-only observability · LangGraph · 6 nodes
+              read-only observability · LangGraph · 5 nodes
             </div>
           </div>
         </div>

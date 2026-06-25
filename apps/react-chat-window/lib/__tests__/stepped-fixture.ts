@@ -251,17 +251,17 @@ export function steppedSnapshotFixture(
 }
 
 /**
- * A snapshot representing a PAUSED stepped run: Triage has run, the graph is
- * waiting for the operator to advance to Customer History. Returned by the
- * initial `/triggers/stepped` call (status `awaiting_step`, node
- * `customer_history`).
+ * A snapshot representing a PAUSED stepped run: Triage (merged with customer
+ * context) has auto-run, the graph is waiting for the operator to advance to
+ * Knowledge Base. Returned by the initial `/triggers/stepped` call
+ * (status `awaiting_step`, node `knowledge`).
  */
 export function steppedPausedFixture(
   overrides: Partial<OrchestrationSnapshot> = {}
 ): OrchestrationSnapshot {
   return {
     workflowId: "wf-c79ee03d-a8fa-4316-9517-a9b4872833a4",
-    node: "customer_history",
+    node: "knowledge",
     caseNumber: "00001079",
     status: "awaiting_step",
     approvalRequired: false,
@@ -274,6 +274,24 @@ export function steppedPausedFixture(
       model: "gpt-4o-mini",
       fallbackUsed: false,
       latencyMs: 1285
+    },
+    customerContext: {
+      eligible: true,
+      degraded: false,
+      provider: "salesforce",
+      model: "gpt-4o-mini",
+      latencyMs: 240,
+      package: {
+        customerTier: finding("standard"),
+        slaClass: finding("none"),
+        warrantyStatus: finding("unknown"),
+        repeatIncident: finding({ repeat: true, count: 10, windowDays: 30 }),
+        strategicAccount: finding(false),
+        installedAssets: finding({ totalAssets: 0, modelCount: 0 }),
+        openIncidentCount: finding(10),
+        escalationHistory: finding(0),
+        businessRisk: finding("high", "Risk signals: repeat-failure, 10 open")
+      }
     },
     events: [
       {
@@ -293,11 +311,17 @@ export function steppedPausedFixture(
       },
       {
         node: "customer_history",
-        status: "awaiting_step",
+        status: "running",
         sequence: 3,
         occurredAt: "t3",
-        safeSummary:
-          "Stage complete — awaiting Run for Customer Context."
+        safeSummary: "Building customer context package."
+      },
+      {
+        node: "knowledge",
+        status: "awaiting_step",
+        sequence: 4,
+        occurredAt: "t4",
+        safeSummary: "Stage complete — awaiting Run for Knowledge Base."
       }
     ],
     ...overrides
@@ -305,12 +329,12 @@ export function steppedPausedFixture(
 }
 
 /**
- * In-progress auto-run: only Triage has completed on the backend.
+ * In-progress auto-run: Triage (merged with customer context) is running.
  */
 export function steppedInProgressTriageFixture(): OrchestrationSnapshot {
   return {
     workflowId: "wf-c79ee03d-a8fa-4316-9517-a9b4872833a4",
-    node: "customer_history",
+    node: "knowledge",
     caseNumber: "00001079",
     status: "running",
     approvalRequired: false,
@@ -344,28 +368,32 @@ export function steppedInProgressTriageFixture(): OrchestrationSnapshot {
 }
 
 /**
- * The response returned by the first `/advance` call: Customer History has now
- * run, and the graph paused again before Knowledge.
+ * The response returned by the first `/advance` call: Knowledge Base has now
+ * run, and the graph paused again before Parts & Logistics. Customer context
+ * events (tagged customer_history) are rolled into the Triage trace.
  */
 export function steppedAfterCustomerHistoryFixture(): OrchestrationSnapshot {
   return steppedPausedFixture({
-    node: "knowledge",
-    customerContext: {
+    node: "parts_logistics",
+    knowledgeGuidance: {
       eligible: true,
       degraded: false,
-      provider: "openai",
-      model: "gpt-4o-mini",
-      latencyMs: 240,
-      package: {
-        customerTier: finding("standard"),
-        slaClass: finding("none"),
-        warrantyStatus: finding("unknown"),
-        repeatIncident: finding({ repeat: true, count: 10, windowDays: 30 }),
-        strategicAccount: finding(false),
-        installedAssets: finding({ totalAssets: 0, modelCount: 0 }),
-        openIncidentCount: finding(10),
-        escalationHistory: finding(0),
-        businessRisk: finding("high", "Risk signals: repeat-failure, 10 open")
+      status: "ANSWERED",
+      answer: {
+        safeSummary: "The battery of the ProBook 15X may need replacement.",
+        guidanceConfidence: "medium",
+        sources: [
+          {
+            sourceId: "kb-1",
+            title: "Battery Health Check Procedure for Warranty Assessment",
+            version: "2026.06.10",
+            retrievalScorePercentile: 63
+          }
+        ],
+        provider: "openai",
+        embeddingProvider: "openai",
+        retrievalId: "rag-4662cb30-d662-4dba-ad12-a95b2fdf54cd",
+        latencyMs: 1094
       }
     },
     events: [
@@ -406,10 +434,18 @@ export function steppedAfterCustomerHistoryFixture(): OrchestrationSnapshot {
       },
       {
         node: "knowledge",
-        status: "awaiting_step",
+        status: "running",
         sequence: 6,
         occurredAt: "t6",
-        safeSummary: "Stage complete — awaiting Run for Knowledge Base."
+        safeSummary: "Querying knowledge base."
+      },
+      {
+        node: "parts_logistics",
+        status: "awaiting_step",
+        sequence: 7,
+        occurredAt: "t7",
+        safeSummary:
+          "Stage complete — awaiting Run for Parts & Logistics."
       }
     ]
   });

@@ -91,7 +91,7 @@ describe("SteppedOrchestrationView", () => {
 
     expect(screen.getByText(/normal priority/i)).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /Run Customer Context/i })
+      screen.getByRole("button", { name: /Run Knowledge Base/i })
     ).toBeEnabled();
   });
 
@@ -106,7 +106,7 @@ describe("SteppedOrchestrationView", () => {
 
     expect(screen.getByText(/analysing request/i)).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /Run Customer Context/i })
+      screen.queryByRole("button", { name: /Run Knowledge Base/i })
     ).not.toBeInTheDocument();
 
     act(() => {
@@ -115,7 +115,7 @@ describe("SteppedOrchestrationView", () => {
 
     expect(screen.getByText(/normal priority/i)).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /Run Customer Context/i })
+      screen.getByRole("button", { name: /Run Knowledge Base/i })
     ).toBeEnabled();
   });
 
@@ -124,9 +124,9 @@ describe("SteppedOrchestrationView", () => {
     expect(screen.getByText("00001079")).toBeInTheDocument();
     expect(screen.getByText("Triage")).toBeInTheDocument();
     expect(screen.getByText(/normal priority/i)).toBeInTheDocument();
-    expect(screen.getByText("1 / 6")).toBeInTheDocument();
+    expect(screen.getByText("1 / 5")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /Run Customer Context/i })
+      screen.getByRole("button", { name: /Run Knowledge Base/i })
     ).toBeEnabled();
   });
 
@@ -164,7 +164,7 @@ describe("SteppedOrchestrationView", () => {
 
     expect(screen.getAllByText(/normal priority/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/business risk/i).length).toBeGreaterThan(0);
-    expect(screen.getByText("6 / 6")).toBeInTheDocument();
+    expect(screen.getByText("5 / 5")).toBeInTheDocument();
   });
 });
 
@@ -193,11 +193,11 @@ describe("SteppedOrchestrationView — Phase 2 (real stepped run)", () => {
     mountStepped();
 
     const btn = screen.getByRole("button", {
-      name: /Run Customer Context/i
+      name: /Run Knowledge Base/i
     });
     expect(btn).toBeEnabled();
     expect(
-      screen.getByText(/press Run to dispatch Customer Context/i)
+      screen.getByText(/press Run to dispatch Knowledge Base/i)
     ).toBeInTheDocument();
     // Hint text indicates this is a backend call, not a local reveal.
     expect(
@@ -219,7 +219,7 @@ describe("SteppedOrchestrationView — Phase 2 (real stepped run)", () => {
     mountStepped();
 
     fireEvent.click(
-      screen.getByRole("button", { name: /Run Customer Context/i })
+      screen.getByRole("button", { name: /Run Knowledge Base/i })
     );
 
     // Flush the async advance call, then the reveal animation timer.
@@ -237,15 +237,15 @@ describe("SteppedOrchestrationView — Phase 2 (real stepped run)", () => {
       expect.objectContaining({ method: "POST" })
     );
 
-    // After the advance, the Knowledge Base frontier button appears.
+    // After the advance, the Parts & Logistics frontier button appears.
     expect(
-      screen.getByRole("button", { name: /Run Knowledge Base/i })
+      screen.getByRole("button", { name: /Run Parts & Logistics/i })
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/press Run to dispatch Knowledge Base/i)
+      screen.getByText(/press Run to dispatch Parts & Logistics/i)
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Ready to dispatch → Knowledge Base/i)
+      screen.getByText(/Ready to dispatch → Parts & Logistics/i)
     ).toBeInTheDocument();
     const activity = screen.getByLabelText("Orchestrator activity");
     expect(
@@ -266,7 +266,7 @@ describe("SteppedOrchestrationView — Phase 2 (real stepped run)", () => {
     mountStepped();
 
     fireEvent.click(
-      screen.getByRole("button", { name: /Run Customer Context/i })
+      screen.getByRole("button", { name: /Run Knowledge Base/i })
     );
 
     await act(async () => {

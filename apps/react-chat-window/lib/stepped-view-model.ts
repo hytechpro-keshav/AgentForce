@@ -120,16 +120,10 @@ const NODE_DEFS: NodeDef[] = [
     id: "triage",
     n: "01",
     name: "Triage",
-    sub: "priority · severity · write-back",
+    sub: "priority · case · customer context",
     icon: "search"
   },
-  {
-    id: "customer_history",
-    n: "02",
-    name: "Customer Context",
-    sub: "account · warranty · incidents",
-    icon: "user"
-  },
+  // customer_history removed from visible spine; kept in NODE_SHORT/builders/payloadPresent for enum exhaustiveness
   {
     id: "knowledge",
     n: "03",
@@ -213,6 +207,7 @@ function traceSection(events: OrchestrationEvent[]): SteppedSection | null {
 
 function buildTriage(
   triage: OrchestrationTriage | undefined,
+  customerContext: OrchestrationCustomerContext | undefined,
   trace: SteppedSection | null
 ): { output?: string; latency?: string; detail: SteppedSection[] } {
   if (!triage) {
@@ -239,6 +234,37 @@ function buildTriage(
       ]
     }
   ];
+
+  // Fold customer context findings into Triage accordion when present
+  if (customerContext?.package) {
+    const pkg = customerContext.package;
+    const risk = findingValue(pkg.businessRisk);
+    const repeat = pkg.repeatIncident?.value;
+    const customerFields: SteppedField[] = [];
+    if (risk) customerFields.push({ k: "Business risk", v: risk, h: pkg.businessRisk.evidenceBasis });
+    if (repeat) {
+      customerFields.push({
+        k: "Repeat failure",
+        v: repeat.repeat ? `Triggered ×${repeat.count}` : "None",
+        h: `${repeat.count} incidents in ${repeat.windowDays} days`
+      });
+    }
+    const tierVal = findingValue(pkg.customerTier);
+    if (tierVal) customerFields.push({ k: "Customer tier", v: tierVal });
+    const slaVal = findingValue(pkg.slaClass);
+    if (slaVal) customerFields.push({ k: "SLA", v: slaVal });
+    const warrantyVal = findingValue(pkg.warrantyStatus);
+    if (warrantyVal) customerFields.push({ k: "Warranty", v: warrantyVal });
+    if (customerFields.length > 0) {
+      detail.push({ type: "fields", items: customerFields });
+    }
+  } else if (customerContext && !customerContext.eligible) {
+    detail.push({
+      type: "note",
+      text: customerContext.eligibilityReason ?? "Customer context lookup was skipped."
+    });
+  }
+
   if (trace) detail.push(trace);
   return {
     output: `${triage.recommendedPriority} priority`,
@@ -877,7 +903,12 @@ export function buildSteppedViewModel(
     triage: () =>
       buildTriage(
         snapshot.triage,
-        traceSection(eventsForNode(events, "triage"))
+        snapshot.customerContext,
+        // Roll customer_history events into the triage trace (merged node)
+        traceSection([
+          ...eventsForNode(events, "triage"),
+          ...eventsForNode(events, "customer_history")
+        ])
       ),
     customer_history: () =>
       buildCustomerContext(

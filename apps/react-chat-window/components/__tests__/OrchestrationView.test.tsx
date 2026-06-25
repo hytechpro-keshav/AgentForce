@@ -676,7 +676,7 @@ describe("OrchestrationPanel", () => {
       within(summary).getByText(/transfer pending · ProductTransfer/i)
     ).toBeInTheDocument();
     expect(within(summary).getByText(/KB aligned/i)).toBeInTheDocument();
-    expect(screen.getByText(/Completed stages: 2\/6/)).toBeInTheDocument();
+    expect(screen.getByText(/Completed stages: 2\/5/)).toBeInTheDocument();
   });
 
   it("renders the Node 5 scheduling card with a sanitized technician + window", () => {
@@ -752,7 +752,7 @@ describe("OrchestrationPanel", () => {
       )
     ).toBeInTheDocument();
     // The stage count is now out of six nodes.
-    expect(screen.getByText(/Completed stages: \d\/6/)).toBeInTheDocument();
+    expect(screen.getByText(/Completed stages: \d\/5/)).toBeInTheDocument();
     // No full technician name ever reaches the DOM.
     expect(screen.queryByText(/Techinican/)).toBeNull();
   });

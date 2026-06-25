@@ -28,9 +28,10 @@ export default function OrchestrationPage({
         <div>
           <h1 className="text-xl font-semibold">Orchestration Console</h1>
           <p className="text-sm text-muted-foreground">
-            Live, read-only engineering view of Node 1 triage, Node 2 customer
-            context, Node 3 knowledge guidance, Node 4 parts logistics, Node 5
-            scheduling, and Node 6 compliance &amp; guardrail.
+            Live, read-only engineering view of Node 1 triage (including
+            customer context), Node 3 knowledge guidance, Node 4 parts
+            logistics, Node 5 scheduling, and Node 6 compliance &amp;
+            guardrail.
           </p>
         </div>
         <OrchestrationConsoleNav
