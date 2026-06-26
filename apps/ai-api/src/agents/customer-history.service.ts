@@ -265,10 +265,16 @@ export class CustomerHistorySynthesisService {
       count: history.repeatIncidentCount,
       windowDays: history.repeatWindowDays
     };
+    const scopeLabel =
+      history.repeatScope === "asset" ? "same asset" : "account";
+    const excludeSuffix = history.currentCaseExcluded
+      ? ", excluding current Case"
+      : "";
+    const caseLabel = history.repeatIncidentCount === 1 ? "case" : "cases";
     return asserted(
       value,
       "Salesforce Case history",
-      `${history.repeatIncidentCount} cases in ${history.repeatWindowDays}d`
+      `${history.repeatIncidentCount} prior ${caseLabel} on ${scopeLabel} in ${history.repeatWindowDays}d${excludeSuffix}`
     );
   }
 

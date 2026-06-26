@@ -17,6 +17,7 @@ import type {
 } from "./dto/demo-case-create.dto";
 import { SalesforceCaseWriteGateway } from "../salesforce/salesforce-case-write.gateway";
 import { SalesforceGatewayError } from "../salesforce/salesforce-gateway.error";
+import type { AuthPrincipal } from "../auth/jwt-auth.guard";
 import { CaseTriageOrchestratorService } from "../orchestrator/case-triage-orchestrator.service";
 
 @Injectable()
@@ -32,7 +33,10 @@ export class DemoCaseCreateService {
     return this.gateway.isConfigured();
   }
 
-  async create(dto: DemoCaseCreateDto): Promise<DemoCaseCreateResponseDto> {
+  async create(
+    dto: DemoCaseCreateDto,
+    principal?: AuthPrincipal
+  ): Promise<DemoCaseCreateResponseDto> {
     const form = this.resolveForm(dto);
     const accountId = await this.gateway.resolveAccountByName(
       form.accountLookup.name
@@ -85,10 +89,13 @@ export class DemoCaseCreateService {
 
       let steppedWorkflowId: string | undefined;
       try {
-        const stepped = await this.orchestrator.triggerStepped({
-          caseId: result.caseId,
-          caseNumber: result.caseNumber
-        });
+        const stepped = await this.orchestrator.triggerStepped(
+          {
+            caseId: result.caseId,
+            caseNumber: result.caseNumber
+          },
+          principal
+        );
         steppedWorkflowId = stepped.workflowId;
       } catch (error) {
         this.logger.warn(

@@ -79,7 +79,7 @@ function fenceToken(content: string): string | undefined {
 }
 
 describe("SupportTriageService — Phase B context-informed triage", () => {
-  it("appends a sanitized customer-context block when signals are present", async () => {
+  it("fences customer signals and never sends raw Salesforce Case history JSON", async () => {
     const h = buildHarness();
     h.chat.mockResolvedValue(modelReply(triageJson("high")));
 
@@ -87,12 +87,20 @@ describe("SupportTriageService — Phase B context-informed triage", () => {
 
     const content = userContent(h.chat);
     expect(content).toContain("Customer context (sanitized");
-    // Sanitized signal values are present...
     expect(content).toContain("premium");
     expect(content).toContain('"businessRisk":"high"');
     expect(content).toContain("VX-900");
-    // ...and the single ModelRouter.chat() seam is used exactly once.
     expect(h.chat).toHaveBeenCalledTimes(1);
+
+    const fence = fenceToken(content);
+    expect(fence).toBeTruthy();
+    expect(content).toContain(`BEGIN_CUSTOMER_CONTEXT_${fence}`);
+    expect(content).toContain('"repeatIncident"');
+    expect(content).toContain('"count":2');
+    expect(content).not.toContain('"records"');
+    expect(content).not.toContain("CaseNumber");
+    expect(content).not.toContain("IsEscalated");
+    expect(content).not.toContain("priorCaseCount");
   });
 
   it("sends a case-only message when no customer signals are present", async () => {

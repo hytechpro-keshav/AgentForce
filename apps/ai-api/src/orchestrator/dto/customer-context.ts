@@ -113,6 +113,10 @@ export interface CustomerReadScope {
   accountId: string;
   tenantId?: string;
   verifiedContactId?: string;
+  /** When set, service-history repeat counts scope to this Asset only. */
+  assetId?: string;
+  /** When set, this Case id is excluded from prior/repeat counts. */
+  excludeCaseId?: string;
 }
 
 export interface CustomerAccountProfile {
@@ -137,6 +141,10 @@ export interface CustomerServiceHistory {
   repeatWindowDays: number;
   priorEscalations: number;
   openIncidentCount: number;
+  /** Whether repeatIncidentCount used Asset-scoped or account-wide Cases. */
+  repeatScope?: "asset" | "account";
+  /** True when excludeCaseId removed the triggering Case from counts. */
+  currentCaseExcluded?: boolean;
 }
 
 /**

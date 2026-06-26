@@ -67,7 +67,16 @@ describe("DemoCaseCreateService", () => {
   });
 
   it("creates a Case from a known scenarioId", async () => {
-    const result = await service.create({ scenarioId: "same-day-battery-fix" });
+    const principal = {
+      subject: "demo-case-create",
+      scopes: ["agentforce:demo-case-create"],
+      tenantId: "tenant-demo",
+      raw: {}
+    };
+    const result = await service.create(
+      { scenarioId: "same-day-battery-fix" },
+      principal
+    );
     expect(result.caseId).toBe("500000000000001ABC");
     expect(result.orchestrationUrl).toContain("500000000000001ABC");
     expect(result.steppedWorkflowId).toBe("wf-demo-stepped");
@@ -75,10 +84,13 @@ describe("DemoCaseCreateService", () => {
       "/orchestration/stepped?workflowId=wf-demo-stepped"
     );
     expect(gateway.createCase).toHaveBeenCalled();
-    expect(orchestrator.triggerStepped).toHaveBeenCalledWith({
-      caseId: "500000000000001ABC",
-      caseNumber: "00001234"
-    });
+    expect(orchestrator.triggerStepped).toHaveBeenCalledWith(
+      {
+        caseId: "500000000000001ABC",
+        caseNumber: "00001234"
+      },
+      principal
+    );
   });
 
   it("throws invalid_scenario for unknown scenarioId", async () => {

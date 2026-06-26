@@ -216,24 +216,25 @@ function buildTriage(
   const detail: SteppedSection[] = [
     {
       type: "summary",
-      text: [
-        triage.summary,
-        triage.suggestedNextStep ? `Next: ${triage.suggestedNextStep}` : ""
-      ]
-        .filter(Boolean)
-        .join(" ")
-    },
-    {
-      type: "fields",
-      items: [
-        { k: "Priority", v: triage.recommendedPriority },
-        { k: "Provider", v: triage.provider || "—" },
-        { k: "Model", v: triage.model || "—" },
-        { k: "Fallback", v: yesNo(triage.fallbackUsed) },
-        { k: "Latency", v: ms(triage.latencyMs) ?? "—" }
-      ]
+      text: triage.summary
     }
   ];
+  if (triage.suggestedNextStep) {
+    detail.push({
+      type: "note",
+      text: `Next: ${triage.suggestedNextStep}`
+    });
+  }
+  detail.push({
+    type: "fields",
+    items: [
+      { k: "Priority", v: triage.recommendedPriority },
+      { k: "Provider", v: triage.provider || "—" },
+      { k: "Model", v: triage.model || "—" },
+      { k: "Fallback", v: yesNo(triage.fallbackUsed) },
+      { k: "Latency", v: ms(triage.latencyMs) ?? "—" }
+    ]
+  });
 
   // Fold customer context findings into Triage accordion when present
   if (customerContext?.package) {
@@ -241,20 +242,80 @@ function buildTriage(
     const risk = findingValue(pkg.businessRisk);
     const repeat = pkg.repeatIncident?.value;
     const customerFields: SteppedField[] = [];
-    if (risk) customerFields.push({ k: "Business risk", v: risk, h: pkg.businessRisk.evidenceBasis });
+    if (risk) {
+      customerFields.push({
+        k: "Business risk",
+        v: risk,
+        h: pkg.businessRisk.evidenceBasis
+      });
+    }
     if (repeat) {
       customerFields.push({
         k: "Repeat failure",
         v: repeat.repeat ? `Triggered ×${repeat.count}` : "None",
-        h: `${repeat.count} incidents in ${repeat.windowDays} days`
+        h: pkg.repeatIncident?.evidenceBasis
       });
     }
     const tierVal = findingValue(pkg.customerTier);
-    if (tierVal) customerFields.push({ k: "Customer tier", v: tierVal });
+    if (tierVal) {
+      customerFields.push({
+        k: "Customer tier",
+        v: tierVal,
+        h: pkg.customerTier?.evidenceBasis
+      });
+    }
     const slaVal = findingValue(pkg.slaClass);
-    if (slaVal) customerFields.push({ k: "SLA", v: slaVal });
+    if (slaVal) {
+      customerFields.push({
+        k: "SLA",
+        v: slaVal,
+        h: pkg.slaClass?.evidenceBasis
+      });
+    }
     const warrantyVal = findingValue(pkg.warrantyStatus);
-    if (warrantyVal) customerFields.push({ k: "Warranty", v: warrantyVal });
+    if (warrantyVal) {
+      customerFields.push({
+        k: "Warranty",
+        v: warrantyVal,
+        h: pkg.warrantyStatus?.evidenceBasis
+      });
+    }
+    const strategicVal = findingValue(pkg.strategicAccount);
+    if (strategicVal) {
+      customerFields.push({
+        k: "Strategic account",
+        v: strategicVal,
+        h: pkg.strategicAccount?.evidenceBasis
+      });
+    }
+    if (pkg.installedAssets) {
+      const assets = pkg.installedAssets.value;
+      const assetLabel =
+        assets.primaryModel && assets.totalAssets > 0
+          ? `${assets.totalAssets} (${assets.primaryModel})`
+          : String(assets.totalAssets);
+      customerFields.push({
+        k: "Installed assets",
+        v: assetLabel,
+        h: pkg.installedAssets.evidenceBasis
+      });
+    }
+    const openCount = findingValue(pkg.openIncidentCount);
+    if (openCount !== undefined) {
+      customerFields.push({
+        k: "Open incidents",
+        v: openCount,
+        h: pkg.openIncidentCount?.evidenceBasis
+      });
+    }
+    const escalations = findingValue(pkg.escalationHistory);
+    if (escalations !== undefined) {
+      customerFields.push({
+        k: "Prior escalations",
+        v: escalations,
+        h: pkg.escalationHistory?.evidenceBasis
+      });
+    }
     if (customerFields.length > 0) {
       detail.push({ type: "fields", items: customerFields });
     }
@@ -266,8 +327,12 @@ function buildTriage(
   }
 
   if (trace) detail.push(trace);
+  const summaryOutput =
+    triage.summary.length > 80
+      ? `${triage.summary.slice(0, 77)}…`
+      : triage.summary;
   return {
-    output: `${triage.recommendedPriority} priority`,
+    output: summaryOutput,
     latency: ms(triage.latencyMs),
     detail
   };

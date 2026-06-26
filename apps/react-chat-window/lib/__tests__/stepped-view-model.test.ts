@@ -28,7 +28,9 @@ describe("buildSteppedViewModel", () => {
     ]);
     expect(vm.nodes.every((node) => node.available)).toBe(true);
 
-    expect(vm.nodes[0].output).toBe("normal priority");
+    expect(vm.nodes[0].output).toBe(
+      "Routine battery replacement needed for ProBook 15X."
+    );
     expect(vm.nodes[0].latency).toBe("1285 ms");
     expect(vm.nodes[1].output).toContain("ANSWERED");
     expect(vm.nodes[2].output).toContain("SP-BATT-15X");
@@ -41,8 +43,8 @@ describe("buildSteppedViewModel", () => {
     const triage = vm.nodes[0];
 
     const types = triage.detail.map((section) => section.type);
-    // summary + triage fields + customer context fields + trace
-    expect(types).toEqual(["summary", "fields", "fields", "trace"]);
+    // summary + optional next note + triage fields + customer context fields + trace
+    expect(types).toEqual(["summary", "note", "fields", "fields", "trace"]);
 
     const triageFields = triage.detail.find((s) => s.type === "fields");
     expect(triageFields && triageFields.type === "fields" && triageFields.items).toEqual(
@@ -57,7 +59,11 @@ describe("buildSteppedViewModel", () => {
     const customerFields = allFields[1];
     expect(customerFields && customerFields.type === "fields" && customerFields.items).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ k: "Business risk", v: "high" })
+        expect.objectContaining({ k: "Business risk", v: "high" }),
+        expect.objectContaining({
+          k: "Installed assets",
+          v: "12 (ProBook 15X)"
+        })
       ])
     );
 

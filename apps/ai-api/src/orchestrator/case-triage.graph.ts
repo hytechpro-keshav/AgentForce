@@ -366,7 +366,9 @@ export function buildCaseTriageGraph(
       } else {
         const scope: CustomerReadScope = {
           accountId: state.context?.accountId ?? "",
-          tenantId: state.tenantId
+          tenantId: state.tenantId,
+          assetId: state.context?.assetId,
+          excludeCaseId: state.caseId
         };
 
         const read = await deps.readCustomerContext(scope);

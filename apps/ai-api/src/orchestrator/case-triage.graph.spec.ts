@@ -225,7 +225,8 @@ describe("case-triage graph — Node 2 customer history", () => {
     // triage.recommendedPriority (no AI priority exists pre-triage).
     expect(h.readCustomerContext).toHaveBeenCalledTimes(1);
     expect(h.readCustomerContext.mock.calls[0][0]).toMatchObject({
-      accountId: ACCOUNT_ID
+      accountId: ACCOUNT_ID,
+      excludeCaseId: "500000000000001"
     });
     expect(h.synthesize).toHaveBeenCalledTimes(1);
     expect(h.synthesize.mock.calls[0][0].triagePriority).toBe("high");
@@ -240,6 +241,25 @@ describe("case-triage graph — Node 2 customer history", () => {
       (call) => call[3] === CUSTOMER_HISTORY_NODE_ID
     );
     expect(node2Events.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it("passes asset scope when the Case context includes an Asset", async () => {
+    const readContext = jest
+      .fn()
+      .mockResolvedValue(
+        buildContext({
+          assetId: "02i000000000001"
+        })
+      );
+    const h = buildDeps({ readContext });
+
+    await invoke(h.deps);
+
+    expect(h.readCustomerContext.mock.calls[0][0]).toMatchObject({
+      accountId: ACCOUNT_ID,
+      assetId: "02i000000000001",
+      excludeCaseId: "500000000000001"
+    });
   });
 
   it("still runs customer read when triage LLM returns undefined (degrade-safe)", async () => {

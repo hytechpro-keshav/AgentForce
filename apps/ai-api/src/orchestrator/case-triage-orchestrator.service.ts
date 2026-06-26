@@ -547,13 +547,14 @@ export class CaseTriageOrchestratorService {
   ): Promise<void> {
     const startedAt = Date.now();
     this.principalForRag = principal;
+    const tenantId = this.resolveWorkflowTenantId(principal);
     try {
       const result = (await this.graph.invoke(
         {
           workflowId,
           caseId: dto.caseId,
           caseNumber: dto.caseNumber,
-          tenantId: principal?.tenantId,
+          tenantId,
           principalSubject: principal?.subject ?? "orchestrator",
           approvalRequired: false,
           writeBackApplied: false,
@@ -749,13 +750,14 @@ export class CaseTriageOrchestratorService {
   ): Promise<void> {
     const startedAt = Date.now();
     this.principalForRag = principal;
+    const tenantId = this.resolveWorkflowTenantId(principal);
     try {
       const result = (await this.steppedGraph.invoke(
         {
           workflowId,
           caseId: dto.caseId,
           caseNumber: dto.caseNumber,
-          tenantId: principal?.tenantId,
+          tenantId,
           principalSubject: principal?.subject ?? "orchestrator",
           approvalRequired: false,
           writeBackApplied: false,
@@ -1926,6 +1928,25 @@ export class CaseTriageOrchestratorService {
         (this.config.orchestrator.knowledge.namespace ||
           this.config.rag.defaultNamespace)
     };
+  }
+
+  /**
+   * Tenant for graph state + RAG when the HTTP principal omits one (demo
+   * bootstrap, auth-disabled dev, operator JWT without `tenant` claim).
+   * Prefer the authenticated principal; fall back to the configured
+   * Agentforce service bearer tenant; last resort `tenant-demo`.
+   */
+  private resolveWorkflowTenantId(principal?: AuthPrincipal): string {
+    if (principal?.tenantId) {
+      return principal.tenantId;
+    }
+    const jwtConfig = this.config.jwt;
+    const bearers = jwtConfig?.agentforceServiceBearers?.length
+      ? jwtConfig.agentforceServiceBearers
+      : jwtConfig?.agentforceServiceBearer
+        ? [jwtConfig.agentforceServiceBearer]
+        : [];
+    return bearers[0]?.tenantId ?? "tenant-demo";
   }
 
   /**

@@ -48,7 +48,11 @@ export function steppedSnapshotFixture(
         warrantyStatus: finding("unknown"),
         repeatIncident: finding({ repeat: true, count: 10, windowDays: 30 }),
         strategicAccount: finding(false),
-        installedAssets: finding({ totalAssets: 0, modelCount: 0 }),
+        installedAssets: finding({
+          totalAssets: 12,
+          modelCount: 2,
+          primaryModel: "ProBook 15X"
+        }),
         openIncidentCount: finding(10),
         escalationHistory: finding(0),
         businessRisk: finding("high", "Risk signals: repeat-failure, 10 open")
@@ -287,7 +291,11 @@ export function steppedPausedFixture(
         warrantyStatus: finding("unknown"),
         repeatIncident: finding({ repeat: true, count: 10, windowDays: 30 }),
         strategicAccount: finding(false),
-        installedAssets: finding({ totalAssets: 0, modelCount: 0 }),
+        installedAssets: finding({
+          totalAssets: 12,
+          modelCount: 2,
+          primaryModel: "ProBook 15X"
+        }),
         openIncidentCount: finding(10),
         escalationHistory: finding(0),
         businessRisk: finding("high", "Risk signals: repeat-failure, 10 open")
