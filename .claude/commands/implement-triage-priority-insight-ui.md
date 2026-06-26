@@ -1,0 +1,1 @@
+Read `.github/prompts/implement-triage-priority-insight-ui.prompt.md` and skills `langgraph-stepped-console`, `langgraph-case-triage-slice`, then execute `${input:-full}` (plan → implement → local tests → deploy → Playwright).

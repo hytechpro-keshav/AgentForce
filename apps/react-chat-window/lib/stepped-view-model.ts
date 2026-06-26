@@ -25,7 +25,9 @@ import type {
   OrchestrationStatus,
   OrchestrationTraceValue,
   OrchestrationTriage,
-  OrchestrationVerdict
+  OrchestrationVerdict,
+  TriagePriority,
+  TriagePriorityFactor
 } from "./orchestration";
 
 export type SteppedNodeIcon =
@@ -63,6 +65,29 @@ export type SteppedSection =
   | { type: "note"; text: string }
   | { type: "trace"; items: SteppedTraceStep[] };
 
+export type TriageBadgeTone =
+  | "critical"
+  | "high"
+  | "normal"
+  | "low"
+  | "mediumRisk"
+  | "highRisk"
+  | "repeatYes"
+  | "repeatNo";
+
+export interface TriageInsightBadge {
+  label: string;
+  tone: TriageBadgeTone;
+}
+
+export interface SteppedTriageInsight {
+  priority: TriagePriority;
+  summary: string;
+  priorityRationale?: string;
+  priorityFactors?: TriagePriorityFactor[];
+  badges: TriageInsightBadge[];
+}
+
 export interface SteppedNode {
   id: OrchestrationNodeId;
   n: string;
@@ -75,6 +100,8 @@ export interface SteppedNode {
   /** Collapsed one-line result; absent until available. */
   output?: string;
   latency?: string;
+  /** Priority badge shown on the Triage row header when done. */
+  priorityBadge?: TriagePriority;
   detail: SteppedSection[];
 }
 
@@ -98,6 +125,7 @@ export interface SteppedViewModel {
   caseNumber?: string;
   status: OrchestrationStatus;
   nodes: SteppedNode[];
+  triageInsight?: SteppedTriageInsight;
   verdict?: SteppedVerdict;
   activity: SteppedActivityEntry[];
   /** Guardrail stage available (or run reached a terminal state). */
@@ -205,11 +233,65 @@ function traceSection(events: OrchestrationEvent[]): SteppedSection | null {
   return { type: "trace", items };
 }
 
+function priorityBadgeTone(priority: TriagePriority): TriageBadgeTone {
+  if (priority === "critical") return "critical";
+  if (priority === "high") return "high";
+  if (priority === "low") return "low";
+  return "normal";
+}
+
+function businessRiskBadgeTone(risk: string): TriageBadgeTone {
+  if (risk === "high") return "highRisk";
+  if (risk === "medium") return "mediumRisk";
+  return "normal";
+}
+
+function buildTriageInsight(
+  triage: OrchestrationTriage | undefined,
+  customerContext: OrchestrationCustomerContext | undefined
+): SteppedTriageInsight | undefined {
+  if (!triage) return undefined;
+
+  const badges: TriageInsightBadge[] = [
+    {
+      label: triage.recommendedPriority.toUpperCase(),
+      tone: priorityBadgeTone(triage.recommendedPriority)
+    }
+  ];
+
+  const risk = findingValue(customerContext?.package?.businessRisk);
+  if (risk) {
+    badges.push({
+      label: `${risk.toUpperCase()} RISK`,
+      tone: businessRiskBadgeTone(risk)
+    });
+  }
+
+  const repeat = customerContext?.package?.repeatIncident?.value;
+  badges.push({
+    label: repeat?.repeat ? "REPEAT" : "NO REPEAT",
+    tone: repeat?.repeat ? "repeatYes" : "repeatNo"
+  });
+
+  return {
+    priority: triage.recommendedPriority,
+    summary: triage.summary,
+    priorityRationale: triage.priorityRationale,
+    priorityFactors: triage.priorityFactors,
+    badges
+  };
+}
+
 function buildTriage(
   triage: OrchestrationTriage | undefined,
   customerContext: OrchestrationCustomerContext | undefined,
   trace: SteppedSection | null
-): { output?: string; latency?: string; detail: SteppedSection[] } {
+): {
+  output?: string;
+  latency?: string;
+  priorityBadge?: TriagePriority;
+  detail: SteppedSection[];
+} {
   if (!triage) {
     return { detail: trace ? [trace] : [] };
   }
@@ -219,6 +301,12 @@ function buildTriage(
       text: triage.summary
     }
   ];
+  if (triage.priorityRationale) {
+    detail.push({
+      type: "note",
+      text: triage.priorityRationale
+    });
+  }
   if (triage.suggestedNextStep) {
     detail.push({
       type: "note",
@@ -334,6 +422,7 @@ function buildTriage(
   return {
     output: summaryOutput,
     latency: ms(triage.latencyMs),
+    priorityBadge: triage.recommendedPriority,
     detail
   };
 }
@@ -963,7 +1052,12 @@ export function buildSteppedViewModel(
 
   const builders: Record<
     OrchestrationNodeId,
-    () => { output?: string; latency?: string; detail: SteppedSection[] }
+    () => {
+      output?: string;
+      latency?: string;
+      priorityBadge?: TriagePriority;
+      detail: SteppedSection[];
+    }
   > = {
     triage: () =>
       buildTriage(
@@ -1027,6 +1121,7 @@ export function buildSteppedViewModel(
       available: payloadPresent[def.id] || eventDone,
       output: built.output,
       latency: built.latency,
+      priorityBadge: built.priorityBadge,
       detail: built.detail
     };
   });
@@ -1041,6 +1136,7 @@ export function buildSteppedViewModel(
     caseNumber: snapshot.caseNumber,
     status: snapshot.status,
     nodes,
+    triageInsight: buildTriageInsight(snapshot.triage, snapshot.customerContext),
     verdict: buildVerdict(snapshot.orchestratorVerdict),
     activity: buildActivity(events),
     complete:

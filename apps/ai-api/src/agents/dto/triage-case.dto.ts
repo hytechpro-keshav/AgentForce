@@ -158,10 +158,21 @@ export class TriageCaseRequestDto {
   customerSignals?: TriageCustomerSignals;
 }
 
+/** AI-assigned relative influence factor for priority (weights sum to 100). */
+export interface TriagePriorityFactor {
+  id: string;
+  label: string;
+  weight: number;
+}
+
 export interface TriageCaseResponseDto {
   recommendedPriority: TriagePriorityDto;
   summary: string;
   suggestedNextStep: string;
+  /** Plain-English why this priority (from the same triage LLM call). */
+  priorityRationale?: string;
+  /** Optional factor mix for operator insight charts; omitted when invalid. */
+  priorityFactors?: TriagePriorityFactor[];
   provider: string;
   model: string;
   fallbackUsed: boolean;

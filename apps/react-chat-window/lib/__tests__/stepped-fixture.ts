@@ -31,6 +31,16 @@ export function steppedSnapshotFixture(
       recommendedPriority: "normal",
       summary: "Routine battery replacement needed for ProBook 15X.",
       suggestedNextStep: "Confirm local stock availability.",
+      priorityRationale:
+        "Strategic account with one open incident raises medium business risk, but no repeat pattern keeps priority normal.",
+      priorityFactors: [
+        { id: "customer_risk", label: "Customer risk", weight: 35 },
+        { id: "case_urgency", label: "Case urgency", weight: 30 },
+        { id: "reported_priority", label: "Reported priority", weight: 15 },
+        { id: "sla_tier", label: "SLA / tier", weight: 10 },
+        { id: "repeat_pattern", label: "Repeat pattern", weight: 5 },
+        { id: "warranty", label: "Warranty", weight: 5 }
+      ],
       provider: "openai",
       model: "gpt-4o-mini",
       fallbackUsed: false,
@@ -46,16 +56,16 @@ export function steppedSnapshotFixture(
         customerTier: finding("standard"),
         slaClass: finding("none"),
         warrantyStatus: finding("unknown"),
-        repeatIncident: finding({ repeat: true, count: 10, windowDays: 30 }),
-        strategicAccount: finding(false),
+        repeatIncident: finding({ repeat: false, count: 0, windowDays: 30 }),
+        strategicAccount: finding(true),
         installedAssets: finding({
           totalAssets: 12,
           modelCount: 2,
           primaryModel: "ProBook 15X"
         }),
-        openIncidentCount: finding(10),
+        openIncidentCount: finding(1),
         escalationHistory: finding(0),
-        businessRisk: finding("high", "Risk signals: repeat-failure, 10 open")
+        businessRisk: finding("medium", "Risk signals: strategic account, 1 open")
       }
     },
     knowledgeGuidance: {
@@ -274,6 +284,16 @@ export function steppedPausedFixture(
       recommendedPriority: "normal",
       summary: "Routine battery replacement needed for ProBook 15X.",
       suggestedNextStep: "Confirm local stock availability.",
+      priorityRationale:
+        "Strategic account with one open incident raises medium business risk, but no repeat pattern keeps priority normal.",
+      priorityFactors: [
+        { id: "customer_risk", label: "Customer risk", weight: 35 },
+        { id: "case_urgency", label: "Case urgency", weight: 30 },
+        { id: "reported_priority", label: "Reported priority", weight: 15 },
+        { id: "sla_tier", label: "SLA / tier", weight: 10 },
+        { id: "repeat_pattern", label: "Repeat pattern", weight: 5 },
+        { id: "warranty", label: "Warranty", weight: 5 }
+      ],
       provider: "openai",
       model: "gpt-4o-mini",
       fallbackUsed: false,
@@ -289,16 +309,16 @@ export function steppedPausedFixture(
         customerTier: finding("standard"),
         slaClass: finding("none"),
         warrantyStatus: finding("unknown"),
-        repeatIncident: finding({ repeat: true, count: 10, windowDays: 30 }),
-        strategicAccount: finding(false),
+        repeatIncident: finding({ repeat: false, count: 0, windowDays: 30 }),
+        strategicAccount: finding(true),
         installedAssets: finding({
           totalAssets: 12,
           modelCount: 2,
           primaryModel: "ProBook 15X"
         }),
-        openIncidentCount: finding(10),
+        openIncidentCount: finding(1),
         escalationHistory: finding(0),
-        businessRisk: finding("high", "Risk signals: repeat-failure, 10 open")
+        businessRisk: finding("medium", "Risk signals: strategic account, 1 open")
       }
     },
     events: [
@@ -351,6 +371,16 @@ export function steppedInProgressTriageFixture(): OrchestrationSnapshot {
       recommendedPriority: "normal",
       summary: "Routine battery replacement needed for ProBook 15X.",
       suggestedNextStep: "Confirm local stock availability.",
+      priorityRationale:
+        "Strategic account with one open incident raises medium business risk, but no repeat pattern keeps priority normal.",
+      priorityFactors: [
+        { id: "customer_risk", label: "Customer risk", weight: 35 },
+        { id: "case_urgency", label: "Case urgency", weight: 30 },
+        { id: "reported_priority", label: "Reported priority", weight: 15 },
+        { id: "sla_tier", label: "SLA / tier", weight: 10 },
+        { id: "repeat_pattern", label: "Repeat pattern", weight: 5 },
+        { id: "warranty", label: "Warranty", weight: 5 }
+      ],
       provider: "openai",
       model: "gpt-4o-mini",
       fallbackUsed: false,

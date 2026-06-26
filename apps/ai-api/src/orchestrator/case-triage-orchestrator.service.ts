@@ -933,6 +933,8 @@ export class CaseTriageOrchestratorService {
       recommendedPriority: response.recommendedPriority,
       summary: response.summary,
       suggestedNextStep: response.suggestedNextStep,
+      priorityRationale: response.priorityRationale,
+      priorityFactors: response.priorityFactors,
       provider: response.provider,
       model: response.model,
       fallbackUsed: response.fallbackUsed,

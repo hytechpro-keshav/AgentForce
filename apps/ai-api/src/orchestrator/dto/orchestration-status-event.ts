@@ -1,4 +1,7 @@
-import type { TriagePriorityDto } from "../../agents/dto/triage-case.dto";
+import type {
+  TriagePriorityDto,
+  TriagePriorityFactor
+} from "../../agents/dto/triage-case.dto";
 import type {
   ApprovalDecision,
   NodeLifecycleStatus,
@@ -88,6 +91,8 @@ export interface SanitizedTriageResult {
   recommendedPriority: TriagePriorityDto;
   summary: string;
   suggestedNextStep: string;
+  priorityRationale?: string;
+  priorityFactors?: TriagePriorityFactor[];
   provider: string;
   model: string;
   fallbackUsed: boolean;

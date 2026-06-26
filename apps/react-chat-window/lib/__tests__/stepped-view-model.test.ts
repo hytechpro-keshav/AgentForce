@@ -43,8 +43,8 @@ describe("buildSteppedViewModel", () => {
     const triage = vm.nodes[0];
 
     const types = triage.detail.map((section) => section.type);
-    // summary + optional next note + triage fields + customer context fields + trace
-    expect(types).toEqual(["summary", "note", "fields", "fields", "trace"]);
+    // summary + rationale note + next note + triage fields + customer fields + trace
+    expect(types).toEqual(["summary", "note", "note", "fields", "fields", "trace"]);
 
     const triageFields = triage.detail.find((s) => s.type === "fields");
     expect(triageFields && triageFields.type === "fields" && triageFields.items).toEqual(
@@ -59,7 +59,7 @@ describe("buildSteppedViewModel", () => {
     const customerFields = allFields[1];
     expect(customerFields && customerFields.type === "fields" && customerFields.items).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ k: "Business risk", v: "high" }),
+        expect.objectContaining({ k: "Business risk", v: "medium" }),
         expect.objectContaining({
           k: "Installed assets",
           v: "12 (ProBook 15X)"
@@ -82,6 +82,17 @@ describe("buildSteppedViewModel", () => {
     expect(
       fired && fired.type === "chips" && fired.items.map((c) => c.k)
     ).toEqual(["CUSTOMER_RISK_HIGH", "KB_REQUIRED_APPROVAL"]);
+  });
+
+  it("exposes triage insight fields for the priority insight strip", () => {
+    const vm = buildSteppedViewModel(steppedPausedFixture());
+    expect(vm.triageInsight?.priority).toBe("normal");
+    expect(vm.triageInsight?.priorityRationale).toContain("Strategic account");
+    expect(vm.triageInsight?.priorityFactors).toHaveLength(6);
+    expect(vm.triageInsight?.badges.map((badge) => badge.label)).toEqual(
+      expect.arrayContaining(["NORMAL", "MEDIUM RISK", "NO REPEAT"])
+    );
+    expect(vm.nodes[0].priorityBadge).toBe("normal");
   });
 
   it("maps the orchestrator verdict and activity log", () => {

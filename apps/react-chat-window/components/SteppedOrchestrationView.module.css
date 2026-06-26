@@ -199,6 +199,182 @@
     background 0.3s;
 }
 
+/* triage priority insight strip */
+.insightStrip {
+  margin-top: 18px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px 18px 18px;
+}
+.insightBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.insightBadge {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid transparent;
+  text-transform: uppercase;
+}
+.insightBadgeCritical {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+.insightBadgeHigh {
+  background: var(--amber-bg);
+  color: var(--amber-dot);
+  border-color: var(--amber-bd);
+}
+.insightBadgeNormal {
+  background: var(--out-bg);
+  color: var(--black);
+  border-color: #e0e0db;
+}
+.insightBadgeLow {
+  background: var(--card);
+  color: var(--mute);
+  border-color: var(--line);
+}
+.insightBadgeMediumRisk {
+  background: var(--amber-bg);
+  color: var(--amber-tx);
+  border-color: var(--amber-bd);
+}
+.insightBadgeHighRisk {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fde68a;
+}
+.insightBadgeRepeat {
+  background: var(--out-bg);
+  color: var(--black);
+  border-color: #e0e0db;
+}
+.insightBody {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.insightCopy {
+  flex: 1;
+  min-width: 240px;
+}
+.insightHeading {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--label);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.insightRationale {
+  font-family: var(--grot);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink);
+  background: var(--out-bg);
+  border: 1px solid var(--out-bd);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin: 0 0 10px;
+}
+.insightRationaleMuted {
+  font-family: var(--grot);
+  font-size: 13px;
+  color: var(--mute);
+  margin: 0 0 10px;
+}
+.insightSummary {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: #3a3a37;
+  margin: 0;
+  line-height: 1.5;
+}
+.insightChart {
+  flex: none;
+  min-width: 200px;
+}
+.insightChartTitle {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--label);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.donutWrap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.donutSvg {
+  width: 112px;
+  height: 112px;
+  flex: none;
+}
+.donutLegend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.donutLegend li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.donutSwatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+.donutLabel {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: #4a4a46;
+}
+.nodePriorityBadge {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  padding: 2px 7px;
+  border-radius: 20px;
+  background: var(--out-bg);
+  color: var(--black);
+  border: 1px solid #e0e0db;
+  text-transform: uppercase;
+}
+.nodePriorityBadgeCritical {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+.nodePriorityBadgeHigh {
+  background: var(--amber-bg);
+  color: var(--amber-dot);
+  border-color: var(--amber-bd);
+}
+.nodePriorityBadgeLow {
+  background: var(--card);
+  color: var(--mute);
+  border-color: var(--line);
+}
+
 /* body */
 .body {
   display: flex;

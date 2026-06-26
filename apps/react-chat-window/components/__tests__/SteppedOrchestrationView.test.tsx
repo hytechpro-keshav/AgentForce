@@ -89,7 +89,7 @@ describe("SteppedOrchestrationView", () => {
       vi.advanceTimersByTime(REVEAL);
     });
 
-    expect(screen.getByText(/normal priority/i)).toBeInTheDocument();
+    expect(screen.getByTestId("priority-badge-normal")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Run Knowledge Base/i })
     ).toBeEnabled();
@@ -113,7 +113,7 @@ describe("SteppedOrchestrationView", () => {
       vi.advanceTimersByTime(REVEAL);
     });
 
-    expect(screen.getByText(/normal priority/i)).toBeInTheDocument();
+    expect(screen.getByTestId("priority-badge-normal")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Run Knowledge Base/i })
     ).toBeEnabled();
@@ -123,7 +123,10 @@ describe("SteppedOrchestrationView", () => {
     mount();
     expect(screen.getByText("00001079")).toBeInTheDocument();
     expect(screen.getByText("Triage")).toBeInTheDocument();
-    expect(screen.getByText(/normal priority/i)).toBeInTheDocument();
+    expect(screen.getByTestId("priority-badge-normal")).toBeInTheDocument();
+    expect(screen.getByTestId("triage-insight-rationale")).toHaveTextContent(
+      /Strategic account/i
+    );
     expect(screen.getByText("1 / 5")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Run Knowledge Base/i })
@@ -162,7 +165,7 @@ describe("SteppedOrchestrationView", () => {
       />
     );
 
-    expect(screen.getAllByText(/normal priority/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId("priority-badge-normal").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/business risk/i).length).toBeGreaterThan(0);
     expect(screen.getByText("5 / 5")).toBeInTheDocument();
   });

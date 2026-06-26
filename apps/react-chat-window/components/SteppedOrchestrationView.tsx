@@ -49,6 +49,7 @@ import {
 } from "@/lib/stepped-view-model";
 
 import { SteppedStartPanel } from "@/components/SteppedStartPanel";
+import { TriageInsightCard } from "@/components/TriageInsightCard";
 import styles from "./SteppedOrchestrationView.module.css";
 
 const NODE_ICON: Record<
@@ -500,6 +501,10 @@ export function SteppedOrchestrationView({
         />
       </div>
 
+      {vm.triageInsight && revealed >= 1 ? (
+        <TriageInsightCard insight={vm.triageInsight} />
+      ) : null}
+
       {/* BODY */}
       <div className={styles.body}>
         {/* LEFT: spine */}
@@ -854,6 +859,19 @@ function NodeRow({
             <div className={styles.csub}>{node.sub}</div>
           </div>
           <div className={styles.cright}>
+            {state === "done" && node.priorityBadge ? (
+              <span
+                className={clsx(
+                  styles.nodePriorityBadge,
+                  node.priorityBadge === "critical" && styles.nodePriorityBadgeCritical,
+                  node.priorityBadge === "high" && styles.nodePriorityBadgeHigh,
+                  node.priorityBadge === "low" && styles.nodePriorityBadgeLow
+                )}
+                data-testid={`node-priority-badge-${node.priorityBadge}`}
+              >
+                {node.priorityBadge}
+              </span>
+            ) : null}
             <span
               className={clsx(
                 styles.status,
