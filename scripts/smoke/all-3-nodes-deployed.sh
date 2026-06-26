@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # ==============================================================================
 # all-3-nodes-deployed.sh — End-to-end test for the orchestrator nodes on
-# Railway (Node 1 Triage, Node 2 Customer History, Node 3 Knowledge Base,
+# Railway (Node 1 Triage incl. customer context, Node 3 Knowledge Base,
 # Node 4 Parts & Logistics, Node 5 Scheduling, Node 6 Compliance & Guardrail)
 #
 # Tests the full LangGraph case-triage workflow with the laptop KB corpus:
-#   START → readContext → runTriage (N1) → customerHistory (N2) → knowledge (N3)
-#         → partsLogistics (N4) → scheduling (N5) → evaluateGuardrail (N6)
-#         → writeBack / rejected / escalated
+#   START → readContext → runTriage (N1: customer read + triage LLM)
+#         → knowledge (N3) → partsLogistics (N4) → scheduling (N5)
+#         → evaluateGuardrail (N6) → writeBack / rejected / escalated
 #
 # Prerequisites:
 #   • Railway deployment is healthy

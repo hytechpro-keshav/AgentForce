@@ -1,6 +1,6 @@
 # Merge Triage + Customer History → One "Triage" Agent — Implementation-Readiness Plan
 
-> **Status: planning only.** No code changed; nothing committed. Produced by an 8-reader code/doc survey + adversarial completeness critic over the shipped graph, orchestrator service, contracts, every `customerContext` consumer, both React consoles, docs, tests, and smoke scripts.
+> **Status: shipped (Phases A–C + security hardening).** Phase D docs updated in this pass. Backend graph, context-informed triage, UI collapse, and prompt-injection fencing are on branch `New-agentchages-merging-traige-and-coustomer`.
 >
 > **Constraint:** minimize churn. Do **not** renumber Nodes 3-8. Do **not** break the `customerContext` channel, Knowledge, Parts, Scheduling, or Guardrail consumers.
 
@@ -237,6 +237,7 @@ bash scripts/smoke/all-3-nodes-deployed.sh
 | Docs assert opposite ordering rationales (node-2 §2 vs merged brief)                                           | **Med**  | Consciously rewrite node-2 §2/§13; deprecate agent-2 with pointer                                   |
 | Latency: two sequential LLM calls (risk grade + triage) in one node/step                                       | **Low**  | Accept for v1; read+grade already happen today, just re-sequenced                                   |
 | Stepped checkpoint of a pre-merge thread resumes into a dead node                                              | **Low**  | In-memory `MemorySaver` is lost on restart; no durable demo threads to migrate                      |
+| Prompt injection via forged customer context in case description (Phase B)                                     | **Med**  | Shipped: per-request fence + untrusted Subject/Description (`5e58f19`)                              |
 
 ## 10. Non-goals
 
