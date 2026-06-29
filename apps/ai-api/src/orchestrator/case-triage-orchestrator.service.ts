@@ -42,6 +42,7 @@ import {
 } from "./case-triage.graph";
 import {
   GUARDRAIL_NODE_ID,
+  TRIAGE_NODE_ID,
   isTerminalLifecycleStatus,
   type NodeLifecycleStatus,
   type OrchestratorNodeId
@@ -318,11 +319,8 @@ export class CaseTriageOrchestratorService {
   }
 
   /**
-   * Stepped-mode trigger (Phase 2). Like {@link trigger}, but the graph pauses
-   * after each upstream stage: Triage runs automatically, then the operator
-   * advances one stage at a time via {@link advance}. The paused checkpoint
-   * lives in the in-process MemorySaver, so a stepped run cannot survive an
-   * ai-api restart (single-instance / demo scope — see the stepped phase plan).
+   * Stepped-mode trigger (Phase 2). Creates the workflow and parks at Triage
+   * awaiting the operator's first {@link advance} — triage does not auto-run.
    */
   async triggerStepped(
     dto: TriggerCaseTriageDto,
@@ -345,19 +343,41 @@ export class CaseTriageOrchestratorService {
     });
     this.steppedWorkflows.add(workflowId);
     void this.trackOnSalesforce(dto.caseId, workflowId, "assigned");
-    // Auto-run Triage, then pause. Fire-and-forget so the 202 is immediate.
-    void this.runStep(workflowId, dto, principal).catch(() => {
-      this.logger.error(
-        `Unhandled stepped run rejection: workflow=${workflowId}`
-      );
-    });
+    await this.bootstrapSteppedAwaitingTriage(workflowId, dto);
     return {
       workflowId,
       caseId: dto.caseId,
       caseNumber: dto.caseNumber,
-      status: "assigned",
+      status: "awaiting_step",
       acceptedAt: new Date().toISOString()
     };
+  }
+
+  private async bootstrapSteppedAwaitingTriage(
+    workflowId: string,
+    dto: TriggerCaseTriageDto
+  ): Promise<void> {
+    await this.store.appendEvent(
+      workflowId,
+      "awaiting_step",
+      "Stage complete — awaiting Run for Triage.",
+      undefined,
+      TRIAGE_NODE_ID,
+      {
+        stepKey: "awaiting_triage",
+        sections: [
+          {
+            key: "outputs",
+            title: "Outputs",
+            data: {
+              status: "awaiting_step",
+              awaitingNode: TRIAGE_NODE_ID,
+              caseNumber: dto.caseNumber ?? null
+            }
+          }
+        ]
+      }
+    );
   }
 
   /**
@@ -367,7 +387,10 @@ export class CaseTriageOrchestratorService {
    * terminal outcome or pauses for out-of-band approval (resolved via
    * {@link resume}, never here).
    */
-  async advance(workflowId: string): Promise<CaseTriageWorkflowSnapshot> {
+  async advance(
+    workflowId: string,
+    principal?: AuthPrincipal
+  ): Promise<CaseTriageWorkflowSnapshot> {
     const existing = await this.store.get(workflowId);
     if (!existing) {
       throw new NotFoundException({ error: "workflow_not_found" });
@@ -394,15 +417,43 @@ export class CaseTriageOrchestratorService {
     }
     const startedAt = Date.now();
     try {
-      // `null` input resumes the thread from its static `interruptAfter` pause.
-      const result = (await this.steppedGraph.invoke(null, {
-        configurable: { thread_id: workflowId }
-      })) as CaseTriageStateType;
+      const graphStarted = await this.isSteppedGraphStarted(workflowId);
+      this.principalForRag = principal;
+      let result: CaseTriageStateType;
+      if (!graphStarted) {
+        result = (await this.steppedGraph.invoke(
+          {
+            workflowId,
+            caseId: existing.caseId,
+            caseNumber: existing.caseNumber,
+            tenantId: this.resolveWorkflowTenantId(principal),
+            principalSubject: principal?.subject ?? "orchestrator",
+            approvalRequired: false,
+            writeBackApplied: false,
+            status: "running"
+          },
+          { configurable: { thread_id: workflowId } }
+        )) as CaseTriageStateType;
+      } else {
+        result = (await this.steppedGraph.invoke(null, {
+          configurable: { thread_id: workflowId }
+        })) as CaseTriageStateType;
+      }
       await this.settleStep(workflowId, result, startedAt);
     } catch (err) {
       await this.fail(workflowId, err);
+    } finally {
+      this.principalForRag = undefined;
     }
     return this.getSnapshot(workflowId);
+  }
+
+  private async isSteppedGraphStarted(workflowId: string): Promise<boolean> {
+    const state = await this.steppedGraph.getState({
+      configurable: { thread_id: workflowId }
+    });
+    const values = state.values as Partial<CaseTriageStateType> | undefined;
+    return Boolean(values?.workflowId);
   }
 
   async getSnapshot(workflowId: string): Promise<CaseTriageWorkflowSnapshot> {
@@ -734,43 +785,6 @@ export class CaseTriageOrchestratorService {
     await this.trackOnSalesforce(result.caseId, workflowId, "done");
     this.logTelemetry("done", workflowId, result.triage, startedAt);
     this.logCustomerHistoryTelemetry(workflowId, result.customerContext);
-  }
-
-  /**
-   * Stepped-mode initial invoke: runs Triage (readContext + runTriage, which
-   * now includes customer context read + synthesis before the triage LLM)
-   * then pauses at the first `interruptAfter` before knowledge. Mirrors
-   * {@link run} but settles a stepped pause instead of a terminal/approval
-   * outcome.
-   */
-  private async runStep(
-    workflowId: string,
-    dto: TriggerCaseTriageDto,
-    principal?: AuthPrincipal
-  ): Promise<void> {
-    const startedAt = Date.now();
-    this.principalForRag = principal;
-    const tenantId = this.resolveWorkflowTenantId(principal);
-    try {
-      const result = (await this.steppedGraph.invoke(
-        {
-          workflowId,
-          caseId: dto.caseId,
-          caseNumber: dto.caseNumber,
-          tenantId,
-          principalSubject: principal?.subject ?? "orchestrator",
-          approvalRequired: false,
-          writeBackApplied: false,
-          status: "running"
-        },
-        { configurable: { thread_id: workflowId } }
-      )) as CaseTriageStateType;
-      await this.settleStep(workflowId, result, startedAt);
-    } catch (err) {
-      await this.fail(workflowId, err);
-    } finally {
-      this.principalForRag = undefined;
-    }
   }
 
   /**

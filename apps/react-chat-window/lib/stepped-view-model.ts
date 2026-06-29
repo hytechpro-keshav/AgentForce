@@ -54,6 +54,8 @@ export interface SteppedListItem {
 export interface SteppedTraceStep {
   label: string;
   status: string;
+  /** Stable ordering key from orchestration events (when present). */
+  sequence?: number;
   fields: { k: string; v: string }[];
 }
 
@@ -192,6 +194,47 @@ const NODE_SHORT: Record<OrchestrationNodeId, string> = {
   guardrail: "Guardrail"
 };
 
+/** UI-only denylist — backend payloads unchanged; hidden in stepped accordion/trace. */
+export const HIDDEN_STEPPED_FIELD_LABELS = new Set([
+  "Priority",
+  "Recommended priority",
+  "Provider",
+  "Model",
+  "Fallback",
+  "Latency",
+  "Business risk",
+  "Repeat failure",
+  "Customer tier",
+  "SLA",
+  "Warranty",
+  "Strategic account",
+  "Installed assets",
+  "Assets found",
+  "Open incidents",
+  "Prior escalations"
+]);
+
+export function isHiddenSteppedUiField(label: string): boolean {
+  return HIDDEN_STEPPED_FIELD_LABELS.has(label);
+}
+
+function filterVisibleFields(fields: SteppedField[]): SteppedField[] {
+  return fields.filter((field) => !isHiddenSteppedUiField(field.k));
+}
+
+function filterTraceStepFields(
+  fields: { k: string; v: string }[]
+): { k: string; v: string }[] {
+  return fields.filter((field) => !isHiddenSteppedUiField(field.k));
+}
+
+function finalizeDetail(
+  sections: SteppedSection[],
+  trace: SteppedSection | null
+): SteppedSection[] {
+  return trace ? [trace, ...sections] : sections;
+}
+
 function yesNo(value: boolean | undefined): string {
   return value ? "Yes" : "No";
 }
@@ -221,14 +264,18 @@ function eventsForNode(
 }
 
 function traceSection(events: OrchestrationEvent[]): SteppedSection | null {
-  if (events.length === 0) return null;
-  const items: SteppedTraceStep[] = events.map((event) => ({
+  const progressEvents = events.filter((event) => event.status !== "awaiting_step");
+  if (progressEvents.length === 0) return null;
+  const items: SteppedTraceStep[] = progressEvents.map((event) => ({
     label: event.safeSummary ?? event.status,
     status: event.status,
-    fields: (event.details ?? []).map((detail) => ({
-      k: detail.label,
-      v: detail.value
-    }))
+    sequence: event.sequence,
+    fields: filterTraceStepFields(
+      (event.details ?? []).map((detail) => ({
+        k: detail.label,
+        v: detail.value
+      }))
+    )
   }));
   return { type: "trace", items };
 }
@@ -312,101 +359,6 @@ function buildTriage(
       type: "note",
       text: `Next: ${triage.suggestedNextStep}`
     });
-  }
-  detail.push({
-    type: "fields",
-    items: [
-      { k: "Priority", v: triage.recommendedPriority },
-      { k: "Provider", v: triage.provider || "—" },
-      { k: "Model", v: triage.model || "—" },
-      { k: "Fallback", v: yesNo(triage.fallbackUsed) },
-      { k: "Latency", v: ms(triage.latencyMs) ?? "—" }
-    ]
-  });
-
-  // Fold customer context findings into Triage accordion when present
-  if (customerContext?.package) {
-    const pkg = customerContext.package;
-    const risk = findingValue(pkg.businessRisk);
-    const repeat = pkg.repeatIncident?.value;
-    const customerFields: SteppedField[] = [];
-    if (risk) {
-      customerFields.push({
-        k: "Business risk",
-        v: risk,
-        h: pkg.businessRisk.evidenceBasis
-      });
-    }
-    if (repeat) {
-      customerFields.push({
-        k: "Repeat failure",
-        v: repeat.repeat ? `Triggered ×${repeat.count}` : "None",
-        h: pkg.repeatIncident?.evidenceBasis
-      });
-    }
-    const tierVal = findingValue(pkg.customerTier);
-    if (tierVal) {
-      customerFields.push({
-        k: "Customer tier",
-        v: tierVal,
-        h: pkg.customerTier?.evidenceBasis
-      });
-    }
-    const slaVal = findingValue(pkg.slaClass);
-    if (slaVal) {
-      customerFields.push({
-        k: "SLA",
-        v: slaVal,
-        h: pkg.slaClass?.evidenceBasis
-      });
-    }
-    const warrantyVal = findingValue(pkg.warrantyStatus);
-    if (warrantyVal) {
-      customerFields.push({
-        k: "Warranty",
-        v: warrantyVal,
-        h: pkg.warrantyStatus?.evidenceBasis
-      });
-    }
-    const strategicVal = findingValue(pkg.strategicAccount);
-    if (strategicVal) {
-      customerFields.push({
-        k: "Strategic account",
-        v: strategicVal,
-        h: pkg.strategicAccount?.evidenceBasis
-      });
-    }
-    if (pkg.installedAssets) {
-      const assets = pkg.installedAssets.value;
-      const assetLabel =
-        assets.primaryModel && assets.totalAssets > 0
-          ? `${assets.totalAssets} (${assets.primaryModel})`
-          : String(assets.totalAssets);
-      customerFields.push({
-        k: "Installed assets",
-        v: assetLabel,
-        h: pkg.installedAssets.evidenceBasis
-      });
-    }
-    const openCount = findingValue(pkg.openIncidentCount);
-    if (openCount !== undefined) {
-      customerFields.push({
-        k: "Open incidents",
-        v: openCount,
-        h: pkg.openIncidentCount?.evidenceBasis
-      });
-    }
-    const escalations = findingValue(pkg.escalationHistory);
-    if (escalations !== undefined) {
-      customerFields.push({
-        k: "Prior escalations",
-        v: escalations,
-        h: pkg.escalationHistory?.evidenceBasis
-      });
-    }
-    if (customerFields.length > 0) {
-      detail.push({ type: "fields", items: customerFields });
-    }
   } else if (customerContext && !customerContext.eligible) {
     detail.push({
       type: "note",
@@ -414,7 +366,6 @@ function buildTriage(
     });
   }
 
-  if (trace) detail.push(trace);
   const summaryOutput =
     triage.summary.length > 80
       ? `${triage.summary.slice(0, 77)}…`
@@ -423,7 +374,7 @@ function buildTriage(
     output: summaryOutput,
     latency: ms(triage.latencyMs),
     priorityBadge: triage.recommendedPriority,
-    detail
+    detail: finalizeDetail(detail, trace)
   };
 }
 
@@ -502,7 +453,10 @@ function buildCustomerContext(
     push("Customer tier", pkg.customerTier);
     push("SLA", pkg.slaClass);
     push("Warranty", pkg.warrantyStatus);
-    detail.push({ type: "fields", items: fields });
+    const visible = filterVisibleFields(fields);
+    if (visible.length) {
+      detail.push({ type: "fields", items: visible });
+    }
   }
 
   if (context.degraded && context.degradedSources?.length) {
@@ -511,12 +465,11 @@ function buildCustomerContext(
       text: `Degraded sources: ${context.degradedSources.join(", ")}`
     });
   }
-  if (trace) detail.push(trace);
 
   const output = context.eligible
     ? `${risk ?? "context"} business risk${repeat?.repeat ? ` · repeat ×${repeat.count}` : ""}`
     : "Skipped";
-  return { output, detail };
+  return { output, detail: finalizeDetail(detail, trace) };
 }
 
 function buildKnowledge(
@@ -537,32 +490,32 @@ function buildKnowledge(
   ];
 
   if (answer) {
-    detail.push({
-      type: "fields",
-      items: [
-        {
-          k: "Status",
-          v: knowledge.status ?? "—",
-          h: `Degraded: ${yesNo(knowledge.degraded)}`
-        },
-        {
-          k: "Sources found",
-          v: String(answer.sources.length),
-          h: answer.retrievalId
-            ? `Retrieval id: ${answer.retrievalId}`
-            : undefined
-        },
-        { k: "Guidance confidence", v: answer.guidanceConfidence ?? "—" },
-        { k: "Provider", v: answer.provider ?? "—" },
-        {
-          k: "Latency",
-          v: ms(answer.latencyMs) ?? "—",
-          h: answer.embeddingProvider
-            ? `Embeddings: ${answer.embeddingProvider}`
-            : undefined
-        }
-      ]
-    });
+    const knowledgeFields = filterVisibleFields([
+      {
+        k: "Status",
+        v: knowledge.status ?? "—",
+        h: `Degraded: ${yesNo(knowledge.degraded)}`
+      },
+      {
+        k: "Sources found",
+        v: String(answer.sources.length),
+        h: answer.retrievalId
+          ? `Retrieval id: ${answer.retrievalId}`
+          : undefined
+      },
+      { k: "Guidance confidence", v: answer.guidanceConfidence ?? "—" },
+      { k: "Provider", v: answer.provider ?? "—" },
+      {
+        k: "Latency",
+        v: ms(answer.latencyMs) ?? "—",
+        h: answer.embeddingProvider
+          ? `Embeddings: ${answer.embeddingProvider}`
+          : undefined
+      }
+    ]);
+    if (knowledgeFields.length) {
+      detail.push({ type: "fields", items: knowledgeFields });
+    }
     if (answer.recommendedActions?.length) {
       detail.push({
         type: "list",
@@ -622,14 +575,17 @@ function buildKnowledge(
       }))
     });
   }
-  if (trace) detail.push(trace);
 
   const output = `${knowledge.status ?? "—"} · ${answer?.sources.length ?? 0} sources${
     answer?.guidanceConfidence
       ? ` · ${answer.guidanceConfidence} confidence`
       : ""
   }`;
-  return { output, latency: ms(answer?.latencyMs), detail };
+  return {
+    output,
+    latency: ms(answer?.latencyMs),
+    detail: finalizeDetail(detail, trace)
+  };
 }
 
 function buildParts(
@@ -656,7 +612,7 @@ function buildParts(
     },
     {
       type: "fields",
-      items: [
+      items: filterVisibleFields([
         {
           k: "Status",
           v: parts.status ?? "—",
@@ -675,7 +631,7 @@ function buildParts(
             ]
           : []),
         ...(parts.provider ? [{ k: "Provider", v: parts.provider }] : [])
-      ]
+      ])
     }
   ];
   if (plans.length) {
@@ -702,7 +658,6 @@ function buildParts(
       }))
     });
   }
-  if (trace) detail.push(trace);
 
   const output = first
     ? `${first.partNumber} ${first.availability}${
@@ -711,7 +666,7 @@ function buildParts(
           : ""
       }`
     : (parts.status ?? "—");
-  return { output, detail };
+  return { output, detail: finalizeDetail(detail, trace) };
 }
 
 function buildScheduling(
@@ -791,14 +746,13 @@ function buildScheduling(
       text: "Point-in-time plan: readiness reflects parts availability as of this run. Technician identity is a sanitized reference, never a full name."
     });
   }
-  if (trace) detail.push(trace);
 
   const output = scheduling.recommendedResourceReference
     ? `${scheduling.recommendedResourceReference}${
         window?.displayWindow ? ` · ${window.displayWindow}` : ""
       }`
     : (scheduling.status ?? "—");
-  return { output, detail };
+  return { output, detail: finalizeDetail(detail, trace) };
 }
 
 const GUARDRAIL_OUTCOME_LABEL: Record<string, string> = {
@@ -860,11 +814,10 @@ function buildGuardrail(
       items: guardrail.approvalReasons.map((reason) => ({ title: reason }))
     });
   }
-  if (trace) detail.push(trace);
 
   const output = `${outcomeLabel} · risk ${guardrail.riskScore}/${guardrail.riskLevel}`;
   void decided;
-  return { output, detail };
+  return { output, detail: finalizeDetail(detail, trace) };
 }
 
 function buildVerdict(
@@ -993,6 +946,11 @@ export function buildVisibleActivity(
       return filterActivityForRevealed(activity, nodes, revealed);
     }
 
+    // Spine still animating — don't leak future-stage dispatch lines.
+    if (revealed < awaitingIndex) {
+      return filterActivityForRevealed(activity, nodes, revealed);
+    }
+
     const priorIds = new Set(
       nodes.slice(0, Math.max(0, awaitingIndex - 1)).map((node) => node.id)
     );
@@ -1063,11 +1021,12 @@ export function buildSteppedViewModel(
       buildTriage(
         snapshot.triage,
         snapshot.customerContext,
-        // Roll customer_history events into the triage trace (merged node)
-        traceSection([
-          ...eventsForNode(events, "triage"),
-          ...eventsForNode(events, "customer_history")
-        ])
+        traceSection(
+          [
+            ...eventsForNode(events, "triage"),
+            ...eventsForNode(events, "customer_history")
+          ].sort((a, b) => a.sequence - b.sequence)
+        )
       ),
     customer_history: () =>
       buildCustomerContext(

@@ -11,12 +11,15 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SteppedOrchestrationView } from "@/components/SteppedOrchestrationView";
+import { traceItemsFromDetail } from "@/components/SteppedLiveTrace";
 import {
   steppedAfterCustomerHistoryFixture,
   steppedInProgressTriageFixture,
   steppedPausedFixture,
   steppedSnapshotFixture
 } from "@/lib/__tests__/stepped-fixture";
+import { buildSteppedViewModel } from "@/lib/stepped-view-model";
+import type { OrchestrationSnapshot } from "@/lib/orchestration";
 
 const replaceMock = vi.fn();
 
@@ -24,9 +27,59 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: replaceMock })
 }));
 
-const REVEAL = 950;
-
 const WORKFLOW_ID = "wf-c79ee03d-a8fa-4316-9517-a9b4872833a4";
+
+function advanceTypingForSnapshot(
+  snapshot: OrchestrationSnapshot,
+  nodeIndex = 0
+) {
+  const items = traceItemsFromDetail(
+    buildSteppedViewModel(snapshot).nodes[nodeIndex]?.detail ?? []
+  );
+  const ticks =
+    items.reduce((total, item) => total + item.label.length, 0) +
+    Math.max(items.length, 1) * 6 +
+    20;
+  for (let tick = 0; tick < ticks; tick += 1) {
+    act(() => {
+      vi.advanceTimersByTime(40);
+    });
+  }
+}
+
+function advanceCompletionForSnapshot(
+  snapshot: OrchestrationSnapshot,
+  nodeIndex = 0
+) {
+  const node = buildSteppedViewModel(snapshot).nodes[nodeIndex];
+  if (!node) return;
+  let chars = 0;
+  let blocks = 0;
+  for (const section of node.detail) {
+    if (section.type === "summary" || section.type === "note") {
+      chars += section.text.length;
+      blocks += 1;
+    }
+  }
+  if (node.output) {
+    chars += node.output.length;
+    blocks += 1;
+  }
+  const ticks = chars + Math.max(blocks, 1) * 6 + 20;
+  for (let tick = 0; tick < ticks; tick += 1) {
+    act(() => {
+      vi.advanceTimersByTime(40);
+    });
+  }
+}
+
+function completeStageReveal(
+  snapshot: OrchestrationSnapshot,
+  nodeIndex = 0
+) {
+  advanceTypingForSnapshot(snapshot, nodeIndex);
+  advanceCompletionForSnapshot(snapshot, nodeIndex);
+}
 
 describe("SteppedOrchestrationView", () => {
   beforeEach(() => vi.useFakeTimers());
@@ -56,12 +109,11 @@ describe("SteppedOrchestrationView", () => {
         (event) => event.status !== "awaiting_step"
       )
     };
-    const paused = steppedPausedFixture();
     let poll = 0;
 
     vi.spyOn(global, "fetch").mockImplementation(async () => {
       poll += 1;
-      const body = poll === 1 ? running : paused;
+      const body = poll === 1 ? running : steppedPausedFixture();
       return new Response(JSON.stringify(body), {
         status: 200,
         headers: { "content-type": "application/json" }
@@ -69,15 +121,12 @@ describe("SteppedOrchestrationView", () => {
     });
 
     render(
-      <SteppedOrchestrationView workflowId={WORKFLOW_ID} pollIntervalMs={50} />
+      <SteppedOrchestrationView
+        workflowId={WORKFLOW_ID}
+        pollIntervalMs={50}
+        initialSnapshot={running}
+      />
     );
-
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
-    expect(screen.getByText(/analysing request/i)).toBeInTheDocument();
 
     await act(async () => {
       vi.advanceTimersByTime(50);
@@ -85,38 +134,73 @@ describe("SteppedOrchestrationView", () => {
       await Promise.resolve();
     });
 
-    act(() => {
-      vi.advanceTimersByTime(REVEAL);
+    expect(screen.getByText(/Execution trace/i)).toBeInTheDocument();
+    expect(screen.getByTestId("stepped-live-trace-cursor")).toBeInTheDocument();
+    expect(screen.getByText("0 / 5")).toBeInTheDocument();
+
+    await act(async () => {
+      vi.advanceTimersByTime(50);
+      await Promise.resolve();
+      await Promise.resolve();
     });
 
-    expect(screen.getByTestId("priority-badge-normal")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /Run Knowledge Base/i })
-    ).toBeEnabled();
+    expect(screen.getByTestId("stepped-live-trace-cursor")).toBeInTheDocument();
+    expect(screen.getByText("0 / 5")).toBeInTheDocument();
   });
 
-  it("plays a triage intro animation before showing the next Run button", () => {
+  it("plays a triage intro animation while the backend is still running triage", () => {
+    const runningTriage = {
+      ...steppedPausedFixture(),
+      status: "running" as const,
+      node: "triage" as const,
+      triage: undefined,
+      customerContext: undefined
+    };
     render(
       <SteppedOrchestrationView
         workflowId={WORKFLOW_ID}
         pollIntervalMs={0}
-        initialSnapshot={steppedPausedFixture()}
+        initialSnapshot={runningTriage}
       />
     );
 
-    expect(screen.getByText(/analysing request/i)).toBeInTheDocument();
+    expect(screen.getByText(/Execution trace/i)).toBeInTheDocument();
+    expect(screen.getByTestId("stepped-live-trace-cursor")).toBeInTheDocument();
+    expect(screen.getByText("0 / 5")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /Run Knowledge Base/i })
     ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("priority-badge-normal")).not.toBeInTheDocument();
+  });
 
-    act(() => {
-      vi.advanceTimersByTime(REVEAL);
+  it("shows Run Triage when the workflow is paused before the first stage", () => {
+    const pausedBeforeTriage = steppedPausedFixture({
+      node: "triage",
+      status: "awaiting_step",
+      triage: undefined,
+      customerContext: undefined,
+      events: [
+        {
+          node: "triage",
+          status: "awaiting_step",
+          sequence: 1,
+          occurredAt: "t1",
+          safeSummary: "Stage complete — awaiting Run for Triage."
+        }
+      ]
     });
-
-    expect(screen.getByTestId("priority-badge-normal")).toBeInTheDocument();
+    render(
+      <SteppedOrchestrationView
+        workflowId={WORKFLOW_ID}
+        pollIntervalMs={0}
+        initialSnapshot={pausedBeforeTriage}
+      />
+    );
+    expect(screen.getByText("Agent activated")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /Run Knowledge Base/i })
+      screen.getByRole("button", { name: /Run Triage/i })
     ).toBeEnabled();
+    expect(screen.queryByTestId("triage-insight-rationale")).not.toBeInTheDocument();
   });
 
   it("shows triage complete and gates the next stage in a stepped run", () => {
@@ -169,6 +253,50 @@ describe("SteppedOrchestrationView", () => {
     expect(screen.getAllByText(/business risk/i).length).toBeGreaterThan(0);
     expect(screen.getByText("5 / 5")).toBeInTheDocument();
   });
+
+  it("hydrates stepped progress on workflow refresh without replaying triage", () => {
+    render(
+      <SteppedOrchestrationView
+        workflowId={WORKFLOW_ID}
+        pollIntervalMs={0}
+        initialSnapshot={steppedPausedFixture()}
+      />
+    );
+    act(() => {
+      vi.advanceTimersByTime(0);
+    });
+
+    expect(screen.getByText("1 / 5")).toBeInTheDocument();
+    expect(screen.getByTestId("triage-insight-rationale")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Run Knowledge Base/i })
+    ).toBeEnabled();
+    expect(screen.queryByTestId("stepped-live-trace-cursor")).not.toBeInTheDocument();
+    expect(screen.getByText(/Ready to dispatch → Knowledge Base/i)).toBeInTheDocument();
+  });
+
+  it("collapses a done stage accordion when the header is clicked", () => {
+    render(
+      <SteppedOrchestrationView
+        workflowId={WORKFLOW_ID}
+        pollIntervalMs={0}
+        initialSnapshot={steppedPausedFixture()}
+      />
+    );
+    act(() => {
+      vi.advanceTimersByTime(0);
+    });
+
+    const triageNode = screen.getByTestId("stepped-node-triage");
+    const detail = screen.getByTestId("stepped-node-detail-triage");
+    expect(detail).toBeInTheDocument();
+
+    fireEvent.click(triageNode.querySelector('[class*="chead"]')!);
+    expect(screen.queryByTestId("stepped-node-detail-triage")).not.toBeInTheDocument();
+
+    fireEvent.click(triageNode.querySelector('[class*="chead"]')!);
+    expect(screen.getByTestId("stepped-node-detail-triage")).toBeInTheDocument();
+  });
 });
 
 describe("SteppedOrchestrationView — Phase 2 (real stepped run)", () => {
@@ -188,8 +316,10 @@ describe("SteppedOrchestrationView — Phase 2 (real stepped run)", () => {
       />
     );
     act(() => {
-      vi.advanceTimersByTime(REVEAL);
+      vi.advanceTimersByTime(0);
     });
+    advanceTypingForSnapshot(steppedPausedFixture());
+    advanceCompletionForSnapshot(steppedPausedFixture());
   }
 
   it("shows the Run button enabled for the awaiting node in stepped mode", () => {
@@ -230,9 +360,8 @@ describe("SteppedOrchestrationView — Phase 2 (real stepped run)", () => {
       await Promise.resolve();
       await Promise.resolve();
     });
-    await act(async () => {
-      vi.advanceTimersByTime(REVEAL);
-    });
+    advanceTypingForSnapshot(advanceResponse, 1);
+    advanceCompletionForSnapshot(advanceResponse, 1);
 
     // The advance proxy was called with the right workflow id.
     expect(fetchMock).toHaveBeenCalledWith(

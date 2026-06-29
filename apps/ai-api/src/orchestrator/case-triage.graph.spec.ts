@@ -909,8 +909,7 @@ describe("case-triage graph — stepped mode (Phase 2)", () => {
     const graph = buildCaseTriageGraph(h.deps, { stepped: true });
     const config = { configurable: { thread_id: "wf-step-1" } };
 
-    // Initial invoke auto-runs Triage (readContext + runTriage, which now
-    // includes customer read + synthesis), then pauses before knowledge.
+    // First advance runs Triage (readContext + runTriage), then pauses before knowledge.
     const afterTriage = (await graph.invoke(
       initialState("wf-step-1"),
       config

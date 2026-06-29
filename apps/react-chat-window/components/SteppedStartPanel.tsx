@@ -93,10 +93,9 @@ export function SteppedStartPanel({ caseId, onStarted }: SteppedStartPanelProps)
     <div className={styles.startPanel}>
       <p className={styles.startTitle}>No orchestration run yet</p>
       <p className={styles.startCopy}>
-        Start a stepped run to execute Triage automatically, then advance each
-        stage manually with Run. Automatic orchestration runs are not shown on
-        this screen. From demo Case create you should land here with a stepped
-        run already started; otherwise sign in with the operator access code.
+        Start a stepped run, then use <b>Run</b> on each stage — Triage first,
+        then Knowledge Base through Guardrail. Demo Case create opens the new
+        Case in Salesforce; return here when you are ready to orchestrate.
       </p>
       {error ? (
         <p className={styles.startError} role="alert">

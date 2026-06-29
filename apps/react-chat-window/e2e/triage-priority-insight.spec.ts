@@ -79,25 +79,40 @@ async function pollSnapshot(
 }
 
 async function createDisplayTransferWorkflow(page: Page): Promise<string> {
-  await page.goto("/demo/case-create");
-  await expect(
-    page.getByRole("heading", { name: /Create a live Salesforce Case/i })
-  ).toBeVisible({ timeout: 30_000 });
-  await shot(page, "01-demo-case-create");
-
-  await page.getByLabel("Scenario").selectOption("display-transfer");
-  await page
-    .getByRole("button", { name: /Create case & step through/i })
-    .click();
-
-  await page.waitForURL(/\/orchestration\/stepped\?workflowId=wf-/i, {
-    timeout: 120_000
+  const createResponse = await page.request.post("/api/demo/cases", {
+    headers: { "content-type": "application/json" },
+    data: { scenarioId: "display-transfer" }
   });
-  const workflowId = new URL(page.url()).searchParams.get("workflowId");
-  expect(workflowId).toMatch(/^wf-/);
+  expect(createResponse.ok()).toBeTruthy();
+  const created = (await createResponse.json()) as {
+    caseId: string;
+    salesforceCaseUrl?: string;
+  };
+  expect(created.caseId).toMatch(/^[a-zA-Z0-9]{15,18}$/);
+  expect(created.salesforceCaseUrl).toContain("/lightning/r/Case/");
+
+  const steppedResponse = await page.request.post(
+    `/api/orchestrator/case/${encodeURIComponent(created.caseId)}/stepped`,
+    {
+      headers: { "content-type": "application/json" },
+      data: { caseId: created.caseId }
+    }
+  );
+  expect(steppedResponse.ok()).toBeTruthy();
+  const stepped = (await steppedResponse.json()) as { workflowId?: string };
+  expect(stepped.workflowId).toMatch(/^wf-/);
+
+  await page.goto(
+    `/orchestration/stepped?workflowId=${encodeURIComponent(stepped.workflowId!)}`
+  );
   await expect(page.getByText(/Operator sign-in required/i)).not.toBeVisible();
+  await expect(page.getByText("Agent activated")).toBeVisible();
   await shot(page, "02-stepped-bootstrap");
-  return workflowId!;
+
+  await page.getByRole("button", { name: /Run Triage/i }).click();
+  await shot(page, "02b-triage-running");
+
+  return stepped.workflowId!;
 }
 
 test.describe("Triage priority insight (deployed)", () => {

@@ -4,12 +4,10 @@ import {
   ForbiddenException,
   HttpCode,
   Post,
-  Req,
   ServiceUnavailableException
 } from "@nestjs/common";
 
 import { RequireScopes } from "../auth/require-scopes.decorator";
-import type { AuthenticatedRequest } from "../auth/jwt-auth.guard";
 import { OperatorOrchestrationSessionService } from "../auth/operator-orchestration-session.service";
 import type { OperatorOrchestrationSessionResponseDto } from "../auth/dto/operator-orchestration-session.dto";
 import { AppConfigService } from "../config/app-config.service";
@@ -31,8 +29,7 @@ export class DemoCaseCreateController {
   @Post("cases")
   @HttpCode(201)
   async create(
-    @Body() body: DemoCaseCreateDto,
-    @Req() request: AuthenticatedRequest
+    @Body() body: DemoCaseCreateDto
   ): Promise<DemoCaseCreateResponseDto> {
     if (!this.config.demoCaseCreate.enabled) {
       throw new ForbiddenException({
@@ -46,7 +43,7 @@ export class DemoCaseCreateController {
         message: "Salesforce connectivity is not configured for demo Case create."
       });
     }
-    return this.service.create(body, request.authPrincipal);
+    return this.service.create(body);
   }
 
   @RequireScopes("agentforce:demo-case-create")

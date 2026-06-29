@@ -165,8 +165,7 @@ export class DemoCaseCreateDto {
 export class DemoCaseCreateResponseDto {
   caseId!: string;
   caseNumber?: string;
+  /** Lightning URL for the created Case record. */
+  salesforceCaseUrl!: string;
   orchestrationUrl!: string;
-  steppedOrchestrationUrl!: string;
-  /** Present when demo create auto-started a stepped run on ai-api. */
-  steppedWorkflowId?: string;
 }

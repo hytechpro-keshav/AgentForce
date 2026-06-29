@@ -13,9 +13,11 @@ export default defineConfig({
   workers: 1,
   reporter: [["list"]],
   timeout: 60_000,
+  outputDir: "test-results/playwright",
   use: {
     baseURL,
-    trace: "on-first-retry",
+    trace: "on",
+    video: "on",
     screenshot: "only-on-failure"
   },
   projects: [

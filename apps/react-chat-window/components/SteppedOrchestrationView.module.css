@@ -751,6 +751,9 @@
 .accordionOpen {
   max-height: 3000px;
 }
+.accordionRunning {
+  margin-top: 9px;
+}
 .accInner {
   padding: 14px 0 4px;
 }
@@ -982,6 +985,27 @@
 .tf b {
   color: #2a2a27;
   font-weight: 600;
+}
+
+.typeCursor {
+  display: inline-block;
+  margin-left: 1px;
+  color: var(--black);
+  animation: cursorBlink 0.9s step-end infinite;
+}
+.tstepLive .tknot {
+  box-shadow: 0 0 0 2px rgba(17, 17, 17, 0.12);
+}
+
+@keyframes cursorBlink {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  46%,
+  100% {
+    opacity: 0;
+  }
 }
 
 /* terminal verdict */

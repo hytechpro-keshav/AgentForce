@@ -141,16 +141,22 @@ test.describe("Triage demo signal gaps (deployed)", () => {
       expect(repeatValue).not.toMatch(/500[a-zA-Z0-9]{12,}/);
     });
 
-    await test.step("S3 — stepped Triage UI shows summary + installed assets", async () => {
-      const triageCard = page.locator("div").filter({ hasText: "01" }).filter({
-        hasText: "Triage"
-      }).first();
+    await test.step("S3 — stepped Triage UI shows summary and execution trace first", async () => {
+      const triageCard = page.getByTestId("stepped-node-triage");
       await expect(triageCard.getByText("DONE")).toBeVisible({ timeout: 60_000 });
-      await triageCard.click();
-      await expect(page.getByText(/battery|ProBook/i).first()).toBeVisible();
+      await triageCard.locator('[class*="chead"]').click();
+
+      const detail = page.getByTestId("stepped-node-detail-triage");
+      await expect(detail.getByTestId("stepped-detail-trace")).toBeVisible();
+      await expect(detail.getByTestId("stepped-detail-summary")).toBeVisible();
+      await expect(detail.getByText(/battery|ProBook/i).first()).toBeVisible();
       await expect(
-        page.locator("div").filter({ hasText: /^Installed assets$/ }).first()
-      ).toBeVisible();
+        detail.locator("div").filter({ hasText: /^Installed assets$/ })
+      ).toHaveCount(0);
+
+      const assets =
+        triageReady.customerContext?.package?.installedAssets?.value?.totalAssets;
+      expect(typeof assets).toBe("number");
       await shot(page, "04-triage-ui-detail");
     });
 
