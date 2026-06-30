@@ -350,6 +350,9 @@ export interface OrchestrationTriage {
   suggestedNextStep: string;
   priorityRationale?: string;
   priorityFactors?: TriagePriorityFactor[];
+  workflowConfidence?: number;
+  confidenceFactors?: TriagePriorityFactor[];
+  humanInterventionRecommended?: boolean;
   provider: string;
   model: string;
   fallbackUsed: boolean;
@@ -482,16 +485,38 @@ function sanitizePriorityFactors(
   return factors;
 }
 
+function sanitizeWorkflowConfidence(value: unknown): number | undefined {
+  const confidence =
+    typeof value === "number" && Number.isFinite(value)
+      ? Math.round(value)
+      : typeof value === "string" && /^\d+$/.test(value)
+        ? Number.parseInt(value, 10)
+        : undefined;
+  if (confidence === undefined || confidence < 0 || confidence > 100) {
+    return undefined;
+  }
+  return confidence;
+}
+
 function sanitizeTriage(value: unknown): OrchestrationTriage | undefined {
   if (!value || typeof value !== "object") return undefined;
   const record = value as Record<string, unknown>;
   if (!isPriority(record.recommendedPriority)) return undefined;
+  const workflowConfidence = sanitizeWorkflowConfidence(record.workflowConfidence);
   return {
     recommendedPriority: record.recommendedPriority,
     summary: str(record.summary, 280) ?? "",
     suggestedNextStep: str(record.suggestedNextStep, 280) ?? "",
     priorityRationale: str(record.priorityRationale, 280),
     priorityFactors: sanitizePriorityFactors(record.priorityFactors),
+    workflowConfidence,
+    confidenceFactors: sanitizePriorityFactors(record.confidenceFactors),
+    humanInterventionRecommended:
+      typeof record.humanInterventionRecommended === "boolean"
+        ? record.humanInterventionRecommended
+        : workflowConfidence !== undefined
+          ? workflowConfidence < 70
+          : undefined,
     provider: str(record.provider, 60) ?? "",
     model: str(record.model, 120) ?? "",
     fallbackUsed: record.fallbackUsed === true,

@@ -104,6 +104,10 @@ export interface SteppedNode {
   latency?: string;
   /** Priority badge shown on the Triage row header when done. */
   priorityBadge?: TriagePriority;
+  /** Triage-only workflow completion confidence (0–100). */
+  workflowConfidence?: number;
+  confidenceFactors?: TriagePriorityFactor[];
+  humanInterventionRecommended?: boolean;
   detail: SteppedSection[];
 }
 
@@ -117,6 +121,8 @@ export interface SteppedVerdict {
 
 export interface SteppedActivityEntry {
   seq: number;
+  /** Renumbered 1…n for operator-facing ACTIVITY log (optional). */
+  displaySeq?: number;
   kind: "sys" | "out" | "in" | "warn";
   nodeId: OrchestrationNodeId;
   text: string;
@@ -337,6 +343,9 @@ function buildTriage(
   output?: string;
   latency?: string;
   priorityBadge?: TriagePriority;
+  workflowConfidence?: number;
+  confidenceFactors?: TriagePriorityFactor[];
+  humanInterventionRecommended?: boolean;
   detail: SteppedSection[];
 } {
   if (!triage) {
@@ -374,6 +383,9 @@ function buildTriage(
     output: summaryOutput,
     latency: ms(triage.latencyMs),
     priorityBadge: triage.recommendedPriority,
+    workflowConfidence: triage.workflowConfidence,
+    confidenceFactors: triage.confidenceFactors,
+    humanInterventionRecommended: triage.humanInterventionRecommended,
     detail: finalizeDetail(detail, trace)
   };
 }
@@ -915,9 +927,62 @@ export function filterActivityForRevealed(
 }
 
 function isFrontierPauseEntry(entry: SteppedActivityEntry): boolean {
+  return entry.kind === "sys" && isPauseEntry(entry);
+}
+
+/** Outbound trace line that is still in-flight (not a pause or completion). */
+export function isInFlightTraceEntry(entry: SteppedActivityEntry): boolean {
+  if (entry.kind !== "out") return false;
+  if (entry.text.includes("· complete")) return false;
+  if (entry.text.startsWith("Ready to dispatch")) return false;
+  if (isPauseEntry(entry)) return false;
+  return true;
+}
+
+export function isPauseEntry(entry: SteppedActivityEntry): boolean {
+  if (entry.kind !== "sys") return false;
   return (
-    entry.kind === "sys" && entry.text.includes("Stage complete — awaiting Run")
+    entry.text.includes("Stage complete — awaiting Run") ||
+    entry.text.includes("press Run for") ||
+    entry.text.includes("Workflow ready")
   );
+}
+
+/** Tolerate legacy backend pause strings until ai-api deploys Phase E copy. */
+export function normalizePauseActivityText(
+  text: string,
+  completedNode?: Pick<SteppedNode, "name">,
+  frontierNode?: Pick<SteppedNode, "name">
+): string {
+  if (text.includes("awaiting Run for Triage")) {
+    return "Workflow ready — press Run for Triage.";
+  }
+  const legacy = /^Stage complete — awaiting Run for (.+)\.$/.exec(text);
+  if (legacy && completedNode && frontierNode) {
+    return `${completedNode.name} complete — press Run for ${frontierNode.name}.`;
+  }
+  return text;
+}
+
+function withDisplaySeq(
+  entries: SteppedActivityEntry[]
+): SteppedActivityEntry[] {
+  return entries.map((entry, index) => ({
+    ...entry,
+    displaySeq: index + 1
+  }));
+}
+
+function collapseStageActivity(
+  nodes: SteppedNode[],
+  revealed: number
+): SteppedActivityEntry[] {
+  return nodes.slice(0, revealed).map((node, index) => ({
+    seq: index + 1,
+    kind: "in" as const,
+    nodeId: node.id,
+    text: `← ${NODE_SHORT[node.id]} · complete`
+  }));
 }
 
 function nextSyntheticSeq(
@@ -940,39 +1005,76 @@ export function buildVisibleActivity(
   revealed: number,
   snapshot: Pick<OrchestrationSnapshot, "status" | "node">
 ): SteppedActivityEntry[] {
+  if (
+    snapshot.status === "done" ||
+    snapshot.status === "rejected" ||
+    snapshot.status === "escalated"
+  ) {
+    const summary = collapseStageActivity(nodes, revealed);
+    const terminal = activity
+      .filter(
+        (entry) =>
+          entry.kind === "warn" ||
+          (entry.kind === "in" && !entry.text.includes("· complete"))
+      )
+      .filter((entry) => !isInFlightTraceEntry(entry))
+      .slice(-1);
+    return withDisplaySeq([...summary, ...terminal]);
+  }
+
   if (snapshot.status === "awaiting_step" && snapshot.node) {
     const awaitingIndex = nodes.findIndex((node) => node.id === snapshot.node);
     if (awaitingIndex < 0) {
-      return filterActivityForRevealed(activity, nodes, revealed);
+      return withDisplaySeq(
+        filterActivityForRevealed(activity, nodes, revealed)
+      );
     }
 
     // Spine still animating — don't leak future-stage dispatch lines.
     if (revealed < awaitingIndex) {
-      return filterActivityForRevealed(activity, nodes, revealed);
+      return withDisplaySeq(
+        filterActivityForRevealed(activity, nodes, revealed).filter(
+          (entry) => !isInFlightTraceEntry(entry)
+        )
+      );
     }
 
     const priorIds = new Set(
       nodes.slice(0, Math.max(0, awaitingIndex - 1)).map((node) => node.id)
     );
-    const result = activity.filter((entry) => priorIds.has(entry.nodeId));
+    const result = activity.filter((entry) => {
+      if (!priorIds.has(entry.nodeId)) return false;
+      if (isInFlightTraceEntry(entry)) return false;
+      return true;
+    });
 
     const completedNode =
       awaitingIndex > 0 ? nodes[awaitingIndex - 1] : undefined;
+    const frontierNode = nodes[awaitingIndex];
     if (completedNode) {
       result.push({
         seq: nextSyntheticSeq(activity),
         kind: "in",
         nodeId: completedNode.id,
-        text: `${NODE_SHORT[completedNode.id]} · complete`
+        text: `← ${NODE_SHORT[completedNode.id]} · complete`
       });
     }
 
-    const frontierPauses = activity.filter(
-      (entry) => entry.nodeId === snapshot.node && isFrontierPauseEntry(entry)
-    );
+    const frontierPauses = activity
+      .filter(
+        (entry) => entry.nodeId === snapshot.node && isFrontierPauseEntry(entry)
+      )
+      .map((entry) => ({
+        ...entry,
+        text: normalizePauseActivityText(
+          entry.text,
+          completedNode,
+          frontierNode
+        )
+      }));
     result.push(...frontierPauses);
 
-    const frontierName = nodes[awaitingIndex]?.name ?? "next stage";
+    const frontierName = frontierNode?.name ?? "next stage";
     result.push({
       seq: nextSyntheticSeq([...activity, ...result], 2),
       kind: "out",
@@ -980,23 +1082,23 @@ export function buildVisibleActivity(
       text: `Ready to dispatch → ${frontierName}`
     });
 
-    return result.sort((a, b) => a.seq - b.seq);
+    return withDisplaySeq(result.sort((a, b) => a.seq - b.seq));
   }
 
   if (
     (snapshot.status === "running" || snapshot.status === "assigned") &&
     snapshot.node
   ) {
-    const activeIndex = nodes.findIndex((node) => node.id === snapshot.node);
-    const visibleIds = new Set(
-      nodes
-        .slice(0, activeIndex >= 0 ? activeIndex + 1 : revealed)
-        .map((node) => node.id)
+    return withDisplaySeq(
+      activity.filter((entry) => entry.nodeId === snapshot.node)
     );
-    return activity.filter((entry) => visibleIds.has(entry.nodeId));
   }
 
-  return filterActivityForRevealed(activity, nodes, revealed);
+  return withDisplaySeq(
+    filterActivityForRevealed(activity, nodes, revealed).filter(
+      (entry) => !isInFlightTraceEntry(entry)
+    )
+  );
 }
 
 /**
@@ -1014,6 +1116,9 @@ export function buildSteppedViewModel(
       output?: string;
       latency?: string;
       priorityBadge?: TriagePriority;
+      workflowConfidence?: number;
+      confidenceFactors?: TriagePriorityFactor[];
+      humanInterventionRecommended?: boolean;
       detail: SteppedSection[];
     }
   > = {
@@ -1081,6 +1186,9 @@ export function buildSteppedViewModel(
       output: built.output,
       latency: built.latency,
       priorityBadge: built.priorityBadge,
+      workflowConfidence: built.workflowConfidence,
+      confidenceFactors: built.confidenceFactors,
+      humanInterventionRecommended: built.humanInterventionRecommended,
       detail: built.detail
     };
   });

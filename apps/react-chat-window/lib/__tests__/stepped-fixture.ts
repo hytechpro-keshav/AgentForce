@@ -41,6 +41,14 @@ export function steppedSnapshotFixture(
         { id: "repeat_pattern", label: "Repeat pattern", weight: 5 },
         { id: "warranty", label: "Warranty", weight: 5 }
       ],
+      workflowConfidence: 82,
+      confidenceFactors: [
+        { id: "case_clarity", label: "Case clarity", weight: 30 },
+        { id: "data_completeness", label: "Data completeness", weight: 25 },
+        { id: "routing_certainty", label: "Routing certainty", weight: 25 },
+        { id: "step_feasibility", label: "Step feasibility", weight: 20 }
+      ],
+      humanInterventionRecommended: false,
       provider: "openai",
       model: "gpt-4o-mini",
       fallbackUsed: false,
@@ -294,6 +302,14 @@ export function steppedPausedFixture(
         { id: "repeat_pattern", label: "Repeat pattern", weight: 5 },
         { id: "warranty", label: "Warranty", weight: 5 }
       ],
+      workflowConfidence: 82,
+      confidenceFactors: [
+        { id: "case_clarity", label: "Case clarity", weight: 30 },
+        { id: "data_completeness", label: "Data completeness", weight: 25 },
+        { id: "routing_certainty", label: "Routing certainty", weight: 25 },
+        { id: "step_feasibility", label: "Step feasibility", weight: 20 }
+      ],
+      humanInterventionRecommended: false,
       provider: "openai",
       model: "gpt-4o-mini",
       fallbackUsed: false,
@@ -349,7 +365,7 @@ export function steppedPausedFixture(
         status: "awaiting_step",
         sequence: 4,
         occurredAt: "t4",
-        safeSummary: "Stage complete — awaiting Run for Knowledge Base."
+        safeSummary: "Triage complete — press Run for Knowledge Base."
       }
     ],
     ...overrides
@@ -362,7 +378,7 @@ export function steppedPausedFixture(
 export function steppedInProgressTriageFixture(): OrchestrationSnapshot {
   return {
     workflowId: "wf-c79ee03d-a8fa-4316-9517-a9b4872833a4",
-    node: "knowledge",
+    node: "triage",
     caseNumber: "00001079",
     status: "running",
     approvalRequired: false,
@@ -381,6 +397,14 @@ export function steppedInProgressTriageFixture(): OrchestrationSnapshot {
         { id: "repeat_pattern", label: "Repeat pattern", weight: 5 },
         { id: "warranty", label: "Warranty", weight: 5 }
       ],
+      workflowConfidence: 82,
+      confidenceFactors: [
+        { id: "case_clarity", label: "Case clarity", weight: 30 },
+        { id: "data_completeness", label: "Data completeness", weight: 25 },
+        { id: "routing_certainty", label: "Routing certainty", weight: 25 },
+        { id: "step_feasibility", label: "Step feasibility", weight: 20 }
+      ],
+      humanInterventionRecommended: false,
       provider: "openai",
       model: "gpt-4o-mini",
       fallbackUsed: false,
@@ -483,7 +507,7 @@ export function steppedAfterCustomerHistoryFixture(): OrchestrationSnapshot {
         sequence: 7,
         occurredAt: "t7",
         safeSummary:
-          "Stage complete — awaiting Run for Parts & Logistics."
+          "Knowledge Base complete — press Run for Parts & Logistics."
       }
     ]
   });

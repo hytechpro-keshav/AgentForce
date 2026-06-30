@@ -1146,3 +1146,38 @@ describe("CaseTriageOrchestratorService", () => {
     });
   });
 });
+
+describe("CaseTriageOrchestratorService — stepped pause copy", () => {
+  it("bootstrap pause says Workflow ready, not Stage complete", async () => {
+    const h = buildHarness();
+    const accepted = await h.service.triggerStepped({
+      caseId: "500000000000001",
+      caseNumber: "00004242"
+    });
+    const snapshot = await h.store.get(accepted.workflowId);
+    const pauseEvent = snapshot?.events?.find(
+      (event) => event.status === "awaiting_step"
+    );
+    expect(pauseEvent?.safeSummary).toBe(
+      "Workflow ready — press Run for Triage."
+    );
+    expect(snapshot?.node).toBe("triage");
+  });
+
+  it("post-triage pause names Triage complete, not Knowledge", async () => {
+    const h = buildHarness();
+    const accepted = await h.service.triggerStepped({
+      caseId: "500000000000001",
+      caseNumber: "00004242"
+    });
+    const advanced = await h.service.advance(accepted.workflowId);
+    const pauseEvents =
+      advanced.events?.filter((event) => event.status === "awaiting_step") ??
+      [];
+    const latest = pauseEvents[pauseEvents.length - 1];
+    expect(latest?.safeSummary).toBe(
+      "Triage complete — press Run for Knowledge Base."
+    );
+    expect(advanced.node).toBe("knowledge");
+  });
+});

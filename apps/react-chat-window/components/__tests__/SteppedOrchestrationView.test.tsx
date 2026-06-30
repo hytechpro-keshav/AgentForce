@@ -211,6 +211,10 @@ describe("SteppedOrchestrationView", () => {
     expect(screen.getByTestId("triage-insight-rationale")).toHaveTextContent(
       /Strategic account/i
     );
+    expect(screen.getByTestId("triage-confidence-chart")).toBeInTheDocument();
+    expect(screen.getByTestId("triage-confidence-verdict")).toHaveTextContent(
+      /AI can likely complete the workflow/i
+    );
     expect(screen.getByText("1 / 5")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Run Knowledge Base/i })
@@ -406,6 +410,54 @@ describe("SteppedOrchestrationView — Phase 2 (real stepped run)", () => {
     });
 
     expect(screen.getByRole("alert")).toHaveTextContent(/advance failed/i);
+  });
+
+  it("shows RUNNING on the node header during completion animation", async () => {
+    const advanceResponse = steppedAfterCustomerHistoryFixture();
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify(advanceResponse), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      })
+    );
+
+    mountStepped();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Run Knowledge Base/i })
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    advanceTypingForSnapshot(advanceResponse, 1);
+
+    const knowledgeNode = screen.getByTestId("stepped-node-knowledge");
+    expect(within(knowledgeNode).getByText("RUNNING")).toBeInTheDocument();
+  });
+
+  it("shows Receiving in the sidebar during completion animation", async () => {
+    const advanceResponse = steppedAfterCustomerHistoryFixture();
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify(advanceResponse), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      })
+    );
+
+    mountStepped();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Run Knowledge Base/i })
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    advanceTypingForSnapshot(advanceResponse, 1);
+
+    expect(screen.getByText(/Receiving/i)).toBeInTheDocument();
+    expect(screen.queryByText(/^Working…$/)).not.toBeInTheDocument();
   });
 });
 

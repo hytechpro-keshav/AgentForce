@@ -158,7 +158,7 @@ export class TriageCaseRequestDto {
   customerSignals?: TriageCustomerSignals;
 }
 
-/** AI-assigned relative influence factor for priority (weights sum to 100). */
+/** AI-assigned relative influence factor (weights sum to 100). */
 export interface TriagePriorityFactor {
   id: string;
   label: string;
@@ -173,6 +173,15 @@ export interface TriageCaseResponseDto {
   priorityRationale?: string;
   /** Optional factor mix for operator insight charts; omitted when invalid. */
   priorityFactors?: TriagePriorityFactor[];
+  /**
+   * 0–100 score for how confidently the AI can orchestrate this case through
+   * the remaining workflow without human intervention.
+   */
+  workflowConfidence?: number;
+  /** Optional drivers behind workflowConfidence; omitted when invalid. */
+  confidenceFactors?: TriagePriorityFactor[];
+  /** True when operator review is recommended before advancing the workflow. */
+  humanInterventionRecommended?: boolean;
   provider: string;
   model: string;
   fallbackUsed: boolean;

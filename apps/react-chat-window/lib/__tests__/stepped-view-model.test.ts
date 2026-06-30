@@ -129,6 +129,9 @@ describe("buildSteppedViewModel", () => {
       expect.arrayContaining(["NORMAL", "MEDIUM RISK", "NO REPEAT"])
     );
     expect(vm.nodes[0].priorityBadge).toBe("normal");
+    expect(vm.nodes[0].workflowConfidence).toBe(82);
+    expect(vm.nodes[0].confidenceFactors).toHaveLength(4);
+    expect(vm.nodes[0].humanInterventionRecommended).toBe(false);
   });
 
   it("maps the orchestrator verdict and activity log", () => {
@@ -253,12 +256,14 @@ describe("buildVisibleActivity", () => {
     expect(
       visible.some((entry) => entry.text.includes("Writing customer findings"))
     ).toBe(false);
-    expect(visible.some((entry) => entry.text.includes("Knowledge Base · complete"))).toBe(
+    expect(visible.some((entry) => entry.text.includes("← Knowledge Base · complete"))).toBe(
       true
     );
     expect(
       visible.some((entry) =>
-        entry.text.includes("Stage complete — awaiting Run for Parts & Logistics")
+        entry.text.includes(
+          "Knowledge Base complete — press Run for Parts & Logistics"
+        )
       )
     ).toBe(true);
     expect(
@@ -291,5 +296,46 @@ describe("buildVisibleActivity", () => {
       visible.some((entry) => entry.text.includes("Ready to dispatch"))
     ).toBe(false);
     expect(visible.every((entry) => entry.nodeId === "triage")).toBe(true);
+  });
+
+  it("hides stale in-flight traces when paused at parts", () => {
+    const snapshot = steppedAfterCustomerHistoryFixture();
+    const vm = buildSteppedViewModel(snapshot);
+    const visible = buildVisibleActivity(vm.activity, vm.nodes, 3, snapshot);
+
+    expect(visible.some((entry) => entry.text.includes("Running AI triage"))).toBe(
+      false
+    );
+    expect(visible.some((entry) => entry.text.includes("Querying knowledge base"))).toBe(
+      false
+    );
+  });
+
+  it("normalizes legacy bootstrap pause copy", () => {
+    const pausedBeforeTriage = steppedPausedFixture({
+      node: "triage",
+      status: "awaiting_step",
+      triage: undefined,
+      customerContext: undefined,
+      events: [
+        {
+          node: "triage",
+          status: "awaiting_step",
+          sequence: 1,
+          occurredAt: "t1",
+          safeSummary: "Stage complete — awaiting Run for Triage."
+        }
+      ]
+    });
+    const vm = buildSteppedViewModel(pausedBeforeTriage);
+    const visible = buildVisibleActivity(vm.activity, vm.nodes, 0, pausedBeforeTriage);
+    expect(
+      visible.some((entry) =>
+        entry.text.includes("Workflow ready — press Run for Triage")
+      )
+    ).toBe(true);
+    expect(visible.every((entry, index) => entry.displaySeq === index + 1)).toBe(
+      true
+    );
   });
 });

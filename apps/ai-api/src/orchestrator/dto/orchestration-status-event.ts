@@ -93,6 +93,9 @@ export interface SanitizedTriageResult {
   suggestedNextStep: string;
   priorityRationale?: string;
   priorityFactors?: TriagePriorityFactor[];
+  workflowConfidence?: number;
+  confidenceFactors?: TriagePriorityFactor[];
+  humanInterventionRecommended?: boolean;
   provider: string;
   model: string;
   fallbackUsed: boolean;

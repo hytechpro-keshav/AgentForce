@@ -948,6 +948,14 @@ export const STEP_NEXT_NODE_TO_UI: Record<string, OrchestratorNodeId> = {
   evaluateGuardrail: GUARDRAIL_NODE_ID
 };
 
+/** Graph node that will run next → UI node id that just finished on stepped pause. */
+export const STEP_FINISHED_NODE_FROM_NEXT: Record<string, OrchestratorNodeId> = {
+  knowledge: TRIAGE_NODE_ID,
+  parts: KNOWLEDGE_NODE_ID,
+  schedule: PARTS_LOGISTICS_NODE_ID,
+  evaluateGuardrail: SCHEDULING_NODE_ID
+};
+
 /**
  * Safe, non-PII facts about the Case context read. Deliberately omits
  * subject, description, account id, and any names so nothing sensitive

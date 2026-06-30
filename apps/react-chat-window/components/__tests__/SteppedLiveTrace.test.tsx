@@ -215,6 +215,33 @@ describe("SteppedLiveTrace", () => {
     expect(onTypingComplete.mock.calls.length).toBeGreaterThanOrEqual(1);
   });
 
+  it("renders settled trace statuses as completed, not running", () => {
+    render(
+      <SteppedLiveTrace
+        active={false}
+        settled
+        items={[
+          {
+            label: "Running AI triage.",
+            status: "running",
+            fields: []
+          },
+          {
+            label: "Triage assigned for case 00001079.",
+            status: "assigned",
+            fields: []
+          }
+        ]}
+      />
+    );
+
+    const statuses = screen.getAllByTestId("stepped-trace-step-status");
+    expect(statuses.length).toBe(2);
+    for (const badge of statuses) {
+      expect(badge.textContent).toBe("completed");
+    }
+  });
+
   it("detects append-only trace signatures", () => {
     const a = "Triage assigned";
     const b = `${a}\u0001Reading Case context`;

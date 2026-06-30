@@ -35,6 +35,7 @@ import {
   buildCaseTriageGraph,
   Command,
   STEP_NEXT_NODE_TO_UI,
+  STEP_FINISHED_NODE_FROM_NEXT,
   type CaseTriageGraphDeps,
   type CaseTriageStateType,
   type CaseTriageTriageInput,
@@ -360,7 +361,7 @@ export class CaseTriageOrchestratorService {
     await this.store.appendEvent(
       workflowId,
       "awaiting_step",
-      "Stage complete — awaiting Run for Triage.",
+      "Workflow ready — press Run for Triage.",
       undefined,
       TRIAGE_NODE_ID,
       {
@@ -825,6 +826,8 @@ export class CaseTriageOrchestratorService {
   ): Promise<void> {
     const awaitingNode =
       STEP_NEXT_NODE_TO_UI[nextGraphNode] ?? GUARDRAIL_NODE_ID;
+    const finishedNode =
+      STEP_FINISHED_NODE_FROM_NEXT[nextGraphNode] ?? TRIAGE_NODE_ID;
     // `update` only writes fields that are set, so undefined channels (stages
     // not yet run) are left untouched.
     await this.store.update(workflowId, {
@@ -838,7 +841,9 @@ export class CaseTriageOrchestratorService {
     await this.store.appendEvent(
       workflowId,
       "awaiting_step",
-      `Stage complete — awaiting Run for ${CaseTriageOrchestratorService.stepNodeLabel(
+      `${CaseTriageOrchestratorService.stepNodeLabel(
+        finishedNode
+      )} complete — press Run for ${CaseTriageOrchestratorService.stepNodeLabel(
         awaitingNode
       )}.`,
       undefined,
@@ -949,6 +954,9 @@ export class CaseTriageOrchestratorService {
       suggestedNextStep: response.suggestedNextStep,
       priorityRationale: response.priorityRationale,
       priorityFactors: response.priorityFactors,
+      workflowConfidence: response.workflowConfidence,
+      confidenceFactors: response.confidenceFactors,
+      humanInterventionRecommended: response.humanInterventionRecommended,
       provider: response.provider,
       model: response.model,
       fallbackUsed: response.fallbackUsed,

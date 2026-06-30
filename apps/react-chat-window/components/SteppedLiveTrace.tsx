@@ -181,15 +181,28 @@ export function useTypewriterTrace(
   }, [active, items, typedStepIndex, typedCharCount]);
 }
 
+function displayTraceStatus(
+  step: SteppedTraceStep,
+  settled: boolean,
+  active: boolean
+): string {
+  if (settled || !active) {
+    return "completed";
+  }
+  return step.status;
+}
+
 export function SteppedLiveTrace({
   items,
   active,
+  settled = false,
   onGrowth,
   onTypingComplete,
   settleToken = 0
 }: {
   items: SteppedTraceStep[];
   active: boolean;
+  settled?: boolean;
   onGrowth?: () => void;
   onTypingComplete?: () => void;
   settleToken?: number;
@@ -214,36 +227,42 @@ export function SteppedLiveTrace({
   return (
     <div className={styles.trace} data-testid="stepped-detail-trace">
       <div className={styles.tlabel}>Execution trace · agent reasoning</div>
-      {displaySteps.map((step, index) => (
-        <div
-          key={step.sequence ?? `${index}-${step.label}`}
-          className={clsx(
-            styles.tstep,
-            step.status === "assigned" && styles.tstepAssigned,
-            step.status === "waiting_approval" && styles.tstepWaiting,
-            active && step.showCursor && styles.tstepLive
-          )}
-        >
-          <span className={styles.tknot} />
-          <div className={styles.th}>
-            <span className={styles.tn}>SEQ {index + 1}</span>
-            <span className={styles.tt}>
-              {step.visibleLabel}
-              {step.showCursor ? (
-                <span
-                  ref={cursorRef}
-                  className={styles.typeCursor}
-                  data-testid="stepped-live-trace-cursor"
-                  aria-hidden
-                >
-                  ▌
-                </span>
-              ) : null}
-            </span>
-            <span className={styles.tst}>{step.status}</span>
+      {displaySteps.map((step, index) => {
+        const status = displayTraceStatus(step, settled, active);
+        return (
+          <div
+            key={step.sequence ?? `${index}-${step.label}`}
+            className={clsx(
+              styles.tstep,
+              status === "assigned" && styles.tstepAssigned,
+              status === "waiting_approval" && styles.tstepWaiting,
+              status === "completed" && styles.tstepCompleted,
+              active && step.showCursor && styles.tstepLive
+            )}
+          >
+            <span className={styles.tknot} />
+            <div className={styles.th}>
+              <span className={styles.tn}>SEQ {index + 1}</span>
+              <span className={styles.tt}>
+                {step.visibleLabel}
+                {step.showCursor ? (
+                  <span
+                    ref={cursorRef}
+                    className={styles.typeCursor}
+                    data-testid="stepped-live-trace-cursor"
+                    aria-hidden
+                  >
+                    ▌
+                  </span>
+                ) : null}
+              </span>
+              <span className={styles.tst} data-testid="stepped-trace-step-status">
+                {status}
+              </span>
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

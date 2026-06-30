@@ -50,6 +50,13 @@ const validFactors = [
   { id: "warranty", label: "Warranty", weight: 5 }
 ];
 
+const validConfidenceFactors = [
+  { id: "case_clarity", label: "Case clarity", weight: 30 },
+  { id: "data_completeness", label: "Data completeness", weight: 25 },
+  { id: "routing_certainty", label: "Routing certainty", weight: 25 },
+  { id: "step_feasibility", label: "Step feasibility", weight: 20 }
+];
+
 function buildSignals(
   overrides: Partial<TriageCustomerSignals> = {}
 ): TriageCustomerSignals {
@@ -320,5 +327,63 @@ describe("SupportTriageService — priority insight fields", () => {
 
     expect(result.priorityRationale).not.toContain("user@example.com");
     expect(result.priorityRationale?.length).toBeLessThanOrEqual(240);
+  });
+});
+
+describe("SupportTriageService — workflow confidence fields", () => {
+  it("parses workflowConfidence, confidenceFactors, and humanInterventionRecommended", async () => {
+    const h = buildHarness();
+    h.chat.mockResolvedValue(
+      modelReply(
+        triageJson("normal", {
+          workflowConfidence: 82,
+          confidenceFactors: validConfidenceFactors,
+          humanInterventionRecommended: false
+        })
+      )
+    );
+
+    const result = await h.service.triage(buildRequest());
+
+    expect(result.workflowConfidence).toBe(82);
+    expect(result.confidenceFactors).toHaveLength(4);
+    expect(result.humanInterventionRecommended).toBe(false);
+  });
+
+  it("derives humanInterventionRecommended when workflowConfidence is below 70", async () => {
+    const h = buildHarness();
+    h.chat.mockResolvedValue(
+      modelReply(
+        triageJson("high", {
+          workflowConfidence: 55,
+          confidenceFactors: validConfidenceFactors
+        })
+      )
+    );
+
+    const result = await h.service.triage(buildRequest());
+
+    expect(result.workflowConfidence).toBe(55);
+    expect(result.humanInterventionRecommended).toBe(true);
+  });
+
+  it("omits confidenceFactors when weights do not sum to 100", async () => {
+    const h = buildHarness();
+    h.chat.mockResolvedValue(
+      modelReply(
+        triageJson("normal", {
+          workflowConfidence: 78,
+          confidenceFactors: [
+            { id: "case_clarity", label: "Case clarity", weight: 40 },
+            { id: "data_completeness", label: "Data completeness", weight: 30 }
+          ]
+        })
+      )
+    );
+
+    const result = await h.service.triage(buildRequest());
+
+    expect(result.workflowConfidence).toBe(78);
+    expect(result.confidenceFactors).toBeUndefined();
   });
 });

@@ -52,6 +52,7 @@ import { SteppedStartPanel } from "@/components/SteppedStartPanel";
 import { SteppedCompletionBody } from "@/components/SteppedCompletionBody";
 import { SteppedLiveTrace, traceItemsFromDetail, traceItemsSignature } from "@/components/SteppedLiveTrace";
 import { TriageInsightCard } from "@/components/TriageInsightCard";
+import { TriageConfidenceChart } from "@/components/TriageConfidenceChart";
 import styles from "./SteppedOrchestrationView.module.css";
 
 const NODE_ICON: Record<
@@ -442,6 +443,24 @@ export function SteppedOrchestrationView({
 
     if (runningIndex !== null || completingIndex !== null) return;
 
+    if (
+      !workflowBound &&
+      revealed === 0 &&
+      fromSnapshot > 0 &&
+      runningIndex === null &&
+      completingIndex === null
+    ) {
+      setRevealed(fromSnapshot);
+      setOpen((prev) => {
+        const next = { ...prev };
+        vm.nodes.slice(0, fromSnapshot).forEach((n) => {
+          next[n.id] = true;
+        });
+        return next;
+      });
+      return;
+    }
+
     if (!bootstrapPlayed.current && workflowBound && fromSnapshot > 1) {
       bootstrapPlayed.current = true;
       setRevealed(fromSnapshot);
@@ -627,8 +646,8 @@ export function SteppedOrchestrationView({
     : -1;
 
   const nodeState = (index: number): NodeRenderState => {
-    if (index < revealed) return "done";
     if (index === runningIndex || index === completingIndex) return "running";
+    if (index < revealed) return "done";
     if (index === revealed) return "frontier";
     return "queued";
   };
@@ -658,17 +677,18 @@ export function SteppedOrchestrationView({
     pill,
     advancing,
     runningIndex,
+    completingIndex,
     snapshotStatus: snapshot?.status
   });
 
+  const orchActiveIndex =
+    runningIndex ?? completingIndex ?? (awaitingIndex >= 0 ? awaitingIndex : null);
   const orchActiveName =
-    advancing || runningIndex !== null
-      ? vm.nodes[runningIndex ?? awaitingIndex]?.name
+    orchActiveIndex !== null
+      ? vm.nodes[orchActiveIndex]?.name
       : snapshot?.status === "running" || snapshot?.status === "assigned"
         ? vm.nodes.find((node) => node.id === snapshot.node)?.name
-        : orchState === "ready" && awaitingIndex >= 0
-          ? vm.nodes[awaitingIndex]?.name
-          : frontier?.name;
+        : frontier?.name;
 
   return (
     <div className={styles.wrap}>
@@ -797,7 +817,7 @@ export function SteppedOrchestrationView({
                 className={clsx(
                   styles.line,
                   styles.lineTop,
-                  allRevealed && vm.complete && styles.lineOn
+                  allRevealed && vm.complete && styles.lineComplete
                 )}
               />
               <div className={styles.knot}>
@@ -808,7 +828,7 @@ export function SteppedOrchestrationView({
                   )}
                 >
                   {allRevealed && vm.complete ? (
-                    <Check size={11} strokeWidth={3} />
+                    <Check size={11} strokeWidth={3} color="#fff" />
                   ) : null}
                 </span>
               </div>
@@ -852,7 +872,19 @@ export function SteppedOrchestrationView({
                     allRevealed && vm.complete && styles.statusDone
                   )}
                 >
-                  {allRevealed && vm.complete ? "DONE" : "PENDING"}
+                  {allRevealed && vm.complete ? (
+                    <>
+                      <Check
+                        size={10}
+                        strokeWidth={3}
+                        className={styles.statusDoneIcon}
+                        aria-hidden
+                      />
+                      COMPLETED
+                    </>
+                  ) : (
+                    "PENDING"
+                  )}
                 </span>
                 {vm.verdict && allRevealed ? (
                   <span
@@ -955,7 +987,7 @@ export function SteppedOrchestrationView({
                     entry.kind === "warn" && styles.logWarn
                   )}
                 >
-                  <span className={styles.lt}>#{entry.seq}</span>
+                  <span className={styles.lt}>#{entry.displaySeq ?? entry.seq}</span>
                   <span className={styles.lg}>{logGlyph(entry.kind)}</span>
                   <span className={styles.lx}>{entry.text}</span>
                 </div>
@@ -1054,6 +1086,7 @@ function NodeRow({
     [node.detail, traceSignature]
   );
   const reached = state !== "queued";
+  const spineConnected = reached && index > 0;
   const Icon = NODE_ICON[node.icon];
   const approvalWaiting = Boolean(
     node.guardrail && guardrailWaiting && state === "done"
@@ -1070,6 +1103,11 @@ function NodeRow({
   );
   const detailExpanded =
     showLiveTrace || completingActive || (state === "done" && open);
+  const showConfidenceChart =
+    node.id === "triage" &&
+    state === "done" &&
+    !completingActive &&
+    node.workflowConfidence !== undefined;
 
   return (
     <div className={styles.row}>
@@ -1078,14 +1116,15 @@ function NodeRow({
           className={clsx(
             styles.line,
             styles.lineTop,
-            reached && styles.lineOn
+            spineConnected && styles.lineComplete,
+            reached && !spineConnected && styles.lineOn
           )}
         />
         <div
           className={clsx(
             styles.line,
             styles.lineBot,
-            state === "done" && styles.lineOn
+            state === "done" && styles.lineComplete
           )}
         />
         <div className={styles.knot}>
@@ -1143,7 +1182,21 @@ function NodeRow({
                   : statusClass(state)
               )}
             >
-              {approvalWaiting ? "WAITING" : statusLabel(state)}
+              {approvalWaiting ? (
+                "WAITING"
+              ) : state === "done" ? (
+                <>
+                  <Check
+                    size={10}
+                    strokeWidth={3}
+                    className={styles.statusDoneIcon}
+                    aria-hidden
+                  />
+                  {statusLabel(state)}
+                </>
+              ) : (
+                statusLabel(state)
+              )}
             </span>
             {state === "done" && node.latency ? (
               <span className={styles.lat}>{node.latency}</span>
@@ -1170,6 +1223,9 @@ function NodeRow({
                 <SteppedLiveTrace
                   items={traceItems}
                   active={showLiveTrace}
+                  settled={
+                    state === "done" && !completingActive && !showLiveTrace
+                  }
                   settleToken={traceSettleToken}
                   onTypingComplete={onTraceTypingComplete}
                 />
@@ -1197,6 +1253,13 @@ function NodeRow({
                   <span className={styles.txt}>{node.output}</span>
                   <span className={styles.to}>→ ORCHESTRATOR</span>
                 </div>
+              ) : null}
+              {showConfidenceChart ? (
+                <TriageConfidenceChart
+                  workflowConfidence={node.workflowConfidence!}
+                  confidenceFactors={node.confidenceFactors}
+                  humanInterventionRecommended={node.humanInterventionRecommended}
+                />
               ) : null}
             </div>
           </div>
@@ -1258,7 +1321,7 @@ function Dot({
   if (state === "done") {
     return (
       <span className={clsx(styles.dot, styles.dotDone)}>
-        <Check size={11} strokeWidth={3} />
+        <Check size={11} strokeWidth={3} color="#fff" />
       </span>
     );
   }
@@ -1394,7 +1457,7 @@ function Chips({ items }: { items: { k: string; v?: string }[] }) {
 
 function statusLabel(state: NodeRenderState): string {
   return state === "done"
-    ? "DONE"
+    ? "COMPLETED"
     : state === "running"
       ? "RUNNING"
       : state === "frontier"
@@ -1471,17 +1534,19 @@ function resolveOrchState({
   pill,
   advancing,
   runningIndex,
+  completingIndex,
   snapshotStatus
 }: {
   pill: "running" | "ready" | "paused" | "complete";
   advancing: boolean;
   runningIndex: number | null;
+  completingIndex: number | null;
   snapshotStatus?: OrchestrationSnapshot["status"];
 }): OrchUiState {
   if (pill === "complete") return "complete";
   if (pill === "paused") return "paused";
   if (advancing) return "dispatching";
-  if (runningIndex !== null) return "receiving";
+  if (runningIndex !== null || completingIndex !== null) return "receiving";
   if (snapshotStatus === "running" || snapshotStatus === "assigned") {
     return "awaiting";
   }

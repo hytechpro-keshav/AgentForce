@@ -163,7 +163,7 @@ test.describe("Stepped trace Phase A (deployed)", () => {
       const triageNode = page.getByTestId("stepped-node-triage");
 
       // Wait for DONE — trace should finish typing before the badge appears.
-      await expect(triageNode.getByText("DONE")).toBeVisible({ timeout: 120_000 });
+      await expect(triageNode.getByText("COMPLETED")).toBeVisible({ timeout: 120_000 });
 
       // Summary should finish typing (no stuck cursor).
       const summary = detail.getByTestId("stepped-detail-summary");
@@ -184,7 +184,7 @@ test.describe("Stepped trace Phase A (deployed)", () => {
 
     await test.step("triage accordion shows trace before summary", async () => {
       const triageNode = page.getByTestId("stepped-node-triage");
-      await expect(triageNode.getByText("DONE")).toBeVisible();
+      await expect(triageNode.getByText("COMPLETED")).toBeVisible();
       const detail = page.getByTestId("stepped-node-detail-triage");
       await expect(detail).toBeVisible();
 
