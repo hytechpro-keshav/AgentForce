@@ -323,7 +323,7 @@ export function buildCaseTriageGraph(
       // about the Case (no subject, description, account id, or names).
       await deps.emitRunning(
         state.workflowId,
-        "Reading Case context from Salesforce.",
+        "Reading and understanding the case, customer priority and next best action.",
         buildContextDetails(context),
         TRIAGE_NODE_ID,
         buildContextTrace(state, context)
@@ -375,7 +375,7 @@ export function buildCaseTriageGraph(
 
         await deps.emitRunning(
           state.workflowId,
-          "Reading customer profile and entitlements.",
+          "Checking what the customer reported, which channel the case came from and what issue needs attention.",
           buildProfileEntitlementDetails(read),
           CUSTOMER_HISTORY_NODE_ID,
           buildProfileEntitlementTrace(state, read, reportedPriority)
@@ -383,7 +383,7 @@ export function buildCaseTriageGraph(
 
         await deps.emitRunning(
           state.workflowId,
-          "Reading installed assets and service history.",
+          "Checking which asset is linked to this case and reviewing the installed product, past service visits, previous failures and open issues.",
           buildReadDetails(read),
           CUSTOMER_HISTORY_NODE_ID,
           buildAssetHistoryTrace(read)
@@ -400,7 +400,7 @@ export function buildCaseTriageGraph(
 
         await deps.emitRunning(
           state.workflowId,
-          "Analyzing customer history.",
+          "Studying the customer's past cases and checking whether this issue has happened before and whether the customer has any repeated service concerns.",
           buildAnalysisDetails(synthesis),
           CUSTOMER_HISTORY_NODE_ID,
           buildAnalysisTrace(read, reportedPriority, synthesis)
@@ -425,7 +425,7 @@ export function buildCaseTriageGraph(
 
         await deps.emitRunning(
           state.workflowId,
-          "Building customer context package.",
+          "Creating a complete customer context package and includes the customer profile, entitlement status, asset details, service history and known risks.",
           buildPackageSummaryDetails(customerContext),
           CUSTOMER_HISTORY_NODE_ID,
           buildPackageAssemblyTrace(customerContext)
@@ -433,7 +433,7 @@ export function buildCaseTriageGraph(
 
         await deps.emitRunning(
           state.workflowId,
-          "Writing customer findings to state.",
+          "Saving its findings into the case state and making the information available for the Orchestrator and the next agents in the workflow.",
           buildPackageDetails(customerContext),
           CUSTOMER_HISTORY_NODE_ID,
           buildCustomerContextWriteTrace(customerContext)
@@ -454,7 +454,7 @@ export function buildCaseTriageGraph(
       });
       await deps.emitRunning(
         state.workflowId,
-        "Running AI triage.",
+        "Sending the output back to the Orchestrator for the next action.",
         buildTriageDetails(triage),
         TRIAGE_NODE_ID,
         buildTriageTrace(state, triage)
@@ -495,7 +495,7 @@ export function buildCaseTriageGraph(
 
       await deps.emitRunning(
         state.workflowId,
-        "Constructing targeted knowledge query.",
+        "Constructing a targeted knowledge query using the case details, error information, asset type and customer history shared by the Triage Agent.",
         buildKnowledgeQueryDetails(state),
         KNOWLEDGE_NODE_ID,
         buildKnowledgeQueryTrace(state)
@@ -503,7 +503,7 @@ export function buildCaseTriageGraph(
 
       await deps.emitRunning(
         state.workflowId,
-        "Searching approved knowledge base.",
+        "Searching the approved knowledge base to find relevant troubleshooting guides, service manuals, SOPs and previously resolved case patterns.",
         buildKnowledgeSearchDetails(state),
         KNOWLEDGE_NODE_ID,
         buildKnowledgeSearchTrace(state)
@@ -530,10 +530,19 @@ export function buildCaseTriageGraph(
       if (guidance.status === "ANSWERED") {
         await deps.emitRunning(
           state.workflowId,
-          `Found ${guidance.answer?.sources?.length ?? 0} matching troubleshooting guides.`,
+          formatKnowledgeFoundSummary(
+            guidance.answer?.sources?.length ?? 0
+          ),
           buildKnowledgeAnswerDetails(guidance),
           KNOWLEDGE_NODE_ID,
           buildKnowledgeAnswerTrace(guidance)
+        );
+        await deps.emitRunning(
+          state.workflowId,
+          "Reviewing the matched guide to identify the likely cause, recommended fix, required steps and any spare-part requirement.",
+          buildKnowledgeReviewDetails(guidance),
+          KNOWLEDGE_NODE_ID,
+          buildKnowledgeReviewTrace(guidance)
         );
       } else if (guidance.status === "NO_SOURCE") {
         await deps.emitRunning(
@@ -557,10 +566,18 @@ export function buildCaseTriageGraph(
 
       await deps.emitRunning(
         state.workflowId,
-        "Writing knowledge findings to state.",
+        "Saving the knowledge findings into the case state and making the diagnosis available for the Orchestrator and the next agents in the workflow.",
         buildKnowledgeWriteDetails(guidance),
         KNOWLEDGE_NODE_ID,
         buildKnowledgeWriteTrace(guidance)
+      );
+
+      await deps.emitRunning(
+        state.workflowId,
+        "Sending the output back to the Orchestrator for the next action.",
+        buildKnowledgeDispatchDetails(guidance),
+        KNOWLEDGE_NODE_ID,
+        buildKnowledgeDispatchTrace(guidance)
       );
 
       return { knowledgeGuidance: guidance };
@@ -598,10 +615,18 @@ export function buildCaseTriageGraph(
 
       await deps.emitRunning(
         state.workflowId,
-        "Selecting fulfillment warehouse and reading live inventory.",
+        "Selecting the best fulfillment warehouse based on customer location, part availability and delivery timeline.",
         buildPartsReadDetails(state),
         PARTS_LOGISTICS_NODE_ID,
         buildPartsReadTrace(state)
+      );
+
+      await deps.emitRunning(
+        state.workflowId,
+        "Reading live inventory to check whether the required spare part is available and ready for dispatch.",
+        buildPartsInventoryReadDetails(state),
+        PARTS_LOGISTICS_NODE_ID,
+        buildPartsInventoryReadTrace(state)
       );
 
       const parts = await deps.planPartsLogistics(
@@ -628,19 +653,41 @@ export function buildCaseTriageGraph(
       } else {
         await deps.emitRunning(
           state.workflowId,
-          buildPartsPlanSummary(parts),
+          formatPartsIdentifiedSummary(parts),
           buildPartsPlanDetails(parts),
           PARTS_LOGISTICS_NODE_ID,
           buildPartsPlanTrace(parts)
+        );
+        await deps.emitRunning(
+          state.workflowId,
+          "Checking that the selected part is compatible with the customer's installed asset.",
+          buildPartsCompatibilityDetails(parts),
+          PARTS_LOGISTICS_NODE_ID,
+          buildPartsCompatibilityTrace(parts)
+        );
+        await deps.emitRunning(
+          state.workflowId,
+          formatPartsFulfillmentReadinessSummary(parts),
+          buildPartsReadinessDetails(parts),
+          PARTS_LOGISTICS_NODE_ID,
+          buildPartsReadinessTrace(parts)
         );
       }
 
       await deps.emitRunning(
         state.workflowId,
-        "Writing parts & logistics plan to state.",
+        "Saving the parts and logistics plan into the case state so the Orchestrator and Scheduling Agent can use it for the next step.",
         buildPartsWriteDetails(parts),
         PARTS_LOGISTICS_NODE_ID,
         buildPartsWriteTrace(parts)
+      );
+
+      await deps.emitRunning(
+        state.workflowId,
+        "Sending the output back to the Orchestrator for the next action.",
+        buildPartsDispatchDetails(parts),
+        PARTS_LOGISTICS_NODE_ID,
+        buildPartsDispatchTrace(parts)
       );
 
       return { partsLogistics: parts };
@@ -683,10 +730,18 @@ export function buildCaseTriageGraph(
 
       await deps.emitRunning(
         state.workflowId,
-        "Ranking technicians and reading Field Service availability.",
+        "Ranking available technicians based on required skill, location, service experience and case priority.",
         buildSchedulingReadDetails(state),
         SCHEDULING_NODE_ID,
         buildSchedulingReadTrace(state)
+      );
+
+      await deps.emitRunning(
+        state.workflowId,
+        "Reading Field Service availability to check which technician can take the visit after the required part arrives.",
+        buildSchedulingAvailabilityReadDetails(state),
+        SCHEDULING_NODE_ID,
+        buildSchedulingAvailabilityReadTrace(state)
       );
 
       const scheduling = await deps.planScheduling(
@@ -716,19 +771,52 @@ export function buildCaseTriageGraph(
       } else {
         await deps.emitRunning(
           state.workflowId,
-          buildSchedulingPlanSummary(scheduling),
-          buildSchedulingPlanDetails(scheduling),
+          "Checking the earliest schedulable slot that aligns with part readiness, technician availability and customer urgency.",
+          buildSchedulingSlotCheckDetails(scheduling),
           SCHEDULING_NODE_ID,
-          buildSchedulingPlanTrace(scheduling)
+          buildSchedulingSlotCheckTrace(scheduling)
+        );
+        if (scheduling.recommendedResourceReference) {
+          await deps.emitRunning(
+            state.workflowId,
+            formatSchedulingResourceSummary(scheduling),
+            buildSchedulingResourceDetails(scheduling),
+            SCHEDULING_NODE_ID,
+            buildSchedulingResourceTrace(scheduling)
+          );
+        }
+        if (scheduling.proposedWindow?.displayWindow) {
+          await deps.emitRunning(
+            state.workflowId,
+            formatSchedulingWindowSummary(scheduling),
+            buildSchedulingWindowDetails(scheduling),
+            SCHEDULING_NODE_ID,
+            buildSchedulingWindowTrace(scheduling)
+          );
+        }
+        await deps.emitRunning(
+          state.workflowId,
+          "Confirming that the visit can be scheduled without creating a parts delay or technician conflict.",
+          buildSchedulingConflictCheckDetails(scheduling),
+          SCHEDULING_NODE_ID,
+          buildSchedulingConflictCheckTrace(scheduling)
         );
       }
 
       await deps.emitRunning(
         state.workflowId,
-        "Writing scheduling plan to state.",
+        "Saving the scheduling plan into the case state so the Orchestrator can prepare the next action.",
         buildSchedulingWriteDetails(scheduling),
         SCHEDULING_NODE_ID,
         buildSchedulingWriteTrace(scheduling)
+      );
+
+      await deps.emitRunning(
+        state.workflowId,
+        "Sending the output back to the Orchestrator for approval and final scheduling.",
+        buildSchedulingDispatchDetails(scheduling),
+        SCHEDULING_NODE_ID,
+        buildSchedulingDispatchTrace(scheduling)
       );
 
       return { scheduling };
@@ -1901,6 +1989,12 @@ function buildKnowledgeSearchTrace(
   };
 }
 
+function formatKnowledgeFoundSummary(sourceCount: number): string {
+  const guideWord = sourceCount === 1 ? "guide" : "guides";
+  const matchVerb = sourceCount === 1 ? "matches" : "match";
+  return `Found ${sourceCount} matching troubleshooting ${guideWord} that closely ${matchVerb} the reported issue and can support the next recommended action.`;
+}
+
 function buildKnowledgeAnswerDetails(
   channel: KnowledgeGuidanceChannel
 ): OrchestrationEventDetail[] {
@@ -2004,6 +2098,41 @@ function buildKnowledgeDegradedTrace(
   };
 }
 
+function buildKnowledgeReviewDetails(
+  channel: KnowledgeGuidanceChannel
+): OrchestrationEventDetail[] {
+  return [
+    { label: "Status", value: channel.status ?? "skipped" },
+    {
+      label: "Sources reviewed",
+      value: String(channel.answer?.sources?.length ?? 0)
+    },
+    {
+      label: "Primary source",
+      value: channel.answer?.sources?.[0]?.title ?? "n/a"
+    }
+  ];
+}
+
+function buildKnowledgeReviewTrace(
+  channel: KnowledgeGuidanceChannel
+): OrchestrationExecutionTrace {
+  return {
+    stepKey: "knowledge_review",
+    sections: [
+      {
+        key: "review",
+        title: "Guide review",
+        data: {
+          status: channel.status ?? null,
+          sourceCount: channel.answer?.sources?.length ?? 0,
+          primarySourceId: channel.answer?.sources?.[0]?.sourceId ?? null
+        }
+      }
+    ]
+  };
+}
+
 function buildKnowledgeWriteDetails(
   channel: KnowledgeGuidanceChannel
 ): OrchestrationEventDetail[] {
@@ -2059,6 +2188,34 @@ function buildKnowledgeWriteTrace(
             answerPresent: channel.answer ? true : false,
             sourceCount: channel.answer?.sources?.length ?? 0
           }
+        }
+      }
+    ]
+  };
+}
+
+function buildKnowledgeDispatchDetails(
+  channel: KnowledgeGuidanceChannel
+): OrchestrationEventDetail[] {
+  return [
+    { label: "Status", value: channel.status ?? "skipped" },
+    { label: "Next node", value: "parts" }
+  ];
+}
+
+function buildKnowledgeDispatchTrace(
+  channel: KnowledgeGuidanceChannel
+): OrchestrationExecutionTrace {
+  return {
+    stepKey: "knowledge_dispatch",
+    sections: [
+      {
+        key: "handoff",
+        title: "Orchestrator handoff",
+        data: {
+          status: channel.status ?? null,
+          eligible: channel.eligible,
+          degraded: channel.degraded
         }
       }
     ]
@@ -2146,6 +2303,147 @@ function buildPartsReadTrace(
   };
 }
 
+function buildPartsInventoryReadDetails(
+  state: CaseTriageStateType
+): OrchestrationEventDetail[] {
+  return [
+    {
+      label: "Suggested parts",
+      value: String(
+        state.knowledgeGuidance?.answer?.suggestedParts?.length ?? 0
+      )
+    },
+    {
+      label: "Asset model",
+      value: state.context?.assetProductCode ?? "unknown"
+    }
+  ];
+}
+
+function buildPartsInventoryReadTrace(
+  state: CaseTriageStateType
+): OrchestrationExecutionTrace {
+  return {
+    stepKey: "parts_logistics_inventory_read",
+    sections: [
+      {
+        key: "inventory_read",
+        title: "Inventory read",
+        data: {
+          suggestedPartCount:
+            state.knowledgeGuidance?.answer?.suggestedParts?.length ?? 0,
+          assetProductCode: state.context?.assetProductCode ?? "unknown"
+        }
+      }
+    ]
+  };
+}
+
+function formatPartsIdentifiedSummary(channel: PartsLogisticsChannel): string {
+  const count = channel.partPlans?.length ?? 0;
+  const verb = count === 1 ? "has" : "have";
+  const noun = count === 1 ? "part" : "parts";
+  return `Confirming that ${count} required ${noun} ${verb} been identified for this case.`;
+}
+
+function buildPartsCompatibilityDetails(
+  channel: PartsLogisticsChannel
+): OrchestrationEventDetail[] {
+  const plans = channel.partPlans ?? [];
+  const compatible = plans.filter(
+    (plan) =>
+      plan.compatibility === "confirmed" || plan.compatibility === "universal"
+  ).length;
+  return [
+    { label: "Parts reviewed", value: String(plans.length) },
+    { label: "Compatible", value: String(compatible) }
+  ];
+}
+
+function buildPartsCompatibilityTrace(
+  channel: PartsLogisticsChannel
+): OrchestrationExecutionTrace {
+  return {
+    stepKey: "parts_logistics_compatibility",
+    sections: [
+      {
+        key: "compatibility",
+        title: "Compatibility check",
+        data: (channel.partPlans ?? []).map((plan) => ({
+          partNumber: plan.partNumber,
+          compatibility: plan.compatibility,
+          compatibilityEvidence: plan.compatibilityEvidence ?? null
+        }))
+      }
+    ]
+  };
+}
+
+function formatPartsFulfillmentReadinessSummary(
+  channel: PartsLogisticsChannel
+): string {
+  return "Confirming fulfillment readiness, which means the required part is available and can support the planned service visit.";
+}
+
+function buildPartsReadinessDetails(
+  channel: PartsLogisticsChannel
+): OrchestrationEventDetail[] {
+  return [
+    {
+      label: "Fulfillment",
+      value: channel.fulfillmentReadiness ?? "unknown"
+    },
+    { label: "Status", value: channel.status ?? "n/a" }
+  ];
+}
+
+function buildPartsReadinessTrace(
+  channel: PartsLogisticsChannel
+): OrchestrationExecutionTrace {
+  return {
+    stepKey: "parts_logistics_readiness",
+    sections: [
+      {
+        key: "readiness",
+        title: "Fulfillment readiness",
+        data: {
+          fulfillmentReadiness: channel.fulfillmentReadiness ?? null,
+          fulfillmentConfidence: channel.fulfillmentConfidence ?? null,
+          status: channel.status ?? null
+        }
+      }
+    ]
+  };
+}
+
+function buildPartsDispatchDetails(
+  channel: PartsLogisticsChannel
+): OrchestrationEventDetail[] {
+  return [
+    { label: "Status", value: channel.status ?? "skipped" },
+    { label: "Next node", value: "scheduling" }
+  ];
+}
+
+function buildPartsDispatchTrace(
+  channel: PartsLogisticsChannel
+): OrchestrationExecutionTrace {
+  return {
+    stepKey: "parts_logistics_dispatch",
+    sections: [
+      {
+        key: "handoff",
+        title: "Orchestrator handoff",
+        data: {
+          eligible: channel.eligible,
+          status: channel.status ?? null,
+          degraded: channel.degraded
+        }
+      }
+    ]
+  };
+}
+
 function buildPartsDegradedTrace(
   channel: PartsLogisticsChannel
 ): OrchestrationExecutionTrace {
@@ -2163,12 +2461,6 @@ function buildPartsDegradedTrace(
       }
     ]
   };
-}
-
-function buildPartsPlanSummary(channel: PartsLogisticsChannel): string {
-  const count = channel.partPlans?.length ?? 0;
-  const readiness = channel.fulfillmentReadiness ?? "unknown";
-  return `Planned ${count} part(s) — fulfillment ${readiness}.`;
 }
 
 function buildPartsPlanDetails(
@@ -2361,6 +2653,43 @@ function buildSchedulingReadTrace(
   };
 }
 
+function buildSchedulingAvailabilityReadDetails(
+  state: CaseTriageStateType
+): OrchestrationEventDetail[] {
+  return [
+    {
+      label: "Parts readiness",
+      value: state.partsLogistics?.fulfillmentReadiness ?? "n/a"
+    },
+    {
+      label: "Parts ETA considered",
+      value: state.partsLogistics?.partPlans?.[0]?.estimatedArrivalWindow
+        ? "Yes"
+        : "Pending"
+    }
+  ];
+}
+
+function buildSchedulingAvailabilityReadTrace(
+  state: CaseTriageStateType
+): OrchestrationExecutionTrace {
+  return {
+    stepKey: "scheduling_availability_read",
+    sections: [
+      {
+        key: "availability_read",
+        title: "Field Service availability read",
+        data: {
+          partsReadiness:
+            state.partsLogistics?.fulfillmentReadiness ?? "unknown",
+          partsEtaWindow:
+            state.partsLogistics?.partPlans?.[0]?.estimatedArrivalWindow ?? null
+        }
+      }
+    ]
+  };
+}
+
 function buildSchedulingDegradedTrace(
   channel: SchedulingChannel
 ): OrchestrationExecutionTrace {
@@ -2382,17 +2711,192 @@ function buildSchedulingDegradedTrace(
   };
 }
 
-function buildSchedulingPlanSummary(channel: SchedulingChannel): string {
-  const readiness = channel.schedulingReadiness ?? "unknown";
-  const ref = channel.recommendedResourceReference;
+function buildSchedulingSlotCheckDetails(
+  channel: SchedulingChannel
+): OrchestrationEventDetail[] {
+  return [
+    {
+      label: "Readiness",
+      value: channel.schedulingReadiness ?? "unknown"
+    },
+    {
+      label: "Parts readiness seen",
+      value: channel.partsReadinessSeen ?? "unknown"
+    },
+    {
+      label: "Candidates",
+      value: String(channel.candidates?.length ?? 0)
+    }
+  ];
+}
+
+function buildSchedulingSlotCheckTrace(
+  channel: SchedulingChannel
+): OrchestrationExecutionTrace {
+  return {
+    stepKey: "scheduling_slot_check",
+    sections: [
+      {
+        key: "slot_check",
+        title: "Earliest schedulable slot",
+        data: {
+          schedulingReadiness: channel.schedulingReadiness ?? null,
+          partsEtaConsidered: channel.partsEtaConsidered,
+          partsReadinessSeen: channel.partsReadinessSeen ?? null,
+          candidateCount: channel.candidates?.length ?? 0
+        }
+      }
+    ]
+  };
+}
+
+function formatSchedulingResourceSummary(channel: SchedulingChannel): string {
+  return `Identifying a schedulable service resource: ${channel.recommendedResourceReference}.`;
+}
+
+function buildSchedulingResourceDetails(
+  channel: SchedulingChannel
+): OrchestrationEventDetail[] {
+  return [
+    {
+      label: "Technician",
+      value: channel.recommendedResourceReference ?? "n/a"
+    },
+    {
+      label: "Readiness",
+      value: channel.schedulingReadiness ?? "unknown"
+    }
+  ];
+}
+
+function buildSchedulingResourceTrace(
+  channel: SchedulingChannel
+): OrchestrationExecutionTrace {
+  return {
+    stepKey: "scheduling_resource",
+    sections: [
+      {
+        key: "resource",
+        title: "Recommended resource",
+        data: {
+          recommendedResourceReference:
+            channel.recommendedResourceReference ?? null,
+          schedulingReadiness: channel.schedulingReadiness ?? null
+        }
+      }
+    ]
+  };
+}
+
+function formatSchedulingWindowSummary(channel: SchedulingChannel): string {
   const window = channel.proposedWindow?.displayWindow;
-  if (ref && window) {
-    return `Scheduling ${readiness}: ${ref} · ${window}.`;
+  if (!window) {
+    return "Recommending the visit window after parts readiness and technician availability are aligned.";
   }
-  if (ref) {
-    return `Scheduling ${readiness}: recommended ${ref}.`;
+  const base = window.replace(/\s*\(after parts arrive\)\s*$/i, "");
+  if (channel.proposedWindow?.partsEtaConstrained) {
+    return `Recommending the visit window: ${base}, after the required part is expected to arrive.`;
   }
-  return `Scheduling ${readiness}.`;
+  return `Recommending the visit window: ${base}.`;
+}
+
+function buildSchedulingWindowDetails(
+  channel: SchedulingChannel
+): OrchestrationEventDetail[] {
+  return [
+    {
+      label: "Window",
+      value: channel.proposedWindow?.displayWindow ?? "n/a"
+    },
+    {
+      label: "Parts ETA constrained",
+      value: channel.proposedWindow?.partsEtaConstrained ? "Yes" : "No"
+    }
+  ];
+}
+
+function buildSchedulingWindowTrace(
+  channel: SchedulingChannel
+): OrchestrationExecutionTrace {
+  return {
+    stepKey: "scheduling_window",
+    sections: [
+      {
+        key: "window",
+        title: "Proposed visit window",
+        data: {
+          displayWindow: channel.proposedWindow?.displayWindow ?? null,
+          proposedStart: channel.proposedWindow?.proposedStart ?? null,
+          proposedEnd: channel.proposedWindow?.proposedEnd ?? null,
+          partsEtaConstrained: channel.proposedWindow?.partsEtaConstrained ?? false
+        }
+      }
+    ]
+  };
+}
+
+function buildSchedulingConflictCheckDetails(
+  channel: SchedulingChannel
+): OrchestrationEventDetail[] {
+  return [
+    {
+      label: "Readiness",
+      value: channel.schedulingReadiness ?? "unknown"
+    },
+    {
+      label: "Required approval",
+      value: channel.requiredApproval ? "Yes" : "No"
+    }
+  ];
+}
+
+function buildSchedulingConflictCheckTrace(
+  channel: SchedulingChannel
+): OrchestrationExecutionTrace {
+  return {
+    stepKey: "scheduling_conflict_check",
+    sections: [
+      {
+        key: "conflict_check",
+        title: "Scheduling conflict check",
+        data: {
+          schedulingReadiness: channel.schedulingReadiness ?? null,
+          partsReadinessSeen: channel.partsReadinessSeen ?? null,
+          requiredApproval: channel.requiredApproval,
+          approvalReason: channel.approvalReason ?? "none"
+        }
+      }
+    ]
+  };
+}
+
+function buildSchedulingDispatchDetails(
+  channel: SchedulingChannel
+): OrchestrationEventDetail[] {
+  return [
+    { label: "Status", value: channel.status ?? "skipped" },
+    { label: "Next node", value: "guardrail" }
+  ];
+}
+
+function buildSchedulingDispatchTrace(
+  channel: SchedulingChannel
+): OrchestrationExecutionTrace {
+  return {
+    stepKey: "scheduling_dispatch",
+    sections: [
+      {
+        key: "handoff",
+        title: "Orchestrator handoff",
+        data: {
+          eligible: channel.eligible,
+          status: channel.status ?? null,
+          degraded: channel.degraded,
+          requiredApproval: channel.requiredApproval
+        }
+      }
+    ]
+  };
 }
 
 function buildSchedulingPlanDetails(

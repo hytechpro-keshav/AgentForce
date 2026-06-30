@@ -222,14 +222,14 @@ export function steppedSnapshotFixture(
         status: "assigned",
         sequence: 1,
         occurredAt: "t1",
-        safeSummary: "Triage assigned for case 00001079."
+        safeSummary: "Triage Agent assigned to Case 00001079."
       },
       {
         node: "triage",
         status: "done",
         sequence: 2,
         occurredAt: "t2",
-        safeSummary: "Running AI triage.",
+        safeSummary: "Sending the output back to the Orchestrator for the next action.",
         details: [{ label: "Recommended priority", value: "normal" }]
       },
       {
@@ -237,21 +237,22 @@ export function steppedSnapshotFixture(
         status: "done",
         sequence: 3,
         occurredAt: "t3",
-        safeSummary: "Building customer context package."
+        safeSummary: "Creating a complete customer context package and includes the customer profile, entitlement status, asset details, service history and known risks."
       },
       {
         node: "knowledge",
         status: "done",
         sequence: 4,
         occurredAt: "t4",
-        safeSummary: "Found 2 matching troubleshooting guides."
+        safeSummary: "Found 2 matching troubleshooting guides that closely match the reported issue and can support the next recommended action."
       },
       {
         node: "parts_logistics",
         status: "done",
         sequence: 5,
         occurredAt: "t5",
-        safeSummary: "Planned 1 part(s) — fulfillment ready."
+        safeSummary:
+          "Confirming that 1 required part has been identified for this case."
       },
       {
         node: "scheduling",
@@ -343,14 +344,14 @@ export function steppedPausedFixture(
         status: "assigned",
         sequence: 1,
         occurredAt: "t1",
-        safeSummary: "Triage assigned for case 00001079."
+        safeSummary: "Triage Agent assigned to Case 00001079."
       },
       {
         node: "triage",
         status: "running",
         sequence: 2,
         occurredAt: "t2",
-        safeSummary: "Running AI triage.",
+        safeSummary: "Sending the output back to the Orchestrator for the next action.",
         details: [{ label: "Recommended priority", value: "normal" }]
       },
       {
@@ -358,7 +359,7 @@ export function steppedPausedFixture(
         status: "running",
         sequence: 3,
         occurredAt: "t3",
-        safeSummary: "Building customer context package."
+        safeSummary: "Creating a complete customer context package and includes the customer profile, entitlement status, asset details, service history and known risks."
       },
       {
         node: "knowledge",
@@ -416,14 +417,14 @@ export function steppedInProgressTriageFixture(): OrchestrationSnapshot {
         status: "assigned",
         sequence: 1,
         occurredAt: "t1",
-        safeSummary: "Triage assigned for case 00001079."
+        safeSummary: "Triage Agent assigned to Case 00001079."
       },
       {
         node: "triage",
         status: "done",
         sequence: 2,
         occurredAt: "t2",
-        safeSummary: "Running AI triage."
+        safeSummary: "Sending the output back to the Orchestrator for the next action."
       }
     ]
   };
@@ -464,35 +465,35 @@ export function steppedAfterCustomerHistoryFixture(): OrchestrationSnapshot {
         status: "assigned",
         sequence: 1,
         occurredAt: "t1",
-        safeSummary: "Triage assigned for case 00001079."
+        safeSummary: "Triage Agent assigned to Case 00001079."
       },
       {
         node: "triage",
         status: "running",
         sequence: 2,
         occurredAt: "t2",
-        safeSummary: "Running AI triage."
+        safeSummary: "Sending the output back to the Orchestrator for the next action."
       },
       {
         node: "customer_history",
         status: "running",
         sequence: 3,
         occurredAt: "t3",
-        safeSummary: "Reading customer profile and entitlements."
+        safeSummary: "Checking what the customer reported, which channel the case came from and what issue needs attention."
       },
       {
         node: "customer_history",
         status: "running",
         sequence: 4,
         occurredAt: "t4",
-        safeSummary: "Analyzing customer history."
+        safeSummary: "Studying the customer's past cases and checking whether this issue has happened before and whether the customer has any repeated service concerns."
       },
       {
         node: "customer_history",
         status: "running",
         sequence: 5,
         occurredAt: "t5",
-        safeSummary: "Writing customer findings to state."
+        safeSummary: "Saving its findings into the case state and making the information available for the Orchestrator and the next agents in the workflow."
       },
       {
         node: "knowledge",

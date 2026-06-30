@@ -48,7 +48,7 @@ describe("buildSteppedViewModel", () => {
             status: "assigned",
             sequence: 1,
             occurredAt: "t1",
-            safeSummary: "Triage assigned for case 00001079."
+            safeSummary: "Triage Agent assigned to Case 00001079."
           },
           {
             node: "triage",
@@ -62,7 +62,8 @@ describe("buildSteppedViewModel", () => {
             status: "running",
             sequence: 3,
             occurredAt: "t3",
-            safeSummary: "Reading Case context from Salesforce."
+            safeSummary:
+              "Reading and understanding the case, customer priority and next best action."
           }
         ]
       })
@@ -71,8 +72,8 @@ describe("buildSteppedViewModel", () => {
     expect(trace?.type).toBe("trace");
     if (trace?.type !== "trace") return;
     expect(trace.items.map((item) => item.label)).toEqual([
-      "Triage assigned for case 00001079.",
-      "Reading Case context from Salesforce."
+      "Triage Agent assigned to Case 00001079.",
+      "Reading and understanding the case, customer priority and next best action."
     ]);
   });
 
@@ -279,9 +280,11 @@ describe("buildVisibleActivity", () => {
     const vm = buildSteppedViewModel(snapshot);
     const visible = buildVisibleActivity(vm.activity, vm.nodes, 0, snapshot);
 
-    expect(visible.some((entry) => entry.text.includes("Running AI triage"))).toBe(
-      true
-    );
+    expect(
+      visible.some((entry) =>
+        entry.text.includes("Sending the output back to the Orchestrator")
+      )
+    ).toBe(true);
   });
 
   it("hides frontier dispatch until the spine has caught up to the backend", () => {
@@ -303,9 +306,11 @@ describe("buildVisibleActivity", () => {
     const vm = buildSteppedViewModel(snapshot);
     const visible = buildVisibleActivity(vm.activity, vm.nodes, 3, snapshot);
 
-    expect(visible.some((entry) => entry.text.includes("Running AI triage"))).toBe(
-      false
-    );
+    expect(
+      visible.some((entry) =>
+        entry.text.includes("Sending the output back to the Orchestrator")
+      )
+    ).toBe(false);
     expect(visible.some((entry) => entry.text.includes("Querying knowledge base"))).toBe(
       false
     );

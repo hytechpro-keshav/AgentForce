@@ -28,7 +28,7 @@ function snapshot(
         status: "assigned",
         sequence: 1,
         occurredAt: now,
-        safeSummary: "Triage assigned for case 00004242."
+        safeSummary: "Triage Agent assigned to Case 00004242."
       }
     ],
     ...overrides

@@ -196,7 +196,7 @@ describe("SteppedOrchestrationView", () => {
         initialSnapshot={pausedBeforeTriage}
       />
     );
-    expect(screen.getByText("Agent activated")).toBeInTheDocument();
+    expect(screen.getByText("Orchestrator activated")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Run Triage/i })
     ).toBeEnabled();

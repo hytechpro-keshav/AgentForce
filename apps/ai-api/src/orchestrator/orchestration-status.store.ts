@@ -89,9 +89,9 @@ export class OrchestrationStatusStore {
       status: "assigned",
       sequence: 1,
       occurredAt: now,
-      safeSummary: `Triage assigned${
-        seed.caseNumber ? ` for case ${seed.caseNumber}` : ""
-      }.`,
+      safeSummary: seed.caseNumber
+        ? `Triage Agent assigned to Case ${seed.caseNumber}.`
+        : "Triage Agent assigned.",
       trace: {
         stepKey: "workflow_assigned",
         sections: [

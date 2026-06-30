@@ -18,8 +18,24 @@ interface OrchestrationSnapshot {
   status: string;
   node?: string;
   triage?: { summary?: string };
-  knowledgeGuidance?: { safeSummary?: string };
-  partsLogistics?: { safeSummary?: string };
+  knowledgeGuidance?: {
+    status?: string;
+    answer?: { safeSummary?: string };
+  };
+  partsLogistics?: { status?: string };
+}
+
+function knowledgeStageSettled(snapshot: OrchestrationSnapshot): boolean {
+  const kg = snapshot.knowledgeGuidance;
+  if (!kg) return false;
+  if (kg.status === "ANSWERED" || kg.status === "NO_SOURCE") return true;
+  return Boolean(kg.answer?.safeSummary);
+}
+
+function partsStageSettled(snapshot: OrchestrationSnapshot): boolean {
+  const parts = snapshot.partsLogistics;
+  if (!parts) return false;
+  return Boolean(parts.status);
 }
 
 async function shot(page: Page, name: string): Promise<void> {
@@ -55,8 +71,10 @@ async function pollSnapshot(
 }
 
 async function waitNodeDone(page: Page, nodeId: string, timeoutMs = 120_000) {
-  const node = page.getByTestId(`stepped-node-${nodeId}`);
-  await expect(node.getByText("COMPLETED")).toBeVisible({ timeout: timeoutMs });
+  await expect(page.getByTestId(`stepped-node-status-${nodeId}`)).toHaveText(
+    "COMPLETED",
+    { timeout: timeoutMs }
+  );
 }
 
 async function assertDoneNodeTraceNotRunning(page: Page, nodeId: string) {
@@ -64,7 +82,7 @@ async function assertDoneNodeTraceNotRunning(page: Page, nodeId: string) {
   await expect(detail).toBeVisible();
   const trace = detail.getByTestId("stepped-detail-trace");
   await expect(trace).toBeVisible();
-  const runningBadges = trace.locator('[class*="tst"]').filter({
+  const runningBadges = trace.locator('[data-testid="stepped-trace-step-status"]').filter({
     hasText: /^running$/i
   });
   await expect(runningBadges).toHaveCount(0);
@@ -127,7 +145,7 @@ test.describe("Stepped console multi-node state (deployed)", () => {
         (s) =>
           s.status === "awaiting_step" &&
           s.node === "parts_logistics" &&
-          Boolean(s.knowledgeGuidance?.safeSummary)
+          knowledgeStageSettled(s)
       );
       await waitNodeDone(page, "knowledge");
       await shot(page, "02-knowledge-done");
@@ -145,7 +163,7 @@ test.describe("Stepped console multi-node state (deployed)", () => {
         (s) =>
           s.status === "awaiting_step" &&
           s.node === "scheduling" &&
-          Boolean(s.partsLogistics?.safeSummary)
+          partsStageSettled(s)
       );
       await waitNodeDone(page, "parts_logistics");
       await shot(page, "03-parts-done");
@@ -156,8 +174,8 @@ test.describe("Stepped console multi-node state (deployed)", () => {
     });
 
     await test.step("orchestrator sidebar shows awaiting next, not receiving", async () => {
-      await expect(page.getByText(/Awaiting Next/i)).toBeVisible();
-      await expect(page.getByText(/Receiving/i)).not.toBeVisible();
+      await expect(page.getByText("Awaiting Next ▸")).toBeVisible();
+      await expect(page.getByText("Receiving ←")).not.toBeVisible();
       await shot(page, "04-orchestrator-ready");
     });
 

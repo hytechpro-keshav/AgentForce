@@ -103,7 +103,7 @@ async function bootstrapDisplayTransferWorkflow(page: Page): Promise<string> {
     `/orchestration/stepped?workflowId=${encodeURIComponent(stepped.workflowId!)}`
   );
   await expect(page.getByText(/Operator sign-in required/i)).not.toBeVisible();
-  await expect(page.getByText("Agent activated")).toBeVisible();
+  await expect(page.getByText("Orchestrator activated")).toBeVisible();
   await shot(page, "01-stepped-bootstrap");
 
   await page.getByRole("button", { name: /Run Triage/i }).click();
@@ -163,7 +163,9 @@ test.describe("Stepped trace Phase A (deployed)", () => {
       const triageNode = page.getByTestId("stepped-node-triage");
 
       // Wait for DONE — trace should finish typing before the badge appears.
-      await expect(triageNode.getByText("COMPLETED")).toBeVisible({ timeout: 120_000 });
+      await expect(
+        page.getByTestId("stepped-node-status-triage")
+      ).toHaveText("COMPLETED", { timeout: 120_000 });
 
       // Summary should finish typing (no stuck cursor).
       const summary = detail.getByTestId("stepped-detail-summary");
@@ -184,7 +186,9 @@ test.describe("Stepped trace Phase A (deployed)", () => {
 
     await test.step("triage accordion shows trace before summary", async () => {
       const triageNode = page.getByTestId("stepped-node-triage");
-      await expect(triageNode.getByText("COMPLETED")).toBeVisible();
+      await expect(
+        page.getByTestId("stepped-node-status-triage")
+      ).toHaveText("COMPLETED");
       const detail = page.getByTestId("stepped-node-detail-triage");
       await expect(detail).toBeVisible();
 

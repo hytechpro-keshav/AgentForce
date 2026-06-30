@@ -19,7 +19,7 @@ describe("SteppedLiveTrace", () => {
         active
         items={[
           {
-            label: "Running AI triage.",
+            label: "Sending the output back to the Orchestrator for the next action.",
             status: "running",
             fields: []
           }
@@ -30,13 +30,15 @@ describe("SteppedLiveTrace", () => {
     expect(screen.getByText(/Execution trace/i)).toBeInTheDocument();
     expect(screen.getByTestId("stepped-live-trace-cursor")).toBeInTheDocument();
 
-    for (let tick = 0; tick < 30; tick += 1) {
+    for (let tick = 0; tick < 120; tick += 1) {
       act(() => {
         vi.advanceTimersByTime(40);
       });
     }
 
-    expect(screen.getByText("Running AI triage.")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("stepped-detail-trace").textContent
+    ).toContain("Sending the output back to the Orchestrator for the next action.");
   });
 
   it("renders the full trace instantly when inactive", () => {
@@ -45,7 +47,7 @@ describe("SteppedLiveTrace", () => {
         active={false}
         items={[
           {
-            label: "Running AI triage.",
+            label: "Sending the output back to the Orchestrator for the next action.",
             status: "done",
             fields: []
           }
@@ -53,7 +55,7 @@ describe("SteppedLiveTrace", () => {
       />
     );
 
-    expect(screen.getByText("Running AI triage.")).toBeInTheDocument();
+    expect(screen.getByText("Sending the output back to the Orchestrator for the next action.")).toBeInTheDocument();
     expect(screen.queryByTestId("stepped-live-trace-cursor")).toBeNull();
   });
 
@@ -65,17 +67,17 @@ describe("SteppedLiveTrace", () => {
         onTypingComplete={onTypingComplete}
         items={[
           {
-            label: "Triage assigned for case 00001079.",
+            label: "Triage Agent assigned to Case 00001079.",
             status: "assigned",
             fields: []
           },
           {
-            label: "Running AI triage.",
+            label: "Sending the output back to the Orchestrator for the next action.",
             status: "running",
             fields: []
           },
           {
-            label: "Building customer context package.",
+            label: "Creating a complete customer context package and includes the customer profile, entitlement status, asset details, service history and known risks.",
             status: "running",
             fields: []
           }
@@ -83,7 +85,7 @@ describe("SteppedLiveTrace", () => {
       />
     );
 
-    const ticks = 180;
+    const ticks = 420;
     for (let tick = 0; tick < ticks; tick += 1) {
       act(() => {
         vi.advanceTimersByTime(40);
@@ -105,17 +107,17 @@ describe("SteppedLiveTrace", () => {
           active
           items={[
             {
-              label: "Triage assigned for case 00001079.",
+              label: "Triage Agent assigned to Case 00001079.",
               status: "assigned",
               fields: []
             },
             {
-              label: "Running AI triage.",
+              label: "Sending the output back to the Orchestrator for the next action.",
               status: "running",
               fields: []
             },
             {
-              label: "Building customer context package.",
+              label: "Creating a complete customer context package and includes the customer profile, entitlement status, asset details, service history and known risks.",
               status: "running",
               fields: []
             }
@@ -126,7 +128,7 @@ describe("SteppedLiveTrace", () => {
 
     render(<Wrapper />);
 
-    const ticks = 180;
+    const ticks = 420;
     for (let tick = 0; tick < ticks; tick += 1) {
       act(() => {
         vi.advanceTimersByTime(40);
@@ -135,7 +137,7 @@ describe("SteppedLiveTrace", () => {
 
     expect(
       screen.getByTestId("stepped-detail-trace").textContent
-    ).toContain("Building customer context package.");
+    ).toContain("Creating a complete customer context package");
   });
 
   it("fires onTypingComplete after the final character", () => {
@@ -167,7 +169,7 @@ describe("SteppedLiveTrace", () => {
     const onTypingComplete = vi.fn();
     const initial = [
       {
-        label: "Triage assigned for case 00001079.",
+        label: "Triage Agent assigned to Case 00001079.",
         status: "assigned" as const,
         fields: []
       }
@@ -180,13 +182,13 @@ describe("SteppedLiveTrace", () => {
       />
     );
 
-    for (let tick = 0; tick < 40; tick += 1) {
+    for (let tick = 0; tick < 200; tick += 1) {
       act(() => {
         vi.advanceTimersByTime(40);
       });
     }
 
-    expect(screen.getByText("Triage assigned for case 00001079.")).toBeInTheDocument();
+    expect(screen.getByText("Triage Agent assigned to Case 00001079.")).toBeInTheDocument();
 
     rerender(
       <SteppedLiveTrace
@@ -195,7 +197,8 @@ describe("SteppedLiveTrace", () => {
         items={[
           ...initial,
           {
-            label: "Reading Case context from Salesforce.",
+            label:
+              "Reading and understanding the case, customer priority and next best action.",
             status: "running",
             fields: []
           }
@@ -203,7 +206,7 @@ describe("SteppedLiveTrace", () => {
       />
     );
 
-    for (let tick = 0; tick < 120; tick += 1) {
+    for (let tick = 0; tick < 240; tick += 1) {
       act(() => {
         vi.advanceTimersByTime(40);
       });
@@ -211,7 +214,9 @@ describe("SteppedLiveTrace", () => {
 
     expect(
       screen.getByTestId("stepped-detail-trace").textContent
-    ).toContain("Reading Case context from Salesforce.");
+    ).toContain(
+      "Reading and understanding the case, customer priority and next best action."
+    );
     expect(onTypingComplete.mock.calls.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -222,12 +227,12 @@ describe("SteppedLiveTrace", () => {
         settled
         items={[
           {
-            label: "Running AI triage.",
+            label: "Sending the output back to the Orchestrator for the next action.",
             status: "running",
             fields: []
           },
           {
-            label: "Triage assigned for case 00001079.",
+            label: "Triage Agent assigned to Case 00001079.",
             status: "assigned",
             fields: []
           }
@@ -243,8 +248,8 @@ describe("SteppedLiveTrace", () => {
   });
 
   it("detects append-only trace signatures", () => {
-    const a = "Triage assigned";
-    const b = `${a}\u0001Reading Case context`;
+    const a = "Triage Agent assigned";
+    const b = `${a}\u0001Reading and understanding the case`;
     expect(isTraceSignatureAppendOnly(a, b)).toBe(true);
     expect(isTraceSignatureAppendOnly(b, a)).toBe(false);
     expect(isTraceSignatureAppendOnly(a, a)).toBe(true);

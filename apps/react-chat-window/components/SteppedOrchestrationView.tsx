@@ -764,7 +764,7 @@ export function SteppedOrchestrationView({
                 </div>
                 <div className={styles.cmid}>
                   <div className={styles.cname} style={{ color: "#141414" }}>
-                    Agent activated
+                    Orchestrator activated
                   </div>
                   <div className={styles.csub}>
                     Salesforce Case · workflow {vm.workflowId}
@@ -1181,6 +1181,7 @@ function NodeRow({
                   ? styles.statusWaiting
                   : statusClass(state)
               )}
+              data-testid={`stepped-node-status-${node.id}`}
             >
               {approvalWaiting ? (
                 "WAITING"

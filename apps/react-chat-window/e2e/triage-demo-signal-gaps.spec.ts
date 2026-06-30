@@ -143,7 +143,9 @@ test.describe("Triage demo signal gaps (deployed)", () => {
 
     await test.step("S3 — stepped Triage UI shows summary and execution trace first", async () => {
       const triageCard = page.getByTestId("stepped-node-triage");
-      await expect(triageCard.getByText("COMPLETED")).toBeVisible({ timeout: 60_000 });
+      await expect(
+        page.getByTestId("stepped-node-status-triage")
+      ).toHaveText("COMPLETED", { timeout: 60_000 });
       await triageCard.locator('[class*="chead"]').click();
 
       const detail = page.getByTestId("stepped-node-detail-triage");

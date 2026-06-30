@@ -99,7 +99,7 @@ async function createDisplayTransferWorkflow(page: Page): Promise<string> {
     `/orchestration/stepped?workflowId=${encodeURIComponent(stepped.workflowId!)}`
   );
   await expect(page.getByText(/Operator sign-in required/i)).not.toBeVisible();
-  await expect(page.getByText("Agent activated")).toBeVisible();
+  await expect(page.getByText("Orchestrator activated")).toBeVisible();
   await shot(page, "01-stepped-bootstrap");
 
   await page.getByRole("button", { name: /Run Triage/i }).click();
@@ -135,7 +135,9 @@ test.describe("Triage workflow confidence (deployed)", () => {
     await test.step("wait for triage UI to finish typing and show DONE", async () => {
       const triageNode = page.getByTestId("stepped-node-triage");
       const detail = page.getByTestId("stepped-node-detail-triage");
-      await expect(triageNode.getByText("COMPLETED")).toBeVisible({ timeout: 120_000 });
+      await expect(
+        page.getByTestId("stepped-node-status-triage")
+      ).toHaveText("COMPLETED", { timeout: 120_000 });
       await expect(page.getByText("1 / 5")).toBeVisible({ timeout: 30_000 });
 
       const summary = detail.getByTestId("stepped-detail-summary");

@@ -106,7 +106,7 @@ async function createDisplayTransferWorkflow(page: Page): Promise<string> {
     `/orchestration/stepped?workflowId=${encodeURIComponent(stepped.workflowId!)}`
   );
   await expect(page.getByText(/Operator sign-in required/i)).not.toBeVisible();
-  await expect(page.getByText("Agent activated")).toBeVisible();
+  await expect(page.getByText("Orchestrator activated")).toBeVisible();
   await shot(page, "02-stepped-bootstrap");
 
   await page.getByRole("button", { name: /Run Triage/i }).click();
