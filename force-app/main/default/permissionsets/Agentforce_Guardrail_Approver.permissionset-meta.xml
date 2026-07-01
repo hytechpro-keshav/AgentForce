@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description
+  >Read-only access to AI Orchestrator verdict and guardrail status fields for members of the Agentforce_Guardrail_Approvers queue.</description>
+    <hasActivationRequired>false</hasActivationRequired>
+    <label>Agentforce Guardrail Approver</label>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Case.AI_Guardrail_Status__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Case.AI_Orchestrator_Verdict_Headline__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Case.AI_Orchestrator_Verdict_Summary__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Case.AI_Orchestrator_Verdict_Steps__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Case.AI_Orchestrator_Verdict_Highlights__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Case.AI_Orchestration_Console_URL__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Case.AI_Triage_Workflow_Id__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+</PermissionSet>

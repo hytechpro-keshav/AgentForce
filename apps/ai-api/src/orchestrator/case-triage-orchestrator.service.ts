@@ -118,6 +118,9 @@ import type {
   TriggerCaseTriageDto
 } from "./dto/trigger-case-triage.dto";
 import { OrchestrationStatusStore } from "./orchestration-status.store";
+import { AgentCaseCommentService } from "./agent-case-comment.service";
+import type { AgentNarrativeKey } from "./agent-case-narrative.builder";
+import { buildAccountManagerExecutiveSummary } from "./account-manager-summary.synthesizer";
 
 /**
  * Owns the case-triage LangGraph: trigger handoff, read, triage (via
@@ -167,7 +170,8 @@ export class CaseTriageOrchestratorService {
     private readonly schedulingWriteGateway: SalesforceSchedulingWriteGateway,
     private readonly schedulingPlanner: SchedulingPlannerService,
     private readonly guardrailPolicy: GuardrailPolicyService,
-    private readonly approvalNotifications: GuardrailApprovalNotificationService
+    private readonly approvalNotifications: GuardrailApprovalNotificationService,
+    private readonly agentCaseComments: AgentCaseCommentService
   ) {
     const graphDeps: CaseTriageGraphDeps = {
       readContext: (caseId) => this.gateway.readCaseContext(caseId),
@@ -177,6 +181,11 @@ export class CaseTriageOrchestratorService {
       sendApprovalNotification: (workflowId, caseId, payload, context) =>
         this.sendApprovalNotification(workflowId, caseId, payload, context),
       buildApprovalContext: (state) => this.buildApprovalContext(state),
+      postAgentCaseComment: (workflowId, caseId, agentKey, state) =>
+        this.postAgentCaseComment(workflowId, caseId, agentKey, state),
+      postAllAgentCaseCommentsForAutoApproval: (workflowId, caseId, state) =>
+        this.postAllAgentCaseCommentsForAutoApproval(workflowId, caseId, state),
+      isSteppedWorkflow: (workflowId) => this.steppedWorkflows.has(workflowId),
       sendEscalationNotification: (workflowId, caseId, payload) =>
         this.sendEscalationNotification(workflowId, caseId, payload),
       applyPartsFulfillment: (workflowId, caseId, partsLogistics) =>
@@ -289,6 +298,12 @@ export class CaseTriageOrchestratorService {
         caseId: dto.caseId
       });
     }
+    if (orchestrationStatus === "suppressed") {
+      throw new ConflictException({
+        error: "orchestration_suppressed",
+        caseId: dto.caseId
+      });
+    }
 
     const workflowId = `wf-${randomUUID()}`;
     // Await create so the assigned snapshot is written through to the
@@ -336,6 +351,8 @@ export class CaseTriageOrchestratorService {
         caseId: dto.caseId
       });
     }
+    // Block the insert handoff Flow before we register a stepped workflow.
+    await this.markCaseSuppressedForStepped(dto.caseId);
     const workflowId = `wf-${randomUUID()}`;
     await this.store.createAssigned({
       workflowId,
@@ -644,7 +661,7 @@ export class CaseTriageOrchestratorService {
       await this.store.appendEvent(
         workflowId,
         "waiting_approval",
-        "Awaiting human approval — guardrail flagged the case for review.",
+        "Awaiting Account Manager approval — guardrail flagged the case for review.",
         undefined,
         // Node 6 is the only interrupting node, so tag the pause with the
         // guardrail node id — that lights up the Node 6 stage in the UI.
@@ -1023,8 +1040,8 @@ export class CaseTriageOrchestratorService {
   private buildApprovalContext(
     state: CaseTriageStateType
   ): GuardrailSalesforceApprovalContext {
-    const verdict = synthesizeOrchestratorVerdict({
-      status: "waiting_approval",
+    const verdictInput = {
+      status: "waiting_approval" as const,
       approvalRequired: true,
       triage: state.triage,
       customerContext: state.customerContext,
@@ -1032,7 +1049,9 @@ export class CaseTriageOrchestratorService {
       partsLogistics: state.partsLogistics,
       scheduling: state.scheduling,
       guardrail: state.guardrail
-    });
+    };
+    const verdict = synthesizeOrchestratorVerdict(verdictInput);
+    const executiveSummary = buildAccountManagerExecutiveSummary(verdictInput);
     const uiBaseUrl = this.config.orchestrator.salesforceWriteBack.uiBaseUrl;
     const orchestrationConsoleUrl = uiBaseUrl
       ? `${uiBaseUrl.replace(/\/+$/, "")}/orchestration?caseId=${encodeURIComponent(
@@ -1042,12 +1061,60 @@ export class CaseTriageOrchestratorService {
     return {
       verdict: {
         headline: verdict.headline,
-        summary: verdict.summary,
+        summary: executiveSummary,
         recommendedSteps: verdict.recommendedSteps,
         highlights: verdict.highlights
       },
       orchestrationConsoleUrl
     };
+  }
+
+  /**
+   * Posts one idempotent private agent narrative on the Case feed.
+   * Stepped-console runs only; auto-graph batches at guardrail approval.
+   */
+  private postAgentCaseComment(
+    workflowId: string,
+    caseId: string,
+    agentKey: AgentNarrativeKey,
+    state: CaseTriageStateType
+  ): Promise<void> {
+    if (!this.steppedWorkflows.has(workflowId)) {
+      return Promise.resolve();
+    }
+    return this.agentCaseComments.postAgentNarrative(
+      workflowId,
+      caseId,
+      agentKey,
+      state,
+      { stepped: true }
+    );
+  }
+
+  private postAllAgentCaseCommentsForAutoApproval(
+    workflowId: string,
+    caseId: string,
+    state: CaseTriageStateType
+  ): Promise<void> {
+    if (this.steppedWorkflows.has(workflowId)) {
+      return Promise.resolve();
+    }
+    return this.agentCaseComments.postAllForAutoApproval(
+      workflowId,
+      caseId,
+      state
+    );
+  }
+
+  /** Best-effort: mark Case suppressed so the insert handoff Flow skips it. */
+  private async markCaseSuppressedForStepped(caseId: string): Promise<void> {
+    try {
+      await this.gateway.writeOrchestrationSuppressed(caseId);
+    } catch {
+      this.logger.warn(
+        `Stepped suppress flag write skipped for case ${caseId}; demo insert may still block handoff.`
+      );
+    }
   }
 
   /**

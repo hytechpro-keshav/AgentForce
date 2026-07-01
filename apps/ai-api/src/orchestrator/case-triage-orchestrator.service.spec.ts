@@ -160,13 +160,15 @@ function buildHarness(
   // A stopped-Case override drives the /triggers 409 refuse path.
   const readOrchestrationStatus = jest.fn().mockResolvedValue(undefined);
   const writeOrchestrationStop = jest.fn().mockResolvedValue(undefined);
+  const writeOrchestrationSuppressed = jest.fn().mockResolvedValue(undefined);
   const gateway = {
     isConfigured: () => true,
     readCaseContext,
     applyWriteBack,
     writeTriageTracking,
     readOrchestrationStatus,
-    writeOrchestrationStop
+    writeOrchestrationStop,
+    writeOrchestrationSuppressed
   } as unknown as SalesforceCaseGateway;
 
   const triage = jest.fn().mockResolvedValue({
@@ -304,6 +306,10 @@ function buildHarness(
     notifyApprovalRequired: jest.fn().mockResolvedValue({ method: "log_only" }),
     notifyEscalation: jest.fn().mockResolvedValue(undefined)
   } as unknown as GuardrailApprovalNotificationService;
+  const agentCaseComments = {
+    postAgentNarrative: jest.fn().mockResolvedValue(undefined),
+    postAllForAutoApproval: jest.fn().mockResolvedValue(undefined)
+  } as unknown as import("./agent-case-comment.service").AgentCaseCommentService;
 
   const service = new CaseTriageOrchestratorService(
     gateway,
@@ -325,7 +331,8 @@ function buildHarness(
     schedulingWriteGateway,
     schedulingPlanner,
     guardrailPolicy,
-    approvalNotifications
+    approvalNotifications,
+    agentCaseComments
   );
 
   return {
@@ -861,7 +868,10 @@ describe("CaseTriageOrchestratorService", () => {
           .fn()
           .mockResolvedValue({ method: "log_only" }),
         notifyEscalation: jest.fn().mockResolvedValue(undefined)
-      } as unknown as GuardrailApprovalNotificationService
+      } as unknown as GuardrailApprovalNotificationService,
+      {
+        postAgentNarrative: jest.fn().mockResolvedValue(undefined)
+      } as unknown as import("./agent-case-comment.service").AgentCaseCommentService
     );
 
     const resolved =

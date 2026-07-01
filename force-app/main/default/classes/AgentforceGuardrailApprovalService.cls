@@ -2,7 +2,7 @@
  * Node 6 — Phase 6b+ Salesforce Approval submit executor.
  *
  * Called by the NestJS orchestrator (via {@link AgentforceGuardrailApprovalRest})
- * when the compliance guardrail holds a Case for human approval. It:
+ * when the compliance guardrail holds a Case for Account Manager approval. It:
  *   1. Stamps the Orchestrator Verdict (headline/summary/steps/highlights +
  *      console deep link), the workflow id, the workflow-scoped resume token,
  *      and `AI_Guardrail_Status__c = pending_approval` on the Case.
@@ -92,11 +92,7 @@ public with sharing class AgentforceGuardrailApprovalService {
       submitReq.setObjectId(caseId);
       submitReq.setProcessDefinitionNameOrId(processName());
       submitReq.setSkipEntryCriteria(true);
-      submitReq.setComments(
-        'Submitted by AI compliance guardrail (workflow ' +
-          request.workflowId +
-          ').'
-      );
+      submitReq.setComments(buildSubmitComment(caseId, request));
       Approval.ProcessResult approvalResult = Approval.process(
         submitReq,
         false
@@ -139,6 +135,11 @@ public with sharing class AgentforceGuardrailApprovalService {
       request.orchestrationConsoleUrl
     );
     if (request.verdict != null) {
+      String summary = request.verdict.summary;
+      String ownerName = resolveAccountOwnerName(caseId);
+      if (String.isNotBlank(ownerName) && String.isNotBlank(summary)) {
+        summary = enrichSummaryWithAccountOwner(summary, ownerName);
+      }
       setIfUpdateable(
         caseRow,
         'AI_Orchestrator_Verdict_Headline__c',
@@ -147,7 +148,7 @@ public with sharing class AgentforceGuardrailApprovalService {
       setIfUpdateable(
         caseRow,
         'AI_Orchestrator_Verdict_Summary__c',
-        truncate(request.verdict.summary, 32768)
+        truncate(summary, 32768)
       );
       setIfUpdateable(
         caseRow,
@@ -210,6 +211,85 @@ public with sharing class AgentforceGuardrailApprovalService {
       return null;
     }
     return value.length() > max ? value.substring(0, max) : value;
+  }
+
+  /**
+   * Builds the Approval Process submitter comment from the executive summary,
+   * optional console deep link, and workflow id. Degrade-safe when fields are
+   * blank.
+   */
+  @TestVisible
+  private static String buildSubmitComment(Id caseId, SubmitRequest request) {
+    List<String> lines = new List<String>();
+    if (request.verdict != null && String.isNotBlank(request.verdict.summary)) {
+      String summary = request.verdict.summary;
+      String ownerName = resolveAccountOwnerName(caseId);
+      if (String.isNotBlank(ownerName)) {
+        summary = enrichSummaryWithAccountOwner(summary, ownerName);
+      }
+      lines.add(summary);
+    }
+    if (request.approvalReasons != null && !request.approvalReasons.isEmpty()) {
+      lines.add(
+        'Policy signals: ' + String.join(request.approvalReasons, '; ')
+      );
+    }
+    if (String.isNotBlank(request.orchestrationConsoleUrl)) {
+      lines.add('Orchestration console: ' + request.orchestrationConsoleUrl);
+    }
+    lines.add(
+      'Submitted by AI compliance guardrail (workflow ' +
+        request.workflowId +
+        ').'
+    );
+    return String.join(lines, '\n\n');
+  }
+
+  /**
+   * Best-effort Account Owner name for approver-facing copy. Returns null when
+   * the Account or Owner is absent — never throws.
+   */
+  @TestVisible
+  private static String resolveAccountOwnerName(Id caseId) {
+    try {
+      List<Case> rows = [
+        SELECT Account.Owner.Name
+        FROM Case
+        WHERE Id = :caseId
+        LIMIT 1
+      ];
+      if (rows.isEmpty() || rows[0].Account == null) {
+        return null;
+      }
+      return rows[0].Account.Owner.Name;
+    } catch (Exception ignored) {
+      return null;
+    }
+  }
+
+  /**
+   * Injects the resolved Account Owner into the executive summary once when the
+   * NestJS paragraph used the generic Account Manager wording.
+   */
+  @TestVisible
+  private static String enrichSummaryWithAccountOwner(
+    String summary,
+    String ownerName
+  ) {
+    if (String.isBlank(summary) || String.isBlank(ownerName)) {
+      return summary;
+    }
+    if (summary.contains(ownerName)) {
+      return summary;
+    }
+    String needle = 'Account Manager approval is required because';
+    if (summary.contains(needle)) {
+      return summary.replace(
+        needle,
+        'Account Manager approval is required from ' + ownerName + ' because'
+      );
+    }
+    return summary;
   }
 
   // ---- DTOs (mirror apps/ai-api/src/orchestrator/dto/guardrail.ts) ----

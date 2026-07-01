@@ -100,7 +100,11 @@ export class SalesforceCaseWriteGateway {
       AccountId: fields.accountId,
       Service_Ship_To_City__c: fields.serviceShipToCity,
       Service_Ship_To_State__c: fields.serviceShipToState,
-      Service_Ship_To_Country__c: fields.serviceShipToCountry
+      Service_Ship_To_Country__c: fields.serviceShipToCountry,
+      // Stepped-console demo Cases: suppress the auto handoff Flow so the
+      // operator controls each stage via /cases/:id/stepped (no premature SF
+      // agent comments from a full auto-graph run).
+      AI_Orchestration_Status__c: "suppressed"
     };
     if (fields.contactId) {
       body.ContactId = fields.contactId;

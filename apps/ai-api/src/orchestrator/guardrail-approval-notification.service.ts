@@ -63,7 +63,7 @@ export class GuardrailApprovalNotificationService {
   ) {}
 
   /**
-   * Notifies the approver that a workflow is held for human approval, and
+   * Notifies the approver that a workflow is held for Account Manager approval, and
    * returns the routing record the `evaluateGuardrail` node stamps on the
    * guardrail channel. Idempotent per workflow and degrade-safe.
    *
@@ -207,9 +207,9 @@ export class GuardrailApprovalNotificationService {
         : undefined
     ].filter((h): h is { label: string; value: string } => h !== undefined);
     return {
-      headline: `Approval required — risk ${g.riskScore} (${g.riskLevel})`,
+      headline: `Account Manager approval required — risk ${g.riskScore} (${g.riskLevel})`,
       summary:
-        "This service case is held for human approval by the compliance " +
+        "This service case is held for Account Manager approval by the compliance " +
         "guardrail. Review the triggered policy rules and approve or reject " +
         "in Salesforce.",
       recommendedSteps: g.approvalReasons.length

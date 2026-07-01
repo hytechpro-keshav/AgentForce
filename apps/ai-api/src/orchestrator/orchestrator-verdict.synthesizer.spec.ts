@@ -252,7 +252,7 @@ describe("synthesizeOrchestratorVerdict", () => {
       customerContext: customerContext(),
       knowledgeGuidance: knowledgeAnswered
     });
-    expect(verdict.summary).toContain("awaiting out-of-band approval");
+    expect(verdict.summary).toContain("awaiting Account Manager approval");
     expect(verdict.recommendedSteps.join(" ")).toContain("Approve or reject");
     expect(
       verdict.highlights.find((h) => h.label === "Write-back")?.value
@@ -825,8 +825,8 @@ describe("synthesizeOrchestratorVerdict", () => {
     });
 
     expect(verdict.headline).toContain("approval required");
-    expect(verdict.summary).toContain("Guardrail requires human approval");
-    expect(verdict.summary).toContain("risk score 70 (high)");
+    expect(verdict.summary).toContain("Account Manager approval is required");
+    expect(verdict.summary).not.toMatch(/human approval/i);
     expect(verdict.recommendedSteps.join(" ")).toContain(
       "Approve or reject via the account-manager approval link."
     );
@@ -987,16 +987,14 @@ describe("synthesizeOrchestratorVerdict", () => {
       })
     });
     expect(verdict.headline).not.toContain("approval required");
-    expect(verdict.headline).toContain("human approval granted");
-    expect(verdict.summary).toContain("approver approved");
-    expect(verdict.summary).toContain("risk 70");
-    expect(verdict.summary).toContain("written back");
+    expect(verdict.headline).toContain("Account Manager approval granted");
+    expect(verdict.summary).toContain("Account Manager approval was granted");
     expect(verdict.recommendedSteps.join(" ")).not.toContain("approval link");
     expect(verdict.recommendedSteps.join(" ")).not.toContain(
       "Items to Approve"
     );
     expect(verdict.recommendedSteps.join(" ")).toContain(
-      "Human approval granted — proceed with fulfillment and scheduling."
+      "Account Manager approval granted — proceed with fulfillment and scheduling."
     );
     expect(
       verdict.highlights.find((h) => h.label === "Guardrail outcome")?.value
@@ -1018,15 +1016,14 @@ describe("synthesizeOrchestratorVerdict", () => {
         }
       })
     });
-    expect(verdict.headline).toContain("rejected (human)");
+    expect(verdict.headline).toContain("rejected (Account Manager)");
     expect(verdict.headline).not.toContain("approval required");
-    expect(verdict.summary).toContain("approver rejected");
-    expect(verdict.summary).toContain("Write-back was not applied");
-    // outcomeSentence must not double up "write-back" copy
+    expect(verdict.summary).toContain("Account Manager approval was rejected");
+    expect(verdict.summary).toContain("write-back was not applied");
     const writeBackMatches = verdict.summary.match(/write-back/gi) ?? [];
     expect(writeBackMatches.length).toBeLessThanOrEqual(1);
     expect(verdict.recommendedSteps.join(" ")).toContain(
-      "Case rejected by approver — no automated write-back."
+      "Case rejected by Account Manager — no automated write-back."
     );
     expect(
       verdict.highlights.find((h) => h.label === "Guardrail outcome")?.value

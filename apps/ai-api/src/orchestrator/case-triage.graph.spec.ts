@@ -771,6 +771,9 @@ describe("case-triage graph — Node 6 compliance & guardrail", () => {
     );
 
     expect(buildApprovalContext).toHaveBeenCalledTimes(1);
+    expect(buildApprovalContext.mock.calls[0][0].guardrail?.outcome).toBe(
+      "requireHumanApproval"
+    );
     // The context is the 4th arg of the notification call.
     expect(sendApprovalNotification.mock.calls[0][3]).toBe(approvalContext);
   });

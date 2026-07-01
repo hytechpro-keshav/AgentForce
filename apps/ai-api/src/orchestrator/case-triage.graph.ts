@@ -27,6 +27,7 @@ import type {
   GuardrailDecision,
   GuardrailSalesforceApprovalContext
 } from "./dto/guardrail";
+import type { AgentNarrativeKey } from "./agent-case-narrative.builder";
 import type { SalesforceCaseContext } from "./dto/salesforce-case-context";
 import type {
   CustomerContextChannel,
@@ -299,6 +300,26 @@ export interface CaseTriageGraphDeps {
     node?: OrchestratorNodeId,
     trace?: OrchestrationExecutionTrace
   ): void | Promise<void>;
+  /**
+   * Posts one private agent narrative Case comment. Stepped workflows post after
+   * each stage advance; auto-graph workflows batch at guardrail approval only.
+   */
+  postAgentCaseComment?(
+    workflowId: string,
+    caseId: string,
+    agentKey: AgentNarrativeKey,
+    state: CaseTriageStateType
+  ): Promise<void>;
+  /**
+   * Auto-graph only: post all five agent narratives once before SF approval.
+   */
+  postAllAgentCaseCommentsForAutoApproval?(
+    workflowId: string,
+    caseId: string,
+    state: CaseTriageStateType
+  ): Promise<void>;
+  /** True when this workflow is a stepped-console run. */
+  isSteppedWorkflow?(workflowId: string): boolean;
   checkpointer: BaseCheckpointSaver;
 }
 
@@ -459,6 +480,13 @@ export function buildCaseTriageGraph(
         TRIAGE_NODE_ID,
         buildTriageTrace(state, triage)
       );
+      const triageState = { ...state, triage, customerContext };
+      await deps.postAgentCaseComment?.(
+        state.workflowId,
+        state.caseId,
+        "triage",
+        triageState
+      );
       return { triage, customerContext };
     })
     .addNode("knowledge", async (state) => {
@@ -580,6 +608,14 @@ export function buildCaseTriageGraph(
         buildKnowledgeDispatchTrace(guidance)
       );
 
+      const knowledgeState = { ...state, knowledgeGuidance: guidance };
+      await deps.postAgentCaseComment?.(
+        state.workflowId,
+        state.caseId,
+        "knowledge",
+        knowledgeState
+      );
+
       return { knowledgeGuidance: guidance };
     })
     .addNode("parts", async (state) => {
@@ -688,6 +724,14 @@ export function buildCaseTriageGraph(
         buildPartsDispatchDetails(parts),
         PARTS_LOGISTICS_NODE_ID,
         buildPartsDispatchTrace(parts)
+      );
+
+      const partsState = { ...state, partsLogistics: parts };
+      await deps.postAgentCaseComment?.(
+        state.workflowId,
+        state.caseId,
+        "parts",
+        partsState
       );
 
       return { partsLogistics: parts };
@@ -819,6 +863,14 @@ export function buildCaseTriageGraph(
         buildSchedulingDispatchTrace(scheduling)
       );
 
+      const schedulingState = { ...state, scheduling };
+      await deps.postAgentCaseComment?.(
+        state.workflowId,
+        state.caseId,
+        "scheduling",
+        schedulingState
+      );
+
       return { scheduling };
     })
     .addNode("evaluateGuardrail", async (state) => {
@@ -912,10 +964,26 @@ export function buildCaseTriageGraph(
       const payload = buildGuardrailApprovalPayload(state, decision);
       let routedGuardrail = guardrail;
       if (!state.guardrail?.approvalRouting?.sentAt) {
+        const guardrailState = { ...state, guardrail };
+        if (deps.isSteppedWorkflow?.(state.workflowId)) {
+          await deps.postAgentCaseComment?.(
+            state.workflowId,
+            state.caseId,
+            "guardrail",
+            guardrailState
+          );
+        } else {
+          await deps.postAllAgentCaseCommentsForAutoApproval?.(
+            state.workflowId,
+            state.caseId,
+            guardrailState
+          );
+        }
         // Build the SF-Approval context (verdict + console link) from the
         // full state BEFORE interrupt(). Pure + idempotent; only the SF
-        // routing path reads it.
-        const approvalContext = deps.buildApprovalContext?.(state);
+        // routing path reads it. Include the guardrail channel so the
+        // executive summary carries the Account Manager approval clause.
+        const approvalContext = deps.buildApprovalContext?.(guardrailState);
         const routing = await deps.sendApprovalNotification(
           state.workflowId,
           state.caseId,
