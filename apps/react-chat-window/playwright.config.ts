@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL =
+const deployedBaseURL =
   process.env.REACT_CHAT_URL ??
   process.env.PLAYWRIGHT_BASE_URL ??
   "https://react-chat-window-production.up.railway.app";
@@ -15,7 +15,6 @@ export default defineConfig({
   timeout: 60_000,
   outputDir: "test-results/playwright",
   use: {
-    baseURL,
     trace: "on",
     video: "on",
     screenshot: "only-on-failure"
@@ -23,7 +22,11 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] }
+      testIgnore: /intake-flow\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        baseURL: deployedBaseURL
+      }
     }
   ]
 });
