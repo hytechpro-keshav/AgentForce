@@ -69,6 +69,8 @@ Read the relevant `SKILL.md` before doing specialized work in these domains:
 | `salesforce-case-create`           | Salesforce Case creation from external systems                                                          |
 | `railway-quick-deploy`             | Railway deployment                                                                                      |
 | `new-org-tenant-onboarding`        | New org/tenant setup                                                                                    |
+| `intake-skip-email-verification`   | Enable/disable OTP bypass for intake chat (email limit UAT)                                             |
+| `ablypro-landing-intake-chat`      | Ablypro `/landing` page + floating intake chatbot → Salesforce Case                                     |
 
 ---
 
@@ -97,23 +99,25 @@ These subagents run in isolated context with specialized system prompts. Invoke 
 
 ## Custom Slash Commands (`.claude/commands/`)
 
-| Command                                 | Purpose                                                                     |
-| --------------------------------------- | --------------------------------------------------------------------------- |
-| `/review-ai-change`                     | Review an AI-related code change                                            |
-| `/create-agentforce-action`             | Scaffold a new Salesforce Agentforce action                                 |
-| `/add-llm-provider`                     | Add a new LLM provider to the NestJS AI API                                 |
-| `/create-rag-endpoint`                  | Scaffold a new RAG endpoint                                                 |
-| `/review-agentforce-metadata`           | Deep review of Agentforce metadata                                          |
-| `/implement-case-triage-slice`          | Implement the Node 1 case triage LangGraph slice                            |
-| `/implement-stepped-console`            | Implement or fix the stepped orchestration console and demo bootstrap       |
-| `/implement-node4-parts-logistics`      | Implement Phase 4a Node 4 Parts & Logistics orchestrator slice              |
-| `/plan-node5-scheduling`                | Plan Node 5 Scheduling: architecture, SF readiness, phase plan              |
-| `/node5-pre-salesforce-prep`            | 5-Pre: Skills, NA territory, laptop WorkTypes, Run As FLS                   |
-| `/implement-node5-scheduling`           | Implement Phase 5a Node 5 Scheduling orchestrator slice                     |
-| `/implement-node6-guardrail`            | Implement Phase 6a Node 6 Compliance & Guardrail (replaces gate, clears 5c) |
-| `/onboard-new-org-tenant`               | Run new org/tenant onboarding workflow                                      |
-| `/generate-production-runbook`          | Generate a production runbook                                               |
-| `/service-workflow-architecture-review` | Architecture review of service workflows                                    |
+| Command                                  | Purpose                                                                     |
+| ---------------------------------------- | --------------------------------------------------------------------------- |
+| `/review-ai-change`                      | Review an AI-related code change                                            |
+| `/create-agentforce-action`              | Scaffold a new Salesforce Agentforce action                                 |
+| `/add-llm-provider`                      | Add a new LLM provider to the NestJS AI API                                 |
+| `/create-rag-endpoint`                   | Scaffold a new RAG endpoint                                                 |
+| `/review-agentforce-metadata`            | Deep review of Agentforce metadata                                          |
+| `/implement-case-triage-slice`           | Implement the Node 1 case triage LangGraph slice                            |
+| `/implement-stepped-console`             | Implement or fix the stepped orchestration console and demo bootstrap       |
+| `/implement-node4-parts-logistics`       | Implement Phase 4a Node 4 Parts & Logistics orchestrator slice              |
+| `/plan-node5-scheduling`                 | Plan Node 5 Scheduling: architecture, SF readiness, phase plan              |
+| `/node5-pre-salesforce-prep`             | 5-Pre: Skills, NA territory, laptop WorkTypes, Run As FLS                   |
+| `/implement-node5-scheduling`            | Implement Phase 5a Node 5 Scheduling orchestrator slice                     |
+| `/implement-node6-guardrail`             | Implement Phase 6a Node 6 Compliance & Guardrail (replaces gate, clears 5c) |
+| `/onboard-new-org-tenant`                | Run new org/tenant onboarding workflow                                      |
+| `/enable-intake-skip-email-verification` | Enable/disable OTP bypass for landing/intake chatbot UAT                    |
+| `/ablypro-landing-intake-chat`           | Work on Ablypro landing page and intake chat → Case flow                    |
+| `/generate-production-runbook`           | Generate a production runbook                                               |
+| `/service-workflow-architecture-review`  | Architecture review of service workflows                                    |
 
 ---
 

@@ -433,6 +433,10 @@ export interface DemoCaseCreateConfig {
 
 export interface CustomerIntakeConfig {
   enabled: boolean;
+  /** When false, clients may call /intake/session/bootstrap instead of OTP. */
+  emailVerificationEnabled: boolean;
+  /** Salesforce Account Id used by bootstrap when email verification is off. */
+  bootstrapAccountId?: string;
   otpApexBasePath: string;
   rateLimitWindowMs: number;
   rateLimitMaxRequests: number;
@@ -2188,12 +2192,22 @@ export class AppConfigService {
     const otpApexBasePath = (
       rawBasePath ?? "/services/apexrest/agentforce/otp"
     ).replace(/\/+$/, "");
+    const skipEmailVerification = AppConfigService.parseBooleanFlag(
+      env.CUSTOMER_INTAKE_SKIP_EMAIL_VERIFICATION,
+      false,
+      "CUSTOMER_INTAKE_SKIP_EMAIL_VERIFICATION"
+    );
+    const bootstrapAccountId = AppConfigService.normalize(
+      env.CUSTOMER_INTAKE_BOOTSTRAP_ACCOUNT_ID
+    );
     return {
       enabled: AppConfigService.parseBooleanFlag(
         env.CUSTOMER_INTAKE_ENABLED,
         false,
         "CUSTOMER_INTAKE_ENABLED"
       ),
+      emailVerificationEnabled: !skipEmailVerification,
+      bootstrapAccountId,
       otpApexBasePath,
       rateLimitWindowMs: AppConfigService.parsePositiveInteger(
         env.CUSTOMER_INTAKE_RATE_LIMIT_WINDOW_MS,

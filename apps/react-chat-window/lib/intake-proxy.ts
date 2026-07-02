@@ -10,6 +10,10 @@ export function intakeEnabled(): boolean {
   return process.env.CUSTOMER_INTAKE_ENABLED === "true";
 }
 
+export function intakeEmailVerificationEnabled(): boolean {
+  return process.env.CUSTOMER_INTAKE_SKIP_EMAIL_VERIFICATION !== "true";
+}
+
 function aiApiBaseUrl(): string {
   const url = process.env.AI_API_BASE_URL?.trim();
   if (!url) {

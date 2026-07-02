@@ -17,5 +17,13 @@ export default function IntakePage() {
   const brandSubtitle =
     process.env.BRAND_SUBTITLE ??
     "Verify your email to start a support request.";
-  return <IntakeShell brandName={brandName} brandSubtitle={brandSubtitle} />;
+  const skipEmailVerification =
+    process.env.CUSTOMER_INTAKE_SKIP_EMAIL_VERIFICATION === "true";
+  return (
+    <IntakeShell
+      brandName={brandName}
+      brandSubtitle={brandSubtitle}
+      skipEmailVerification={skipEmailVerification}
+    />
+  );
 }

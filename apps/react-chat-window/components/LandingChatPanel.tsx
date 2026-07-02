@@ -2,16 +2,26 @@
 
 import { useReducer, useState, useRef, useEffect } from "react";
 import {
-  initialIntakeState,
+  createInitialIntakeState,
   intakeReducer,
-  type IntakeSession,
-  type IntakeContext
+  type IntakeSession
 } from "@/lib/intake-flow";
+import {
+  bootstrapIntakeSession,
+  deviceGreeting,
+  fetchIntakeConfig,
+  loadIntakeContext
+} from "@/lib/intake-client";
 
 export function LandingChatPanel() {
   const [open, setOpen] = useState(false);
   const [showBubble, setShowBubble] = useState(false);
-  const [state, dispatch] = useReducer(intakeReducer, initialIntakeState);
+  const [bootstrapAvailable, setBootstrapAvailable] = useState(false);
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
+  const [state, dispatch] = useReducer(
+    intakeReducer,
+    createInitialIntakeState()
+  );
 
   // email phase
   const [emailValue, setEmailValue] = useState("");
@@ -49,6 +59,47 @@ export function LandingChatPanel() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [state.messages]);
+
+  useEffect(() => {
+    void fetchIntakeConfig().then((config) => {
+      setBootstrapAvailable(config.bootstrapAvailable);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (open && bootstrapAvailable && state.phase === "email") {
+      dispatch({ type: "startBootstrap" });
+    }
+  }, [open, bootstrapAvailable, state.phase]);
+
+  useEffect(() => {
+    if (state.phase !== "bootstrapping") {
+      return;
+    }
+
+    let cancelled = false;
+    async function runBootstrap() {
+      setBootstrapError(null);
+      try {
+        const session = await bootstrapIntakeSession();
+        if (cancelled) return;
+        dispatch({ type: "verified", session });
+        await loadContext(session.accessToken);
+      } catch {
+        if (!cancelled) {
+          setBootstrapError(
+            "Could not start the support session. Please try again."
+          );
+          dispatch({ type: "bootstrapFailed" });
+        }
+      }
+    }
+
+    void runBootstrap();
+    return () => {
+      cancelled = true;
+    };
+  }, [state.phase]);
 
   async function handleEmailSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -124,22 +175,14 @@ export function LandingChatPanel() {
   async function loadContext(accessToken: string) {
     setContextLoading(true);
     try {
-      const res = await fetch("/api/intake/context", {
-        headers: { authorization: `Bearer ${accessToken}` }
-      });
-      if (res.ok) {
-        const ctx = (await res.json()) as IntakeContext;
+      const context = await loadIntakeContext(accessToken);
+      dispatch({ type: "contextLoaded", context });
+      const greeting = deviceGreeting(context);
+      if (greeting) {
         dispatch({
-          type: "contextLoaded",
-          context: {
-            displayName: ctx.displayName,
-            accountName: ctx.accountName,
-            devices: Array.isArray(ctx.devices) ? ctx.devices : [],
-            shipTo: ctx.shipTo ?? {}
-          }
+          type: "appendMessage",
+          message: { role: "assistant", content: greeting }
         });
-      } else {
-        dispatch({ type: "contextLoaded", context: { devices: [], shipTo: {} } });
       }
     } catch {
       dispatch({ type: "contextLoaded", context: { devices: [], shipTo: {} } });
@@ -248,6 +291,39 @@ export function LandingChatPanel() {
 
   function renderBody() {
     const { phase } = state;
+
+    if (phase === "bootstrapping") {
+      return (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "10px",
+            padding: "28px 12px",
+            minHeight: "180px"
+          }}
+        >
+          <div
+            style={{
+              width: "28px",
+              height: "28px",
+              border: "3px solid #E6EDF4",
+              borderTopColor: "#139ED9",
+              borderRadius: "50%",
+              animation: "spin 0.8s linear infinite"
+            }}
+          />
+          <div style={{ fontSize: "13px", color: "#5A7189" }}>
+            Connecting to your account…
+          </div>
+          {bootstrapError ? (
+            <div style={{ fontSize: "12px", color: "#C0492E" }}>{bootstrapError}</div>
+          ) : null}
+        </div>
+      );
+    }
 
     if (phase === "email") {
       return (
@@ -421,7 +497,12 @@ export function LandingChatPanel() {
           </button>
           <button
             type="button"
-            onClick={() => dispatch({ type: "reset" })}
+            onClick={() =>
+              dispatch({
+                type: "reset",
+                skipEmailVerification: bootstrapAvailable
+              })
+            }
             disabled={otpSubmitting}
             style={{
               background: "none",
@@ -719,7 +800,12 @@ export function LandingChatPanel() {
           {state.email}.
         </div>
         <button
-          onClick={() => dispatch({ type: "reset" })}
+          onClick={() =>
+            dispatch({
+              type: "reset",
+              skipEmailVerification: bootstrapAvailable
+            })
+          }
           style={{
             background: "none",
             color: "#139ED9",

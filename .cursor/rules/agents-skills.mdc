@@ -35,5 +35,7 @@ Read the relevant `SKILL.md` before specialized work. Available skills:
 | `salesforce-node5-scheduling-prep` | Phase 5-Pre Node 5 Skills, NA territory, WorkTypes, Run As FLS |
 | `railway-quick-deploy` | Deploy current workspace changes to Railway |
 | `swarm` | Parallel fan-out workflows |
+| `intake-skip-email-verification` | Enable/disable OTP bypass for intake chat (email limit / UAT) |
+| `ablypro-landing-intake-chat` | Ablypro `/landing` + floating intake chatbot → Salesforce Case |
 
 Do not use external `npx skills` setup when a repo skill exists.

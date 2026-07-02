@@ -11,6 +11,7 @@ import {
 import type { AuthenticatedRequest } from "../auth/jwt-auth.guard";
 import { Public } from "../auth/public.decorator";
 import { RequireScopes } from "../auth/require-scopes.decorator";
+import type { IntakeConfigResponseDto } from "./dto/intake-config.dto";
 import type { IntakeContextResponseDto } from "./dto/intake-context.dto";
 import {
   IntakeCaseCreateDto,
@@ -27,6 +28,7 @@ import {
   type OtpRequestResponseDto
 } from "./dto/intake-otp.dto";
 import { IntakeAgentService } from "./intake-agent.service";
+import { IntakeBootstrapService } from "./intake-bootstrap.service";
 import { IntakeOtpService } from "./intake-otp.service";
 import { IntakeRateLimitGuard } from "./intake-rate-limit.guard";
 import { IntakeService } from "./intake.service";
@@ -42,9 +44,19 @@ import { IntakeService } from "./intake.service";
 export class IntakeController {
   constructor(
     private readonly otp: IntakeOtpService,
+    private readonly bootstrap: IntakeBootstrapService,
     private readonly agent: IntakeAgentService,
     private readonly intake: IntakeService
   ) {}
+
+  @Public()
+  @Get("config")
+  getConfig(): IntakeConfigResponseDto {
+    return {
+      emailVerificationEnabled: this.otp.isEmailVerificationEnabled(),
+      bootstrapAvailable: this.bootstrap.isBootstrapAllowed()
+    };
+  }
 
   @Public()
   @UseGuards(IntakeRateLimitGuard)
@@ -60,6 +72,14 @@ export class IntakeController {
   @Post("otp/verify")
   verifyOtp(@Body() body: OtpVerifyDto): Promise<IntakeSessionResponseDto> {
     return this.otp.verifyOtp(body);
+  }
+
+  @Public()
+  @UseGuards(IntakeRateLimitGuard)
+  @HttpCode(200)
+  @Post("session/bootstrap")
+  bootstrapSession(): Promise<IntakeSessionResponseDto> {
+    return this.bootstrap.bootstrapSession();
   }
 
   @RequireScopes("chat:intake")

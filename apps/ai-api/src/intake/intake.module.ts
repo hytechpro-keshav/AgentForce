@@ -5,6 +5,7 @@ import { LlmModule } from "../llm/llm.module";
 import { SalesforceModule } from "../salesforce/salesforce.module";
 import { IntakeController } from "./intake.controller";
 import { IntakeAgentService } from "./intake-agent.service";
+import { IntakeBootstrapService } from "./intake-bootstrap.service";
 import { IntakeOtpService } from "./intake-otp.service";
 import { IntakeRateLimitGuard } from "./intake-rate-limit.guard";
 import { IntakeService } from "./intake.service";
@@ -20,6 +21,7 @@ import { IntakeSessionService } from "./intake-session.service";
   controllers: [IntakeController],
   providers: [
     IntakeOtpService,
+    IntakeBootstrapService,
     IntakeSessionService,
     IntakeAgentService,
     IntakeService,

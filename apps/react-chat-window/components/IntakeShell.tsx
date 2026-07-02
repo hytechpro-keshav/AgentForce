@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer, useState } from "react";
+import { useEffect, useReducer, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { EmailCard } from "@/components/intake/EmailCard";
@@ -9,25 +9,40 @@ import { IntakeDone } from "@/components/intake/IntakeDone";
 import { IntakeSummaryCard } from "@/components/intake/IntakeSummaryCard";
 import { OtpCard } from "@/components/intake/OtpCard";
 import {
-  initialIntakeState,
+  bootstrapIntakeSession,
+  deviceGreeting,
+  fetchIntakeConfig,
+  loadIntakeContext
+} from "@/lib/intake-client";
+import {
+  createInitialIntakeState,
   intakeReducer,
-  type IntakeContext,
   type IntakeSession
 } from "@/lib/intake-flow";
 
 interface IntakeShellProps {
   brandName: string;
   brandSubtitle: string;
+  /** Server hint; client re-checks /api/intake/config before bootstrapping. */
+  skipEmailVerification?: boolean;
 }
 
 /**
- * Guided OTP intake orchestrator. Owns the phase machine and all backend
- * calls; identity lives in the verified-intake JWT (React state only, cleared
- * on refresh), and step widgets render outside any token stream.
+ * Guided intake orchestrator. When email verification is disabled, bootstraps
+ * a verified session from the configured Salesforce account so the user can
+ * talk to the AI immediately and create a Case.
  */
-export function IntakeShell({ brandName, brandSubtitle }: IntakeShellProps) {
-  const [state, dispatch] = useReducer(intakeReducer, initialIntakeState);
+export function IntakeShell({
+  brandName,
+  brandSubtitle,
+  skipEmailVerification = false
+}: IntakeShellProps) {
+  const [state, dispatch] = useReducer(
+    intakeReducer,
+    createInitialIntakeState({ skipEmailVerification })
+  );
   const [contextLoading, setContextLoading] = useState(false);
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [turnError, setTurnError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -39,28 +54,52 @@ export function IntakeShell({ brandName, brandSubtitle }: IntakeShellProps) {
     state.issueCaptured &&
     (devices.length === 0 ? true : state.selectedAssetId !== null);
 
-  async function loadContext(accessToken: string) {
+  useEffect(() => {
+    if (state.phase !== "bootstrapping") {
+      return;
+    }
+
+    let cancelled = false;
+    async function runBootstrap() {
+      setBootstrapError(null);
+      try {
+        const config = await fetchIntakeConfig();
+        if (cancelled) return;
+        if (!config.bootstrapAvailable) {
+          dispatch({ type: "bootstrapFailed" });
+          return;
+        }
+        const session = await bootstrapIntakeSession();
+        if (cancelled) return;
+        await handleVerified(session);
+      } catch {
+        if (!cancelled) {
+          setBootstrapError(
+            "Could not start the support session. Please try again."
+          );
+          dispatch({ type: "bootstrapFailed" });
+        }
+      }
+    }
+
+    void runBootstrap();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.phase]);
+
+  async function handleVerified(session: IntakeSession) {
+    dispatch({ type: "verified", session });
     setContextLoading(true);
     try {
-      const res = await fetch("/api/intake/context", {
-        headers: { authorization: `Bearer ${accessToken}` }
-      });
-      if (res.ok) {
-        const context = (await res.json()) as IntakeContext;
+      const context = await loadIntakeContext(session.accessToken);
+      dispatch({ type: "contextLoaded", context });
+      const greeting = deviceGreeting(context);
+      if (greeting) {
         dispatch({
-          type: "contextLoaded",
-          context: {
-            displayName: context.displayName,
-            accountName: context.accountName,
-            devices: Array.isArray(context.devices) ? context.devices : [],
-            shipTo: context.shipTo ?? {}
-          }
-        });
-      } else {
-        // Non-fatal: proceed without prefetched devices.
-        dispatch({
-          type: "contextLoaded",
-          context: { devices: [], shipTo: {} }
+          type: "appendMessage",
+          message: { role: "assistant", content: greeting }
         });
       }
     } catch {
@@ -68,11 +107,6 @@ export function IntakeShell({ brandName, brandSubtitle }: IntakeShellProps) {
     } finally {
       setContextLoading(false);
     }
-  }
-
-  function handleVerified(session: IntakeSession) {
-    dispatch({ type: "verified", session });
-    void loadContext(session.accessToken);
   }
 
   async function handleSend(text: string) {
@@ -182,6 +216,20 @@ export function IntakeShell({ brandName, brandSubtitle }: IntakeShellProps) {
     }
   }
 
+  if (state.phase === "bootstrapping") {
+    return (
+      <main className="flex min-h-screen w-full flex-col items-center justify-center gap-3">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">
+          Connecting to your account…
+        </p>
+        {bootstrapError ? (
+          <p className="text-sm text-destructive">{bootstrapError}</p>
+        ) : null}
+      </main>
+    );
+  }
+
   if (state.phase === "email") {
     return (
       <EmailCard
@@ -257,7 +305,12 @@ export function IntakeShell({ brandName, brandSubtitle }: IntakeShellProps) {
   return (
     <IntakeDone
       caseNumber={state.caseNumber}
-      onRestart={() => dispatch({ type: "reset" })}
+      onRestart={() =>
+        dispatch({
+          type: "reset",
+          skipEmailVerification
+        })
+      }
     />
   );
 }

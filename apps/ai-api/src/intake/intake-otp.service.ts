@@ -115,6 +115,14 @@ export class IntakeOtpService {
     });
   }
 
+  isEmailVerificationEnabled(): boolean {
+    return (
+      this.config.customerIntake.enabled &&
+      this.config.customerIntake.emailVerificationEnabled &&
+      this.otpGateway.isConfigured()
+    );
+  }
+
   private ensureEnabled(): void {
     if (
       !this.config.customerIntake.enabled ||

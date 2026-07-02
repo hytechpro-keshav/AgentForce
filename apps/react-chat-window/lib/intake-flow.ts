@@ -8,7 +8,13 @@
  * sent to the backend to create the Case. The reducer is pure so it can be
  * unit-tested without React.
  */
-export type IntakePhase = "email" | "otp" | "triage" | "confirm" | "done";
+export type IntakePhase =
+  | "bootstrapping"
+  | "email"
+  | "otp"
+  | "triage"
+  | "confirm"
+  | "done";
 
 export interface IntakeSession {
   accessToken: string;
@@ -66,7 +72,18 @@ export const initialIntakeState: IntakeState = {
   caseNumber: null
 };
 
+export function createInitialIntakeState(options?: {
+  skipEmailVerification?: boolean;
+}): IntakeState {
+  if (options?.skipEmailVerification) {
+    return { ...initialIntakeState, phase: "bootstrapping" };
+  }
+  return initialIntakeState;
+}
+
 export type IntakeAction =
+  | { type: "bootstrapFailed" }
+  | { type: "startBootstrap" }
   | { type: "otpSent"; email: string }
   | { type: "verified"; session: IntakeSession }
   | { type: "contextLoaded"; context: IntakeContext }
@@ -81,13 +98,17 @@ export type IntakeAction =
   | { type: "toConfirm" }
   | { type: "backToTriage" }
   | { type: "caseCreated"; caseId: string; caseNumber?: string }
-  | { type: "reset" };
+  | { type: "reset"; skipEmailVerification?: boolean };
 
 export function intakeReducer(
   state: IntakeState,
   action: IntakeAction
 ): IntakeState {
   switch (action.type) {
+    case "bootstrapFailed":
+      return { ...state, phase: "email" };
+    case "startBootstrap":
+      return { ...state, phase: "bootstrapping" };
     case "otpSent":
       return { ...state, phase: "otp", email: action.email };
     case "verified":
@@ -126,7 +147,9 @@ export function intakeReducer(
         caseNumber: action.caseNumber ?? null
       };
     case "reset":
-      return initialIntakeState;
+      return createInitialIntakeState({
+        skipEmailVerification: action.skipEmailVerification
+      });
     default:
       return state;
   }

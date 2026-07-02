@@ -35,7 +35,13 @@ export interface DemoCaseCreateResult {
  * identity can never bind to the wrong Account.
  */
 export type ContactResolution =
-  | { status: "found"; contactId: string; accountId: string; name?: string }
+  | {
+      status: "found";
+      contactId: string;
+      accountId: string;
+      name?: string;
+      email?: string;
+    }
   | { status: "not_found" }
   | { status: "ambiguous" };
 
@@ -264,6 +270,34 @@ export class SalesforceCaseWriteGateway {
       shipToCity: SalesforceCaseWriteGateway.str(row, "ShippingCity"),
       shipToState: SalesforceCaseWriteGateway.str(row, "ShippingState"),
       shipToCountry: SalesforceCaseWriteGateway.str(row, "ShippingCountry")
+    };
+  }
+
+  /**
+   * Picks a Contact on the Account for dev/bootstrap intake when OTP is
+   * disabled. Prefers a Contact with an email address.
+   */
+  async resolvePrimaryContactForAccount(
+    accountId: string
+  ): Promise<ContactResolution> {
+    this.requireId(accountId);
+    const withEmail = await this.runQuery(
+      `SELECT Id, AccountId, Name, Email FROM Contact WHERE AccountId = '${accountId}' AND Email != null ORDER BY CreatedDate DESC LIMIT 1`
+    );
+    const row = withEmail[0] ?? (await this.runQuery(
+      `SELECT Id, AccountId, Name, Email FROM Contact WHERE AccountId = '${accountId}' ORDER BY CreatedDate DESC LIMIT 1`
+    ))[0];
+    const contactId = SalesforceCaseWriteGateway.str(row, "Id");
+    const resolvedAccountId = SalesforceCaseWriteGateway.str(row, "AccountId");
+    if (!contactId || !resolvedAccountId) {
+      return { status: "not_found" };
+    }
+    return {
+      status: "found",
+      contactId,
+      accountId: resolvedAccountId,
+      name: SalesforceCaseWriteGateway.str(row, "Name"),
+      email: SalesforceCaseWriteGateway.str(row, "Email")
     };
   }
 

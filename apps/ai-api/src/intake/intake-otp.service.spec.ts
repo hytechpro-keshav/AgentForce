@@ -51,7 +51,10 @@ function buildHarness(overrides?: {
   } as unknown as SalesforceCaseWriteGateway;
   const sessions = { mint } as unknown as IntakeSessionService;
   const config = {
-    customerIntake: { enabled: overrides?.enabled ?? true }
+    customerIntake: {
+      enabled: overrides?.enabled ?? true,
+      emailVerificationEnabled: overrides?.emailVerificationEnabled ?? true
+    }
   } as unknown as AppConfigService;
 
   return {
