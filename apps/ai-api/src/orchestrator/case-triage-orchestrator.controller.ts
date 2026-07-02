@@ -155,9 +155,13 @@ export class CaseTriageOrchestratorController {
   @RequireScopes("agentforce:orchestrator-step")
   @Post(":workflowId/advance")
   async advance(
-    @Param("workflowId") workflowId: string
+    @Param("workflowId") workflowId: string,
+    @Req() request: AuthenticatedRequest
   ): Promise<CaseTriageWorkflowSnapshot> {
-    return this.orchestrator.advance(this.assertWorkflowId(workflowId));
+    return this.orchestrator.advance(
+      this.assertWorkflowId(workflowId),
+      request.authPrincipal
+    );
   }
 
   /**

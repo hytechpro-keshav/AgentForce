@@ -88,7 +88,7 @@ private class AgentforceGuardrailApprovalServiceTest {
 
     AgentforceGuardrailApprovalService.SubmitVerdict verdict = new AgentforceGuardrailApprovalService.SubmitVerdict();
     verdict.headline = 'Normal priority case — approval required (medium risk)';
-    verdict.summary = 'Held for human approval by the compliance guardrail.';
+    verdict.summary = 'Account Manager approval is required because the parts transfer exceeds the configured approval policy.';
     verdict.recommendedSteps = new List<String>{
       'Review parts transfer',
       'Confirm scheduling window'
@@ -101,6 +101,39 @@ private class AgentforceGuardrailApprovalServiceTest {
     };
     request.verdict = verdict;
     return request;
+  }
+
+  @IsTest
+  static void submitCommentContainsExecutiveSummary() {
+    Case supportCase = getCase();
+    AgentforceGuardrailApprovalService.SubmitResult result;
+    Test.startTest();
+    System.runAs(new User(Id = UserInfo.getUserId())) {
+      result = AgentforceGuardrailApprovalService.submit(
+        buildRequest(supportCase.Id)
+      );
+    }
+    Test.stopTest();
+
+    System.assertNotEquals(null, result, 'Result must never be null.');
+    List<ProcessInstance> instances = [
+      SELECT Id, (SELECT Comments FROM Steps ORDER BY CreatedDate DESC LIMIT 1)
+      FROM ProcessInstance
+      WHERE TargetObjectId = :supportCase.Id
+      ORDER BY CreatedDate DESC
+      LIMIT 1
+    ];
+    if (!instances.isEmpty() && !instances[0].Steps.isEmpty()) {
+      String comments = instances[0].Steps[0].Comments;
+      System.assert(
+        comments.contains('Account Manager approval is required'),
+        'Submitter comment should include executive summary.'
+      );
+      System.assert(
+        !comments.contains('human approval'),
+        'Submitter comment must not use human approval wording.'
+      );
+    }
   }
 
   @IsTest

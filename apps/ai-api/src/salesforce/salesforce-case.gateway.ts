@@ -192,6 +192,40 @@ export class SalesforceCaseGateway {
     return undefined;
   }
 
+  /**
+   * Posts a private Case comment. Degrade-safe: never throws — callers
+   * use this for per-agent narratives during orchestration without
+   * risking graph interruption.
+   */
+  async postCaseComment(command: {
+    caseId: string;
+    commentBody: string;
+    isPublished?: boolean;
+  }): Promise<{ posted: boolean }> {
+    if (!SF_ID_PATTERN.test(command.caseId)) {
+      return { posted: false };
+    }
+    try {
+      const version = this.apiVersion();
+      const commentPath = `/services/data/v${version}/sobjects/CaseComment`;
+      const response = await this.authedRequest("POST", commentPath, {
+        ParentId: command.caseId,
+        CommentBody: command.commentBody.slice(0, 4000),
+        IsPublished: command.isPublished ?? false
+      });
+      if (response.status >= 200 && response.status < 300) {
+        return { posted: true };
+      }
+      this.logger.warn(
+        `Case comment post degraded (status=${response.status}).`
+      );
+      return { posted: false };
+    } catch {
+      this.logger.warn("Case comment post degraded; continuing orchestration.");
+      return { posted: false };
+    }
+  }
+
   async applyWriteBack(
     command: CaseTriageWriteBackCommand
   ): Promise<CaseTriageWriteBackResult> {
@@ -253,6 +287,20 @@ export class SalesforceCaseGateway {
     )}`;
     const response = await this.authedRequest("PATCH", path, {
       AI_Orchestration_Status__c: "stopped_by_user"
+    });
+    this.assertOk(response, "write");
+  }
+
+  /**
+   * Marks the Case as stepped-console owned so the insert handoff Flow does
+   * not auto-start a full pipeline (RC-1 / stepped console seam).
+   */
+  async writeOrchestrationSuppressed(caseId: string): Promise<void> {
+    const path = `/services/data/v${this.apiVersion()}/sobjects/Case/${encodeURIComponent(
+      caseId
+    )}`;
+    const response = await this.authedRequest("PATCH", path, {
+      AI_Orchestration_Status__c: "suppressed"
     });
     this.assertOk(response, "write");
   }

@@ -7,6 +7,8 @@ const ACCESS_TOKEN = "tok-secret-value";
 const INSTANCE_URL = "https://example.my.salesforce.com";
 const ACCOUNT_ID = "001000000000001";
 const CONTACT_ID = "003000000000001";
+const ASSET_ID = "02i000000000001";
+const CASE_ID = "500000000000001";
 
 interface Harness {
   gateway: SalesforceCustomerGateway;
@@ -108,6 +110,43 @@ describe("SalesforceCustomerGateway", () => {
     const query = decodedQuery(h.fetchMock.mock.calls[0]);
     expect(query).toContain(`AccountId = '${ACCOUNT_ID}'`);
     expect(query).toContain(`ContactId = '${CONTACT_ID}'`);
+  });
+
+  it("scopes repeat history to the same Asset and excludes the current Case", async () => {
+    const h = buildHarness();
+    const recent = new Date().toISOString();
+    const stale = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
+    h.fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        records: [
+          {
+            Id: "500000000000002",
+            IsEscalated: false,
+            IsClosed: true,
+            CreatedDate: recent
+          },
+          {
+            Id: "500000000000003",
+            IsEscalated: false,
+            IsClosed: true,
+            CreatedDate: stale
+          }
+        ]
+      })
+    );
+
+    const history = await h.gateway.readServiceHistory({
+      accountId: ACCOUNT_ID,
+      assetId: ASSET_ID,
+      excludeCaseId: CASE_ID
+    });
+
+    const query = decodedQuery(h.fetchMock.mock.calls[0]);
+    expect(query).toContain(`AssetId = '${ASSET_ID}'`);
+    expect(query).toContain(`Id != '${CASE_ID}'`);
+    expect(history.repeatIncidentCount).toBe(1);
+    expect(history.repeatScope).toBe("asset");
+    expect(history.currentCaseExcluded).toBe(true);
   });
 
   it("refuses an unscoped read — returns an empty bundle and never queries", async () => {

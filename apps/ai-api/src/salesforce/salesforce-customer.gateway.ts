@@ -209,8 +209,14 @@ export class SalesforceCustomerGateway {
     const contactFilter = scope.verifiedContactId
       ? ` AND ContactId = '${this.requireId(scope.verifiedContactId)}'`
       : "";
+    const assetFilter = scope.assetId
+      ? ` AND AssetId = '${this.requireId(scope.assetId)}'`
+      : "";
+    const excludeFilter = scope.excludeCaseId
+      ? ` AND Id != '${this.requireId(scope.excludeCaseId)}'`
+      : "";
     const records = await this.runQuery(
-      `SELECT Id, Status, IsEscalated, IsClosed, CreatedDate FROM Case WHERE AccountId = '${accountId}'${contactFilter} ORDER BY CreatedDate DESC LIMIT 200`
+      `SELECT Id, Status, IsEscalated, IsClosed, CreatedDate FROM Case WHERE AccountId = '${accountId}'${contactFilter}${assetFilter}${excludeFilter} ORDER BY CreatedDate DESC LIMIT 200`
     );
     const windowStart = Date.now() - REPEAT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
     let repeatIncidentCount = 0;
@@ -235,7 +241,9 @@ export class SalesforceCustomerGateway {
       repeatIncidentCount,
       repeatWindowDays: REPEAT_WINDOW_DAYS,
       priorEscalations,
-      openIncidentCount
+      openIncidentCount,
+      repeatScope: scope.assetId ? "asset" : "account",
+      currentCaseExcluded: Boolean(scope.excludeCaseId)
     };
   }
 

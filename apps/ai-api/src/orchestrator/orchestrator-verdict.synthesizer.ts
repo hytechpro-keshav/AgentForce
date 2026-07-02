@@ -1,3 +1,4 @@
+import { buildAccountManagerExecutiveSummary } from "./account-manager-summary.synthesizer";
 import type {
   OrchestratorVerdict,
   OrchestratorVerdictHighlight,
@@ -55,7 +56,7 @@ export function synthesizeOrchestratorVerdict(
     scheduling,
     guardrail
   );
-  const summary = buildSummary(
+  let summary = buildSummary(
     input,
     priority,
     risk,
@@ -64,6 +65,12 @@ export function synthesizeOrchestratorVerdict(
     scheduling,
     guardrail
   );
+  if (
+    guardrail?.outcome === "requireHumanApproval" &&
+    (input.status === "waiting_approval" || input.approvalDecision)
+  ) {
+    summary = buildAccountManagerExecutiveSummary(input);
+  }
   const recommendedSteps = buildSteps(
     input,
     triage?.suggestedNextStep,
@@ -143,8 +150,8 @@ function buildGuardrailHeadlineClause(
   // Post-HITL: replace policy label with the human decision.
   // guardrail.outcome stays requireHumanApproval (policy audit preserved).
   if (guardrail.outcome === "requireHumanApproval" && approvalDecision) {
-    if (approvalDecision === "approved") return "human approval granted";
-    if (approvalDecision === "rejected") return "rejected (human)";
+    if (approvalDecision === "approved") return "Account Manager approval granted";
+    if (approvalDecision === "rejected") return "rejected (Account Manager)";
   }
   switch (guardrail.outcome) {
     case "autoApprove":
@@ -275,15 +282,15 @@ function buildGuardrailSummarySentence(
   // guardrail.outcome is preserved as requireHumanApproval (policy audit).
   if (guardrail.outcome === "requireHumanApproval" && approvalDecision) {
     if (approvalDecision === "approved") {
-      return `Guardrail required human approval (risk ${guardrail.riskScore}, ${guardrail.riskLevel}); approver approved.`;
+      return `Guardrail required Account Manager approval (risk ${guardrail.riskScore}, ${guardrail.riskLevel}); approver approved.`;
     }
     if (approvalDecision === "rejected") {
-      return `Guardrail required human approval (risk ${guardrail.riskScore}, ${guardrail.riskLevel}); approver rejected. Write-back was not applied.`;
+      return `Guardrail required Account Manager approval (risk ${guardrail.riskScore}, ${guardrail.riskLevel}); approver rejected. Write-back was not applied.`;
     }
   }
   const outcomeText: Record<GuardrailChannel["outcome"], string> = {
     autoApprove: "auto-approved",
-    requireHumanApproval: "requires human approval",
+    requireHumanApproval: "requires Account Manager approval",
     reject: "rejected by policy",
     escalate: "escalated to supervisor"
   };
@@ -391,7 +398,7 @@ function formatPartsEta(plan: PartLogisticsPlan): string | undefined {
 
 function outcomeSentence(input: OrchestratorVerdictInput): string {
   if (input.status === "waiting_approval") {
-    return "Write-back is awaiting out-of-band approval.";
+    return "Write-back is awaiting Account Manager approval.";
   }
   if (input.status === "rejected") {
     // When a human approver rejected via Node 6 HITL, the guardrail summary
@@ -506,11 +513,11 @@ function buildGuardrailSteps(
     // Post-HITL: replace "approve" action with the resolved outcome.
     if (approvalDecision === "approved") {
       return [
-        "Human approval granted — proceed with fulfillment and scheduling."
+        "Account Manager approval granted — proceed with fulfillment and scheduling."
       ];
     }
     if (approvalDecision === "rejected") {
-      return ["Case rejected by approver — no automated write-back."];
+      return ["Case rejected by Account Manager — no automated write-back."];
     }
     // Still waiting: surface routing-specific approve action.
     const method = guardrail.approvalRouting?.method;

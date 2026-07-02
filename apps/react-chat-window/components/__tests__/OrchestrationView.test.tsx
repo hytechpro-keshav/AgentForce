@@ -31,21 +31,23 @@ function snapshot(
         status: "assigned",
         sequence: 1,
         occurredAt: "t1",
-        safeSummary: "Triage assigned for case 00004242."
+        safeSummary: "Triage Agent assigned to Case 00004242."
       },
       {
         node: "triage",
         status: "running",
         sequence: 2,
         occurredAt: "t2",
-        safeSummary: "Reading Case context from Salesforce."
+        safeSummary:
+          "Reading and understanding the case, customer priority and next best action."
       },
       {
         node: "triage",
         status: "running",
         sequence: 3,
         occurredAt: "t3",
-        safeSummary: "Running AI triage."
+        safeSummary:
+          "Sending the output back to the Orchestrator for the next action."
       },
       {
         node: "triage",
@@ -106,7 +108,9 @@ describe("OrchestrationPanel", () => {
     expect(screen.getByText("gpt-4o-mini")).toBeInTheDocument();
 
     const timeline = screen.getByTestId("status-timeline");
-    expect(timeline).toHaveTextContent("Running AI triage.");
+    expect(timeline).toHaveTextContent(
+      "Sending the output back to the Orchestrator for the next action."
+    );
     expect(timeline).toHaveTextContent("Triage applied: priority critical.");
   });
 
@@ -120,14 +124,15 @@ describe("OrchestrationPanel", () => {
               status: "assigned",
               sequence: 1,
               occurredAt: "t1",
-              safeSummary: "Triage assigned for case 00004242."
+              safeSummary: "Triage Agent assigned to Case 00004242."
             },
             {
               node: "triage",
               status: "running",
               sequence: 2,
               occurredAt: "t2",
-              safeSummary: "Reading Case context from Salesforce.",
+              safeSummary:
+          "Reading and understanding the case, customer priority and next best action.",
               details: [
                 { label: "Reported priority", value: "high" },
                 { label: "Status", value: "New" },
@@ -139,7 +144,8 @@ describe("OrchestrationPanel", () => {
               status: "running",
               sequence: 3,
               occurredAt: "t3",
-              safeSummary: "Running AI triage.",
+              safeSummary:
+          "Sending the output back to the Orchestrator for the next action.",
               details: [
                 { label: "Provider", value: "openai" },
                 { label: "Model", value: "gpt-4o-mini" }
@@ -316,7 +322,8 @@ describe("OrchestrationPanel", () => {
               status: "running",
               sequence: 5,
               occurredAt: "t5",
-              safeSummary: "Writing customer findings to state.",
+              safeSummary:
+                "Saving its findings into the case state and making the information available for the Orchestrator and the next agents in the workflow.",
               trace: {
                 stepKey: "write_customer_context_state",
                 sections: [
@@ -344,7 +351,8 @@ describe("OrchestrationPanel", () => {
               status: "running",
               sequence: 6,
               occurredAt: "t6",
-              safeSummary: "Writing knowledge findings to state.",
+              safeSummary:
+                "Saving the knowledge findings into the case state and making the diagnosis available for the Orchestrator and the next agents in the workflow.",
               trace: {
                 stepKey: "knowledge_write",
                 sections: [
@@ -416,7 +424,9 @@ describe("OrchestrationPanel", () => {
       screen.getByText(/State before and after each step/)
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Knowledge · Writing knowledge findings to state\./)
+      screen.getByText(
+        /Knowledge · Saving the knowledge findings into the case state/
+      )
     ).toBeInTheDocument();
   });
 
@@ -691,7 +701,7 @@ describe("OrchestrationPanel", () => {
               sequence: 1,
               occurredAt: "t1",
               safeSummary:
-                "Scheduling schedulable: SR-A1 · Tomorrow 13:00–15:00 UTC."
+                "Identifying a schedulable service resource: SR-A1."
             }
           ],
           scheduling: {

@@ -35,6 +35,7 @@ import {
   buildCaseTriageGraph,
   Command,
   STEP_NEXT_NODE_TO_UI,
+  STEP_FINISHED_NODE_FROM_NEXT,
   type CaseTriageGraphDeps,
   type CaseTriageStateType,
   type CaseTriageTriageInput,
@@ -42,6 +43,7 @@ import {
 } from "./case-triage.graph";
 import {
   GUARDRAIL_NODE_ID,
+  TRIAGE_NODE_ID,
   isTerminalLifecycleStatus,
   type NodeLifecycleStatus,
   type OrchestratorNodeId
@@ -116,6 +118,9 @@ import type {
   TriggerCaseTriageDto
 } from "./dto/trigger-case-triage.dto";
 import { OrchestrationStatusStore } from "./orchestration-status.store";
+import { AgentCaseCommentService } from "./agent-case-comment.service";
+import type { AgentNarrativeKey } from "./agent-case-narrative.builder";
+import { buildAccountManagerExecutiveSummary } from "./account-manager-summary.synthesizer";
 
 /**
  * Owns the case-triage LangGraph: trigger handoff, read, triage (via
@@ -165,7 +170,8 @@ export class CaseTriageOrchestratorService {
     private readonly schedulingWriteGateway: SalesforceSchedulingWriteGateway,
     private readonly schedulingPlanner: SchedulingPlannerService,
     private readonly guardrailPolicy: GuardrailPolicyService,
-    private readonly approvalNotifications: GuardrailApprovalNotificationService
+    private readonly approvalNotifications: GuardrailApprovalNotificationService,
+    private readonly agentCaseComments: AgentCaseCommentService
   ) {
     const graphDeps: CaseTriageGraphDeps = {
       readContext: (caseId) => this.gateway.readCaseContext(caseId),
@@ -175,6 +181,11 @@ export class CaseTriageOrchestratorService {
       sendApprovalNotification: (workflowId, caseId, payload, context) =>
         this.sendApprovalNotification(workflowId, caseId, payload, context),
       buildApprovalContext: (state) => this.buildApprovalContext(state),
+      postAgentCaseComment: (workflowId, caseId, agentKey, state) =>
+        this.postAgentCaseComment(workflowId, caseId, agentKey, state),
+      postAllAgentCaseCommentsForAutoApproval: (workflowId, caseId, state) =>
+        this.postAllAgentCaseCommentsForAutoApproval(workflowId, caseId, state),
+      isSteppedWorkflow: (workflowId) => this.steppedWorkflows.has(workflowId),
       sendEscalationNotification: (workflowId, caseId, payload) =>
         this.sendEscalationNotification(workflowId, caseId, payload),
       applyPartsFulfillment: (workflowId, caseId, partsLogistics) =>
@@ -287,6 +298,12 @@ export class CaseTriageOrchestratorService {
         caseId: dto.caseId
       });
     }
+    if (orchestrationStatus === "suppressed") {
+      throw new ConflictException({
+        error: "orchestration_suppressed",
+        caseId: dto.caseId
+      });
+    }
 
     const workflowId = `wf-${randomUUID()}`;
     // Await create so the assigned snapshot is written through to the
@@ -318,11 +335,8 @@ export class CaseTriageOrchestratorService {
   }
 
   /**
-   * Stepped-mode trigger (Phase 2). Like {@link trigger}, but the graph pauses
-   * after each upstream stage: Triage runs automatically, then the operator
-   * advances one stage at a time via {@link advance}. The paused checkpoint
-   * lives in the in-process MemorySaver, so a stepped run cannot survive an
-   * ai-api restart (single-instance / demo scope — see the stepped phase plan).
+   * Stepped-mode trigger (Phase 2). Creates the workflow and parks at Triage
+   * awaiting the operator's first {@link advance} — triage does not auto-run.
    */
   async triggerStepped(
     dto: TriggerCaseTriageDto,
@@ -337,6 +351,8 @@ export class CaseTriageOrchestratorService {
         caseId: dto.caseId
       });
     }
+    // Block the insert handoff Flow before we register a stepped workflow.
+    await this.markCaseSuppressedForStepped(dto.caseId);
     const workflowId = `wf-${randomUUID()}`;
     await this.store.createAssigned({
       workflowId,
@@ -345,19 +361,41 @@ export class CaseTriageOrchestratorService {
     });
     this.steppedWorkflows.add(workflowId);
     void this.trackOnSalesforce(dto.caseId, workflowId, "assigned");
-    // Auto-run Triage, then pause. Fire-and-forget so the 202 is immediate.
-    void this.runStep(workflowId, dto, principal).catch(() => {
-      this.logger.error(
-        `Unhandled stepped run rejection: workflow=${workflowId}`
-      );
-    });
+    await this.bootstrapSteppedAwaitingTriage(workflowId, dto);
     return {
       workflowId,
       caseId: dto.caseId,
       caseNumber: dto.caseNumber,
-      status: "assigned",
+      status: "awaiting_step",
       acceptedAt: new Date().toISOString()
     };
+  }
+
+  private async bootstrapSteppedAwaitingTriage(
+    workflowId: string,
+    dto: TriggerCaseTriageDto
+  ): Promise<void> {
+    await this.store.appendEvent(
+      workflowId,
+      "awaiting_step",
+      "Workflow ready — press Run for Triage.",
+      undefined,
+      TRIAGE_NODE_ID,
+      {
+        stepKey: "awaiting_triage",
+        sections: [
+          {
+            key: "outputs",
+            title: "Outputs",
+            data: {
+              status: "awaiting_step",
+              awaitingNode: TRIAGE_NODE_ID,
+              caseNumber: dto.caseNumber ?? null
+            }
+          }
+        ]
+      }
+    );
   }
 
   /**
@@ -367,7 +405,10 @@ export class CaseTriageOrchestratorService {
    * terminal outcome or pauses for out-of-band approval (resolved via
    * {@link resume}, never here).
    */
-  async advance(workflowId: string): Promise<CaseTriageWorkflowSnapshot> {
+  async advance(
+    workflowId: string,
+    principal?: AuthPrincipal
+  ): Promise<CaseTriageWorkflowSnapshot> {
     const existing = await this.store.get(workflowId);
     if (!existing) {
       throw new NotFoundException({ error: "workflow_not_found" });
@@ -394,15 +435,43 @@ export class CaseTriageOrchestratorService {
     }
     const startedAt = Date.now();
     try {
-      // `null` input resumes the thread from its static `interruptAfter` pause.
-      const result = (await this.steppedGraph.invoke(null, {
-        configurable: { thread_id: workflowId }
-      })) as CaseTriageStateType;
+      const graphStarted = await this.isSteppedGraphStarted(workflowId);
+      this.principalForRag = principal;
+      let result: CaseTriageStateType;
+      if (!graphStarted) {
+        result = (await this.steppedGraph.invoke(
+          {
+            workflowId,
+            caseId: existing.caseId,
+            caseNumber: existing.caseNumber,
+            tenantId: this.resolveWorkflowTenantId(principal),
+            principalSubject: principal?.subject ?? "orchestrator",
+            approvalRequired: false,
+            writeBackApplied: false,
+            status: "running"
+          },
+          { configurable: { thread_id: workflowId } }
+        )) as CaseTriageStateType;
+      } else {
+        result = (await this.steppedGraph.invoke(null, {
+          configurable: { thread_id: workflowId }
+        })) as CaseTriageStateType;
+      }
       await this.settleStep(workflowId, result, startedAt);
     } catch (err) {
       await this.fail(workflowId, err);
+    } finally {
+      this.principalForRag = undefined;
     }
     return this.getSnapshot(workflowId);
+  }
+
+  private async isSteppedGraphStarted(workflowId: string): Promise<boolean> {
+    const state = await this.steppedGraph.getState({
+      configurable: { thread_id: workflowId }
+    });
+    const values = state.values as Partial<CaseTriageStateType> | undefined;
+    return Boolean(values?.workflowId);
   }
 
   async getSnapshot(workflowId: string): Promise<CaseTriageWorkflowSnapshot> {
@@ -547,13 +616,14 @@ export class CaseTriageOrchestratorService {
   ): Promise<void> {
     const startedAt = Date.now();
     this.principalForRag = principal;
+    const tenantId = this.resolveWorkflowTenantId(principal);
     try {
       const result = (await this.graph.invoke(
         {
           workflowId,
           caseId: dto.caseId,
           caseNumber: dto.caseNumber,
-          tenantId: principal?.tenantId,
+          tenantId,
           principalSubject: principal?.subject ?? "orchestrator",
           approvalRequired: false,
           writeBackApplied: false,
@@ -591,7 +661,7 @@ export class CaseTriageOrchestratorService {
       await this.store.appendEvent(
         workflowId,
         "waiting_approval",
-        "Awaiting human approval — guardrail flagged the case for review.",
+        "Awaiting Account Manager approval — guardrail flagged the case for review.",
         undefined,
         // Node 6 is the only interrupting node, so tag the pause with the
         // guardrail node id — that lights up the Node 6 stage in the UI.
@@ -736,42 +806,6 @@ export class CaseTriageOrchestratorService {
   }
 
   /**
-   * Stepped-mode initial invoke: runs Triage (readContext + runTriage, which
-   * now includes customer context read + synthesis before the triage LLM)
-   * then pauses at the first `interruptAfter` before knowledge. Mirrors
-   * {@link run} but settles a stepped pause instead of a terminal/approval
-   * outcome.
-   */
-  private async runStep(
-    workflowId: string,
-    dto: TriggerCaseTriageDto,
-    principal?: AuthPrincipal
-  ): Promise<void> {
-    const startedAt = Date.now();
-    this.principalForRag = principal;
-    try {
-      const result = (await this.steppedGraph.invoke(
-        {
-          workflowId,
-          caseId: dto.caseId,
-          caseNumber: dto.caseNumber,
-          tenantId: principal?.tenantId,
-          principalSubject: principal?.subject ?? "orchestrator",
-          approvalRequired: false,
-          writeBackApplied: false,
-          status: "running"
-        },
-        { configurable: { thread_id: workflowId } }
-      )) as CaseTriageStateType;
-      await this.settleStep(workflowId, result, startedAt);
-    } catch (err) {
-      await this.fail(workflowId, err);
-    } finally {
-      this.principalForRag = undefined;
-    }
-  }
-
-  /**
    * Settle a stepped invoke: a guardrail approval pause (dynamic interrupt) or
    * a terminal outcome routes through {@link settleAfterInvoke} exactly like
    * the auto run; a static `interruptAfter` pause (more stages to run) records
@@ -809,6 +843,8 @@ export class CaseTriageOrchestratorService {
   ): Promise<void> {
     const awaitingNode =
       STEP_NEXT_NODE_TO_UI[nextGraphNode] ?? GUARDRAIL_NODE_ID;
+    const finishedNode =
+      STEP_FINISHED_NODE_FROM_NEXT[nextGraphNode] ?? TRIAGE_NODE_ID;
     // `update` only writes fields that are set, so undefined channels (stages
     // not yet run) are left untouched.
     await this.store.update(workflowId, {
@@ -822,7 +858,9 @@ export class CaseTriageOrchestratorService {
     await this.store.appendEvent(
       workflowId,
       "awaiting_step",
-      `Stage complete — awaiting Run for ${CaseTriageOrchestratorService.stepNodeLabel(
+      `${CaseTriageOrchestratorService.stepNodeLabel(
+        finishedNode
+      )} complete — press Run for ${CaseTriageOrchestratorService.stepNodeLabel(
         awaitingNode
       )}.`,
       undefined,
@@ -931,6 +969,11 @@ export class CaseTriageOrchestratorService {
       recommendedPriority: response.recommendedPriority,
       summary: response.summary,
       suggestedNextStep: response.suggestedNextStep,
+      priorityRationale: response.priorityRationale,
+      priorityFactors: response.priorityFactors,
+      workflowConfidence: response.workflowConfidence,
+      confidenceFactors: response.confidenceFactors,
+      humanInterventionRecommended: response.humanInterventionRecommended,
       provider: response.provider,
       model: response.model,
       fallbackUsed: response.fallbackUsed,
@@ -997,8 +1040,8 @@ export class CaseTriageOrchestratorService {
   private buildApprovalContext(
     state: CaseTriageStateType
   ): GuardrailSalesforceApprovalContext {
-    const verdict = synthesizeOrchestratorVerdict({
-      status: "waiting_approval",
+    const verdictInput = {
+      status: "waiting_approval" as const,
       approvalRequired: true,
       triage: state.triage,
       customerContext: state.customerContext,
@@ -1006,7 +1049,9 @@ export class CaseTriageOrchestratorService {
       partsLogistics: state.partsLogistics,
       scheduling: state.scheduling,
       guardrail: state.guardrail
-    });
+    };
+    const verdict = synthesizeOrchestratorVerdict(verdictInput);
+    const executiveSummary = buildAccountManagerExecutiveSummary(verdictInput);
     const uiBaseUrl = this.config.orchestrator.salesforceWriteBack.uiBaseUrl;
     const orchestrationConsoleUrl = uiBaseUrl
       ? `${uiBaseUrl.replace(/\/+$/, "")}/orchestration?caseId=${encodeURIComponent(
@@ -1016,12 +1061,60 @@ export class CaseTriageOrchestratorService {
     return {
       verdict: {
         headline: verdict.headline,
-        summary: verdict.summary,
+        summary: executiveSummary,
         recommendedSteps: verdict.recommendedSteps,
         highlights: verdict.highlights
       },
       orchestrationConsoleUrl
     };
+  }
+
+  /**
+   * Posts one idempotent private agent narrative on the Case feed.
+   * Stepped-console runs only; auto-graph batches at guardrail approval.
+   */
+  private postAgentCaseComment(
+    workflowId: string,
+    caseId: string,
+    agentKey: AgentNarrativeKey,
+    state: CaseTriageStateType
+  ): Promise<void> {
+    if (!this.steppedWorkflows.has(workflowId)) {
+      return Promise.resolve();
+    }
+    return this.agentCaseComments.postAgentNarrative(
+      workflowId,
+      caseId,
+      agentKey,
+      state,
+      { stepped: true }
+    );
+  }
+
+  private postAllAgentCaseCommentsForAutoApproval(
+    workflowId: string,
+    caseId: string,
+    state: CaseTriageStateType
+  ): Promise<void> {
+    if (this.steppedWorkflows.has(workflowId)) {
+      return Promise.resolve();
+    }
+    return this.agentCaseComments.postAllForAutoApproval(
+      workflowId,
+      caseId,
+      state
+    );
+  }
+
+  /** Best-effort: mark Case suppressed so the insert handoff Flow skips it. */
+  private async markCaseSuppressedForStepped(caseId: string): Promise<void> {
+    try {
+      await this.gateway.writeOrchestrationSuppressed(caseId);
+    } catch {
+      this.logger.warn(
+        `Stepped suppress flag write skipped for case ${caseId}; demo insert may still block handoff.`
+      );
+    }
   }
 
   /**
@@ -1926,6 +2019,25 @@ export class CaseTriageOrchestratorService {
         (this.config.orchestrator.knowledge.namespace ||
           this.config.rag.defaultNamespace)
     };
+  }
+
+  /**
+   * Tenant for graph state + RAG when the HTTP principal omits one (demo
+   * bootstrap, auth-disabled dev, operator JWT without `tenant` claim).
+   * Prefer the authenticated principal; fall back to the configured
+   * Agentforce service bearer tenant; last resort `tenant-demo`.
+   */
+  private resolveWorkflowTenantId(principal?: AuthPrincipal): string {
+    if (principal?.tenantId) {
+      return principal.tenantId;
+    }
+    const jwtConfig = this.config.jwt;
+    const bearers = jwtConfig?.agentforceServiceBearers?.length
+      ? jwtConfig.agentforceServiceBearers
+      : jwtConfig?.agentforceServiceBearer
+        ? [jwtConfig.agentforceServiceBearer]
+        : [];
+    return bearers[0]?.tenantId ?? "tenant-demo";
   }
 
   /**

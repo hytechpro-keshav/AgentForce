@@ -19,9 +19,9 @@ export default function DemoCaseCreatePage() {
               Create a live Salesforce Case
             </h1>
             <p className="max-w-2xl text-muted-foreground">
-              Test the full AI service workflow — pick a scenario, create a real
-              Case in Salesforce, and step through each orchestration stage in
-              the stepped console.
+              Create a real Case in Salesforce, then activate the agent in the
+              stepped orchestration console and run each stage manually —
+              starting with Triage.
             </p>
           </div>
           <ButtonLink href="/orchestration/stepped">Stepped console</ButtonLink>

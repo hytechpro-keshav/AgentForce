@@ -64,39 +64,34 @@ flowchart LR
 
 ---
 
-## 3. Inside the orchestrator — first node is Triage
+## 3. Inside the orchestrator — first node is Triage (case + customer)
+
+Triage is a **single graph node** (`runTriage`) that reads customer context **before** the triage LLM, then hands off to Knowledge (Node 3). There is no separate Customer History graph node.
 
 ```mermaid
 flowchart TD
-    START(["🧠 Orchestrator started<br/>(knows: a Case ID needs triage)"])
+    START(["Orchestrator started"])
 
     START --> READ
 
     subgraph SF_READ["Salesforce as DATA SOURCE (read)"]
-        READ["Pull Case context<br/>subject, description, source, customer"]
+        READ["Pull Case context"]
     end
 
-    READ --> TRIAGE
+    READ --> CH
 
-    subgraph NODE1["NODE 1 — Routing & Triage Agent"]
-        TRIAGE["🔍 Reads the request"]
-        TRIAGE --> P["Determine priority + severity"]
-        P --> T["Decide correct team / queue"]
-        T --> REC["Produce routing recommendation<br/>(priority, severity, target team)"]
+    subgraph NODE1["NODE 1 — Triage"]
+        CH["Read customer context<br/>(account, SLA, warranty, history)"]
+        CH --> LLM["Context-informed triage<br/>priority + complete summary"]
     end
 
-    REC --> WRITE
+    LLM --> NEXT(["Hand off to Node 3 Knowledge → …"])
 
-    subgraph SF_ACTION["Salesforce as ACTION EXECUTOR (write, gated)"]
-        WRITE["Apply triage result to Case<br/>(set priority, route to queue)"]
-    end
-
-    WRITE --> NEXT(["➡️ Hand off to next node<br/>(later: Context, Knowledge, Parts...)"])
-
-    style TRIAGE fill:#7c3aed,color:#fff
+    style NODE1 fill:#7c3aed,color:#fff
     style READ fill:#0ea5e9,color:#fff
-    style WRITE fill:#16a34a,color:#fff
 ```
+
+Write-back of triage fields to the Case remains **approval-gated** at the guardrail stage (unchanged).
 
 ---
 

@@ -57,6 +57,7 @@ Pick the persona/prompt to read first based on the task:
 | Review orchestrator / Node 3 / Final Verdict | `.github/prompts/service-workflow-architecture-review.prompt.md` |
 | Implement case triage | `.github/agents/case-triage-slice-implementer.agent.md` + `.github/prompts/implement-case-triage-slice.prompt.md` |
 | Implement stepped console | `.github/agents/stepped-console-implementer.agent.md` + `.github/prompts/implement-stepped-console.prompt.md` + skill `langgraph-stepped-console` |
+| Fix stepped console state / ACTIVITY / trace | `.github/prompts/implement-stepped-console-state-fix.prompt.md` + `docs/orchestrator/stepped-console-state-fix-plan.md` |
 | Implement Node 4 parts logistics | `.github/agents/node4-parts-logistics-implementer.agent.md` + `.github/prompts/implement-node4-parts-logistics.prompt.md` |
 | Plan Node 5 scheduling | `.github/agents/node5-scheduling-planner.agent.md` + `.github/prompts/plan-node5-scheduling.prompt.md` |
 | Node 5 Salesforce 5-Pre prep | `.github/prompts/node5-pre-salesforce-prep.prompt.md` + `.claude/commands/node5-pre-salesforce-prep.md` |

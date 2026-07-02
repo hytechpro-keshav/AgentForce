@@ -18,8 +18,8 @@ function aiApiBaseUrl(): string {
 }
 
 /**
- * Phase 2 — start a STEPPED run for a Case. The graph auto-runs Triage then
- * pauses; the operator advances one stage at a time via the `/advance` proxy.
+ * Phase 2 — start a STEPPED run for a Case. Parks at Triage until the operator
+ * clicks Run; each later stage advances via the `/advance` proxy.
  * Requires the operator session cookie (carries `agentforce:orchestrator-step`).
  * Returns 202 + `{ workflowId, status: "assigned" }` like the normal trigger.
  */

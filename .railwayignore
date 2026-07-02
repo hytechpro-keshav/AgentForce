@@ -18,3 +18,5 @@ force-app/
 apps/openwebui/
 manifest/
 scripts/sf/
+docs/
+**/test-results/

@@ -38,7 +38,9 @@ const fullBundle: CustomerReadBundle = {
     repeatIncidentCount: 2,
     repeatWindowDays: 30,
     priorEscalations: 1,
-    openIncidentCount: 1
+    openIncidentCount: 1,
+    repeatScope: "asset" as const,
+    currentCaseExcluded: true
   },
   missingSources: []
 };
@@ -56,6 +58,35 @@ describe("CustomerHistorySynthesisService", () => {
     expect(result.package.strategicAccount.value).toBe(true);
     expect(result.package.warrantyStatus.value).toBe("covered");
     expect(result.package.repeatIncident.value.repeat).toBe(true);
+    expect(result.package.repeatIncident.evidenceBasis).toContain("same asset");
+    expect(result.package.repeatIncident.evidenceBasis).toContain(
+      "excluding current Case"
+    );
+  });
+
+  it("uses account scope in repeat evidence when no asset is linked", async () => {
+    const h = buildHarness();
+    h.chat.mockResolvedValue(modelReply("medium"));
+
+    const bundle: CustomerReadBundle = {
+      source: "soql",
+      serviceHistory: {
+        priorCaseCount: 1,
+        repeatIncidentCount: 1,
+        repeatWindowDays: 30,
+        priorEscalations: 0,
+        openIncidentCount: 0,
+        repeatScope: "account",
+        currentCaseExcluded: true
+      },
+      missingSources: ["account", "entitlement", "warranty", "installed_assets"]
+    };
+
+    const result = await h.service.synthesize({ bundle });
+    expect(result.package.repeatIncident.evidenceBasis).toContain("account");
+    expect(result.package.repeatIncident.evidenceBasis).toContain(
+      "excluding current Case"
+    );
   });
 
   it("abstains on missing sources without fabricating a confident value", async () => {
@@ -111,10 +142,14 @@ describe("CustomerHistorySynthesisService", () => {
     const request = h.chat.mock.calls[0][0];
     expect(request.useCase).toBe("agentforce_customer_history");
     const payload = request.messages[1].content as string;
-    // Safe signals only — no account ids, names, or raw records.
+    // Safe signals only — no account ids, names, raw Case rows, or Case JSON.
     expect(payload).toContain("tier");
+    expect(payload).toContain("repeatCount");
     expect(payload).not.toContain("accountId");
     expect(payload).not.toContain("001000000000001");
+    expect(payload).not.toContain('"records"');
+    expect(payload).not.toContain("CaseNumber");
+    expect(payload).not.toContain("IsEscalated");
   });
 
   it("falls back to a deterministic grade when the model fails", async () => {

@@ -31,6 +31,24 @@ export function steppedSnapshotFixture(
       recommendedPriority: "normal",
       summary: "Routine battery replacement needed for ProBook 15X.",
       suggestedNextStep: "Confirm local stock availability.",
+      priorityRationale:
+        "Strategic account with one open incident raises medium business risk, but no repeat pattern keeps priority normal.",
+      priorityFactors: [
+        { id: "customer_risk", label: "Customer risk", weight: 35 },
+        { id: "case_urgency", label: "Case urgency", weight: 30 },
+        { id: "reported_priority", label: "Reported priority", weight: 15 },
+        { id: "sla_tier", label: "SLA / tier", weight: 10 },
+        { id: "repeat_pattern", label: "Repeat pattern", weight: 5 },
+        { id: "warranty", label: "Warranty", weight: 5 }
+      ],
+      workflowConfidence: 82,
+      confidenceFactors: [
+        { id: "case_clarity", label: "Case clarity", weight: 30 },
+        { id: "data_completeness", label: "Data completeness", weight: 25 },
+        { id: "routing_certainty", label: "Routing certainty", weight: 25 },
+        { id: "step_feasibility", label: "Step feasibility", weight: 20 }
+      ],
+      humanInterventionRecommended: false,
       provider: "openai",
       model: "gpt-4o-mini",
       fallbackUsed: false,
@@ -46,12 +64,16 @@ export function steppedSnapshotFixture(
         customerTier: finding("standard"),
         slaClass: finding("none"),
         warrantyStatus: finding("unknown"),
-        repeatIncident: finding({ repeat: true, count: 10, windowDays: 30 }),
-        strategicAccount: finding(false),
-        installedAssets: finding({ totalAssets: 0, modelCount: 0 }),
-        openIncidentCount: finding(10),
+        repeatIncident: finding({ repeat: false, count: 0, windowDays: 30 }),
+        strategicAccount: finding(true),
+        installedAssets: finding({
+          totalAssets: 12,
+          modelCount: 2,
+          primaryModel: "ProBook 15X"
+        }),
+        openIncidentCount: finding(1),
         escalationHistory: finding(0),
-        businessRisk: finding("high", "Risk signals: repeat-failure, 10 open")
+        businessRisk: finding("medium", "Risk signals: strategic account, 1 open")
       }
     },
     knowledgeGuidance: {
@@ -200,14 +222,14 @@ export function steppedSnapshotFixture(
         status: "assigned",
         sequence: 1,
         occurredAt: "t1",
-        safeSummary: "Triage assigned for case 00001079."
+        safeSummary: "Triage Agent assigned to Case 00001079."
       },
       {
         node: "triage",
         status: "done",
         sequence: 2,
         occurredAt: "t2",
-        safeSummary: "Running AI triage.",
+        safeSummary: "Sending the output back to the Orchestrator for the next action.",
         details: [{ label: "Recommended priority", value: "normal" }]
       },
       {
@@ -215,21 +237,22 @@ export function steppedSnapshotFixture(
         status: "done",
         sequence: 3,
         occurredAt: "t3",
-        safeSummary: "Building customer context package."
+        safeSummary: "Creating a complete customer context package and includes the customer profile, entitlement status, asset details, service history and known risks."
       },
       {
         node: "knowledge",
         status: "done",
         sequence: 4,
         occurredAt: "t4",
-        safeSummary: "Found 2 matching troubleshooting guides."
+        safeSummary: "Found 2 matching troubleshooting guides that closely match the reported issue and can support the next recommended action."
       },
       {
         node: "parts_logistics",
         status: "done",
         sequence: 5,
         occurredAt: "t5",
-        safeSummary: "Planned 1 part(s) — fulfillment ready."
+        safeSummary:
+          "Confirming that 1 required part has been identified for this case."
       },
       {
         node: "scheduling",
@@ -270,6 +293,24 @@ export function steppedPausedFixture(
       recommendedPriority: "normal",
       summary: "Routine battery replacement needed for ProBook 15X.",
       suggestedNextStep: "Confirm local stock availability.",
+      priorityRationale:
+        "Strategic account with one open incident raises medium business risk, but no repeat pattern keeps priority normal.",
+      priorityFactors: [
+        { id: "customer_risk", label: "Customer risk", weight: 35 },
+        { id: "case_urgency", label: "Case urgency", weight: 30 },
+        { id: "reported_priority", label: "Reported priority", weight: 15 },
+        { id: "sla_tier", label: "SLA / tier", weight: 10 },
+        { id: "repeat_pattern", label: "Repeat pattern", weight: 5 },
+        { id: "warranty", label: "Warranty", weight: 5 }
+      ],
+      workflowConfidence: 82,
+      confidenceFactors: [
+        { id: "case_clarity", label: "Case clarity", weight: 30 },
+        { id: "data_completeness", label: "Data completeness", weight: 25 },
+        { id: "routing_certainty", label: "Routing certainty", weight: 25 },
+        { id: "step_feasibility", label: "Step feasibility", weight: 20 }
+      ],
+      humanInterventionRecommended: false,
       provider: "openai",
       model: "gpt-4o-mini",
       fallbackUsed: false,
@@ -285,12 +326,16 @@ export function steppedPausedFixture(
         customerTier: finding("standard"),
         slaClass: finding("none"),
         warrantyStatus: finding("unknown"),
-        repeatIncident: finding({ repeat: true, count: 10, windowDays: 30 }),
-        strategicAccount: finding(false),
-        installedAssets: finding({ totalAssets: 0, modelCount: 0 }),
-        openIncidentCount: finding(10),
+        repeatIncident: finding({ repeat: false, count: 0, windowDays: 30 }),
+        strategicAccount: finding(true),
+        installedAssets: finding({
+          totalAssets: 12,
+          modelCount: 2,
+          primaryModel: "ProBook 15X"
+        }),
+        openIncidentCount: finding(1),
         escalationHistory: finding(0),
-        businessRisk: finding("high", "Risk signals: repeat-failure, 10 open")
+        businessRisk: finding("medium", "Risk signals: strategic account, 1 open")
       }
     },
     events: [
@@ -299,14 +344,14 @@ export function steppedPausedFixture(
         status: "assigned",
         sequence: 1,
         occurredAt: "t1",
-        safeSummary: "Triage assigned for case 00001079."
+        safeSummary: "Triage Agent assigned to Case 00001079."
       },
       {
         node: "triage",
         status: "running",
         sequence: 2,
         occurredAt: "t2",
-        safeSummary: "Running AI triage.",
+        safeSummary: "Sending the output back to the Orchestrator for the next action.",
         details: [{ label: "Recommended priority", value: "normal" }]
       },
       {
@@ -314,14 +359,14 @@ export function steppedPausedFixture(
         status: "running",
         sequence: 3,
         occurredAt: "t3",
-        safeSummary: "Building customer context package."
+        safeSummary: "Creating a complete customer context package and includes the customer profile, entitlement status, asset details, service history and known risks."
       },
       {
         node: "knowledge",
         status: "awaiting_step",
         sequence: 4,
         occurredAt: "t4",
-        safeSummary: "Stage complete — awaiting Run for Knowledge Base."
+        safeSummary: "Triage complete — press Run for Knowledge Base."
       }
     ],
     ...overrides
@@ -334,7 +379,7 @@ export function steppedPausedFixture(
 export function steppedInProgressTriageFixture(): OrchestrationSnapshot {
   return {
     workflowId: "wf-c79ee03d-a8fa-4316-9517-a9b4872833a4",
-    node: "knowledge",
+    node: "triage",
     caseNumber: "00001079",
     status: "running",
     approvalRequired: false,
@@ -343,6 +388,24 @@ export function steppedInProgressTriageFixture(): OrchestrationSnapshot {
       recommendedPriority: "normal",
       summary: "Routine battery replacement needed for ProBook 15X.",
       suggestedNextStep: "Confirm local stock availability.",
+      priorityRationale:
+        "Strategic account with one open incident raises medium business risk, but no repeat pattern keeps priority normal.",
+      priorityFactors: [
+        { id: "customer_risk", label: "Customer risk", weight: 35 },
+        { id: "case_urgency", label: "Case urgency", weight: 30 },
+        { id: "reported_priority", label: "Reported priority", weight: 15 },
+        { id: "sla_tier", label: "SLA / tier", weight: 10 },
+        { id: "repeat_pattern", label: "Repeat pattern", weight: 5 },
+        { id: "warranty", label: "Warranty", weight: 5 }
+      ],
+      workflowConfidence: 82,
+      confidenceFactors: [
+        { id: "case_clarity", label: "Case clarity", weight: 30 },
+        { id: "data_completeness", label: "Data completeness", weight: 25 },
+        { id: "routing_certainty", label: "Routing certainty", weight: 25 },
+        { id: "step_feasibility", label: "Step feasibility", weight: 20 }
+      ],
+      humanInterventionRecommended: false,
       provider: "openai",
       model: "gpt-4o-mini",
       fallbackUsed: false,
@@ -354,14 +417,14 @@ export function steppedInProgressTriageFixture(): OrchestrationSnapshot {
         status: "assigned",
         sequence: 1,
         occurredAt: "t1",
-        safeSummary: "Triage assigned for case 00001079."
+        safeSummary: "Triage Agent assigned to Case 00001079."
       },
       {
         node: "triage",
         status: "done",
         sequence: 2,
         occurredAt: "t2",
-        safeSummary: "Running AI triage."
+        safeSummary: "Sending the output back to the Orchestrator for the next action."
       }
     ]
   };
@@ -402,35 +465,35 @@ export function steppedAfterCustomerHistoryFixture(): OrchestrationSnapshot {
         status: "assigned",
         sequence: 1,
         occurredAt: "t1",
-        safeSummary: "Triage assigned for case 00001079."
+        safeSummary: "Triage Agent assigned to Case 00001079."
       },
       {
         node: "triage",
         status: "running",
         sequence: 2,
         occurredAt: "t2",
-        safeSummary: "Running AI triage."
+        safeSummary: "Sending the output back to the Orchestrator for the next action."
       },
       {
         node: "customer_history",
         status: "running",
         sequence: 3,
         occurredAt: "t3",
-        safeSummary: "Reading customer profile and entitlements."
+        safeSummary: "Checking what the customer reported, which channel the case came from and what issue needs attention."
       },
       {
         node: "customer_history",
         status: "running",
         sequence: 4,
         occurredAt: "t4",
-        safeSummary: "Analyzing customer history."
+        safeSummary: "Studying the customer's past cases and checking whether this issue has happened before and whether the customer has any repeated service concerns."
       },
       {
         node: "customer_history",
         status: "running",
         sequence: 5,
         occurredAt: "t5",
-        safeSummary: "Writing customer findings to state."
+        safeSummary: "Saving its findings into the case state and making the information available for the Orchestrator and the next agents in the workflow."
       },
       {
         node: "knowledge",
@@ -445,7 +508,7 @@ export function steppedAfterCustomerHistoryFixture(): OrchestrationSnapshot {
         sequence: 7,
         occurredAt: "t7",
         safeSummary:
-          "Stage complete — awaiting Run for Parts & Logistics."
+          "Knowledge Base complete — press Run for Parts & Logistics."
       }
     ]
   });

@@ -70,13 +70,13 @@ describe("demo Case create proxy", () => {
     expect(text).toContain("500000000000001ABC");
   });
 
-  it("auto-starts a stepped run and sets the operator session cookie when configured", async () => {
+  it("sets the operator session cookie when configured", async () => {
     const upstreamBody = JSON.stringify({
       caseId: "500000000000001ABC",
       caseNumber: "00001234",
-      steppedWorkflowId: "wf-stepped-demo",
-      steppedOrchestrationUrl:
-        "/orchestration/stepped?workflowId=wf-stepped-demo"
+      salesforceCaseUrl:
+        "https://orgfarm.example/lightning/r/Case/500000000000001ABC/view",
+      orchestrationUrl: "/orchestration?caseId=500000000000001ABC"
     });
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(
       async (input) => {
@@ -104,12 +104,8 @@ describe("demo Case create proxy", () => {
     expect(response.status).toBe(201);
     expect(fetchSpy).toHaveBeenCalledTimes(2);
 
-    const body = (await response.json()) as {
-      steppedWorkflowId?: string;
-      steppedOrchestrationUrl?: string;
-    };
-    expect(body.steppedWorkflowId).toBe("wf-stepped-demo");
-    expect(body.steppedOrchestrationUrl).toContain("workflowId=wf-stepped-demo");
+    const body = (await response.json()) as { caseId?: string };
+    expect(body.caseId).toBe("500000000000001ABC");
 
     const cookie = response.headers.get("set-cookie") ?? "";
     expect(cookie).toContain("orchestrator_session=operator-jwt");

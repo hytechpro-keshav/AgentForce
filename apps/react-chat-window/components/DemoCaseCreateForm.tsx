@@ -1,10 +1,8 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,12 +29,17 @@ interface DemoCaseCreateFormProps {
 interface CreateResponse {
   caseId: string;
   caseNumber?: string;
+  salesforceCaseUrl?: string;
   orchestrationUrl: string;
-  steppedOrchestrationUrl: string;
+}
+
+interface CreatedCase {
+  caseId: string;
+  caseNumber?: string;
+  salesforceCaseUrl?: string;
 }
 
 export function DemoCaseCreateForm({ scenarios }: DemoCaseCreateFormProps) {
-  const router = useRouter();
   const defaultScenarioId =
     scenarios.find((scenario) => scenario.id !== "custom")?.id ??
     scenarios[0]?.id ??
@@ -48,7 +51,10 @@ export function DemoCaseCreateForm({ scenarios }: DemoCaseCreateFormProps) {
     return scenario?.form ?? emptyCustomForm();
   });
   const [submitting, setSubmitting] = useState(false);
+  const [activating, setActivating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activateError, setActivateError] = useState<string | null>(null);
+  const [created, setCreated] = useState<CreatedCase | null>(null);
 
   const selectedScenario = useMemo(
     () => scenarios.find((scenario) => scenario.id === scenarioId),
@@ -58,6 +64,8 @@ export function DemoCaseCreateForm({ scenarios }: DemoCaseCreateFormProps) {
   function onScenarioChange(nextId: string) {
     setScenarioId(nextId);
     setError(null);
+    setActivateError(null);
+    setCreated(null);
     const scenario = getScenarioById(nextId);
     if (scenario && nextId !== "custom") {
       setForm({ ...scenario.form });
@@ -74,6 +82,8 @@ export function DemoCaseCreateForm({ scenarios }: DemoCaseCreateFormProps) {
     event.preventDefault();
     setSubmitting(true);
     setError(null);
+    setActivateError(null);
+    setCreated(null);
 
     const payload =
       scenarioId === "custom"
@@ -113,7 +123,16 @@ export function DemoCaseCreateForm({ scenarios }: DemoCaseCreateFormProps) {
         throw new Error(message ?? "Could not create the demo Case.");
       }
 
-      router.push(data.steppedOrchestrationUrl);
+      const nextCreated: CreatedCase = {
+        caseId: data.caseId,
+        caseNumber: data.caseNumber,
+        salesforceCaseUrl: data.salesforceCaseUrl
+      };
+      setCreated(nextCreated);
+
+      if (data.salesforceCaseUrl?.startsWith("http")) {
+        window.open(data.salesforceCaseUrl, "_blank", "noopener,noreferrer");
+      }
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -122,6 +141,59 @@ export function DemoCaseCreateForm({ scenarios }: DemoCaseCreateFormProps) {
       );
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function activateAgent() {
+    if (!created) return;
+    setActivating(true);
+    setActivateError(null);
+
+    try {
+      const response = await fetch(
+        `/api/orchestrator/case/${encodeURIComponent(created.caseId)}/stepped`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            caseId: created.caseId,
+            caseNumber: created.caseNumber
+          })
+        }
+      );
+      const text = await response.text();
+      let data: { workflowId?: string; message?: string; error?: string };
+      try {
+        data = JSON.parse(text) as {
+          workflowId?: string;
+          message?: string;
+          error?: string;
+        };
+      } catch {
+        throw new Error("Unexpected response from agent activation.");
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ?? "Could not activate the agent for this Case."
+        );
+      }
+      if (!data.workflowId) {
+        throw new Error("Agent activation did not return a workflow id.");
+      }
+
+      const url = `/orchestration/stepped?workflowId=${encodeURIComponent(
+        data.workflowId
+      )}`;
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (activateErr) {
+      setActivateError(
+        activateErr instanceof Error
+          ? activateErr.message
+          : "Could not activate the agent."
+      );
+    } finally {
+      setActivating(false);
     }
   }
 
@@ -231,9 +303,46 @@ export function DemoCaseCreateForm({ scenarios }: DemoCaseCreateFormProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {created ? (
+            <Alert className="border-green-600/40 bg-green-50 text-green-950 dark:bg-green-950/20 dark:text-green-50">
+              <AlertTitle>Case created in Salesforce</AlertTitle>
+              <AlertDescription className="space-y-2">
+                <p>
+                  Case{" "}
+                  <strong>{created.caseNumber ?? created.caseId}</strong> was
+                  created successfully. We opened it in a new browser tab.
+                </p>
+                <p>
+                  Click <strong>Activate agent</strong> to assign this Case to
+                  the orchestrator. In the stepped console, use{" "}
+                  <strong>Run Triage</strong> when you are ready to start the
+                  first stage manually.
+                </p>
+                {created.salesforceCaseUrl ? (
+                  <p>
+                    <a
+                      href={created.salesforceCaseUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium underline underline-offset-2"
+                    >
+                      Open Case in Salesforce again
+                    </a>
+                  </p>
+                ) : null}
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
           {error ? (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
+
+          {activateError ? (
+            <Alert variant="destructive">
+              <AlertDescription>{activateError}</AlertDescription>
             </Alert>
           ) : null}
 
@@ -319,10 +428,16 @@ export function DemoCaseCreateForm({ scenarios }: DemoCaseCreateFormProps) {
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <Button type="submit" size="lg" disabled={submitting}>
-              {submitting ? "Creating Case…" : "Create case & step through →"}
+              {submitting ? "Creating Case…" : "Create case in Salesforce"}
             </Button>
-            <Button type="button" variant="outline" asChild>
-              <Link href="/orchestration/stepped">Open stepped console</Link>
+            <Button
+              type="button"
+              size="lg"
+              variant="default"
+              disabled={!created || activating}
+              onClick={() => void activateAgent()}
+            >
+              {activating ? "Activating…" : "Activate agent"}
             </Button>
           </div>
         </CardContent>

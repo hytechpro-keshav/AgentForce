@@ -49,6 +49,10 @@ import {
 } from "@/lib/stepped-view-model";
 
 import { SteppedStartPanel } from "@/components/SteppedStartPanel";
+import { SteppedCompletionBody } from "@/components/SteppedCompletionBody";
+import { SteppedLiveTrace, traceItemsFromDetail, traceItemsSignature } from "@/components/SteppedLiveTrace";
+import { TriageInsightCard } from "@/components/TriageInsightCard";
+import { TriageConfidenceChart } from "@/components/TriageConfidenceChart";
 import styles from "./SteppedOrchestrationView.module.css";
 
 const NODE_ICON: Record<
@@ -63,7 +67,14 @@ const NODE_ICON: Record<
   shield: (p) => <ShieldCheck {...p} />
 };
 
-const REVEAL_MS = 850;
+interface RevealGate {
+  pendingIndex: number | null;
+  backendReady: boolean;
+  traceTypingComplete: boolean;
+  responseTypingComplete: boolean;
+  /** Label signature of the trace when typing last completed. */
+  completedTraceSignature: string;
+}
 
 interface SteppedOrchestrationViewProps {
   caseId?: string;
@@ -100,6 +111,11 @@ export function SteppedOrchestrationView({
   const [activeWorkflowId, setActiveWorkflowId] = useState<string | undefined>();
   const [revealed, setRevealed] = useState(0);
   const [runningIndex, setRunningIndex] = useState<number | null>(null);
+  const [completingIndex, setCompletingIndex] = useState<number | null>(null);
+  const [traceSettled, setTraceSettled] = useState(false);
+  const [completingSettleToken, setCompletingSettleToken] = useState(0);
+  const completingIndexRef = useRef<number | null>(null);
+  completingIndexRef.current = completingIndex;
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [elapsed, setElapsed] = useState(0);
   const [advancing, setAdvancing] = useState(false);
@@ -109,9 +125,16 @@ export function SteppedOrchestrationView({
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loggingIn, setLoggingIn] = useState(false);
   const stopped = useRef(false);
-  const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const revealGate = useRef<RevealGate>({
+    pendingIndex: null,
+    backendReady: false,
+    traceTypingComplete: false,
+    responseTypingComplete: false,
+    completedTraceSignature: ""
+  });
   const bootstrapPlayed = useRef(false);
   const triageWasRunning = useRef(false);
+  const pendingBackendReady = useRef<number | null>(null);
 
   const pollWorkflowId = activeWorkflowId ?? workflowId;
   const pollCaseId = pollWorkflowId ? undefined : caseId;
@@ -189,17 +212,155 @@ export function SteppedOrchestrationView({
     return () => clearInterval(id);
   }, []);
 
-  useEffect(
-    () => () => {
-      if (revealTimer.current) clearTimeout(revealTimer.current);
-    },
-    []
-  );
-
   const vm = useMemo<SteppedViewModel | null>(
     () => (snapshot ? buildSteppedViewModel(snapshot) : null),
     [snapshot]
   );
+
+  const tryAdvanceReveal = useCallback(() => {
+    const gate = revealGate.current;
+    if (gate.pendingIndex === null || !gate.backendReady) return;
+
+    const index = gate.pendingIndex;
+    const node = vm?.nodes[index];
+    if (!node) return;
+
+    const currentTraceSignature = traceItemsSignature(
+      traceItemsFromDetail(node.detail)
+    );
+
+    if (completingIndexRef.current === null) {
+      if (!gate.traceTypingComplete) return;
+      if (gate.completedTraceSignature !== currentTraceSignature) {
+        gate.traceTypingComplete = false;
+        return;
+      }
+      setCompletingIndex(index);
+      setRunningIndex(null);
+      setTraceSettled(true);
+      gate.responseTypingComplete = false;
+      setCompletingSettleToken((token) => token + 1);
+      setOpen((prev) => ({ ...prev, [node.id]: true }));
+      return;
+    }
+
+    if (completingIndexRef.current !== index || !gate.responseTypingComplete) {
+      return;
+    }
+
+    gate.pendingIndex = null;
+    gate.backendReady = false;
+    gate.traceTypingComplete = false;
+    gate.responseTypingComplete = false;
+    gate.completedTraceSignature = "";
+    setCompletingIndex(null);
+    setTraceSettled(false);
+    setRevealed((current) => Math.max(current, index + 1));
+    setOpen((prev) => ({ ...prev, [node.id]: true }));
+  }, [vm]);
+
+  const markBackendReady = useCallback(
+    (index: number) => {
+      revealGate.current.pendingIndex = index;
+      revealGate.current.backendReady = true;
+      tryAdvanceReveal();
+    },
+    [tryAdvanceReveal]
+  );
+
+  const handleTraceTypingComplete = useCallback(
+    (index: number) => {
+      if (revealGate.current.pendingIndex !== index) return;
+      const signature = traceItemsSignature(
+        traceItemsFromDetail(vm?.nodes[index]?.detail ?? [])
+      );
+      revealGate.current.traceTypingComplete = true;
+      revealGate.current.completedTraceSignature = signature;
+      if (completingIndexRef.current === null) {
+        tryAdvanceReveal();
+      } else if (completingIndexRef.current === index) {
+        setTraceSettled(true);
+      }
+    },
+    [tryAdvanceReveal, vm]
+  );
+
+  const handleResponseTypingComplete = useCallback(
+    (index: number) => {
+      if (completingIndexRef.current !== index) return;
+      if (revealGate.current.pendingIndex !== index) return;
+      revealGate.current.responseTypingComplete = true;
+      tryAdvanceReveal();
+    },
+    [tryAdvanceReveal]
+  );
+
+  const beginRunningStage = useCallback((index: number) => {
+    revealGate.current.pendingIndex = index;
+    revealGate.current.backendReady = false;
+    revealGate.current.traceTypingComplete = false;
+    revealGate.current.responseTypingComplete = false;
+    revealGate.current.completedTraceSignature = "";
+    setCompletingIndex(null);
+    setTraceSettled(false);
+    setRunningIndex(index);
+  }, []);
+
+  const completingTraceSignature = useMemo(() => {
+    if (completingIndex === null || !vm) return "";
+    return traceItemsSignature(
+      traceItemsFromDetail(vm.nodes[completingIndex]?.detail ?? [])
+    );
+  }, [vm, completingIndex]);
+
+  const prevCompletingTraceSignature = useRef("");
+  useEffect(() => {
+    if (completingIndex === null) {
+      prevCompletingTraceSignature.current = "";
+      return;
+    }
+    if (
+      prevCompletingTraceSignature.current &&
+      completingTraceSignature !== prevCompletingTraceSignature.current
+    ) {
+      setTraceSettled(false);
+      revealGate.current.traceTypingComplete = false;
+      revealGate.current.responseTypingComplete = false;
+      setCompletingSettleToken((token) => token + 1);
+    }
+    prevCompletingTraceSignature.current = completingTraceSignature;
+  }, [completingIndex, completingTraceSignature]);
+
+  const runningTraceSignature = useMemo(() => {
+    if (runningIndex === null || !vm) return "";
+    return traceItemsSignature(
+      traceItemsFromDetail(vm.nodes[runningIndex]?.detail ?? [])
+    );
+  }, [vm, runningIndex]);
+
+  const prevRunningTraceSignature = useRef("");
+  useEffect(() => {
+    if (runningIndex === null) {
+      prevRunningTraceSignature.current = "";
+      return;
+    }
+    if (
+      prevRunningTraceSignature.current &&
+      runningTraceSignature !== prevRunningTraceSignature.current
+    ) {
+      revealGate.current.traceTypingComplete = false;
+      revealGate.current.completedTraceSignature = "";
+    }
+    prevRunningTraceSignature.current = runningTraceSignature;
+  }, [runningIndex, runningTraceSignature]);
+
+  useEffect(() => {
+    if (pendingBackendReady.current === null) return;
+    const index = pendingBackendReady.current;
+    if (runningIndex !== index && completingIndex !== index) return;
+    pendingBackendReady.current = null;
+    markBackendReady(index);
+  }, [runningIndex, completingIndex, runningTraceSignature, markBackendReady]);
 
   const visibleActivity = useMemo(
     () =>
@@ -208,15 +369,6 @@ export function SteppedOrchestrationView({
         : [],
     [vm, snapshot, revealed]
   );
-
-  const startReveal = useCallback((index: number) => {
-    setRunningIndex(index);
-    if (revealTimer.current) clearTimeout(revealTimer.current);
-    revealTimer.current = setTimeout(() => {
-      setRunningIndex(null);
-      setRevealed((current) => Math.max(current, index + 1));
-    }, REVEAL_MS);
-  }, []);
 
   // Re-hydrate reveal progress; play a triage intro animation on fresh workflow loads.
   useEffect(() => {
@@ -229,36 +381,96 @@ export function SteppedOrchestrationView({
     const fromSnapshot = computeRevealedProgress(vm.nodes, snapshot);
     const triageBootstrapping =
       workflowBound &&
-      (snapshot.status === "running" || snapshot.status === "assigned") &&
-      (snapshot.node === "triage" || !vm.nodes[0]?.available);
+      snapshot.status === "running" &&
+      snapshot.node === "triage";
 
     const triagePausedForNext =
       snapshot.status === "awaiting_step" &&
       snapshot.node === "knowledge" &&
       fromSnapshot >= 1;
 
+    // Refresh / return visit — hydrate reveal from backend instead of replaying triage.
+    if (
+      workflowBound &&
+      !bootstrapPlayed.current &&
+      !triageWasRunning.current &&
+      fromSnapshot > 0 &&
+      runningIndex === null &&
+      completingIndex === null &&
+      revealed === 0
+    ) {
+      bootstrapPlayed.current = true;
+      setRevealed(fromSnapshot);
+      setOpen((prev) => {
+        const next = { ...prev };
+        vm.nodes.slice(0, fromSnapshot).forEach((n) => {
+          next[n.id] = true;
+        });
+        return next;
+      });
+      return;
+    }
+
     if (triageBootstrapping) {
       triageWasRunning.current = true;
-      if (runningIndex === null && revealed === 0) {
-        setRunningIndex(0);
+      if (
+        runningIndex === null &&
+        completingIndex === null &&
+        revealed === 0
+      ) {
+        beginRunningStage(0);
       }
       return;
     }
 
-    // Triage finished on the backend — complete the intro even if runningIndex
-    // is still 0 from the bootstrap spinner (must run before the guard below).
+    // Triage finished on the backend — wait for the live trace to finish typing.
     if (!bootstrapPlayed.current && workflowBound && triagePausedForNext) {
       bootstrapPlayed.current = true;
       triageWasRunning.current = false;
-      startReveal(0);
+      if (
+        runningIndex === null &&
+        completingIndex === null &&
+        revealed === 0
+      ) {
+        beginRunningStage(0);
+        revealGate.current.traceTypingComplete = false;
+      }
+      if (revealed < 1) {
+        pendingBackendReady.current = 0;
+      }
       return;
     }
 
-    if (runningIndex !== null) return;
+    if (runningIndex !== null || completingIndex !== null) return;
+
+    if (
+      !workflowBound &&
+      revealed === 0 &&
+      fromSnapshot > 0 &&
+      runningIndex === null &&
+      completingIndex === null
+    ) {
+      setRevealed(fromSnapshot);
+      setOpen((prev) => {
+        const next = { ...prev };
+        vm.nodes.slice(0, fromSnapshot).forEach((n) => {
+          next[n.id] = true;
+        });
+        return next;
+      });
+      return;
+    }
 
     if (!bootstrapPlayed.current && workflowBound && fromSnapshot > 1) {
       bootstrapPlayed.current = true;
       setRevealed(fromSnapshot);
+      setOpen((prev) => {
+        const next = { ...prev };
+        vm.nodes.slice(0, fromSnapshot).forEach((n) => {
+          next[n.id] = true;
+        });
+        return next;
+      });
       return;
     }
 
@@ -276,7 +488,9 @@ export function SteppedOrchestrationView({
     advancing,
     pollWorkflowId,
     revealed,
-    startReveal
+    completingIndex,
+    beginRunningStage,
+    markBackendReady
   ]);
 
   /**
@@ -287,6 +501,7 @@ export function SteppedOrchestrationView({
   const advanceStep = useCallback(
     async (index: number) => {
       if (!snapshot?.workflowId) return;
+      beginRunningStage(index);
       setAdvancing(true);
       setAdvanceError(null);
       try {
@@ -300,6 +515,15 @@ export function SteppedOrchestrationView({
         );
         if (!response.ok) {
           setAdvanceError(`Advance failed (${response.status}).`);
+          revealGate.current = {
+            pendingIndex: null,
+            backendReady: false,
+            traceTypingComplete: false,
+            responseTypingComplete: false,
+            completedTraceSignature: ""
+          };
+          setCompletingIndex(null);
+          setRunningIndex(null);
           return;
         }
         const updated = sanitizeSnapshot(await response.json());
@@ -307,14 +531,23 @@ export function SteppedOrchestrationView({
           setSnapshot(updated);
           if (isTerminalStatus(updated.status)) stopped.current = true;
         }
-        startReveal(index);
+        pendingBackendReady.current = index;
       } catch {
         setAdvanceError("Unable to advance step.");
+        revealGate.current = {
+          pendingIndex: null,
+          backendReady: false,
+          traceTypingComplete: false,
+          responseTypingComplete: false,
+          completedTraceSignature: ""
+        };
+        setCompletingIndex(null);
+        setRunningIndex(null);
       } finally {
         setAdvancing(false);
       }
     },
-    [snapshot?.workflowId, startReveal]
+    [snapshot?.workflowId, beginRunningStage, markBackendReady]
   );
 
   const handleOperatorLogin = useCallback(async () => {
@@ -413,8 +646,8 @@ export function SteppedOrchestrationView({
     : -1;
 
   const nodeState = (index: number): NodeRenderState => {
+    if (index === runningIndex || index === completingIndex) return "running";
     if (index < revealed) return "done";
-    if (index === runningIndex) return "running";
     if (index === revealed) return "frontier";
     return "queued";
   };
@@ -426,8 +659,8 @@ export function SteppedOrchestrationView({
   let pill: "running" | "ready" | "paused" | "complete";
   if (allRevealed && vm.complete && !vm.guardrailWaiting) pill = "complete";
   else if (allRevealed && vm.guardrailWaiting) pill = "paused";
-  else if (runningIndex !== null || advancing) pill = "running";
-  else if (isSteppedRun && awaitingIndex >= 0) pill = "ready";
+  else if (runningIndex !== null || completingIndex !== null || advancing) pill = "running";
+  else if (isSteppedRun && awaitingIndex >= 0 && revealed >= awaitingIndex) pill = "ready";
   else if (isSteppedSnapshot(snapshot!)) pill = "paused";
   else pill = "running";
 
@@ -435,7 +668,7 @@ export function SteppedOrchestrationView({
     setOpen((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const onRun = (index: number) => {
-    if (runningIndex !== null || advancing) return;
+    if (runningIndex !== null || completingIndex !== null || advancing) return;
     if (!isSteppedRun || index !== awaitingIndex) return;
     void advanceStep(index);
   };
@@ -444,17 +677,18 @@ export function SteppedOrchestrationView({
     pill,
     advancing,
     runningIndex,
+    completingIndex,
     snapshotStatus: snapshot?.status
   });
 
+  const orchActiveIndex =
+    runningIndex ?? completingIndex ?? (awaitingIndex >= 0 ? awaitingIndex : null);
   const orchActiveName =
-    advancing || runningIndex !== null
-      ? vm.nodes[runningIndex ?? awaitingIndex]?.name
+    orchActiveIndex !== null
+      ? vm.nodes[orchActiveIndex]?.name
       : snapshot?.status === "running" || snapshot?.status === "assigned"
         ? vm.nodes.find((node) => node.id === snapshot.node)?.name
-        : orchState === "ready" && awaitingIndex >= 0
-          ? vm.nodes[awaitingIndex]?.name
-          : frontier?.name;
+        : frontier?.name;
 
   return (
     <div className={styles.wrap}>
@@ -500,10 +734,14 @@ export function SteppedOrchestrationView({
         />
       </div>
 
+      {vm.triageInsight && revealed >= 1 ? (
+        <TriageInsightCard insight={vm.triageInsight} />
+      ) : null}
+
       {/* BODY */}
       <div className={styles.body}>
         {/* LEFT: spine */}
-        <main className={styles.spine}>
+        <main className={styles.spine} data-testid="stepped-spine">
           {/* origin */}
           <div className={styles.row}>
             <div className={styles.rail}>
@@ -526,13 +764,13 @@ export function SteppedOrchestrationView({
                 </div>
                 <div className={styles.cmid}>
                   <div className={styles.cname} style={{ color: "#141414" }}>
-                    Case received
+                    Orchestrator activated
                   </div>
                   <div className={styles.csub}>
-                    Web → Salesforce Case · workflow {vm.workflowId}
+                    Salesforce Case · workflow {vm.workflowId}
                   </div>
                 </div>
-                <span className={styles.status}>INTAKE</span>
+                <span className={styles.status}>ACTIVE</span>
               </div>
             </div>
           </div>
@@ -546,12 +784,28 @@ export function SteppedOrchestrationView({
                 node={node}
                 index={index}
                 state={nodeState(index)}
+                liveTraceActive={runningIndex === index}
+                completingActive={completingIndex === index}
+                traceSettled={completingIndex === index && traceSettled}
+                traceSettleToken={
+                  completingIndex === index ? completingSettleToken : 0
+                }
                 guardrailWaiting={vm.guardrailWaiting}
                 open={!!open[node.id]}
                 onToggle={() => toggle(node.id)}
                 onRun={() => onRun(index)}
-                runDisabled={runningIndex !== null || advancing || !isRunnable}
+                runDisabled={
+                  runningIndex !== null ||
+                  completingIndex !== null ||
+                  advancing ||
+                  !isRunnable
+                }
                 steppedFrontier={isSteppedRun && index === awaitingIndex}
+                advancing={advancing && isRunnable}
+                onTraceTypingComplete={() => handleTraceTypingComplete(index)}
+                onResponseTypingComplete={() =>
+                  handleResponseTypingComplete(index)
+                }
               />
             );
           })}
@@ -563,7 +817,7 @@ export function SteppedOrchestrationView({
                 className={clsx(
                   styles.line,
                   styles.lineTop,
-                  allRevealed && vm.complete && styles.lineOn
+                  allRevealed && vm.complete && styles.lineComplete
                 )}
               />
               <div className={styles.knot}>
@@ -574,7 +828,7 @@ export function SteppedOrchestrationView({
                   )}
                 >
                   {allRevealed && vm.complete ? (
-                    <Check size={11} strokeWidth={3} />
+                    <Check size={11} strokeWidth={3} color="#fff" />
                   ) : null}
                 </span>
               </div>
@@ -618,7 +872,19 @@ export function SteppedOrchestrationView({
                     allRevealed && vm.complete && styles.statusDone
                   )}
                 >
-                  {allRevealed && vm.complete ? "DONE" : "PENDING"}
+                  {allRevealed && vm.complete ? (
+                    <>
+                      <Check
+                        size={10}
+                        strokeWidth={3}
+                        className={styles.statusDoneIcon}
+                        aria-hidden
+                      />
+                      COMPLETED
+                    </>
+                  ) : (
+                    "PENDING"
+                  )}
                 </span>
                 {vm.verdict && allRevealed ? (
                   <span
@@ -721,7 +987,7 @@ export function SteppedOrchestrationView({
                     entry.kind === "warn" && styles.logWarn
                   )}
                 >
-                  <span className={styles.lt}>#{entry.seq}</span>
+                  <span className={styles.lt}>#{entry.displaySeq ?? entry.seq}</span>
                   <span className={styles.lg}>{logGlyph(entry.kind)}</span>
                   <span className={styles.lx}>{entry.text}</span>
                 </div>
@@ -779,16 +1045,27 @@ function NodeRow({
   node,
   index,
   state,
+  liveTraceActive,
+  completingActive,
+  traceSettled,
+  traceSettleToken,
   guardrailWaiting,
   open,
   onToggle,
   onRun,
   runDisabled,
-  steppedFrontier = false
+  steppedFrontier = false,
+  advancing = false,
+  onTraceTypingComplete,
+  onResponseTypingComplete
 }: {
   node: SteppedNode;
   index: number;
   state: NodeRenderState;
+  liveTraceActive: boolean;
+  completingActive: boolean;
+  traceSettled: boolean;
+  traceSettleToken: number;
   guardrailWaiting: boolean;
   open: boolean;
   onToggle: () => void;
@@ -796,13 +1073,41 @@ function NodeRow({
   runDisabled: boolean;
   /** True when this node is the awaiting frontier in a real stepped run. */
   steppedFrontier?: boolean;
+  advancing?: boolean;
+  onTraceTypingComplete?: () => void;
+  onResponseTypingComplete?: () => void;
 }) {
+  const traceSignature = useMemo(
+    () => traceItemsSignature(traceItemsFromDetail(node.detail)),
+    [node.detail]
+  );
+  const traceItems = useMemo(
+    () => traceItemsFromDetail(node.detail),
+    [node.detail, traceSignature]
+  );
   const reached = state !== "queued";
+  const spineConnected = reached && index > 0;
   const Icon = NODE_ICON[node.icon];
   const approvalWaiting = Boolean(
     node.guardrail && guardrailWaiting && state === "done"
   );
   const showWaitNote = approvalWaiting;
+  const showLiveTrace =
+    liveTraceActive ||
+    (completingActive && !traceSettled) ||
+    (advancing && steppedFrontier);
+  const showResponseTyping = completingActive && traceSettled;
+  const detailSections = useMemo(
+    () => node.detail.filter((section) => section.type !== "trace"),
+    [node.detail]
+  );
+  const detailExpanded =
+    showLiveTrace || completingActive || (state === "done" && open);
+  const showConfidenceChart =
+    node.id === "triage" &&
+    state === "done" &&
+    !completingActive &&
+    node.workflowConfidence !== undefined;
 
   return (
     <div className={styles.row}>
@@ -811,14 +1116,15 @@ function NodeRow({
           className={clsx(
             styles.line,
             styles.lineTop,
-            reached && styles.lineOn
+            spineConnected && styles.lineComplete,
+            reached && !spineConnected && styles.lineOn
           )}
         />
         <div
           className={clsx(
             styles.line,
             styles.lineBot,
-            state === "done" && styles.lineOn
+            state === "done" && styles.lineComplete
           )}
         />
         <div className={styles.knot}>
@@ -838,6 +1144,7 @@ function NodeRow({
           showWaitNote && styles.guardwait,
           state === "done" && styles.done
         )}
+        data-testid={`stepped-node-${node.id}`}
       >
         <div
           className={styles.chead}
@@ -854,6 +1161,19 @@ function NodeRow({
             <div className={styles.csub}>{node.sub}</div>
           </div>
           <div className={styles.cright}>
+            {state === "done" && node.priorityBadge ? (
+              <span
+                className={clsx(
+                  styles.nodePriorityBadge,
+                  node.priorityBadge === "critical" && styles.nodePriorityBadgeCritical,
+                  node.priorityBadge === "high" && styles.nodePriorityBadgeHigh,
+                  node.priorityBadge === "low" && styles.nodePriorityBadgeLow
+                )}
+                data-testid={`node-priority-badge-${node.priorityBadge}`}
+              >
+                {node.priorityBadge}
+              </span>
+            ) : null}
             <span
               className={clsx(
                 styles.status,
@@ -861,8 +1181,23 @@ function NodeRow({
                   ? styles.statusWaiting
                   : statusClass(state)
               )}
+              data-testid={`stepped-node-status-${node.id}`}
             >
-              {approvalWaiting ? "WAITING" : statusLabel(state)}
+              {approvalWaiting ? (
+                "WAITING"
+              ) : state === "done" ? (
+                <>
+                  <Check
+                    size={10}
+                    strokeWidth={3}
+                    className={styles.statusDoneIcon}
+                    aria-hidden
+                  />
+                  {statusLabel(state)}
+                </>
+              ) : (
+                statusLabel(state)
+              )}
             </span>
             {state === "done" && node.latency ? (
               <span className={styles.lat}>{node.latency}</span>
@@ -875,18 +1210,63 @@ function NodeRow({
           ) : null}
         </div>
 
-        {state === "running" ? (
-          <div className={styles.thinking}>
-            analysing request
-            <span className={styles.dots}>
-              <i />
-              <i />
-              <i />
-            </span>
+        {detailExpanded ? (
+          <div
+            className={clsx(
+              styles.accordion,
+              styles.accordionOpen,
+              (showLiveTrace || completingActive) && styles.accordionRunning
+            )}
+            data-testid={`stepped-node-detail-${node.id}`}
+          >
+            <div className={styles.accInner}>
+              {showLiveTrace || completingActive || state === "done" ? (
+                <SteppedLiveTrace
+                  items={traceItems}
+                  active={showLiveTrace}
+                  settled={
+                    state === "done" && !completingActive && !showLiveTrace
+                  }
+                  settleToken={traceSettleToken}
+                  onTypingComplete={onTraceTypingComplete}
+                />
+              ) : null}
+              {completingActive ? (
+                <SteppedCompletionBody
+                  sections={detailSections}
+                  output={node.output}
+                  outputTestId={`stepped-node-output-${node.id}`}
+                  active={showResponseTyping}
+                  onTypingComplete={onResponseTypingComplete}
+                />
+              ) : null}
+              {state === "done" && !completingActive
+                ? detailSections.map((section, i) => (
+                    <Section key={i} section={section} />
+                  ))
+                : null}
+              {state === "done" && !completingActive && node.output && !showWaitNote ? (
+                <div
+                  className={styles.output}
+                  data-testid={`stepped-node-output-${node.id}`}
+                >
+                  <span className={styles.arr}>↳</span>
+                  <span className={styles.txt}>{node.output}</span>
+                  <span className={styles.to}>→ ORCHESTRATOR</span>
+                </div>
+              ) : null}
+              {showConfidenceChart ? (
+                <TriageConfidenceChart
+                  workflowConfidence={node.workflowConfidence!}
+                  confidenceFactors={node.confidenceFactors}
+                  humanInterventionRecommended={node.humanInterventionRecommended}
+                />
+              ) : null}
+            </div>
           </div>
         ) : null}
 
-        {state === "frontier" ? (
+        {state === "frontier" && !advancing ? (
           <div className={styles.ctl}>
             <button
               type="button"
@@ -923,22 +1303,6 @@ function NodeRow({
               this console is read-only.
             </span>
           </div>
-        ) : state === "done" && node.output ? (
-          <div className={styles.output}>
-            <span className={styles.arr}>↳</span>
-            <span className={styles.txt}>{node.output}</span>
-            <span className={styles.to}>→ ORCHESTRATOR</span>
-          </div>
-        ) : null}
-
-        {state === "done" ? (
-          <div className={clsx(styles.accordion, open && styles.accordionOpen)}>
-            <div className={styles.accInner}>
-              {node.detail.map((section, i) => (
-                <Section key={i} section={section} />
-              ))}
-            </div>
-          </div>
         ) : null}
       </div>
     </div>
@@ -958,7 +1322,7 @@ function Dot({
   if (state === "done") {
     return (
       <span className={clsx(styles.dot, styles.dotDone)}>
-        <Check size={11} strokeWidth={3} />
+        <Check size={11} strokeWidth={3} color="#fff" />
       </span>
     );
   }
@@ -977,7 +1341,11 @@ function Dot({
 
 function Section({ section }: { section: SteppedSection }) {
   if (section.type === "summary") {
-    return <div className={styles.accSummary}>{section.text}</div>;
+    return (
+      <div className={styles.accSummary} data-testid="stepped-detail-summary">
+        {section.text}
+      </div>
+    );
   }
   if (section.type === "fields") {
     return (
@@ -1039,7 +1407,7 @@ function Section({ section }: { section: SteppedSection }) {
   }
   // trace
   return (
-    <div className={styles.trace}>
+    <div className={styles.trace} data-testid="stepped-detail-trace">
       <div className={styles.tlabel}>Execution trace · agent reasoning</div>
       {section.items.map((step, i) => (
         <div
@@ -1090,7 +1458,7 @@ function Chips({ items }: { items: { k: string; v?: string }[] }) {
 
 function statusLabel(state: NodeRenderState): string {
   return state === "done"
-    ? "DONE"
+    ? "COMPLETED"
     : state === "running"
       ? "RUNNING"
       : state === "frontier"
@@ -1167,17 +1535,19 @@ function resolveOrchState({
   pill,
   advancing,
   runningIndex,
+  completingIndex,
   snapshotStatus
 }: {
   pill: "running" | "ready" | "paused" | "complete";
   advancing: boolean;
   runningIndex: number | null;
+  completingIndex: number | null;
   snapshotStatus?: OrchestrationSnapshot["status"];
 }): OrchUiState {
   if (pill === "complete") return "complete";
   if (pill === "paused") return "paused";
   if (advancing) return "dispatching";
-  if (runningIndex !== null) return "receiving";
+  if (runningIndex !== null || completingIndex !== null) return "receiving";
   if (snapshotStatus === "running" || snapshotStatus === "assigned") {
     return "awaiting";
   }

@@ -44,6 +44,12 @@ export type OrchestrationApprovalDecision =
 export const TRIAGE_PRIORITIES = ["low", "normal", "high", "critical"] as const;
 export type TriagePriority = (typeof TRIAGE_PRIORITIES)[number];
 
+export interface TriagePriorityFactor {
+  id: string;
+  label: string;
+  weight: number;
+}
+
 export interface OrchestrationEventDetail {
   label: string;
   value: string;
@@ -342,6 +348,11 @@ export interface OrchestrationTriage {
   recommendedPriority: TriagePriority;
   summary: string;
   suggestedNextStep: string;
+  priorityRationale?: string;
+  priorityFactors?: TriagePriorityFactor[];
+  workflowConfidence?: number;
+  confidenceFactors?: TriagePriorityFactor[];
+  humanInterventionRecommended?: boolean;
   provider: string;
   model: string;
   fallbackUsed: boolean;
@@ -449,14 +460,63 @@ function str(value: unknown, max: number): string | undefined {
     : undefined;
 }
 
+function sanitizePriorityFactors(
+  value: unknown
+): TriagePriorityFactor[] | undefined {
+  if (!Array.isArray(value) || value.length === 0) return undefined;
+  const factors: TriagePriorityFactor[] = [];
+  let sum = 0;
+  for (const item of value) {
+    if (!item || typeof item !== "object") return undefined;
+    const record = item as Record<string, unknown>;
+    const id = str(record.id, 60);
+    const label = str(record.label, 80);
+    const weight =
+      typeof record.weight === "number" && Number.isFinite(record.weight)
+        ? Math.round(record.weight)
+        : undefined;
+    if (!id || !label || weight === undefined || weight < 1 || weight > 100) {
+      return undefined;
+    }
+    factors.push({ id, label, weight });
+    sum += weight;
+  }
+  if (Math.abs(sum - 100) > 1) return undefined;
+  return factors;
+}
+
+function sanitizeWorkflowConfidence(value: unknown): number | undefined {
+  const confidence =
+    typeof value === "number" && Number.isFinite(value)
+      ? Math.round(value)
+      : typeof value === "string" && /^\d+$/.test(value)
+        ? Number.parseInt(value, 10)
+        : undefined;
+  if (confidence === undefined || confidence < 0 || confidence > 100) {
+    return undefined;
+  }
+  return confidence;
+}
+
 function sanitizeTriage(value: unknown): OrchestrationTriage | undefined {
   if (!value || typeof value !== "object") return undefined;
   const record = value as Record<string, unknown>;
   if (!isPriority(record.recommendedPriority)) return undefined;
+  const workflowConfidence = sanitizeWorkflowConfidence(record.workflowConfidence);
   return {
     recommendedPriority: record.recommendedPriority,
     summary: str(record.summary, 280) ?? "",
     suggestedNextStep: str(record.suggestedNextStep, 280) ?? "",
+    priorityRationale: str(record.priorityRationale, 280),
+    priorityFactors: sanitizePriorityFactors(record.priorityFactors),
+    workflowConfidence,
+    confidenceFactors: sanitizePriorityFactors(record.confidenceFactors),
+    humanInterventionRecommended:
+      typeof record.humanInterventionRecommended === "boolean"
+        ? record.humanInterventionRecommended
+        : workflowConfidence !== undefined
+          ? workflowConfidence < 70
+          : undefined,
     provider: str(record.provider, 60) ?? "",
     model: str(record.model, 120) ?? "",
     fallbackUsed: record.fallbackUsed === true,

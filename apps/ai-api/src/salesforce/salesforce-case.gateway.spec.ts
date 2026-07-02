@@ -184,6 +184,20 @@ describe("SalesforceCaseGateway", () => {
     expect(context.reportedPriority).toBe("normal");
   });
 
+  it("posts a private Case comment without throwing on failure", async () => {
+    const h = buildHarness();
+    h.fetchMock.mockResolvedValueOnce(
+      new Response("error", { status: 500, statusText: "Server Error" })
+    );
+
+    const result = await h.gateway.postCaseComment({
+      caseId: "500000000000001",
+      commentBody: "Agent 1 – Triage: test narrative."
+    });
+
+    expect(result).toEqual({ posted: false });
+  });
+
   it("applies the write-back as a Priority PATCH plus a CaseComment POST", async () => {
     const h = buildHarness();
     h.fetchMock

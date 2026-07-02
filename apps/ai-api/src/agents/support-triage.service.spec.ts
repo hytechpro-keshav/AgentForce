@@ -30,8 +30,32 @@ function modelReply(body: string) {
   };
 }
 
-const triageJson = (priority: string) =>
-  `{"priority":"${priority}","summary":"Issue plus customer stakes.","nextStep":"Route to senior tech."}`;
+const triageJson = (
+  priority: string,
+  extras: Record<string, unknown> = {}
+) =>
+  JSON.stringify({
+    priority,
+    summary: "Issue plus customer stakes.",
+    nextStep: "Route to senior tech.",
+    ...extras
+  });
+
+const validFactors = [
+  { id: "customer_risk", label: "Customer risk", weight: 35 },
+  { id: "case_urgency", label: "Case urgency", weight: 30 },
+  { id: "reported_priority", label: "Reported priority", weight: 15 },
+  { id: "sla_tier", label: "SLA / tier", weight: 10 },
+  { id: "repeat_pattern", label: "Repeat pattern", weight: 5 },
+  { id: "warranty", label: "Warranty", weight: 5 }
+];
+
+const validConfidenceFactors = [
+  { id: "case_clarity", label: "Case clarity", weight: 30 },
+  { id: "data_completeness", label: "Data completeness", weight: 25 },
+  { id: "routing_certainty", label: "Routing certainty", weight: 25 },
+  { id: "step_feasibility", label: "Step feasibility", weight: 20 }
+];
 
 function buildSignals(
   overrides: Partial<TriageCustomerSignals> = {}
@@ -79,7 +103,7 @@ function fenceToken(content: string): string | undefined {
 }
 
 describe("SupportTriageService — Phase B context-informed triage", () => {
-  it("appends a sanitized customer-context block when signals are present", async () => {
+  it("fences customer signals and never sends raw Salesforce Case history JSON", async () => {
     const h = buildHarness();
     h.chat.mockResolvedValue(modelReply(triageJson("high")));
 
@@ -87,12 +111,20 @@ describe("SupportTriageService — Phase B context-informed triage", () => {
 
     const content = userContent(h.chat);
     expect(content).toContain("Customer context (sanitized");
-    // Sanitized signal values are present...
     expect(content).toContain("premium");
     expect(content).toContain('"businessRisk":"high"');
     expect(content).toContain("VX-900");
-    // ...and the single ModelRouter.chat() seam is used exactly once.
     expect(h.chat).toHaveBeenCalledTimes(1);
+
+    const fence = fenceToken(content);
+    expect(fence).toBeTruthy();
+    expect(content).toContain(`BEGIN_CUSTOMER_CONTEXT_${fence}`);
+    expect(content).toContain('"repeatIncident"');
+    expect(content).toContain('"count":2');
+    expect(content).not.toContain('"records"');
+    expect(content).not.toContain("CaseNumber");
+    expect(content).not.toContain("IsEscalated");
+    expect(content).not.toContain("priorCaseCount");
   });
 
   it("sends a case-only message when no customer signals are present", async () => {
@@ -227,5 +259,131 @@ describe("SupportTriageService — Phase B context-informed triage", () => {
     expect(systemContent(h.chat)).toContain(
       "No authoritative customer-context block is provided"
     );
+  });
+});
+
+describe("SupportTriageService — priority insight fields", () => {
+  it("parses priorityRationale and valid priorityFactors from the model", async () => {
+    const h = buildHarness();
+    h.chat.mockResolvedValue(
+      modelReply(
+        triageJson("normal", {
+          priorityRationale:
+            "Strategic account with one open incident raises risk but no repeat keeps priority normal.",
+          priorityFactors: validFactors
+        })
+      )
+    );
+
+    const result = await h.service.triage(
+      buildRequest({ customerSignals: buildSignals() })
+    );
+
+    expect(result.priorityRationale).toContain("Strategic account");
+    expect(result.priorityFactors).toHaveLength(6);
+    const sum = (result.priorityFactors ?? []).reduce(
+      (total, factor) => total + factor.weight,
+      0
+    );
+    expect(sum).toBe(100);
+    expect(h.chat).toHaveBeenCalledTimes(1);
+    expect(userContent(h.chat)).not.toContain('"records"');
+  });
+
+  it("omits priorityFactors when weights do not sum to 100", async () => {
+    const h = buildHarness();
+    h.chat.mockResolvedValue(
+      modelReply(
+        triageJson("high", {
+          priorityRationale: "Elevated due to repeat failures.",
+          priorityFactors: [
+            { id: "customer_risk", label: "Customer risk", weight: 50 },
+            { id: "case_urgency", label: "Case urgency", weight: 30 }
+          ]
+        })
+      )
+    );
+
+    const result = await h.service.triage(
+      buildRequest({ customerSignals: buildSignals() })
+    );
+
+    expect(result.recommendedPriority).toBe("high");
+    expect(result.priorityRationale).toContain("Elevated");
+    expect(result.priorityFactors).toBeUndefined();
+  });
+
+  it("redacts priorityRationale before returning", async () => {
+    const h = buildHarness();
+    h.chat.mockResolvedValue(
+      modelReply(
+        triageJson("normal", {
+          priorityRationale: "Contact user@example.com for escalation context."
+        })
+      )
+    );
+
+    const result = await h.service.triage(buildRequest());
+
+    expect(result.priorityRationale).not.toContain("user@example.com");
+    expect(result.priorityRationale?.length).toBeLessThanOrEqual(240);
+  });
+});
+
+describe("SupportTriageService — workflow confidence fields", () => {
+  it("parses workflowConfidence, confidenceFactors, and humanInterventionRecommended", async () => {
+    const h = buildHarness();
+    h.chat.mockResolvedValue(
+      modelReply(
+        triageJson("normal", {
+          workflowConfidence: 82,
+          confidenceFactors: validConfidenceFactors,
+          humanInterventionRecommended: false
+        })
+      )
+    );
+
+    const result = await h.service.triage(buildRequest());
+
+    expect(result.workflowConfidence).toBe(82);
+    expect(result.confidenceFactors).toHaveLength(4);
+    expect(result.humanInterventionRecommended).toBe(false);
+  });
+
+  it("derives humanInterventionRecommended when workflowConfidence is below 70", async () => {
+    const h = buildHarness();
+    h.chat.mockResolvedValue(
+      modelReply(
+        triageJson("high", {
+          workflowConfidence: 55,
+          confidenceFactors: validConfidenceFactors
+        })
+      )
+    );
+
+    const result = await h.service.triage(buildRequest());
+
+    expect(result.workflowConfidence).toBe(55);
+    expect(result.humanInterventionRecommended).toBe(true);
+  });
+
+  it("omits confidenceFactors when weights do not sum to 100", async () => {
+    const h = buildHarness();
+    h.chat.mockResolvedValue(
+      modelReply(
+        triageJson("normal", {
+          workflowConfidence: 78,
+          confidenceFactors: [
+            { id: "case_clarity", label: "Case clarity", weight: 40 },
+            { id: "data_completeness", label: "Data completeness", weight: 30 }
+          ]
+        })
+      )
+    );
+
+    const result = await h.service.triage(buildRequest());
+
+    expect(result.workflowConfidence).toBe(78);
+    expect(result.confidenceFactors).toBeUndefined();
   });
 });

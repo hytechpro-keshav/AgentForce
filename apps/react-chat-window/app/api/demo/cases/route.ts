@@ -3,8 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   attachOperatorSessionCookie,
   mintOperatorSessionFromDemoToken,
-  mintOperatorSessionFromEnv,
-  triggerSteppedRun
+  mintOperatorSessionFromEnv
 } from "@/lib/orchestrator-operator-session";
 
 export const runtime = "nodejs";
@@ -144,28 +143,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const caseId =
     typeof payload.caseId === "string" ? payload.caseId.trim() : "";
-  const steppedWorkflowId =
-    typeof payload.steppedWorkflowId === "string"
-      ? payload.steppedWorkflowId.trim()
-      : "";
   const session =
     (await mintOperatorSessionFromDemoToken()) ??
     (await mintOperatorSessionFromEnv());
   if (session && caseId) {
-    let workflowId = steppedWorkflowId;
-    if (!workflowId) {
-      const stepped = await triggerSteppedRun(caseId, session.accessToken);
-      workflowId = stepped?.workflowId ?? "";
-    }
-    if (workflowId) {
-      payload = {
-        ...payload,
-        steppedWorkflowId: workflowId,
-        steppedOrchestrationUrl: `/orchestration/stepped?workflowId=${encodeURIComponent(
-          workflowId
-        )}`
-      };
-    }
     const response = NextResponse.json(payload, { status: upstream.status });
     attachOperatorSessionCookie(response, session);
     return response;

@@ -34,23 +34,10 @@ describe("DemoCaseCreateService", () => {
     createCase: jest.fn()
   } as unknown as SalesforceCaseWriteGateway;
 
-  const orchestrator = {
-    triggerStepped: jest.fn()
-  };
-
-  const service = new DemoCaseCreateService(
-    gateway,
-    orchestrator as never
-  );
+  const service = new DemoCaseCreateService(gateway);
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (orchestrator.triggerStepped as jest.Mock).mockResolvedValue({
-      workflowId: "wf-demo-stepped",
-      caseId: "500000000000001ABC",
-      status: "assigned",
-      acceptedAt: "2026-06-24T12:00:00.000Z"
-    });
     (gateway.resolveAccountByName as jest.Mock).mockResolvedValue(
       "001000000000001"
     );
@@ -66,19 +53,14 @@ describe("DemoCaseCreateService", () => {
     });
   });
 
-  it("creates a Case from a known scenarioId", async () => {
+  it("creates a Case from a known scenarioId without starting orchestration", async () => {
     const result = await service.create({ scenarioId: "same-day-battery-fix" });
     expect(result.caseId).toBe("500000000000001ABC");
-    expect(result.orchestrationUrl).toContain("500000000000001ABC");
-    expect(result.steppedWorkflowId).toBe("wf-demo-stepped");
-    expect(result.steppedOrchestrationUrl).toContain(
-      "/orchestration/stepped?workflowId=wf-demo-stepped"
+    expect(result.salesforceCaseUrl).toContain(
+      "/lightning/r/Case/500000000000001ABC/view"
     );
+    expect(result.orchestrationUrl).toContain("500000000000001ABC");
     expect(gateway.createCase).toHaveBeenCalled();
-    expect(orchestrator.triggerStepped).toHaveBeenCalledWith({
-      caseId: "500000000000001ABC",
-      caseNumber: "00001234"
-    });
   });
 
   it("throws invalid_scenario for unknown scenarioId", async () => {

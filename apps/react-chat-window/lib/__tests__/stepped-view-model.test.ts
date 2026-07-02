@@ -5,6 +5,7 @@ import {
   buildVisibleActivity,
   computeRevealedProgress,
   filterActivityForRevealed,
+  isHiddenSteppedUiField,
   isSteppedSnapshot
 } from "@/lib/stepped-view-model";
 
@@ -28,7 +29,9 @@ describe("buildSteppedViewModel", () => {
     ]);
     expect(vm.nodes.every((node) => node.available)).toBe(true);
 
-    expect(vm.nodes[0].output).toBe("normal priority");
+    expect(vm.nodes[0].output).toBe(
+      "Routine battery replacement needed for ProBook 15X."
+    );
     expect(vm.nodes[0].latency).toBe("1285 ms");
     expect(vm.nodes[1].output).toContain("ANSWERED");
     expect(vm.nodes[2].output).toContain("SP-BATT-15X");
@@ -36,35 +39,75 @@ describe("buildSteppedViewModel", () => {
     expect(vm.nodes[4].output).toContain("Approval required");
   });
 
-  it("builds the triage accordion with summary, triage fields, customer fields, and trace", () => {
+  it("omits stepped gate markers from the execution trace", () => {
+    const vm = buildSteppedViewModel(
+      steppedPausedFixture({
+        events: [
+          {
+            node: "triage",
+            status: "assigned",
+            sequence: 1,
+            occurredAt: "t1",
+            safeSummary: "Triage Agent assigned to Case 00001079."
+          },
+          {
+            node: "triage",
+            status: "awaiting_step",
+            sequence: 2,
+            occurredAt: "t2",
+            safeSummary: "Stage complete — awaiting Run for Triage."
+          },
+          {
+            node: "triage",
+            status: "running",
+            sequence: 3,
+            occurredAt: "t3",
+            safeSummary:
+              "Reading and understanding the case, customer priority and next best action."
+          }
+        ]
+      })
+    );
+    const trace = vm.nodes[0].detail.find((section) => section.type === "trace");
+    expect(trace?.type).toBe("trace");
+    if (trace?.type !== "trace") return;
+    expect(trace.items.map((item) => item.label)).toEqual([
+      "Triage Agent assigned to Case 00001079.",
+      "Reading and understanding the case, customer priority and next best action."
+    ]);
+  });
+
+  it("builds triage accordion with trace first and hides metadata fields", () => {
     const vm = buildSteppedViewModel(steppedSnapshotFixture());
     const triage = vm.nodes[0];
 
-    const types = triage.detail.map((section) => section.type);
-    // summary + triage fields + customer context fields + trace
-    expect(types).toEqual(["summary", "fields", "fields", "trace"]);
-
-    const triageFields = triage.detail.find((s) => s.type === "fields");
-    expect(triageFields && triageFields.type === "fields" && triageFields.items).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ k: "Priority", v: "normal" }),
-        expect.objectContaining({ k: "Model", v: "gpt-4o-mini" })
-      ])
+    expect(triage.detail[0]?.type).toBe("trace");
+    expect(triage.detail.map((section) => section.type)).toEqual([
+      "trace",
+      "summary",
+      "note",
+      "note"
+    ]);
+    expect(triage.detail.some((section) => section.type === "fields")).toBe(
+      false
     );
 
-    // Customer context fields folded in
-    const allFields = triage.detail.filter((s) => s.type === "fields");
-    const customerFields = allFields[1];
-    expect(customerFields && customerFields.type === "fields" && customerFields.items).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ k: "Business risk", v: "high" })
-      ])
+    const trace = triage.detail[0];
+    expect(trace && trace.type === "trace" && trace.items.length).toBeGreaterThan(
+      0
     );
-
-    const trace = triage.detail.find((s) => s.type === "trace");
-    expect(
-      trace && trace.type === "trace" && trace.items.length
-    ).toBeGreaterThan(0);
+    if (trace && trace.type === "trace") {
+      for (const step of trace.items) {
+        for (const field of step.fields) {
+          expect(isHiddenSteppedUiField(field.k)).toBe(false);
+        }
+      }
+      expect(
+        trace.items.some((step) =>
+          step.fields.some((field) => field.k === "Recommended priority")
+        )
+      ).toBe(false);
+    }
   });
 
   it("flags the guardrail as waiting for human approval", () => {
@@ -76,6 +119,20 @@ describe("buildSteppedViewModel", () => {
     expect(
       fired && fired.type === "chips" && fired.items.map((c) => c.k)
     ).toEqual(["CUSTOMER_RISK_HIGH", "KB_REQUIRED_APPROVAL"]);
+  });
+
+  it("exposes triage insight fields for the priority insight strip", () => {
+    const vm = buildSteppedViewModel(steppedPausedFixture());
+    expect(vm.triageInsight?.priority).toBe("normal");
+    expect(vm.triageInsight?.priorityRationale).toContain("Strategic account");
+    expect(vm.triageInsight?.priorityFactors).toHaveLength(6);
+    expect(vm.triageInsight?.badges.map((badge) => badge.label)).toEqual(
+      expect.arrayContaining(["NORMAL", "MEDIUM RISK", "NO REPEAT"])
+    );
+    expect(vm.nodes[0].priorityBadge).toBe("normal");
+    expect(vm.nodes[0].workflowConfidence).toBe(82);
+    expect(vm.nodes[0].confidenceFactors).toHaveLength(4);
+    expect(vm.nodes[0].humanInterventionRecommended).toBe(false);
   });
 
   it("maps the orchestrator verdict and activity log", () => {
@@ -136,6 +193,27 @@ describe("computeRevealedProgress", () => {
     expect(computeRevealedProgress(vm.nodes, steppedPausedFixture())).toBe(1);
   });
 
+  it("keeps triage as the frontier when paused before manual Run", () => {
+    const pausedBeforeTriage = steppedPausedFixture({
+      node: "triage",
+      status: "awaiting_step",
+      triage: undefined,
+      customerContext: undefined,
+      events: [
+        {
+          node: "triage",
+          status: "awaiting_step",
+          sequence: 1,
+          occurredAt: "t1",
+          safeSummary: "Stage complete — awaiting Run for Triage."
+        }
+      ]
+    });
+    const vm = buildSteppedViewModel(pausedBeforeTriage);
+    expect(computeRevealedProgress(vm.nodes, pausedBeforeTriage)).toBe(0);
+    expect(vm.nodes[0].available).toBe(false);
+  });
+
   it("reveals every produced stage for a completed stepped run", () => {
     const completedStepped = steppedSnapshotFixture({
       events: [
@@ -179,12 +257,14 @@ describe("buildVisibleActivity", () => {
     expect(
       visible.some((entry) => entry.text.includes("Writing customer findings"))
     ).toBe(false);
-    expect(visible.some((entry) => entry.text.includes("Knowledge Base · complete"))).toBe(
+    expect(visible.some((entry) => entry.text.includes("← Knowledge Base · complete"))).toBe(
       true
     );
     expect(
       visible.some((entry) =>
-        entry.text.includes("Stage complete — awaiting Run for Parts & Logistics")
+        entry.text.includes(
+          "Knowledge Base complete — press Run for Parts & Logistics"
+        )
       )
     ).toBe(true);
     expect(
@@ -200,7 +280,66 @@ describe("buildVisibleActivity", () => {
     const vm = buildSteppedViewModel(snapshot);
     const visible = buildVisibleActivity(vm.activity, vm.nodes, 0, snapshot);
 
-    expect(visible.some((entry) => entry.text.includes("Running AI triage"))).toBe(
+    expect(
+      visible.some((entry) =>
+        entry.text.includes("Sending the output back to the Orchestrator")
+      )
+    ).toBe(true);
+  });
+
+  it("hides frontier dispatch until the spine has caught up to the backend", () => {
+    const snapshot = steppedAfterCustomerHistoryFixture();
+    const vm = buildSteppedViewModel(snapshot);
+    const visible = buildVisibleActivity(vm.activity, vm.nodes, 1, snapshot);
+
+    expect(
+      visible.some((entry) => entry.text.includes("Knowledge Base · complete"))
+    ).toBe(false);
+    expect(
+      visible.some((entry) => entry.text.includes("Ready to dispatch"))
+    ).toBe(false);
+    expect(visible.every((entry) => entry.nodeId === "triage")).toBe(true);
+  });
+
+  it("hides stale in-flight traces when paused at parts", () => {
+    const snapshot = steppedAfterCustomerHistoryFixture();
+    const vm = buildSteppedViewModel(snapshot);
+    const visible = buildVisibleActivity(vm.activity, vm.nodes, 3, snapshot);
+
+    expect(
+      visible.some((entry) =>
+        entry.text.includes("Sending the output back to the Orchestrator")
+      )
+    ).toBe(false);
+    expect(visible.some((entry) => entry.text.includes("Querying knowledge base"))).toBe(
+      false
+    );
+  });
+
+  it("normalizes legacy bootstrap pause copy", () => {
+    const pausedBeforeTriage = steppedPausedFixture({
+      node: "triage",
+      status: "awaiting_step",
+      triage: undefined,
+      customerContext: undefined,
+      events: [
+        {
+          node: "triage",
+          status: "awaiting_step",
+          sequence: 1,
+          occurredAt: "t1",
+          safeSummary: "Stage complete — awaiting Run for Triage."
+        }
+      ]
+    });
+    const vm = buildSteppedViewModel(pausedBeforeTriage);
+    const visible = buildVisibleActivity(vm.activity, vm.nodes, 0, pausedBeforeTriage);
+    expect(
+      visible.some((entry) =>
+        entry.text.includes("Workflow ready — press Run for Triage")
+      )
+    ).toBe(true);
+    expect(visible.every((entry, index) => entry.displaySeq === index + 1)).toBe(
       true
     );
   });
