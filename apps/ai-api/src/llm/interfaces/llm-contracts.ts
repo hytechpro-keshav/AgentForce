@@ -10,6 +10,7 @@ export type LlmRole = "system" | "user" | "assistant" | "tool";
 export const LLM_USE_CASES = [
   "generic_chat",
   "customer_chat",
+  "customer_chat_intake",
   "openwebui_chat",
   "openwebui_rag",
   "agentforce_support_triage",

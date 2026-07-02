@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <deploymentStatus>Deployed</deploymentStatus>
+    <description
+  >Hashed, expiring email one-time passcodes for customer-chat identity verification. Written and read only by the ai-api integration user via the /agentforce/otp apexrest endpoints. Never stores the plaintext code.</description>
+    <enableActivities>false</enableActivities>
+    <enableBulkApi>true</enableBulkApi>
+    <enableFeeds>false</enableFeeds>
+    <enableHistory>false</enableHistory>
+    <enableReports>false</enableReports>
+    <enableSearch>false</enableSearch>
+    <enableSharing>true</enableSharing>
+    <enableStreamingApi>true</enableStreamingApi>
+    <label>Verification Code</label>
+    <nameField>
+        <displayFormat>VC-{0000000000}</displayFormat>
+        <label>Verification Code Name</label>
+        <type>AutoNumber</type>
+    </nameField>
+    <pluralLabel>Verification Codes</pluralLabel>
+    <sharingModel>Private</sharingModel>
+    <visibility>Public</visibility>
+</CustomObject>

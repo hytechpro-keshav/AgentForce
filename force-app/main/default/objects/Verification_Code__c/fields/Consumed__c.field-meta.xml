@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Consumed__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description
+  >True once the code has been successfully verified (single-use) so it can never be replayed.</description>
+    <externalId>false</externalId>
+    <label>Consumed</label>
+    <trackHistory>false</trackHistory>
+    <type>Checkbox</type>
+</CustomField>

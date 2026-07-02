@@ -30,6 +30,56 @@ export interface DemoCaseCreateResult {
 }
 
 /**
+ * Result of resolving a customer by email for OTP-gated intake. `ambiguous`
+ * (more than one Contact shares the email) is rejected rather than guessed so
+ * identity can never bind to the wrong Account.
+ */
+export type ContactResolution =
+  | { status: "found"; contactId: string; accountId: string; name?: string }
+  | { status: "not_found" }
+  | { status: "ambiguous" };
+
+/** A customer device (Asset) offered in the intake device picker. */
+export interface IntakeDevice {
+  assetId: string;
+  label: string;
+  product?: string;
+  serialNumber?: string;
+}
+
+/** Account-derived defaults for a chat-created Case. */
+export interface AccountContext {
+  accountName?: string;
+  shipToCity?: string;
+  shipToState?: string;
+  shipToCountry?: string;
+}
+
+/** Verified Contact summary used for the greeting and Case supplied fields. */
+export interface ContactSummary {
+  name?: string;
+  email?: string;
+}
+
+/**
+ * Fields for an OTP-verified, chat-driven Case create. Account/Contact come
+ * from the verified token; ship-to is optional (defaulted from the Account).
+ */
+export interface ChatCaseCreateFields {
+  subject: string;
+  description: string;
+  priority: string;
+  accountId: string;
+  contactId?: string;
+  assetId?: string;
+  suppliedName?: string;
+  suppliedEmail?: string;
+  serviceShipToCity?: string;
+  serviceShipToState?: string;
+  serviceShipToCountry?: string;
+}
+
+/**
  * Outbound Salesforce gateway for demo Case creation: resolves Account,
  * Contact, and Asset lookups and inserts a Case via REST.
  */
@@ -66,6 +116,38 @@ export class SalesforceCaseWriteGateway {
       )} LIMIT 1`
     );
     return SalesforceCaseWriteGateway.str(records[0], "Id");
+  }
+
+  /**
+   * Resolves a customer Contact from an email for OTP-gated identity. Email is
+   * untrusted input so it is escaped via {@link soqlString}. Returns
+   * `not_found` when no Contact (or no owning Account) matches, and
+   * `ambiguous` when more than one Contact shares the email.
+   */
+  async resolveContactByEmailGlobal(email: string): Promise<ContactResolution> {
+    const records = await this.runQuery(
+      `SELECT Id, AccountId, Name FROM Contact WHERE Email = ${SalesforceCaseWriteGateway.soqlString(
+        email
+      )} LIMIT 2`
+    );
+    if (records.length === 0) {
+      return { status: "not_found" };
+    }
+    if (records.length > 1) {
+      return { status: "ambiguous" };
+    }
+    const row = records[0];
+    const contactId = SalesforceCaseWriteGateway.str(row, "Id");
+    const accountId = SalesforceCaseWriteGateway.str(row, "AccountId");
+    if (!contactId || !accountId) {
+      return { status: "not_found" };
+    }
+    return {
+      status: "found",
+      contactId,
+      accountId,
+      name: SalesforceCaseWriteGateway.str(row, "Name")
+    };
   }
 
   async resolveAssetBySerial(
@@ -113,6 +195,143 @@ export class SalesforceCaseWriteGateway {
     }
     if (fields.suppliedEmail) {
       body.SuppliedEmail = fields.suppliedEmail;
+    }
+
+    const response = await this.authedRequest("POST", path, body);
+    this.assertOk(response, "write");
+    const json = await readJsonObject(response);
+    const caseId = typeof json.id === "string" ? json.id : undefined;
+    if (!caseId) {
+      throw new SalesforceGatewayError(
+        "malformed",
+        "Case insert returned no id."
+      );
+    }
+
+    const readPath = `/services/data/v${this.apiVersion()}/sobjects/Case/${encodeURIComponent(
+      caseId
+    )}?fields=CaseNumber`;
+    const readResponse = await this.authedRequest("GET", readPath);
+    this.assertOk(readResponse, "read");
+    const readJson = await readJsonObject(readResponse);
+    return {
+      caseId,
+      caseNumber: SalesforceCaseWriteGateway.str(readJson, "CaseNumber")
+    };
+  }
+
+  /**
+   * Lists the verified customer's devices (Assets) for the intake device
+   * picker. Account-scoped: the id is validated before it is interpolated.
+   */
+  async listAccountAssets(accountId: string): Promise<IntakeDevice[]> {
+    this.requireId(accountId);
+    const records = await this.runQuery(
+      `SELECT Id, Name, SerialNumber, Product2.Name FROM Asset WHERE AccountId = '${accountId}' ORDER BY CreatedDate DESC LIMIT 50`
+    );
+    return records
+      .map((row): IntakeDevice | undefined => {
+        const assetId = SalesforceCaseWriteGateway.str(row, "Id");
+        if (!assetId) {
+          return undefined;
+        }
+        const product = SalesforceCaseWriteGateway.nestedStr(
+          row,
+          "Product2",
+          "Name"
+        );
+        const serialNumber = SalesforceCaseWriteGateway.str(row, "SerialNumber");
+        const name = SalesforceCaseWriteGateway.str(row, "Name");
+        const label = name ?? product ?? "Device";
+        return { assetId, label, product, serialNumber };
+      })
+      .filter((device): device is IntakeDevice => device !== undefined);
+  }
+
+  /** Reads Account name + shipping address defaults for a chat Case. */
+  async readAccountContext(accountId: string): Promise<AccountContext> {
+    this.requireId(accountId);
+    const records = await this.runQuery(
+      `SELECT Name, ShippingCity, ShippingState, ShippingCountry FROM Account WHERE Id = '${accountId}' LIMIT 1`
+    );
+    const row = records[0];
+    return {
+      accountName: SalesforceCaseWriteGateway.str(row, "Name"),
+      shipToCity: SalesforceCaseWriteGateway.str(row, "ShippingCity"),
+      shipToState: SalesforceCaseWriteGateway.str(row, "ShippingState"),
+      shipToCountry: SalesforceCaseWriteGateway.str(row, "ShippingCountry")
+    };
+  }
+
+  /** Reads the verified Contact's display name and email. */
+  async readContactSummary(contactId: string): Promise<ContactSummary> {
+    this.requireId(contactId);
+    const records = await this.runQuery(
+      `SELECT Name, Email FROM Contact WHERE Id = '${contactId}' LIMIT 1`
+    );
+    const row = records[0];
+    return {
+      name: SalesforceCaseWriteGateway.str(row, "Name"),
+      email: SalesforceCaseWriteGateway.str(row, "Email")
+    };
+  }
+
+  /**
+   * Confirms the chosen Asset belongs to the verified Account, so a tampered
+   * client cannot attach another customer's device to the Case.
+   */
+  async assetBelongsToAccount(
+    assetId: string,
+    accountId: string
+  ): Promise<boolean> {
+    this.requireId(assetId);
+    this.requireId(accountId);
+    const records = await this.runQuery(
+      `SELECT Id FROM Asset WHERE Id = '${assetId}' AND AccountId = '${accountId}' LIMIT 1`
+    );
+    return records.length > 0;
+  }
+
+  /**
+   * Creates a Case from OTP-verified chat intake. Sets Origin='Chat' and
+   * stamps AI_Orchestration_Status__c='stopped_by_user' so the org's
+   * Case_Triage_Orchestrator_Handoff Flow skips it (no triage hand-off, per
+   * product decision). Ship-to is optional (defaulted from the Account).
+   */
+  async createChatCase(
+    fields: ChatCaseCreateFields
+  ): Promise<DemoCaseCreateResult> {
+    this.requireId(fields.accountId);
+    const path = `/services/data/v${this.apiVersion()}/sobjects/Case`;
+    const body: Record<string, unknown> = {
+      Subject: fields.subject,
+      Description: fields.description,
+      Status: "New",
+      Origin: "Chat",
+      Priority: fields.priority,
+      AccountId: fields.accountId,
+      AI_Orchestration_Status__c: "stopped_by_user"
+    };
+    if (fields.contactId) {
+      body.ContactId = fields.contactId;
+    }
+    if (fields.assetId) {
+      body.AssetId = fields.assetId;
+    }
+    if (fields.suppliedName) {
+      body.SuppliedName = fields.suppliedName;
+    }
+    if (fields.suppliedEmail) {
+      body.SuppliedEmail = fields.suppliedEmail;
+    }
+    if (fields.serviceShipToCity) {
+      body.Service_Ship_To_City__c = fields.serviceShipToCity;
+    }
+    if (fields.serviceShipToState) {
+      body.Service_Ship_To_State__c = fields.serviceShipToState;
+    }
+    if (fields.serviceShipToCountry) {
+      body.Service_Ship_To_Country__c = fields.serviceShipToCountry;
     }
 
     const response = await this.authedRequest("POST", path, body);
@@ -234,5 +453,21 @@ export class SalesforceCaseWriteGateway {
   ): string | undefined {
     const value = row?.[key];
     return typeof value === "string" && value.length > 0 ? value : undefined;
+  }
+
+  /** Reads a value from a nested relationship object (e.g. Product2.Name). */
+  private static nestedStr(
+    row: Record<string, unknown> | undefined,
+    outerKey: string,
+    innerKey: string
+  ): string | undefined {
+    const outer = row?.[outerKey];
+    if (!outer || typeof outer !== "object") {
+      return undefined;
+    }
+    return SalesforceCaseWriteGateway.str(
+      outer as Record<string, unknown>,
+      innerKey
+    );
   }
 }

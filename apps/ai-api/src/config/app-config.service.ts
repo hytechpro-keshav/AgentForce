@@ -431,6 +431,14 @@ export interface DemoCaseCreateConfig {
   enabled: boolean;
 }
 
+export interface CustomerIntakeConfig {
+  enabled: boolean;
+  otpApexBasePath: string;
+  rateLimitWindowMs: number;
+  rateLimitMaxRequests: number;
+  sessionTtlSeconds: number;
+}
+
 export interface AppRuntimeConfig {
   port: number;
   nodeEnv: string;
@@ -458,6 +466,7 @@ export interface AppRuntimeConfig {
   salesforceConnection: SalesforceConnectionConfig;
   orchestrator: OrchestratorConfig;
   demoCaseCreate: DemoCaseCreateConfig;
+  customerIntake: CustomerIntakeConfig;
 }
 
 @Injectable()
@@ -488,6 +497,7 @@ export class AppConfigService {
   readonly salesforceConnection: SalesforceConnectionConfig;
   readonly orchestrator: OrchestratorConfig;
   readonly demoCaseCreate: DemoCaseCreateConfig;
+  readonly customerIntake: CustomerIntakeConfig;
 
   constructor() {
     const config = AppConfigService.load(process.env);
@@ -517,6 +527,7 @@ export class AppConfigService {
     this.salesforceConnection = config.salesforceConnection;
     this.orchestrator = config.orchestrator;
     this.demoCaseCreate = config.demoCaseCreate;
+    this.customerIntake = config.customerIntake;
   }
 
   get isHealthBridgeKeyConfigured(): boolean {
@@ -610,6 +621,7 @@ export class AppConfigService {
     const salesforceConnection = AppConfigService.loadSalesforceConnection(env);
     const orchestrator = AppConfigService.loadOrchestrator(env);
     const demoCaseCreate = AppConfigService.loadDemoCaseCreate(env);
+    const customerIntake = AppConfigService.loadCustomerIntake(env);
 
     return {
       port: AppConfigService.parsePort(env.PORT),
@@ -637,7 +649,8 @@ export class AppConfigService {
       openAiGateway,
       salesforceConnection,
       orchestrator,
-      demoCaseCreate
+      demoCaseCreate,
+      customerIntake
     };
   }
 
@@ -2161,6 +2174,41 @@ export class AppConfigService {
         env.DEMO_CASE_CREATE_ENABLED,
         false,
         "DEMO_CASE_CREATE_ENABLED"
+      )
+    };
+  }
+
+  private static loadCustomerIntake(
+    env: NodeJS.ProcessEnv
+  ): CustomerIntakeConfig {
+    const rawBasePath = AppConfigService.normalize(
+      env.CUSTOMER_INTAKE_OTP_APEX_BASE_PATH
+    );
+    // Strip any trailing slash so callers can append /generate|/verify cleanly.
+    const otpApexBasePath = (
+      rawBasePath ?? "/services/apexrest/agentforce/otp"
+    ).replace(/\/+$/, "");
+    return {
+      enabled: AppConfigService.parseBooleanFlag(
+        env.CUSTOMER_INTAKE_ENABLED,
+        false,
+        "CUSTOMER_INTAKE_ENABLED"
+      ),
+      otpApexBasePath,
+      rateLimitWindowMs: AppConfigService.parsePositiveInteger(
+        env.CUSTOMER_INTAKE_RATE_LIMIT_WINDOW_MS,
+        60000,
+        "CUSTOMER_INTAKE_RATE_LIMIT_WINDOW_MS"
+      ),
+      rateLimitMaxRequests: AppConfigService.parsePositiveInteger(
+        env.CUSTOMER_INTAKE_RATE_LIMIT_MAX_REQUESTS,
+        10,
+        "CUSTOMER_INTAKE_RATE_LIMIT_MAX_REQUESTS"
+      ),
+      sessionTtlSeconds: AppConfigService.parsePositiveInteger(
+        env.CUSTOMER_INTAKE_SESSION_TTL_SECONDS,
+        7200,
+        "CUSTOMER_INTAKE_SESSION_TTL_SECONDS"
       )
     };
   }

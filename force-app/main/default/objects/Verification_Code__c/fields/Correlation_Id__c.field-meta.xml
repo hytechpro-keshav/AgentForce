@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Correlation_Id__c</fullName>
+    <description
+  >Optional caller-supplied correlation id for tracing an OTP request/verify pair across ai-api logs.</description>
+    <externalId>true</externalId>
+    <label>Correlation Id</label>
+    <length>64</length>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

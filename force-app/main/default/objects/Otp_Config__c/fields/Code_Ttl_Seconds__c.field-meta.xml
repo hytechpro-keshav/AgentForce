@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Code_Ttl_Seconds__c</fullName>
+    <description
+  >Code lifetime in seconds. When blank, defaults to 600 (10 minutes).</description>
+    <externalId>false</externalId>
+    <label>Code TTL Seconds</label>
+    <precision>6</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackHistory>false</trackHistory>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

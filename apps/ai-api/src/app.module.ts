@@ -6,6 +6,7 @@ import { ChatModule } from "./chat/chat.module";
 import { DemoCaseCreateModule } from "./demo/demo-case-create.module";
 import { AppConfigModule } from "./config/app-config.module";
 import { HealthModule } from "./health/health.module";
+import { IntakeModule } from "./intake/intake.module";
 import { LlmModule } from "./llm/llm.module";
 import { ObservabilityModule } from "./observability/observability.module";
 import { OpenAiCompatibleModule } from "./openai-compatible/openai-compatible.module";
@@ -21,6 +22,7 @@ import { RagModule } from "./rag/rag.module";
     HealthModule,
     ChatModule,
     DemoCaseCreateModule,
+    IntakeModule,
     AgentsModule,
     RagModule,
     OpenAiCompatibleModule,
