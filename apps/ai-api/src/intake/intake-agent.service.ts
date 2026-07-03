@@ -45,6 +45,113 @@ function formatLocation(location: {
     .join(", ");
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function tokenize(text: string): string[] {
+  return text
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length >= 2);
+}
+
+function isTypedUserMessage(message: {
+  role: string;
+  content: string;
+}): boolean {
+  return (
+    message.role === "user" &&
+    !message.content.trim().toLowerCase().startsWith("[event]")
+  );
+}
+
+/**
+ * Deterministic fallback for when the customer TYPES the device name instead
+ * of tapping a picker chip (which would otherwise deadlock the flow: the
+ * model knows the device conversationally, the UI never gets a selection,
+ * and the submit CTA can never appear).
+ *
+ * Guardrails (each defeats a verified false-positive class):
+ * - Scored per message, newest first, so a correction ("actually it's my
+ *   ZenBook") beats an earlier mention; ambiguity in the newest mentioning
+ *   message yields no match rather than falling back to older turns.
+ * - A device qualifies only with ≥2 whole-word token matches INCLUDING at
+ *   least one non-numeric token from the product segment of the label (the
+ *   part before " - "), so deployment-suffix words ("Corporate", "Home
+ *   Office") or digits inside dates ("2026-01-15", "desk 402") never
+ *   resolve a device by themselves.
+ * - A single-token match qualifies only when the token is unique across the
+ *   catalog, non-numeric, ≥4 chars, and from the product segment
+ *   ("ProBook" alone is decisive; shared brand tokens are not).
+ */
+function matchDeviceFromTranscript(
+  devices: IntakeDeviceDto[],
+  messages: Array<{ role: string; content: string }>
+): IntakeDeviceDto | undefined {
+  if (devices.length === 0) {
+    return undefined;
+  }
+
+  const tokenCatalogCount = new Map<string, number>();
+  const profiles = devices.map((device) => {
+    const tokens = new Set(tokenize(device.label));
+    const productTokens = new Set(
+      tokenize(device.label.split(" - ")[0] ?? device.label)
+    );
+    for (const token of tokens) {
+      tokenCatalogCount.set(token, (tokenCatalogCount.get(token) ?? 0) + 1);
+    }
+    return { device, tokens, productTokens };
+  });
+
+  const typedMessages = messages.filter(isTypedUserMessage).reverse();
+  for (const message of typedMessages) {
+    let best:
+      | { device: IntakeDeviceDto; score: number }
+      | undefined;
+    let tied = false;
+    for (const profile of profiles) {
+      let score = 0;
+      let decisive = false;
+      let single: string | undefined;
+      for (const token of profile.tokens) {
+        if (
+          new RegExp(`\\b${escapeRegExp(token)}\\b`, "i").test(message.content)
+        ) {
+          score += 1;
+          single = token;
+          if (profile.productTokens.has(token) && !/^\d+$/.test(token)) {
+            decisive = true;
+          }
+        }
+      }
+      const qualifies =
+        (score >= 2 && decisive) ||
+        (score === 1 &&
+          decisive &&
+          single !== undefined &&
+          single.length >= 4 &&
+          tokenCatalogCount.get(single) === 1);
+      if (!qualifies) {
+        continue;
+      }
+      if (!best || score > best.score) {
+        best = { device: profile.device, score };
+        tied = false;
+      } else if (score === best.score) {
+        tied = true;
+      }
+    }
+    if (best) {
+      // The newest message that names a device decides — ambiguity here
+      // means the customer must pick from the full list.
+      return tied ? undefined : best.device;
+    }
+  }
+  return undefined;
+}
+
 function buildIntakeSystemPrompt(
   context: IntakeContextResponseDto,
   selectedDevice: IntakeDeviceDto | undefined
@@ -89,7 +196,7 @@ function buildIntakeSystemPrompt(
     selectedDevice
       ? ""
       : deviceCount > 1
-        ? '6. Once the issue is clear, ask which registered device is affected and set ui.action to "showDevicePicker" — or "suggestDevice" with suggestedDeviceIndex when their words clearly identify one device from the list.'
+        ? '6. Once the issue is clear, ask which registered device is affected and set ui.action to "showDevicePicker" — or "suggestDevice" with suggestedDeviceIndex when their words clearly identify one device from the list. If the customer TYPES a device name instead of tapping the picker, do not treat it as final: set ui.action "suggestDevice" with the matching suggestedDeviceIndex and ask them to tap the highlighted chip to confirm.'
         : deviceCount === 1
           ? "6. Once the issue is clear, confirm the problem is on the registered device and verify the service location and contact details are correct."
           : "6. Once the issue is clear, tell them they can review and submit even without a device on file.",
@@ -98,6 +205,8 @@ function buildIntakeSystemPrompt(
       : "",
     "8. Messages starting with [event] are chat-UI events (for example the customer picking a device from the picker), not typed text — acknowledge them naturally and continue with the next missing detail.",
     '9. When the symptom, timing, and troubleshooting steps are captured (and the device is picked when devices exist), summarize the issue back in one sentence, tell them to review and submit, and set readyToSubmit to true with ui.action "showReview".',
+    '10. You CANNOT create or submit the case from chat — only the customer can, by tapping the "Review & submit case" button in the UI. If they ask you to submit or say "go ahead", do NOT repeat your summary; briefly tell them to tap the device chip to confirm it (when none is picked yet) and then tap Review & submit below.',
+    "11. Never repeat your previous message. Every reply must move the conversation forward.",
     "",
     "On EVERY turn, after reading the customer's latest message, re-read the whole conversation and fill subject, description, and priority from everything said so far. These three fields are REQUIRED on every response and must never be empty or omitted once the customer has described anything — update them as new detail arrives; do not wait until the end.",
     "",
@@ -180,7 +289,9 @@ export class IntakeAgentService {
     const response = await this.modelRouter.chat(request);
     const parsed = IntakeAgentService.parseExtraction(response.content);
 
-    const userMessages = dto.messages.filter((m) => m.role === "user");
+    // Hidden [event] notes (e.g. a chip tap) are not typed issue detail and
+    // must not inflate the readiness/issue-capture heuristics.
+    const userMessages = dto.messages.filter(isTypedUserMessage);
     const userWordCount = userMessages.reduce(
       (sum, m) => sum + m.content.trim().split(/\s+/).length,
       0
@@ -207,7 +318,10 @@ export class IntakeAgentService {
         parsed.ui,
         context,
         selectedDevice,
-        readyToSubmit
+        readyToSubmit,
+        selectedDevice
+          ? undefined
+          : matchDeviceFromTranscript(context.devices, dto.messages)
       ),
       readyToSubmit
     };
@@ -247,7 +361,8 @@ export class IntakeAgentService {
     raw: { action?: unknown; suggestedDeviceIndex?: unknown } | undefined,
     context: IntakeContextResponseDto,
     selectedDevice: IntakeDeviceDto | undefined,
-    readyToSubmit: boolean
+    readyToSubmit: boolean,
+    transcriptMatch?: IntakeDeviceDto
   ): IntakeTurnUiDirectiveDto {
     const deviceCount = context.devices.length;
     let action: IntakeTurnUiAction =
@@ -278,6 +393,11 @@ export class IntakeAgentService {
       suggestedAssetId = undefined;
     }
 
+    // The review card is only ever cued together with readiness.
+    if (!readyToSubmit && action === "showReview") {
+      action = "none";
+    }
+
     if (readyToSubmit) {
       if (!selectedDevice && deviceCount > 0) {
         if (action !== "suggestDevice") {
@@ -286,6 +406,14 @@ export class IntakeAgentService {
       } else {
         action = "showReview";
       }
+    }
+
+    // The customer typed the device name instead of tapping a chip: upgrade
+    // a plain picker to a one-tap confirm on the deterministic match, so the
+    // flow can never deadlock on "review and submit" with no selectable CTA.
+    if (action === "showDevicePicker" && transcriptMatch) {
+      action = "suggestDevice";
+      suggestedAssetId = transcriptMatch.assetId;
     }
 
     return suggestedAssetId ? { action, suggestedAssetId } : { action };

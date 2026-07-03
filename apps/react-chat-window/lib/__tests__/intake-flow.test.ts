@@ -97,7 +97,7 @@ describe("intakeReducer", () => {
     expect(state.devicePickerRequested).toBe(true);
   });
 
-  it("keeps a suggested device only when it exists in the catalog", () => {
+  it("accepts only catalog-valid suggestions and clears stale ones each turn", () => {
     let state: IntakeState = {
       ...initialIntakeState,
       phase: "triage",
@@ -114,6 +114,8 @@ describe("intakeReducer", () => {
     expect(state.suggestedAssetId).toBe("02i1");
     expect(state.devicePickerRequested).toBe(true);
 
+    // an unknown asset never becomes the suggestion — and the old one is
+    // cleared rather than left pointing at a possibly-corrected device
     state = intakeReducer(state, {
       type: "turnResult",
       reply: "Hmm.",
@@ -122,8 +124,27 @@ describe("intakeReducer", () => {
       ui: { action: "suggestDevice", suggestedAssetId: "02i9" },
       readyToSubmit: false
     });
-    // unknown asset is ignored; the earlier valid suggestion persists
-    expect(state.suggestedAssetId).toBe("02i1");
+    expect(state.suggestedAssetId).toBeNull();
+
+    // a fresh valid suggestion sets it again; a plain turn clears it
+    state = intakeReducer(state, {
+      type: "turnResult",
+      reply: "Your MacBook then?",
+      extracted: {},
+      issueCaptured: true,
+      ui: { action: "suggestDevice", suggestedAssetId: "02i2" },
+      readyToSubmit: false
+    });
+    expect(state.suggestedAssetId).toBe("02i2");
+    state = intakeReducer(state, {
+      type: "turnResult",
+      reply: "When did it start?",
+      extracted: {},
+      issueCaptured: true,
+      ui: { action: "none" },
+      readyToSubmit: false
+    });
+    expect(state.suggestedAssetId).toBeNull();
   });
 
   it("tracks the model's latest readiness judgment", () => {

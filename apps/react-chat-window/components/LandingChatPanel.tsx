@@ -63,9 +63,17 @@ export function LandingChatPanel() {
     };
   }, [open]);
 
+  // The anchor sits BELOW the picker/CTA widgets, so newly cued chips and the
+  // submit button scroll into view too — not just the latest message.
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [state.messages]);
+  }, [
+    state.messages,
+    state.devicePickerRequested,
+    state.suggestedAssetId,
+    state.selectedAssetId,
+    state.readyToSubmit
+  ]);
 
   useEffect(() => {
     void fetchIntakeConfig().then((config) => {
@@ -586,7 +594,6 @@ export function LandingChatPanel() {
                 </div>
               </div>
             ))}
-            <div ref={messagesEndRef} />
           </div>
           {showDevicePicker && (
             <div style={{ paddingTop: "4px" }}>
@@ -605,7 +612,15 @@ export function LandingChatPanel() {
               <div
                 style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}
               >
-              {devices.map((d) => {
+              {[...devices]
+                .sort((a, b) =>
+                  a.assetId === state.suggestedAssetId
+                    ? -1
+                    : b.assetId === state.suggestedAssetId
+                      ? 1
+                      : 0
+                )
+                .map((d) => {
                 const suggested = d.assetId === state.suggestedAssetId;
                 return (
                   <button
@@ -698,6 +713,7 @@ export function LandingChatPanel() {
               Review & submit case →
             </button>
           )}
+          <div ref={messagesEndRef} />
         </div>
       );
     }

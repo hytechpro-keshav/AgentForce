@@ -140,7 +140,15 @@ export function IntakeConversation({
               : "Which device is affected?"}
           </h2>
           <div className="flex flex-wrap gap-2">
-            {devices.map((device) => {
+            {[...devices]
+              .sort((a, b) =>
+                a.assetId === suggestedAssetId
+                  ? -1
+                  : b.assetId === suggestedAssetId
+                    ? 1
+                    : 0
+              )
+              .map((device) => {
               const suggested = device.assetId === suggestedAssetId;
               return (
                 <Button

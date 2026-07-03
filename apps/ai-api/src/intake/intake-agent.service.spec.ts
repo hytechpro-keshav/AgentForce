@@ -29,7 +29,19 @@ function principal(overrides: Record<string, unknown> = {}): AuthPrincipal {
   } as AuthPrincipal;
 }
 
-function buildService(content: string): {
+const multiDeviceContext: IntakeContextResponseDto = {
+  ...mockContext,
+  devices: [
+    { assetId: "02iDOCK", label: "AeroVolt Nexus Docking Station - Desk 402" },
+    { assetId: "02iAIR", label: "AeroVolt Stratos Air 13 - Exec Travel Unit" },
+    { assetId: "02iPRO", label: "AeroVolt ProBook 15X - Corporate Deployment 01" }
+  ]
+};
+
+function buildService(
+  content: string,
+  context: IntakeContextResponseDto = mockContext
+): {
   service: IntakeAgentService;
   chat: jest.Mock;
   getContext: jest.Mock;
@@ -44,7 +56,7 @@ function buildService(content: string): {
     }
   });
   const modelRouter = { chat } as unknown as ModelRouter;
-  const getContext = jest.fn().mockResolvedValue(mockContext);
+  const getContext = jest.fn().mockResolvedValue(context);
   const intakeService = { getContext } as unknown as IntakeService;
   return {
     service: new IntakeAgentService(modelRouter, intakeService),
@@ -258,5 +270,166 @@ describe("IntakeAgentService.nextTurn", () => {
     await service.nextTurn(principal(), turn);
     await service.nextTurn(principal(), turn);
     expect(getContext).toHaveBeenCalledTimes(1);
+  });
+
+  it("suggests the device the customer typed instead of deadlocking on a plain picker", async () => {
+    // The live deadlock: customer typed "ProBook 15X" (never tapped a chip),
+    // model went straight to readiness with showReview — with no selection the
+    // server must cue a one-tap confirm on the typed device, not a bare picker.
+    const { service } = buildService(
+      JSON.stringify({
+        reply: "Please review and submit to proceed.",
+        readyToSubmit: true,
+        ui: { action: "showReview" }
+      }),
+      multiDeviceContext
+    );
+    const result = await service.nextTurn(principal(), {
+      messages: [
+        { role: "user" as const, content: "laptop screen is black" },
+        { role: "assistant" as const, content: "Which device is affected?" },
+        { role: "user" as const, content: "ProBook 15X" }
+      ]
+    });
+    expect(result.ui).toEqual({
+      action: "suggestDevice",
+      suggestedAssetId: "02iPRO"
+    });
+  });
+
+  it("keeps the plain picker when the typed mention is ambiguous", async () => {
+    // "aerovolt" alone matches three devices — never guess.
+    const { service } = buildService(
+      JSON.stringify({
+        reply: "Which device is affected?",
+        readyToSubmit: true,
+        ui: { action: "showDevicePicker" }
+      }),
+      multiDeviceContext
+    );
+    const result = await service.nextTurn(principal(), {
+      messages: [
+        { role: "user" as const, content: "my aerovolt laptop is broken" },
+        { role: "assistant" as const, content: "Which device is affected?" },
+        { role: "user" as const, content: "the aerovolt one" }
+      ]
+    });
+    expect(result.ui).toEqual({ action: "showDevicePicker" });
+  });
+
+  it("does not let a chosen device's tokens leak from [event] notes into matching", async () => {
+    // After a selection the ack note contains the label; matching must ignore
+    // hidden [event] lines so a later "Change" doesn't ghost-suggest.
+    const { service } = buildService(
+      JSON.stringify({
+        reply: "Which device is affected?",
+        readyToSubmit: false,
+        ui: { action: "showDevicePicker" }
+      }),
+      multiDeviceContext
+    );
+    const result = await service.nextTurn(principal(), {
+      messages: [
+        { role: "user" as const, content: "laptop screen is black" },
+        {
+          role: "user" as const,
+          content:
+            "[event] Customer selected the affected device in the chat UI: AeroVolt Stratos Air 13 - Exec Travel Unit"
+        }
+      ]
+    });
+    expect(result.ui).toEqual({ action: "showDevicePicker" });
+  });
+
+  it("rejects suffix-word and date-digit coincidences as a device match", async () => {
+    // "corporate" (deployment suffix) + "01" (inside a typed date) reach two
+    // tokens but include no product-name token — must NOT suggest a device.
+    const { service } = buildService(
+      JSON.stringify({
+        reply: "Which device is affected?",
+        readyToSubmit: true,
+        ui: { action: "showDevicePicker" }
+      }),
+      multiDeviceContext
+    );
+    const result = await service.nextTurn(principal(), {
+      messages: [
+        {
+          role: "user" as const,
+          content:
+            "My corporate laptop stopped booting on 2026-01-15 after the update"
+        }
+      ]
+    });
+    expect(result.ui).toEqual({ action: "showDevicePicker" });
+  });
+
+  it("prefers the newest typed correction over an earlier device mention", async () => {
+    const { service } = buildService(
+      JSON.stringify({
+        reply: "Please review and submit.",
+        readyToSubmit: true,
+        ui: { action: "showReview" }
+      }),
+      multiDeviceContext
+    );
+    const result = await service.nextTurn(principal(), {
+      messages: [
+        { role: "user" as const, content: "it is my stratos air 13" },
+        { role: "assistant" as const, content: "Got it. When did it start?" },
+        {
+          role: "user" as const,
+          content: "sorry — actually it is the probook 15x"
+        }
+      ]
+    });
+    expect(result.ui).toEqual({
+      action: "suggestDevice",
+      suggestedAssetId: "02iPRO"
+    });
+  });
+
+  it("does not count [event] notes toward heuristic readiness", async () => {
+    const { service } = buildService("not json at all");
+    const result = await service.nextTurn(principal(), {
+      messages: [
+        {
+          role: "user" as const,
+          content: "my screen is broken and totally dead now"
+        },
+        {
+          role: "user" as const,
+          content:
+            "[event] Customer selected the affected device in the chat UI: AeroVolt Stratos Air 13 - Exec Travel Unit"
+        }
+      ]
+    });
+    // one real typed turn of 8 words — the 18-word event note must not
+    // push the fallback over its 2-turn / 25-word threshold
+    expect(result.readyToSubmit).toBe(false);
+  });
+
+  it("mutes a model showReview cue when it is not actually ready", async () => {
+    const { service } = buildService(
+      JSON.stringify({
+        reply: "Almost there.",
+        readyToSubmit: false,
+        ui: { action: "showReview" }
+      })
+    );
+    const result = await service.nextTurn(principal(), {
+      messages: [{ role: "user" as const, content: "screen broken" }],
+      uiState: { selectedAssetId: "02i000000000001" }
+    });
+    expect(result.readyToSubmit).toBe(false);
+    expect(result.ui).toEqual({ action: "none" });
+  });
+
+  it("instructs the model about chat-submit limits and no repeats", async () => {
+    const { service, chat } = buildService(JSON.stringify({ reply: "ok" }));
+    await service.nextTurn(principal(), turn);
+    const system = chat.mock.calls[0][0].messages[0].content as string;
+    expect(system).toContain("CANNOT create or submit the case from chat");
+    expect(system).toContain("Never repeat your previous message");
   });
 });

@@ -174,6 +174,9 @@ export function intakeReducer(
       return { ...state, messages: [...state.messages, action.message] };
     case "turnResult": {
       const uiAction = action.ui?.action;
+      // Replace, never retain: a suggestion is only as fresh as the latest
+      // turn — carrying an old one forward can leave a "tap to confirm" chip
+      // pointing at a device the customer has since corrected away from.
       const suggestedAssetId =
         uiAction === "suggestDevice" &&
         action.ui?.suggestedAssetId &&
@@ -181,7 +184,7 @@ export function intakeReducer(
           (device) => device.assetId === action.ui?.suggestedAssetId
         )
           ? action.ui.suggestedAssetId
-          : state.suggestedAssetId;
+          : null;
       return {
         ...state,
         messages: [
