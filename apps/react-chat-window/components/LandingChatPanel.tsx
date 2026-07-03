@@ -16,8 +16,8 @@ import {
   fetchIntakeConfig,
   loadIntakeContext,
   parseTurnResponse,
-  shouldShowDevicePicker,
-  transcriptFallbackDescription
+  resolveCaseDescription,
+  shouldShowDevicePicker
 } from "@/lib/intake-client";
 
 export function LandingChatPanel() {
@@ -703,9 +703,7 @@ export function LandingChatPanel() {
     }
 
     if (phase === "confirm") {
-      const description =
-        state.extracted.description ??
-        (transcriptFallbackDescription(state) || "Issue reported via chat.");
+      const description = resolveCaseDescription(state);
       const subject =
         state.extracted.subject || description.split(/\r?\n/)[0] || "";
       const deviceLabel = devices.find(

@@ -18,8 +18,8 @@ import {
   fetchIntakeConfig,
   loadIntakeContext,
   parseTurnResponse,
-  shouldShowDevicePicker,
-  transcriptFallbackDescription
+  resolveCaseDescription,
+  shouldShowDevicePicker
 } from "@/lib/intake-client";
 import {
   createInitialIntakeState,
@@ -276,10 +276,7 @@ export function IntakeShell({
   }
 
   if (state.phase === "confirm") {
-    const description =
-      state.extracted.description ??
-      (transcriptFallbackDescription(state) ||
-        "Laptop issue reported via chat.");
+    const description = resolveCaseDescription(state);
     const deviceLabel = devices.find(
       (device) => device.assetId === state.selectedAssetId
     )?.label;

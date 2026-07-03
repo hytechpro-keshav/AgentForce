@@ -159,16 +159,18 @@ describe("intakeReducer", () => {
     expect(state.readyToSubmit).toBe(false);
   });
 
-  it("edits the description for the review card", () => {
+  it("stores a description edit as an override without touching extracted", () => {
     let state: IntakeState = {
       ...initialIntakeState,
-      extracted: { description: "old text" }
+      extracted: { description: "model text" }
     };
     state = intakeReducer(state, {
       type: "editDescription",
       description: "corrected text"
     });
-    expect(state.extracted.description).toBe("corrected text");
+    expect(state.descriptionOverride).toBe("corrected text");
+    // the model's extracted.description is a signal only; the edit does not mutate it
+    expect(state.extracted.description).toBe("model text");
   });
 
   it("gates review on model readiness and a picked device", () => {

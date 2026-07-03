@@ -7,6 +7,7 @@ import {
   deviceGreeting,
   deviceSelectionEvent,
   parseTurnResponse,
+  resolveCaseDescription,
   shouldShowDevicePicker,
   transcriptFallbackDescription
 } from "@/lib/intake-client";
@@ -147,6 +148,47 @@ describe("transcriptFallbackDescription", () => {
     };
     expect(transcriptFallbackDescription(state)).toBe(
       "Screen flickers on startup.\nStarted today."
+    );
+  });
+});
+
+describe("resolveCaseDescription", () => {
+  const multiTurn: IntakeState = {
+    ...initialIntakeState,
+    messages: [
+      { role: "assistant", content: "Hi!", uiOnly: true },
+      { role: "user", content: "Screen is black but external monitor works." },
+      {
+        role: "user",
+        content: "[event] Customer selected the affected device: X",
+        hidden: true
+      },
+      { role: "user", content: "Started today, restarted 3 times." }
+    ],
+    // model only extracted a partial description on the first turn
+    extracted: { description: "Screen is black but external monitor works." }
+  };
+
+  it("uses the full transcript (not the model's partial extraction) and drops [event] notes", () => {
+    const description = resolveCaseDescription(multiTurn);
+    expect(description).toBe(
+      "Screen is black but external monitor works.\nStarted today, restarted 3 times."
+    );
+    expect(description).not.toContain("[event]");
+  });
+
+  it("prefers a customer edit over the transcript", () => {
+    expect(
+      resolveCaseDescription({
+        ...multiTurn,
+        descriptionOverride: "Customer's own corrected wording."
+      })
+    ).toBe("Customer's own corrected wording.");
+  });
+
+  it("falls back to a safe default when nothing was typed", () => {
+    expect(resolveCaseDescription(initialIntakeState)).toBe(
+      "Laptop issue reported via chat."
     );
   });
 });

@@ -79,6 +79,13 @@ export interface IntakeState {
   messages: IntakeMessage[];
   extracted: IntakeExtracted;
   issueCaptured: boolean;
+  /**
+   * Customer's edit of the case description in the review card. When set it
+   * takes precedence over the transcript-derived description; the model's
+   * extracted.description is only a signal and is never trusted for the case
+   * body (the model populates it inconsistently across turns).
+   */
+  descriptionOverride: string | null;
   /** Model's current judgment that the case is ready for review & submit. */
   readyToSubmit: boolean;
   /** Sticky until a device is picked: the model has asked for the device. */
@@ -98,6 +105,7 @@ export const initialIntakeState: IntakeState = {
   messages: [],
   extracted: {},
   issueCaptured: false,
+  descriptionOverride: null,
   readyToSubmit: false,
   devicePickerRequested: false,
   suggestedAssetId: null,
@@ -212,10 +220,7 @@ export function intakeReducer(
         devicePickerRequested: true
       };
     case "editDescription":
-      return {
-        ...state,
-        extracted: { ...state.extracted, description: action.description }
-      };
+      return { ...state, descriptionOverride: action.description };
     case "toConfirm":
       return { ...state, phase: "confirm" };
     case "backToTriage":

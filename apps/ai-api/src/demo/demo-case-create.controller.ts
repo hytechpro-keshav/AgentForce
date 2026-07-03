@@ -2,7 +2,10 @@ import {
   Body,
   Controller,
   ForbiddenException,
+  Get,
   HttpCode,
+  NotFoundException,
+  Param,
   Post,
   ServiceUnavailableException
 } from "@nestjs/common";
@@ -44,6 +47,27 @@ export class DemoCaseCreateController {
       });
     }
     return this.service.create(body);
+  }
+
+  @RequireScopes("agentforce:demo-case-create")
+  @Get("cases/by-number/:caseNumber")
+  async lookupByNumber(
+    @Param("caseNumber") caseNumber: string
+  ): Promise<{ caseId: string; caseNumber: string }> {
+    if (!this.config.demoCaseCreate.enabled) {
+      throw new ForbiddenException({
+        error: "demo_create_disabled",
+        message: "Demo Case create is disabled."
+      });
+    }
+    const result = await this.service.lookupByNumber(caseNumber);
+    if (!result) {
+      throw new NotFoundException({
+        error: "case_not_found",
+        message: `No Case found with CaseNumber "${caseNumber}".`
+      });
+    }
+    return result;
   }
 
   @RequireScopes("agentforce:demo-case-create")

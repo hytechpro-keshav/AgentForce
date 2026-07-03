@@ -182,6 +182,43 @@ export class SalesforceCaseGateway {
     }
   }
 
+  /** Numeric-only guard — Salesforce CaseNumber is always digits. */
+  private static readonly CASE_NUMBER_PATTERN = /^\d{1,20}$/;
+
+  /**
+   * Resolve a Salesforce Case record Id from a human-readable CaseNumber
+   * (e.g. "00001079"). Returns null on not-found, invalid input, or any
+   * transport/query failure — never throws.
+   */
+  async resolveCaseIdByNumber(
+    caseNumber: string
+  ): Promise<{ caseId: string; caseNumber: string } | null> {
+    if (!SalesforceCaseGateway.CASE_NUMBER_PATTERN.test(caseNumber)) {
+      return null;
+    }
+    try {
+      const soql = `SELECT Id, CaseNumber FROM Case WHERE CaseNumber = '${caseNumber}' LIMIT 1`;
+      const path = `/services/data/v${this.apiVersion()}/query?q=${encodeURIComponent(
+        soql
+      )}`;
+      const response = await this.authedRequest("GET", path);
+      if (response.status < 200 || response.status >= 300) return null;
+      const json = await readJsonObject(response);
+      const records = json["records"];
+      if (!Array.isArray(records) || !records[0]) return null;
+      const row = records[0] as Record<string, unknown>;
+      const caseId = typeof row["Id"] === "string" ? row["Id"].trim() : "";
+      const resolvedNumber =
+        typeof row["CaseNumber"] === "string"
+          ? row["CaseNumber"].trim()
+          : caseNumber;
+      return caseId ? { caseId, caseNumber: resolvedNumber } : null;
+    } catch {
+      this.logger.warn(`Case number lookup failed for ${caseNumber}.`);
+      return null;
+    }
+  }
+
   /** Coerce the raw picklist value to the restricted orchestration-status set. */
   private static normalizeOrchestrationStatus(
     raw: unknown

@@ -15,6 +15,7 @@ import type {
   DemoCaseFormDto,
   DemoCaseOverridesDto
 } from "./dto/demo-case-create.dto";
+import { SalesforceCaseGateway } from "../salesforce/salesforce-case.gateway";
 import { SalesforceCaseWriteGateway } from "../salesforce/salesforce-case-write.gateway";
 import { SalesforceGatewayError } from "../salesforce/salesforce-gateway.error";
 import { buildSalesforceCaseRecordUrl } from "../salesforce/salesforce-lightning-url";
@@ -23,7 +24,16 @@ import { buildSalesforceCaseRecordUrl } from "../salesforce/salesforce-lightning
 export class DemoCaseCreateService {
   private readonly logger = new Logger(DemoCaseCreateService.name);
 
-  constructor(private readonly gateway: SalesforceCaseWriteGateway) {}
+  constructor(
+    private readonly gateway: SalesforceCaseWriteGateway,
+    private readonly caseGateway: SalesforceCaseGateway
+  ) {}
+
+  async lookupByNumber(
+    caseNumber: string
+  ): Promise<{ caseId: string; caseNumber: string } | null> {
+    return this.caseGateway.resolveCaseIdByNumber(caseNumber);
+  }
 
   isReady(): boolean {
     return this.gateway.isConfigured();

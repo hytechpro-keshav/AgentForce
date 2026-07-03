@@ -56,6 +56,12 @@ export function DemoCaseCreateForm({ scenarios }: DemoCaseCreateFormProps) {
   const [activateError, setActivateError] = useState<string | null>(null);
   const [created, setCreated] = useState<CreatedCase | null>(null);
 
+  // Existing-case activation state
+  const [existingCaseNumber, setExistingCaseNumber] = useState("");
+  const [activatingExisting, setActivatingExisting] = useState(false);
+  const [existingActivateError, setExistingActivateError] = useState<string | null>(null);
+  const [existingWorkflowId, setExistingWorkflowId] = useState<string | null>(null);
+
   const selectedScenario = useMemo(
     () => scenarios.find((scenario) => scenario.id === scenarioId),
     [scenarioId, scenarios]
@@ -197,7 +203,60 @@ export function DemoCaseCreateForm({ scenarios }: DemoCaseCreateFormProps) {
     }
   }
 
+  async function activateExistingCase() {
+    const caseNumber = existingCaseNumber.trim();
+    if (!caseNumber) return;
+
+    if (!/^\d{1,20}$/.test(caseNumber)) {
+      setExistingActivateError(
+        "Enter a numeric Salesforce Case Number (e.g. 00001079)."
+      );
+      return;
+    }
+
+    setActivatingExisting(true);
+    setExistingActivateError(null);
+    setExistingWorkflowId(null);
+
+    try {
+      const response = await fetch("/api/demo/activate-existing", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ caseNumber })
+      });
+      const text = await response.text();
+      let data: { workflowId?: string; message?: string; error?: string };
+      try {
+        data = JSON.parse(text) as {
+          workflowId?: string;
+          message?: string;
+          error?: string;
+        };
+      } catch {
+        throw new Error("Unexpected response from agent activation.");
+      }
+
+      if (!response.ok) {
+        throw new Error(data.message ?? "Could not activate the agent for this Case.");
+      }
+      if (!data.workflowId) {
+        throw new Error("Agent activation did not return a workflow id.");
+      }
+
+      setExistingWorkflowId(data.workflowId);
+      const url = `/orchestration/stepped?workflowId=${encodeURIComponent(data.workflowId)}`;
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      setExistingActivateError(
+        err instanceof Error ? err.message : "Could not activate the agent."
+      );
+    } finally {
+      setActivatingExisting(false);
+    }
+  }
+
   return (
+    <>
     <form onSubmit={onSubmit} className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
       <div className="space-y-4">
         <Card className="border-primary/20 bg-card/80 backdrop-blur">
@@ -443,5 +502,95 @@ export function DemoCaseCreateForm({ scenarios }: DemoCaseCreateFormProps) {
         </CardContent>
       </Card>
     </form>
+
+    {/* Existing-case activation */}
+    <div className="mt-8">
+      <div className="relative mb-6">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-background px-2 text-muted-foreground">
+            or activate an existing case
+          </span>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Activate existing case</CardTitle>
+          <CardDescription>
+            Already have a Case in Salesforce (e.g. created by the landing page
+            chat)? Enter its Case Number to assign it to the orchestrator —
+            same as clicking <strong>Activate agent</strong> after creating a
+            case above.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {existingWorkflowId ? (
+            <Alert className="border-green-600/40 bg-green-50 text-green-950 dark:bg-green-950/20 dark:text-green-50">
+              <AlertTitle>Agent activated</AlertTitle>
+              <AlertDescription className="space-y-2">
+                <p>
+                  The orchestrator is running for this Case. We opened the
+                  stepped console in a new tab.
+                </p>
+                <p>
+                  <a
+                    href={`/orchestration/stepped?workflowId=${encodeURIComponent(existingWorkflowId)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium underline underline-offset-2"
+                  >
+                    Open stepped console again
+                  </a>
+                </p>
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
+          {existingActivateError ? (
+            <Alert variant="destructive">
+              <AlertDescription>{existingActivateError}</AlertDescription>
+            </Alert>
+          ) : null}
+
+          <div className="space-y-2">
+            <Label htmlFor="existing-case-number">Case Number</Label>
+            <p className="text-xs text-muted-foreground">
+              The numeric Case Number shown in Salesforce or in the landing page
+              chat, e.g.{" "}
+              <code className="rounded bg-muted px-1 py-0.5 font-mono">
+                00001079
+              </code>
+            </p>
+            <Input
+              id="existing-case-number"
+              placeholder="00001079"
+              value={existingCaseNumber}
+              onChange={(event) => {
+                setExistingCaseNumber(event.target.value.replace(/\D/g, ""));
+                setExistingActivateError(null);
+                setExistingWorkflowId(null);
+              }}
+              maxLength={20}
+              inputMode="numeric"
+              className="font-mono"
+            />
+          </div>
+
+          <Button
+            type="button"
+            size="lg"
+            variant="default"
+            disabled={!existingCaseNumber.trim() || activatingExisting}
+            onClick={() => void activateExistingCase()}
+          >
+            {activatingExisting ? "Looking up & activating…" : "Activate agent"}
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+    </>
   );
 }

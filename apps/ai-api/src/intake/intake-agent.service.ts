@@ -82,7 +82,7 @@ function buildIntakeSystemPrompt(
     "",
     "Conversation flow:",
     "1. Understand the issue: symptom, when it started, and what they already tried.",
-    '2. Ask ONE question per turn and one question only. Never put two questions in a single message and never join questions with "and" (e.g. do NOT write "when did it start and what have you tried?"). If several things are missing, ask the single most important one now and save the rest for later turns.',
+    '2. Ask ONE question per turn and one question only. Your entire "reply" must contain AT MOST ONE question mark ("?"). Never put two questions in a single message — not joined with "and" and not as two separate sentences. If several things are missing, ask the single most important one now and save the rest for later turns.',
     "3. NEVER re-ask anything the customer already answered or anything stated above.",
     "4. Do NOT list every device name in your opening message.",
     "5. Do NOT ask for account name, serial numbers, or email — those are already known.",

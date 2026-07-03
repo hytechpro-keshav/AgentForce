@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 
 import { DemoCaseCreateService } from "./demo-case-create.service";
+import type { SalesforceCaseGateway } from "../salesforce/salesforce-case.gateway";
 import type { SalesforceCaseWriteGateway } from "../salesforce/salesforce-case-write.gateway";
 
 jest.mock("./demo-case-catalog", () => ({
@@ -34,7 +35,11 @@ describe("DemoCaseCreateService", () => {
     createCase: jest.fn()
   } as unknown as SalesforceCaseWriteGateway;
 
-  const service = new DemoCaseCreateService(gateway);
+  const caseGateway = {
+    resolveCaseIdByNumber: jest.fn()
+  } as unknown as SalesforceCaseGateway;
+
+  const service = new DemoCaseCreateService(gateway, caseGateway);
 
   beforeEach(() => {
     jest.clearAllMocks();

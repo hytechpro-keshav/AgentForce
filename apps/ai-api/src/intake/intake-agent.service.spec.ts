@@ -151,9 +151,9 @@ describe("IntakeAgentService.nextTurn", () => {
     const { service, chat } = buildService(JSON.stringify({ reply: "ok" }));
     await service.nextTurn(principal(), turn);
     const system = chat.mock.calls[0][0].messages[0].content as string;
-    // one-question rule with explicit no-"and" guidance
+    // one-question rule with a hard, checkable constraint
     expect(system).toContain("one question only");
-    expect(system).toContain('never join questions with "and"');
+    expect(system).toContain("AT MOST ONE question mark");
     // subject/description/priority required on every turn
     expect(system).toContain("REQUIRED on every response");
     expect(system).toContain("never be empty or omitted");

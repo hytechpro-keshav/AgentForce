@@ -171,6 +171,21 @@ export function transcriptFallbackDescription(state: IntakeState): string {
     .join("\n");
 }
 
+/**
+ * The case description body shown in the review card and sent on submit.
+ * A customer edit wins; otherwise use the full typed transcript, which is
+ * always complete and in the customer's own words. The model's
+ * extracted.description is NOT used here — the model populates it
+ * inconsistently across turns, so trusting it drops detail the customer gave.
+ */
+export function resolveCaseDescription(state: IntakeState): string {
+  const edited = state.descriptionOverride?.trim();
+  if (edited) {
+    return edited;
+  }
+  return transcriptFallbackDescription(state) || "Laptop issue reported via chat.";
+}
+
 function selectedDevice(
   state: IntakeState
 ): IntakeDevice | undefined {
@@ -186,10 +201,7 @@ function selectedDevice(
 export function buildCaseCreatePayload(
   state: IntakeState
 ): Record<string, string | { city?: string; state?: string; country?: string }> {
-  const description =
-    state.extracted.description?.trim() ||
-    transcriptFallbackDescription(state) ||
-    "Laptop issue reported via chat.";
+  const description = resolveCaseDescription(state);
 
   const device = selectedDevice(state);
   const payload: Record<
