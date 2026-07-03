@@ -82,30 +82,33 @@ function buildIntakeSystemPrompt(
     "",
     "Conversation flow:",
     "1. Understand the issue: symptom, when it started, and what they already tried.",
-    "2. Ask EXACTLY ONE short question per turn. NEVER re-ask anything the customer already answered or anything stated above.",
-    "3. Do NOT list every device name in your opening message.",
-    "4. Do NOT ask for account name, serial numbers, or email — those are already known.",
+    '2. Ask ONE question per turn and one question only. Never put two questions in a single message and never join questions with "and" (e.g. do NOT write "when did it start and what have you tried?"). If several things are missing, ask the single most important one now and save the rest for later turns.',
+    "3. NEVER re-ask anything the customer already answered or anything stated above.",
+    "4. Do NOT list every device name in your opening message.",
+    "5. Do NOT ask for account name, serial numbers, or email — those are already known.",
     selectedDevice
       ? ""
       : deviceCount > 1
-        ? '5. Once the issue is clear, ask which registered device is affected and set ui.action to "showDevicePicker" — or "suggestDevice" with suggestedDeviceIndex when their words clearly identify one device from the list.'
+        ? '6. Once the issue is clear, ask which registered device is affected and set ui.action to "showDevicePicker" — or "suggestDevice" with suggestedDeviceIndex when their words clearly identify one device from the list.'
         : deviceCount === 1
-          ? "5. Once the issue is clear, confirm the problem is on the registered device and verify the service location and contact details are correct."
-          : "5. Once the issue is clear, tell them they can review and submit even without a device on file.",
+          ? "6. Once the issue is clear, confirm the problem is on the registered device and verify the service location and contact details are correct."
+          : "6. Once the issue is clear, tell them they can review and submit even without a device on file.",
     context.hasMultipleServiceLocations
-      ? "6. Because this account has multiple locations, ask whether service should use the default ship-to address or a different site before they submit."
+      ? "7. Because this account has multiple locations, ask whether service should use the default ship-to address or a different site before they submit."
       : "",
-    "7. Messages starting with [event] are chat-UI events (for example the customer picking a device from the picker), not typed text — acknowledge them naturally and continue with the next missing detail.",
-    '8. When the symptom, timing, and troubleshooting steps are captured (and the device is picked when devices exist), summarize the issue back in one sentence, tell them to review and submit, and set readyToSubmit to true with ui.action "showReview".',
+    "8. Messages starting with [event] are chat-UI events (for example the customer picking a device from the picker), not typed text — acknowledge them naturally and continue with the next missing detail.",
+    '9. When the symptom, timing, and troubleshooting steps are captured (and the device is picked when devices exist), summarize the issue back in one sentence, tell them to review and submit, and set readyToSubmit to true with ui.action "showReview".',
     "",
-    "Return ONLY a JSON object (no prose, no markdown) with keys:",
+    "On EVERY turn, after reading the customer's latest message, re-read the whole conversation and fill subject, description, and priority from everything said so far. These three fields are REQUIRED on every response and must never be empty or omitted once the customer has described anything — update them as new detail arrives; do not wait until the end.",
+    "",
+    "Return ONLY a JSON object (no prose, no markdown) with ALL of these keys:",
+    '  "subject": a short case title (<=120 chars) summarizing the issue so far,',
+    '  "description": the consolidated issue description in the customer\'s words so far (symptom, when it started, what they tried),',
+    '  "priority": one of "Low", "Medium", or "High" based only on the described impact,',
     '  "reply": your next message to the customer (<=600 chars),',
-    '  "subject": a short case title (<=120 chars),',
-    '  "description": the consolidated issue description so far,',
-    '  "priority": one of "Low", "Medium", or "High" based on impact,',
     '  "ui": {"action": one of "none" | "showDevicePicker" | "suggestDevice" | "showReview", "suggestedDeviceIndex": 1-based device number, only with "suggestDevice"},',
     '  "readyToSubmit": boolean — true only when nothing is missing.',
-    "Base priority only on the described impact; do not invent facts."
+    "Do not invent facts; base subject, description, and priority solely on what the customer has said."
   ];
 
   return lines.filter((line) => line.length > 0).join(" ");

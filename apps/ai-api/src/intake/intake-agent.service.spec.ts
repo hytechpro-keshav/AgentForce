@@ -143,8 +143,20 @@ describe("IntakeAgentService.nextTurn", () => {
     const system = chat.mock.calls[0][0].messages[0].content as string;
     expect(system).toContain("already picked the affected device");
     expect(system).toContain("ThinkPad X1");
-    expect(system).toContain("EXACTLY ONE short question");
+    expect(system).toContain("ONE question per turn");
     expect(result.ui.action).toBe("none");
+  });
+
+  it("instructs one question per turn and mandatory field extraction", async () => {
+    const { service, chat } = buildService(JSON.stringify({ reply: "ok" }));
+    await service.nextTurn(principal(), turn);
+    const system = chat.mock.calls[0][0].messages[0].content as string;
+    // one-question rule with explicit no-"and" guidance
+    expect(system).toContain("one question only");
+    expect(system).toContain('never join questions with "and"');
+    // subject/description/priority required on every turn
+    expect(system).toContain("REQUIRED on every response");
+    expect(system).toContain("never be empty or omitted");
   });
 
   it("ignores a selectedAssetId that is not in the server-side catalog", async () => {

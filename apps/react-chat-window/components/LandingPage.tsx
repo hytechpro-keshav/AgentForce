@@ -292,7 +292,6 @@ export function LandingPage() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Grotesk:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
         @keyframes acp-pulse{0%,100%{opacity:.45;transform:scale(1)}50%{opacity:1;transform:scale(1.3)}}
         @keyframes acp-pulseDown{0%{top:22px;opacity:0}12%{opacity:1}86%{opacity:1}100%{top:calc(100% - 40px);opacity:0}}
         @keyframes acp-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
