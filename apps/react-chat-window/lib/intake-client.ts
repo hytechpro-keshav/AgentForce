@@ -69,14 +69,38 @@ export async function loadIntakeContext(
   };
 }
 
+/** Above this count the device picker shows a search box. */
+export const DEVICE_PICKER_SEARCH_THRESHOLD = 6;
+
 /** Short personalized opener — device names are shown in the picker later. */
 export function deviceGreeting(context: IntakeContext): string {
   const firstName = context.displayName?.trim().split(/\s+/)[0];
   const accountSuffix = context.accountName ? ` for ${context.accountName}` : "";
+  const deviceCount = context.devices.length;
+  const deviceHint =
+    deviceCount === 1
+      ? " I can see 1 registered device on your account."
+      : deviceCount > 1
+        ? ` I can see ${deviceCount} registered devices on your account.`
+        : "";
   if (firstName) {
-    return `Hi ${firstName}, I'm Ably — your AI service guide${accountSuffix}. What issue are you experiencing today?`;
+    return `Hi ${firstName}, I'm Ably — your AI service guide${accountSuffix}.${deviceHint} What issue are you experiencing today?`;
   }
-  return `Hi, I'm Ably — your AI service guide${accountSuffix}. What issue are you experiencing today?`;
+  return `Hi, I'm Ably — your AI service guide${accountSuffix}.${deviceHint} What issue are you experiencing today?`;
+}
+
+/** Filter device chips by label when the account has many assets. */
+export function filterDevicesByQuery(
+  devices: IntakeDevice[],
+  query: string
+): IntakeDevice[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) {
+    return devices;
+  }
+  return devices.filter((device) =>
+    device.label.toLowerCase().includes(needle)
+  );
 }
 
 /**

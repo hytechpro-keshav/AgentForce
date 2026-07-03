@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Laptop, Loader2, Send } from "lucide-react";
+import { Loader2, Send } from "lucide-react";
 
 import type { IntakeDevice, IntakeMessage } from "@/lib/intake-flow";
+import { IntakeDevicePicker } from "@/components/intake/IntakeDevicePicker";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -131,39 +132,12 @@ export function IntakeConversation({
       </div>
 
       {showDevicePicker ? (
-        <section className="space-y-2 rounded-lg border bg-card p-4">
-          <h2 className="flex items-center gap-2 text-sm font-medium">
-            <Laptop className="h-4 w-4" />
-            {suggestedAssetId
-              ? "Tap to confirm the affected device"
-              : "Which device is affected?"}
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            {[...devices]
-              .sort((a, b) =>
-                a.assetId === suggestedAssetId
-                  ? -1
-                  : b.assetId === suggestedAssetId
-                    ? 1
-                    : 0
-              )
-              .map((device) => {
-              const suggested = device.assetId === suggestedAssetId;
-              return (
-                <Button
-                  key={device.assetId}
-                  type="button"
-                  variant={suggested ? "default" : "outline"}
-                  size="sm"
-                  disabled={sending}
-                  onClick={() => onSelectDevice(device.assetId)}
-                >
-                  {suggested ? `✓ ${device.label}` : device.label}
-                </Button>
-              );
-            })}
-          </div>
-        </section>
+        <IntakeDevicePicker
+          devices={devices}
+          suggestedAssetId={suggestedAssetId}
+          sending={sending}
+          onSelect={onSelectDevice}
+        />
       ) : null}
 
       {issueCaptured && devices.length === 0 ? (

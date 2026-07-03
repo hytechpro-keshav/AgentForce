@@ -6,6 +6,7 @@ import {
   canSubmitCase,
   deviceGreeting,
   deviceSelectionEvent,
+  filterDevicesByQuery,
   parseTurnResponse,
   resolveCaseDescription,
   shouldShowDevicePicker,
@@ -25,11 +26,31 @@ const baseContext: IntakeContext = {
 };
 
 describe("deviceGreeting", () => {
-  it("greets by first name without listing every device", () => {
+  it("greets by first name and mentions device count without listing labels", () => {
     const greeting = deviceGreeting(baseContext);
     expect(greeting).toContain("Hi Jason");
+    expect(greeting).toContain("2 registered devices");
     expect(greeting).not.toContain("Quantum Apex");
-    expect(greeting).not.toContain("device(s) on your account");
+  });
+
+  it("mentions a single device without listing its label", () => {
+    const greeting = deviceGreeting({
+      ...baseContext,
+      devices: [baseContext.devices[0]!]
+    });
+    expect(greeting).toContain("1 registered device");
+    expect(greeting).not.toContain("Quantum Apex");
+  });
+});
+
+describe("filterDevicesByQuery", () => {
+  it("filters devices by label substring", () => {
+    expect(filterDevicesByQuery(baseContext.devices, "probook")).toEqual([
+      { assetId: "02i2", label: "AeroVolt ProBook 15X" }
+    ]);
+    expect(filterDevicesByQuery(baseContext.devices, "")).toEqual(
+      baseContext.devices
+    );
   });
 });
 

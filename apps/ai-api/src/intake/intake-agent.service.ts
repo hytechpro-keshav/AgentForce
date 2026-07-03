@@ -28,6 +28,8 @@ const UI_ACTIONS = new Set<IntakeTurnUiAction>([
   "showReview"
 ]);
 const MIN_DESCRIPTION_LENGTH = 10;
+/** Above this count the UI shows a search box instead of bare chips. */
+const DEVICE_PICKER_SEARCH_THRESHOLD = 6;
 /** Anti-trap fallback: readiness the model can't withhold forever. */
 const FALLBACK_MIN_USER_TURNS = 2;
 const FALLBACK_MIN_USER_WORDS = 25;
@@ -64,6 +66,30 @@ function isTypedUserMessage(message: {
     message.role === "user" &&
     !message.content.trim().toLowerCase().startsWith("[event]")
   );
+}
+
+/** Strips contradictory "can't list devices" prose when the UI is showing chips. */
+function sanitizeDevicePickerReply(
+  reply: string,
+  action: IntakeTurnUiAction,
+  deviceCount: number
+): string {
+  if (
+    deviceCount <= 1 ||
+    (action !== "showDevicePicker" && action !== "suggestDevice")
+  ) {
+    return reply;
+  }
+  if (
+    !/can'?t list|cannot list|unable to list|not possible to list|too many (devices|items)|don'?t have (access|control)/i.test(
+      reply
+    )
+  ) {
+    return reply;
+  }
+  return deviceCount > DEVICE_PICKER_SEARCH_THRESHOLD
+    ? `I've put your ${deviceCount} registered devices below — use the search box to find yours, then tap it to confirm.`
+    : "I've listed your registered devices below — tap the one affected by this issue.";
 }
 
 /**
@@ -191,12 +217,15 @@ function buildIntakeSystemPrompt(
     "1. Understand the issue: symptom, when it started, and what they already tried.",
     '2. Ask ONE question per turn and one question only. Your entire "reply" must contain AT MOST ONE question mark ("?"). Never put two questions in a single message — not joined with "and" and not as two separate sentences. If several things are missing, ask the single most important one now and save the rest for later turns.',
     "3. NEVER re-ask anything the customer already answered or anything stated above.",
-    "4. Do NOT list every device name in your opening message.",
+    "4. Do NOT list every device name in your opening message or in free-text replies when the device picker is visible — the chat UI shows tappable device chips (with search when many devices exist) below your message instead.",
+    "4b. NEVER say you cannot list devices, that listing is unavailable, or that there are too many to show — when devices exist the UI always shows them as chips below. If the customer asks to see their account items or registered devices, tell them to tap the matching chip below (or use the search box when many devices are on file).",
     "5. Do NOT ask for account name, serial numbers, or email — those are already known.",
     selectedDevice
       ? ""
       : deviceCount > 1
-        ? '6. Once the issue is clear, ask which registered device is affected and set ui.action to "showDevicePicker" — or "suggestDevice" with suggestedDeviceIndex when their words clearly identify one device from the list. If the customer TYPES a device name instead of tapping the picker, do not treat it as final: set ui.action "suggestDevice" with the matching suggestedDeviceIndex and ask them to tap the highlighted chip to confirm.'
+        ? deviceCount > DEVICE_PICKER_SEARCH_THRESHOLD
+        ? `6. Once the issue is clear, ask which registered device is affected and set ui.action to "showDevicePicker" — point them to the searchable device list below (they have ${deviceCount} devices on file). Or use "suggestDevice" with suggestedDeviceIndex when their words clearly identify one device. If the customer TYPES a device name instead of tapping the picker, do not treat it as final: set ui.action "suggestDevice" with the matching suggestedDeviceIndex and ask them to tap the highlighted chip to confirm.`
+        : '6. Once the issue is clear, ask which registered device is affected and set ui.action to "showDevicePicker" — tell them to tap the matching chip below. Or use "suggestDevice" with suggestedDeviceIndex when their words clearly identify one device from the list. If the customer TYPES a device name instead of tapping the picker, do not treat it as final: set ui.action "suggestDevice" with the matching suggestedDeviceIndex and ask them to tap the highlighted chip to confirm.'
         : deviceCount === 1
           ? "6. Once the issue is clear, confirm the problem is on the registered device and verify the service location and contact details are correct."
           : "6. Once the issue is clear, tell them they can review and submit even without a device on file.",
@@ -304,25 +333,30 @@ export class IntakeAgentService {
       (userMessages.length >= FALLBACK_MIN_USER_TURNS &&
         userWordCount >= FALLBACK_MIN_USER_WORDS);
 
+    const ui = IntakeAgentService.resolveUiDirective(
+      parsed.ui,
+      context,
+      selectedDevice,
+      readyToSubmit,
+      selectedDevice
+        ? undefined
+        : matchDeviceFromTranscript(context.devices, dto.messages)
+    );
+
     return {
-      reply:
+      reply: sanitizeDevicePickerReply(
         parsed.reply ||
-        "Thanks — could you tell me a bit more about the issue you're seeing?",
+          "Thanks — could you tell me a bit more about the issue you're seeing?",
+        ui.action,
+        context.devices.length
+      ),
       extracted: parsed.fields,
       issueCaptured:
         Boolean(
           parsed.fields.description &&
             parsed.fields.description.trim().length >= MIN_DESCRIPTION_LENGTH
         ) || userWordCount >= 10,
-      ui: IntakeAgentService.resolveUiDirective(
-        parsed.ui,
-        context,
-        selectedDevice,
-        readyToSubmit,
-        selectedDevice
-          ? undefined
-          : matchDeviceFromTranscript(context.devices, dto.messages)
-      ),
+      ui,
       readyToSubmit
     };
   }

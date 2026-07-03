@@ -431,5 +431,26 @@ describe("IntakeAgentService.nextTurn", () => {
     const system = chat.mock.calls[0][0].messages[0].content as string;
     expect(system).toContain("CANNOT create or submit the case from chat");
     expect(system).toContain("Never repeat your previous message");
+    expect(system).toContain("NEVER say you cannot list devices");
+  });
+
+  it("replaces contradictory can't-list replies when the device picker is shown", async () => {
+    const { service } = buildService(
+      JSON.stringify({
+        reply:
+          "I can't list all the devices, but please tell me which registered device is affected.",
+        readyToSubmit: false,
+        ui: { action: "showDevicePicker" }
+      }),
+      multiDeviceContext
+    );
+    const result = await service.nextTurn(principal(), {
+      messages: [
+        { role: "user" as const, content: "can you list items in my account" }
+      ]
+    });
+    expect(result.ui).toEqual({ action: "showDevicePicker" });
+    expect(result.reply).toContain("listed your registered devices below");
+    expect(result.reply).not.toMatch(/can'?t list/i);
   });
 });

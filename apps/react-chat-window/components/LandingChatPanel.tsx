@@ -19,6 +19,7 @@ import {
   resolveCaseDescription,
   shouldShowDevicePicker
 } from "@/lib/intake-client";
+import { IntakeDevicePicker } from "@/components/intake/IntakeDevicePicker";
 
 export function LandingChatPanel() {
   const [open, setOpen] = useState(false);
@@ -594,60 +595,15 @@ export function LandingChatPanel() {
               </div>
             ))}
           </div>
-          {showDevicePicker && (
-            <div style={{ paddingTop: "4px" }}>
-              <div
-                style={{
-                  fontSize: "11px",
-                  fontWeight: 600,
-                  color: "#5A7189",
-                  marginBottom: "6px"
-                }}
-              >
-                {state.suggestedAssetId
-                  ? "Tap to confirm the affected device"
-                  : "Which device is affected?"}
-              </div>
-              <div
-                style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}
-              >
-              {[...devices]
-                .sort((a, b) =>
-                  a.assetId === state.suggestedAssetId
-                    ? -1
-                    : b.assetId === state.suggestedAssetId
-                      ? 1
-                      : 0
-                )
-                .map((d) => {
-                const suggested = d.assetId === state.suggestedAssetId;
-                return (
-                  <button
-                    key={d.assetId}
-                    onClick={() => handleDeviceSelected(d.assetId)}
-                    disabled={sending}
-                    style={{
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      color: suggested ? "#fff" : "#0E5E86",
-                      background: suggested ? "#139ED9" : "#fff",
-                      border: suggested
-                        ? "1px solid #139ED9"
-                        : "1px solid rgba(19,158,217,.3)",
-                      borderRadius: "100px",
-                      padding: "6px 12px",
-                      cursor: sending ? "default" : "pointer",
-                      opacity: sending ? 0.6 : 1,
-                      fontFamily: "inherit"
-                    }}
-                  >
-                    {suggested ? `✓ ${d.label}` : d.label}
-                  </button>
-                );
-              })}
-              </div>
-            </div>
-          )}
+          {showDevicePicker ? (
+            <IntakeDevicePicker
+              devices={devices}
+              suggestedAssetId={state.suggestedAssetId}
+              sending={sending}
+              onSelect={handleDeviceSelected}
+              variant="landing"
+            />
+          ) : null}
           {devices.length > 0 && state.selectedAssetId && (
             <div
               style={{
