@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   ForbiddenException,
@@ -19,6 +20,8 @@ import {
   DemoCaseCreateDto,
   DemoCaseCreateResponseDto
 } from "./dto/demo-case-create.dto";
+
+const CASE_ID_PATTERN = /^[a-zA-Z0-9]{15}(?:[a-zA-Z0-9]{3})?$/;
 
 @Controller("demo")
 export class DemoCaseCreateController {
@@ -71,6 +74,23 @@ export class DemoCaseCreateController {
   }
 
   @RequireScopes("agentforce:demo-case-create")
+  @Post("cases/:caseId/prepare-stepped")
+  @HttpCode(200)
+  async prepareForStepped(
+    @Param("caseId") caseId: string
+  ): Promise<{ prepared: boolean; previousStatus?: string }> {
+    if (!this.config.demoCaseCreate.enabled) {
+      throw new ForbiddenException({
+        error: "demo_create_disabled",
+        message: "Demo Case create is disabled."
+      });
+    }
+    return this.service.prepareCaseForSteppedActivation(
+      this.assertCaseId(caseId)
+    );
+  }
+
+  @RequireScopes("agentforce:demo-case-create")
   @Post("orchestration-session")
   @HttpCode(200)
   orchestrationSession(): OperatorOrchestrationSessionResponseDto {
@@ -81,5 +101,13 @@ export class DemoCaseCreateController {
       });
     }
     return this.operatorSession.createTrustedDemoSession();
+  }
+
+  private assertCaseId(caseId: string): string {
+    const trimmed = caseId.trim();
+    if (!CASE_ID_PATTERN.test(trimmed)) {
+      throw new BadRequestException({ error: "invalid_case_id" });
+    }
+    return trimmed;
   }
 }

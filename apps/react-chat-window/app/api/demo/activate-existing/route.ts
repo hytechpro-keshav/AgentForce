@@ -124,7 +124,43 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   };
   const { caseId, caseNumber: resolvedNumber } = lookup;
 
-  // Step 2 — mint an operator session
+  // Step 2 — chat-intake Cases start as stopped_by_user; flip to suppressed
+  // (same as demo Case create) so stepped orchestration is allowed.
+  let prepareRes: Response;
+  try {
+    prepareRes = await fetch(
+      `${aiApiBaseUrl()}/demo/cases/${encodeURIComponent(caseId)}/prepare-stepped`,
+      {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          authorization: `Bearer ${token}`
+        },
+        cache: "no-store"
+      }
+    );
+  } catch {
+    return NextResponse.json(
+      {
+        error: "prepare_unavailable",
+        message: "Could not prepare this Case for agent activation."
+      },
+      { status: 503 }
+    );
+  }
+
+  if (!prepareRes.ok) {
+    const text = await prepareRes.text();
+    return new NextResponse(text, {
+      status: prepareRes.status,
+      headers: {
+        "content-type":
+          prepareRes.headers.get("content-type") ?? "application/json"
+      }
+    });
+  }
+
+  // Step 3 — mint an operator session
   const session =
     (await mintOperatorSessionFromDemoToken()) ??
     (await mintOperatorSessionFromEnv());
@@ -138,7 +174,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Step 3 — trigger the stepped orchestrator
+  // Step 4 — trigger the stepped orchestrator
   let steppedRes: Response;
   try {
     steppedRes = await fetch(
