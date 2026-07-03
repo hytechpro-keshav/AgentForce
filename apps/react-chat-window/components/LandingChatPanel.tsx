@@ -9,11 +9,15 @@ import {
 import {
   bootstrapIntakeSession,
   buildCaseCreatePayload,
+  buildTurnRequestBody,
   canSubmitCase,
   deviceGreeting,
+  deviceSelectionEvent,
   fetchIntakeConfig,
   loadIntakeContext,
-  shouldShowDevicePicker
+  parseTurnResponse,
+  shouldShowDevicePicker,
+  transcriptFallbackDescription
 } from "@/lib/intake-client";
 
 export function LandingChatPanel() {
@@ -192,15 +196,11 @@ export function LandingChatPanel() {
     }
   }
 
-  async function handleSend() {
-    const text = chatInput.trim();
-    if (!text || !state.session?.accessToken) return;
-    const nextMessages = [
-      ...state.messages.filter((m) => !m.uiOnly),
-      { role: "user" as const, content: text }
-    ];
-    dispatch({ type: "appendMessage", message: { role: "user", content: text } });
-    setChatInput("");
+  async function sendTurn(
+    nextMessages: Array<{ role: "user" | "assistant"; content: string }>,
+    selectedAssetId: string | null
+  ) {
+    if (!state.session?.accessToken) return;
     setSending(true);
     setTurnError(null);
     try {
@@ -210,34 +210,53 @@ export function LandingChatPanel() {
           "content-type": "application/json",
           authorization: `Bearer ${state.session.accessToken}`
         },
-        body: JSON.stringify({
-          messages: nextMessages.map((m) => ({ role: m.role, content: m.content }))
-        })
+        body: JSON.stringify(
+          buildTurnRequestBody(nextMessages, selectedAssetId)
+        )
       });
       if (!res.ok) {
         setTurnError("Couldn't process that. Please try again.");
         return;
       }
-      const json = (await res.json()) as {
-        reply?: string;
-        extracted?: {
-          subject?: string;
-          description?: string;
-          priority?: "Low" | "Medium" | "High";
-        };
-        issueCaptured?: boolean;
-      };
-      dispatch({
-        type: "turnResult",
-        reply: json.reply ?? "Could you tell me a bit more about the issue?",
-        extracted: json.extracted ?? {},
-        issueCaptured: json.issueCaptured === true
-      });
+      dispatch({ type: "turnResult", ...parseTurnResponse(await res.json()) });
     } catch {
       setTurnError("Could not reach the service. Check your connection.");
     } finally {
       setSending(false);
     }
+  }
+
+  function handleSend() {
+    const text = chatInput.trim();
+    if (!text || !state.session?.accessToken || sending) return;
+    const userMessage = { role: "user" as const, content: text };
+    const nextMessages = [
+      ...state.messages.filter((m) => !m.uiOnly),
+      userMessage
+    ].map((m) => ({ role: m.role, content: m.content }));
+    dispatch({ type: "appendMessage", message: userMessage });
+    setChatInput("");
+    void sendTurn(nextMessages, state.selectedAssetId);
+  }
+
+  // Selection is a conversation event: a hidden [event] note goes to the
+  // model so it acknowledges the pick instead of asking which device.
+  function handleDeviceSelected(assetId: string) {
+    if (sending) return;
+    dispatch({ type: "selectDevice", assetId });
+    const label = devices.find((d) => d.assetId === assetId)?.label;
+    if (!label || !state.session?.accessToken) return;
+    const event = {
+      role: "user" as const,
+      content: deviceSelectionEvent(label),
+      hidden: true
+    };
+    dispatch({ type: "appendMessage", message: event });
+    const nextMessages = [
+      ...state.messages.filter((m) => !m.uiOnly),
+      event
+    ].map((m) => ({ role: m.role, content: m.content }));
+    void sendTurn(nextMessages, assetId);
   }
 
   async function handleSubmitCase() {
@@ -275,9 +294,7 @@ export function LandingChatPanel() {
 
   const devices = state.context?.devices ?? [];
   const showDevicePicker = shouldShowDevicePicker(state);
-  const reviewReady =
-    state.issueCaptured &&
-    (devices.length === 0 ? true : state.selectedAssetId !== null);
+  const reviewReady = state.readyToSubmit && canSubmitCase(state);
 
   function renderBody() {
     const { phase } = state;
@@ -538,7 +555,9 @@ export function LandingChatPanel() {
           }}
         >
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {state.messages.map((m, i) => (
+            {state.messages
+              .filter((m) => !m.hidden)
+              .map((m, i) => (
               <div
                 key={i}
                 style={{
@@ -579,32 +598,39 @@ export function LandingChatPanel() {
                   marginBottom: "6px"
                 }}
               >
-                Which device is affected?
+                {state.suggestedAssetId
+                  ? "Tap to confirm the affected device"
+                  : "Which device is affected?"}
               </div>
               <div
                 style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}
               >
-              {devices.map((d) => (
-                <button
-                  key={d.assetId}
-                  onClick={() =>
-                    dispatch({ type: "selectDevice", assetId: d.assetId })
-                  }
-                  style={{
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    color: "#0E5E86",
-                    background: "#fff",
-                    border: "1px solid rgba(19,158,217,.3)",
-                    borderRadius: "100px",
-                    padding: "6px 12px",
-                    cursor: "pointer",
-                    fontFamily: "inherit"
-                  }}
-                >
-                  {d.label}
-                </button>
-              ))}
+              {devices.map((d) => {
+                const suggested = d.assetId === state.suggestedAssetId;
+                return (
+                  <button
+                    key={d.assetId}
+                    onClick={() => handleDeviceSelected(d.assetId)}
+                    disabled={sending}
+                    style={{
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      color: suggested ? "#fff" : "#0E5E86",
+                      background: suggested ? "#139ED9" : "#fff",
+                      border: suggested
+                        ? "1px solid #139ED9"
+                        : "1px solid rgba(19,158,217,.3)",
+                      borderRadius: "100px",
+                      padding: "6px 12px",
+                      cursor: sending ? "default" : "pointer",
+                      opacity: sending ? 0.6 : 1,
+                      fontFamily: "inherit"
+                    }}
+                  >
+                    {suggested ? `✓ ${d.label}` : d.label}
+                  </button>
+                );
+              })}
               </div>
             </div>
           )}
@@ -678,12 +704,8 @@ export function LandingChatPanel() {
 
     if (phase === "confirm") {
       const description =
-        state.extracted.description?.trim() ||
-        state.messages
-          .filter((m) => m.role === "user")
-          .map((m) => m.content)
-          .join("\n") ||
-        "Issue reported via chat.";
+        state.extracted.description ??
+        (transcriptFallbackDescription(state) || "Issue reported via chat.");
       const subject =
         state.extracted.subject || description.split(/\r?\n/)[0] || "";
       const deviceLabel = devices.find(
@@ -729,6 +751,42 @@ export function LandingChatPanel() {
             <div style={{ fontSize: "12.5px", color: "#5A7189", marginTop: "4px" }}>
               Priority: {state.extracted.priority ?? "Medium"}
             </div>
+            <div
+              style={{
+                fontSize: "11px",
+                fontFamily: "'IBM Plex Mono',monospace",
+                letterSpacing: ".1em",
+                textTransform: "uppercase",
+                color: "#8598AB",
+                margin: "12px 0 6px"
+              }}
+            >
+              Description
+            </div>
+            <textarea
+              value={description}
+              onChange={(e) =>
+                dispatch({
+                  type: "editDescription",
+                  description: e.target.value
+                })
+              }
+              rows={5}
+              aria-label="Case description"
+              style={{
+                width: "100%",
+                boxSizing: "border-box",
+                fontSize: "12.5px",
+                lineHeight: 1.5,
+                color: "#33495F",
+                background: "#fff",
+                border: "1px solid #E6EDF4",
+                borderRadius: "8px",
+                padding: "8px 10px",
+                fontFamily: "inherit",
+                resize: "vertical"
+              }}
+            />
           </div>
           {submitError && (
             <div
@@ -782,6 +840,7 @@ export function LandingChatPanel() {
     }
 
     // done
+    const updatesEmail = state.email || state.context?.contactEmail || "";
     return (
       <div
         style={{
@@ -828,8 +887,10 @@ export function LandingChatPanel() {
         <div
           style={{ fontSize: "13px", color: "#5A7189", lineHeight: 1.5 }}
         >
-          We&apos;ll be in touch shortly. You&apos;ll receive updates at{" "}
-          {state.email}.
+          We&apos;ll be in touch shortly.
+          {updatesEmail ? (
+            <> You&apos;ll receive updates at {updatesEmail}.</>
+          ) : null}
         </div>
         <button
           onClick={() =>

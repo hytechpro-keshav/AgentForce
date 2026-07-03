@@ -13,6 +13,14 @@ const session = {
   subject: "customer-chat:x"
 };
 
+const twoDeviceContext = {
+  devices: [
+    { assetId: "02i1", label: "ThinkPad X1" },
+    { assetId: "02i2", label: "MacBook Pro" }
+  ],
+  shipTo: {}
+};
+
 describe("intakeReducer", () => {
   it("advances email → otp → triage", () => {
     let state = intakeReducer(initialIntakeState, {
@@ -52,14 +60,138 @@ describe("intakeReducer", () => {
     expect(state.messages).toHaveLength(2);
   });
 
-  it("gates review on both an issue and a device", () => {
+  it("latches the picker once the model cues it and releases it on selection", () => {
     let state: IntakeState = {
       ...initialIntakeState,
       phase: "triage",
+      context: twoDeviceContext
+    };
+    state = intakeReducer(state, {
+      type: "turnResult",
+      reply: "Which device is affected?",
+      extracted: {},
+      issueCaptured: true,
+      ui: { action: "showDevicePicker" },
+      readyToSubmit: false
+    });
+    expect(state.devicePickerRequested).toBe(true);
+
+    // sticky across a plain follow-up turn
+    state = intakeReducer(state, {
+      type: "turnResult",
+      reply: "When did it start?",
+      extracted: {},
+      issueCaptured: true,
+      ui: { action: "none" },
+      readyToSubmit: false
+    });
+    expect(state.devicePickerRequested).toBe(true);
+
+    state = intakeReducer(state, { type: "selectDevice", assetId: "02i1" });
+    expect(state.devicePickerRequested).toBe(false);
+    expect(state.suggestedAssetId).toBeNull();
+
+    // "Change" explicitly reopens the picker
+    state = intakeReducer(state, { type: "clearDevice" });
+    expect(state.selectedAssetId).toBeNull();
+    expect(state.devicePickerRequested).toBe(true);
+  });
+
+  it("keeps a suggested device only when it exists in the catalog", () => {
+    let state: IntakeState = {
+      ...initialIntakeState,
+      phase: "triage",
+      context: twoDeviceContext
+    };
+    state = intakeReducer(state, {
+      type: "turnResult",
+      reply: "Sounds like your ThinkPad — tap to confirm.",
+      extracted: {},
+      issueCaptured: true,
+      ui: { action: "suggestDevice", suggestedAssetId: "02i1" },
+      readyToSubmit: false
+    });
+    expect(state.suggestedAssetId).toBe("02i1");
+    expect(state.devicePickerRequested).toBe(true);
+
+    state = intakeReducer(state, {
+      type: "turnResult",
+      reply: "Hmm.",
+      extracted: {},
+      issueCaptured: true,
+      ui: { action: "suggestDevice", suggestedAssetId: "02i9" },
+      readyToSubmit: false
+    });
+    // unknown asset is ignored; the earlier valid suggestion persists
+    expect(state.suggestedAssetId).toBe("02i1");
+  });
+
+  it("tracks the model's latest readiness judgment", () => {
+    let state: IntakeState = { ...initialIntakeState, phase: "triage" };
+    state = intakeReducer(state, {
+      type: "turnResult",
+      reply: "You can review and submit.",
+      extracted: {},
+      issueCaptured: true,
+      ui: { action: "showReview" },
+      readyToSubmit: true
+    });
+    expect(state.readyToSubmit).toBe(true);
+
+    // new information makes the model ask again → the CTA retracts
+    state = intakeReducer(state, {
+      type: "turnResult",
+      reply: "Does the keyboard issue happen on battery too?",
+      extracted: {},
+      issueCaptured: true,
+      ui: { action: "none" },
+      readyToSubmit: false
+    });
+    expect(state.readyToSubmit).toBe(false);
+
+    // legacy responses without the field keep the previous judgment
+    state = intakeReducer(state, {
+      type: "turnResult",
+      reply: "ok",
+      extracted: {},
+      issueCaptured: true
+    });
+    expect(state.readyToSubmit).toBe(false);
+  });
+
+  it("edits the description for the review card", () => {
+    let state: IntakeState = {
+      ...initialIntakeState,
+      extracted: { description: "old text" }
+    };
+    state = intakeReducer(state, {
+      type: "editDescription",
+      description: "corrected text"
+    });
+    expect(state.extracted.description).toBe("corrected text");
+  });
+
+  it("gates review on model readiness and a picked device", () => {
+    let state: IntakeState = {
+      ...initialIntakeState,
+      phase: "triage",
+      context: twoDeviceContext,
       issueCaptured: true
     };
     expect(canReview(state)).toBe(false);
+    state = { ...state, readyToSubmit: true };
+    expect(canReview(state)).toBe(false);
     state = intakeReducer(state, { type: "selectDevice", assetId: "02i1" });
+    expect(canReview(state)).toBe(true);
+  });
+
+  it("allows review without a device when none are on file", () => {
+    const state: IntakeState = {
+      ...initialIntakeState,
+      phase: "triage",
+      context: { devices: [], shipTo: {} },
+      readyToSubmit: true
+    };
     expect(canReview(state)).toBe(true);
   });
 

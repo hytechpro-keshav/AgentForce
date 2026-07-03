@@ -49,12 +49,26 @@ export interface IntakeMessage {
   content: string;
   /** True for UI-injected messages (e.g. device greeting) that must NOT be sent to the LLM. */
   uiOnly?: boolean;
+  /** True for chat-UI event notes (e.g. device selection) sent to the LLM but never rendered. */
+  hidden?: boolean;
 }
 
 export interface IntakeExtracted {
   subject?: string;
   description?: string;
   priority?: "Low" | "Medium" | "High";
+}
+
+export type IntakeUiAction =
+  | "none"
+  | "showDevicePicker"
+  | "suggestDevice"
+  | "showReview";
+
+/** Widget cue returned by the model for a turn (validated server-side). */
+export interface IntakeUiDirective {
+  action: IntakeUiAction;
+  suggestedAssetId?: string;
 }
 
 export interface IntakeState {
@@ -65,6 +79,12 @@ export interface IntakeState {
   messages: IntakeMessage[];
   extracted: IntakeExtracted;
   issueCaptured: boolean;
+  /** Model's current judgment that the case is ready for review & submit. */
+  readyToSubmit: boolean;
+  /** Sticky until a device is picked: the model has asked for the device. */
+  devicePickerRequested: boolean;
+  /** Device the model believes the customer named; highlighted in the picker. */
+  suggestedAssetId: string | null;
   selectedAssetId: string | null;
   caseId: string | null;
   caseNumber: string | null;
@@ -78,6 +98,9 @@ export const initialIntakeState: IntakeState = {
   messages: [],
   extracted: {},
   issueCaptured: false,
+  readyToSubmit: false,
+  devicePickerRequested: false,
+  suggestedAssetId: null,
   selectedAssetId: null,
   caseId: null,
   caseNumber: null
@@ -104,9 +127,12 @@ export type IntakeAction =
       reply: string;
       extracted: IntakeExtracted;
       issueCaptured: boolean;
+      ui?: IntakeUiDirective;
+      readyToSubmit?: boolean;
     }
   | { type: "selectDevice"; assetId: string }
   | { type: "clearDevice" }
+  | { type: "editDescription"; description: string }
   | { type: "toConfirm" }
   | { type: "backToTriage" }
   | { type: "caseCreated"; caseId: string; caseNumber?: string }
@@ -138,7 +164,16 @@ export function intakeReducer(
     }
     case "appendMessage":
       return { ...state, messages: [...state.messages, action.message] };
-    case "turnResult":
+    case "turnResult": {
+      const uiAction = action.ui?.action;
+      const suggestedAssetId =
+        uiAction === "suggestDevice" &&
+        action.ui?.suggestedAssetId &&
+        state.context?.devices.some(
+          (device) => device.assetId === action.ui?.suggestedAssetId
+        )
+          ? action.ui.suggestedAssetId
+          : state.suggestedAssetId;
       return {
         ...state,
         messages: [
@@ -152,12 +187,35 @@ export function intakeReducer(
             action.extracted.description ?? state.extracted.description,
           priority: action.extracted.priority ?? state.extracted.priority
         },
-        issueCaptured: state.issueCaptured || action.issueCaptured
+        issueCaptured: state.issueCaptured || action.issueCaptured,
+        // Latest model judgment wins: the CTA reflects the current turn.
+        readyToSubmit: action.readyToSubmit ?? state.readyToSubmit,
+        devicePickerRequested:
+          state.devicePickerRequested ||
+          uiAction === "showDevicePicker" ||
+          uiAction === "suggestDevice",
+        suggestedAssetId
       };
+    }
     case "selectDevice":
-      return { ...state, selectedAssetId: action.assetId };
+      return {
+        ...state,
+        selectedAssetId: action.assetId,
+        suggestedAssetId: null,
+        devicePickerRequested: false
+      };
     case "clearDevice":
-      return { ...state, selectedAssetId: null };
+      // The customer explicitly wants to change: reopen the picker.
+      return {
+        ...state,
+        selectedAssetId: null,
+        devicePickerRequested: true
+      };
+    case "editDescription":
+      return {
+        ...state,
+        extracted: { ...state.extracted, description: action.description }
+      };
     case "toConfirm":
       return { ...state, phase: "confirm" };
     case "backToTriage":
@@ -178,7 +236,14 @@ export function intakeReducer(
   }
 }
 
-/** The customer may move to review once they've described the issue AND picked a device. */
+/**
+ * The customer may move to review once the model declares readiness AND a
+ * device is picked (when the account has devices on file).
+ */
 export function canReview(state: IntakeState): boolean {
-  return state.issueCaptured && state.selectedAssetId !== null;
+  const deviceCount = state.context?.devices.length ?? 0;
+  if (!state.readyToSubmit) {
+    return false;
+  }
+  return deviceCount === 0 || state.selectedAssetId !== null;
 }

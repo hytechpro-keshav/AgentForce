@@ -11,11 +11,15 @@ import { OtpCard } from "@/components/intake/OtpCard";
 import {
   bootstrapIntakeSession,
   buildCaseCreatePayload,
+  buildTurnRequestBody,
   canSubmitCase,
   deviceGreeting,
+  deviceSelectionEvent,
   fetchIntakeConfig,
   loadIntakeContext,
-  shouldShowDevicePicker
+  parseTurnResponse,
+  shouldShowDevicePicker,
+  transcriptFallbackDescription
 } from "@/lib/intake-client";
 import {
   createInitialIntakeState,
@@ -54,9 +58,7 @@ export function IntakeShell({
   const token = state.session?.accessToken;
   const devices = state.context?.devices ?? [];
   const showDevicePicker = shouldShowDevicePicker(state);
-  const reviewReady =
-    state.issueCaptured &&
-    (devices.length === 0 ? true : state.selectedAssetId !== null);
+  const reviewReady = state.readyToSubmit && canSubmitCase(state);
 
   useEffect(() => {
     if (state.phase !== "bootstrapping") {
@@ -111,16 +113,11 @@ export function IntakeShell({
     }
   }
 
-  async function handleSend(text: string) {
+  async function sendTurn(
+    nextMessages: Array<{ role: "user" | "assistant"; content: string }>,
+    selectedAssetId: string | null
+  ) {
     if (!token) return;
-    const nextMessages = [
-      ...state.messages.filter((m) => !m.uiOnly),
-      { role: "user" as const, content: text }
-    ];
-    dispatch({
-      type: "appendMessage",
-      message: { role: "user", content: text }
-    });
     setSending(true);
     setTurnError(null);
     try {
@@ -130,32 +127,15 @@ export function IntakeShell({
           "content-type": "application/json",
           authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({
-          messages: nextMessages.map((m) => ({
-            role: m.role,
-            content: m.content
-          }))
-        })
+        body: JSON.stringify(
+          buildTurnRequestBody(nextMessages, selectedAssetId)
+        )
       });
       if (!res.ok) {
         setTurnError("We couldn't process that just now. Please try again.");
         return;
       }
-      const json = (await res.json()) as {
-        reply?: string;
-        extracted?: {
-          subject?: string;
-          description?: string;
-          priority?: "Low" | "Medium" | "High";
-        };
-        issueCaptured?: boolean;
-      };
-      dispatch({
-        type: "turnResult",
-        reply: json.reply ?? "Could you tell me a bit more about the issue?",
-        extracted: json.extracted ?? {},
-        issueCaptured: json.issueCaptured === true
-      });
+      dispatch({ type: "turnResult", ...parseTurnResponse(await res.json()) });
     } catch {
       setTurnError(
         "Could not reach the service. Please check your connection and try again."
@@ -163,6 +143,37 @@ export function IntakeShell({
     } finally {
       setSending(false);
     }
+  }
+
+  function handleSend(text: string) {
+    if (!token || sending) return;
+    const userMessage = { role: "user" as const, content: text };
+    const nextMessages = [
+      ...state.messages.filter((m) => !m.uiOnly),
+      userMessage
+    ].map((m) => ({ role: m.role, content: m.content }));
+    dispatch({ type: "appendMessage", message: userMessage });
+    void sendTurn(nextMessages, state.selectedAssetId);
+  }
+
+  // Selection is a conversation event: a hidden [event] note goes to the
+  // model so it acknowledges the pick instead of asking which device.
+  function handleSelectDevice(assetId: string) {
+    if (sending) return;
+    dispatch({ type: "selectDevice", assetId });
+    const label = devices.find((d) => d.assetId === assetId)?.label;
+    if (!label || !token) return;
+    const event = {
+      role: "user" as const,
+      content: deviceSelectionEvent(label),
+      hidden: true
+    };
+    dispatch({ type: "appendMessage", message: event });
+    const nextMessages = [
+      ...state.messages.filter((m) => !m.uiOnly),
+      event
+    ].map((m) => ({ role: m.role, content: m.content }));
+    void sendTurn(nextMessages, assetId);
   }
 
   async function handleSubmit() {
@@ -247,18 +258,17 @@ export function IntakeShell({
     return (
       <IntakeConversation
         displayName={state.context?.displayName}
-        messages={state.messages}
+        messages={state.messages.filter((m) => !m.hidden)}
         devices={devices}
         selectedAssetId={state.selectedAssetId}
+        suggestedAssetId={state.suggestedAssetId}
         issueCaptured={state.issueCaptured}
         showDevicePicker={showDevicePicker}
         sending={sending}
         reviewReady={reviewReady}
         error={turnError}
         onSend={handleSend}
-        onSelectDevice={(assetId) =>
-          dispatch({ type: "selectDevice", assetId })
-        }
+        onSelectDevice={handleSelectDevice}
         onClearDevice={() => dispatch({ type: "clearDevice" })}
         onReview={() => dispatch({ type: "toConfirm" })}
       />
@@ -267,12 +277,9 @@ export function IntakeShell({
 
   if (state.phase === "confirm") {
     const description =
-      state.extracted.description?.trim() ||
-      state.messages
-        .filter((m) => m.role === "user")
-        .map((m) => m.content)
-        .join("\n") ||
-      "Laptop issue reported via chat.";
+      state.extracted.description ??
+      (transcriptFallbackDescription(state) ||
+        "Laptop issue reported via chat.");
     const deviceLabel = devices.find(
       (device) => device.assetId === state.selectedAssetId
     )?.label;
@@ -287,6 +294,9 @@ export function IntakeShell({
         error={submitError}
         onBack={() => dispatch({ type: "backToTriage" })}
         onSubmit={handleSubmit}
+        onDescriptionChange={(value) =>
+          dispatch({ type: "editDescription", description: value })
+        }
       />
     );
   }

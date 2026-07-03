@@ -67,15 +67,15 @@ Phases live in `lib/intake-flow.ts`. `LandingChatPanel` and `IntakeShell` both u
 
 ## NestJS intake API
 
-| Endpoint                         | Auth          | Purpose                                                                   |
-| -------------------------------- | ------------- | ------------------------------------------------------------------------- |
-| `GET /intake/config`             | public        | `{ emailVerificationEnabled, bootstrapAvailable }`                        |
-| `POST /intake/otp/request`       | public        | Send OTP (uniform response)                                               |
-| `POST /intake/otp/verify`        | public        | Mint JWT with `accountId`/`contactId`                                     |
-| `POST /intake/session/bootstrap` | public        | Mint JWT without OTP (skip flag only)                                     |
-| `GET /intake/context`            | `chat:intake` | Devices + ship-to defaults                                                |
-| `POST /intake/turn`              | `chat:intake` | LLM reply + slot extraction                                               |
-| `POST /intake/case`              | `chat:intake` | Create Case (`Origin=Chat`, `AI_Orchestration_Status__c=stopped_by_user`) |
+| Endpoint                         | Auth          | Purpose                                                                                                       |
+| -------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------- |
+| `GET /intake/config`             | public        | `{ emailVerificationEnabled, bootstrapAvailable }`                                                            |
+| `POST /intake/otp/request`       | public        | Send OTP (uniform response)                                                                                   |
+| `POST /intake/otp/verify`        | public        | Mint JWT with `accountId`/`contactId`                                                                         |
+| `POST /intake/session/bootstrap` | public        | Mint JWT without OTP (skip flag only)                                                                         |
+| `GET /intake/context`            | `chat:intake` | Devices + ship-to defaults                                                                                    |
+| `POST /intake/turn`              | `chat:intake` | LLM reply + slot extraction + UI directives (`ui.action`, `readyToSubmit`); accepts `uiState.selectedAssetId` |
+| `POST /intake/case`              | `chat:intake` | Create Case (`Origin=Chat`, `AI_Orchestration_Status__c=stopped_by_user`)                                     |
 
 Case fields: Account/Contact from JWT; Asset from picker (validated server-side); subject/description/priority from LLM.
 

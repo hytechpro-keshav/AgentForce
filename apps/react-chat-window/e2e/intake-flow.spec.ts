@@ -93,7 +93,9 @@ async function mockIntakeBff(page: Page, options: IntakeMockOptions = {}) {
             priority: "High"
           }
         : {},
-      issueCaptured
+      issueCaptured,
+      ui: { action: issueCaptured ? "showReview" : "none" },
+      readyToSubmit: issueCaptured
     });
   });
 

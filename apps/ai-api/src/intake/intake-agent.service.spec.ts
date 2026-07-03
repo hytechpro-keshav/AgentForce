@@ -127,4 +127,124 @@ describe("IntakeAgentService.nextTurn", () => {
       service.nextTurn(principal({ verified: false }), turn)
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
+
+  it("tells the model about the picked device and mutes picker cues", async () => {
+    const { service, chat } = buildService(
+      JSON.stringify({
+        reply: "Got it — your ThinkPad X1.",
+        ui: { action: "showDevicePicker" },
+        readyToSubmit: false
+      })
+    );
+    const result = await service.nextTurn(principal(), {
+      messages: [{ role: "user" as const, content: "my screen is broken" }],
+      uiState: { selectedAssetId: "02i000000000001" }
+    });
+    const system = chat.mock.calls[0][0].messages[0].content as string;
+    expect(system).toContain("already picked the affected device");
+    expect(system).toContain("ThinkPad X1");
+    expect(system).toContain("EXACTLY ONE short question");
+    expect(result.ui.action).toBe("none");
+  });
+
+  it("ignores a selectedAssetId that is not in the server-side catalog", async () => {
+    const { service, chat } = buildService(JSON.stringify({ reply: "ok" }));
+    await service.nextTurn(principal(), {
+      messages: [{ role: "user" as const, content: "hello there friend" }],
+      uiState: { selectedAssetId: "02iNOT-A-DEVICE" }
+    });
+    const system = chat.mock.calls[0][0].messages[0].content as string;
+    expect(system).toContain("No device has been picked");
+    expect(system).not.toContain("02iNOT-A-DEVICE");
+  });
+
+  it("resolves a suggested device index to its assetId", async () => {
+    const { service } = buildService(
+      JSON.stringify({
+        reply: "Sounds like your ThinkPad X1 — tap to confirm.",
+        ui: { action: "suggestDevice", suggestedDeviceIndex: 1 },
+        readyToSubmit: false
+      })
+    );
+    const result = await service.nextTurn(principal(), turn);
+    expect(result.ui).toEqual({
+      action: "suggestDevice",
+      suggestedAssetId: "02i000000000001"
+    });
+  });
+
+  it("degrades an unresolvable suggestion to the picker", async () => {
+    const { service } = buildService(
+      JSON.stringify({
+        reply: "Is it the Stratos?",
+        ui: { action: "suggestDevice", suggestedDeviceIndex: 9 },
+        readyToSubmit: false
+      })
+    );
+    const result = await service.nextTurn(principal(), turn);
+    expect(result.ui.action).toBe("showDevicePicker");
+  });
+
+  it("returns showReview when the model is ready and a device is picked", async () => {
+    const { service } = buildService(
+      JSON.stringify({
+        reply: "You can review and submit now.",
+        description: "Internal display black; external monitor works.",
+        readyToSubmit: true,
+        ui: { action: "showReview" }
+      })
+    );
+    const result = await service.nextTurn(principal(), {
+      messages: [{ role: "user" as const, content: "screen went black" }],
+      uiState: { selectedAssetId: "02i000000000001" }
+    });
+    expect(result.readyToSubmit).toBe(true);
+    expect(result.ui.action).toBe("showReview");
+  });
+
+  it("cues the picker instead of review when ready without a picked device", async () => {
+    const { service } = buildService(
+      JSON.stringify({
+        reply: "You can review and submit now.",
+        readyToSubmit: true,
+        ui: { action: "showReview" }
+      })
+    );
+    const result = await service.nextTurn(principal(), turn);
+    expect(result.readyToSubmit).toBe(true);
+    expect(result.ui.action).toBe("showDevicePicker");
+  });
+
+  it("falls back to heuristic readiness when model output is not JSON", async () => {
+    const { service } = buildService("not json at all");
+
+    const short = await service.nextTurn(principal(), turn);
+    expect(short.readyToSubmit).toBe(false);
+
+    const long = await service.nextTurn(principal(), {
+      messages: [
+        {
+          role: "user" as const,
+          content:
+            "My laptop screen went completely black this morning while I was working on a report."
+        },
+        { role: "assistant" as const, content: "When did it start?" },
+        {
+          role: "user" as const,
+          content:
+            "It started today and I already tried an external monitor which works fine somehow."
+        }
+      ]
+    });
+    expect(long.readyToSubmit).toBe(true);
+  });
+
+  it("caches the Salesforce context between turns for the same identity", async () => {
+    const { service, getContext } = buildService(
+      JSON.stringify({ reply: "ok" })
+    );
+    await service.nextTurn(principal(), turn);
+    await service.nextTurn(principal(), turn);
+    expect(getContext).toHaveBeenCalledTimes(1);
+  });
 });

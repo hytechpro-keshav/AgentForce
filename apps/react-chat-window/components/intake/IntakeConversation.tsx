@@ -14,6 +14,8 @@ interface IntakeConversationProps {
   messages: IntakeMessage[];
   devices: IntakeDevice[];
   selectedAssetId: string | null;
+  /** Device the model believes the customer named; highlighted for one-tap confirm. */
+  suggestedAssetId?: string | null;
   issueCaptured: boolean;
   showDevicePicker: boolean;
   sending: boolean;
@@ -30,6 +32,7 @@ export function IntakeConversation({
   messages,
   devices,
   selectedAssetId,
+  suggestedAssetId = null,
   issueCaptured,
   showDevicePicker,
   sending,
@@ -132,20 +135,26 @@ export function IntakeConversation({
         <section className="space-y-2 rounded-lg border bg-card p-4">
           <h2 className="flex items-center gap-2 text-sm font-medium">
             <Laptop className="h-4 w-4" />
-            Which device is affected?
+            {suggestedAssetId
+              ? "Tap to confirm the affected device"
+              : "Which device is affected?"}
           </h2>
           <div className="flex flex-wrap gap-2">
-            {devices.map((device) => (
-              <Button
-                key={device.assetId}
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => onSelectDevice(device.assetId)}
-              >
-                {device.label}
-              </Button>
-            ))}
+            {devices.map((device) => {
+              const suggested = device.assetId === suggestedAssetId;
+              return (
+                <Button
+                  key={device.assetId}
+                  type="button"
+                  variant={suggested ? "default" : "outline"}
+                  size="sm"
+                  disabled={sending}
+                  onClick={() => onSelectDevice(device.assetId)}
+                >
+                  {suggested ? `✓ ${device.label}` : device.label}
+                </Button>
+              );
+            })}
           </div>
         </section>
       ) : null}

@@ -12,6 +12,7 @@ import {
   CardTitle
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Textarea } from "@/components/ui/textarea";
 
 interface IntakeSummaryCardProps {
   subject: string;
@@ -23,6 +24,8 @@ interface IntakeSummaryCardProps {
   error: string | null;
   onBack(): void;
   onSubmit(): void;
+  /** When provided, the description becomes editable before submit. */
+  onDescriptionChange?(value: string): void;
 }
 
 function formatShipTo(shipTo: {
@@ -43,7 +46,8 @@ export function IntakeSummaryCard({
   submitting,
   error,
   onBack,
-  onSubmit
+  onSubmit,
+  onDescriptionChange
 }: IntakeSummaryCardProps) {
   const shipToLine = formatShipTo(shipTo);
 
@@ -58,7 +62,22 @@ export function IntakeSummaryCard({
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
           <SummaryRow label="Subject" value={subject} />
-          <SummaryRow label="Description" value={description} multiline />
+          {onDescriptionChange ? (
+            <div className="space-y-1">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Description
+              </p>
+              <Textarea
+                value={description}
+                onChange={(e) => onDescriptionChange(e.target.value)}
+                rows={5}
+                disabled={submitting}
+                aria-label="Case description"
+              />
+            </div>
+          ) : (
+            <SummaryRow label="Description" value={description} multiline />
+          )}
           <SummaryRow label="Priority" value={priority} />
           <SummaryRow label="Device" value={deviceLabel ?? "Not specified"} />
           {shipToLine ? (

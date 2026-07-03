@@ -6,17 +6,34 @@ import type {
   LlmMessage
 } from "../llm/interfaces/llm-contracts";
 import { ModelRouter } from "../llm/model-router";
-import type { IntakeContextResponseDto } from "./dto/intake-context.dto";
+import type {
+  IntakeContextResponseDto,
+  IntakeDeviceDto
+} from "./dto/intake-context.dto";
 import type {
   IntakeTurnExtractedDto,
   IntakeTurnRequestDto,
-  IntakeTurnResponseDto
+  IntakeTurnResponseDto,
+  IntakeTurnUiAction,
+  IntakeTurnUiDirectiveDto
 } from "./dto/intake-turn.dto";
-import { requireIntakeIdentity } from "./intake-claims";
+import { requireIntakeIdentity, type IntakeIdentity } from "./intake-claims";
 import { IntakeService } from "./intake.service";
 
 const PRIORITIES = new Set(["Low", "Medium", "High"]);
+const UI_ACTIONS = new Set<IntakeTurnUiAction>([
+  "none",
+  "showDevicePicker",
+  "suggestDevice",
+  "showReview"
+]);
 const MIN_DESCRIPTION_LENGTH = 10;
+/** Anti-trap fallback: readiness the model can't withhold forever. */
+const FALLBACK_MIN_USER_TURNS = 2;
+const FALLBACK_MIN_USER_WORDS = 25;
+/** Devices/context rarely change mid-conversation; skip a Salesforce round-trip per turn. */
+const CONTEXT_CACHE_TTL_MS = 5 * 60 * 1000;
+const CONTEXT_CACHE_MAX_ENTRIES = 200;
 
 function formatLocation(location: {
   city?: string;
@@ -28,9 +45,14 @@ function formatLocation(location: {
     .join(", ");
 }
 
-function buildIntakeSystemPrompt(context: IntakeContextResponseDto): string {
+function buildIntakeSystemPrompt(
+  context: IntakeContextResponseDto,
+  selectedDevice: IntakeDeviceDto | undefined
+): string {
   const deviceCount = context.devices.length;
-  const deviceLabels = context.devices.map((device) => device.label).join("; ");
+  const deviceList = context.devices
+    .map((device, index) => `${index + 1}) ${device.label}`)
+    .join("; ");
   const defaultShipTo = formatLocation(context.shipTo);
   const billingLine = context.billingLocation
     ? formatLocation(context.billingLocation)
@@ -52,43 +74,65 @@ function buildIntakeSystemPrompt(context: IntakeContextResponseDto): string {
     deviceCount === 0
       ? "No registered devices are on this account."
       : deviceCount === 1
-        ? `One registered device on file: ${deviceLabels}.`
-        : `${deviceCount} registered devices on file: ${deviceLabels}.`,
+        ? `One registered device on file: ${deviceList}.`
+        : `${deviceCount} registered devices on file: ${deviceList}.`,
+    selectedDevice
+      ? `The customer has already picked the affected device in the chat UI: ${selectedDevice.label}. NEVER ask which device is affected.`
+      : "No device has been picked in the chat UI yet.",
     "",
     "Conversation flow:",
-    "1. First understand the issue: symptom, when it started, and what they already tried.",
-    "2. Do NOT list every device name in your opening message.",
-    "3. Do NOT ask for account name, serial numbers, or email — those are already known.",
-    deviceCount > 1
-      ? "4. After the issue is clear, ask which registered device is affected. The chat UI will show a device picker when ready."
-      : deviceCount === 1
-        ? "4. After the issue is clear, confirm the problem is on the registered device and verify the service location and contact details are correct."
-        : "4. After the issue is clear, tell them they can review and submit even without a device on file.",
+    "1. Understand the issue: symptom, when it started, and what they already tried.",
+    "2. Ask EXACTLY ONE short question per turn. NEVER re-ask anything the customer already answered or anything stated above.",
+    "3. Do NOT list every device name in your opening message.",
+    "4. Do NOT ask for account name, serial numbers, or email — those are already known.",
+    selectedDevice
+      ? ""
+      : deviceCount > 1
+        ? '5. Once the issue is clear, ask which registered device is affected and set ui.action to "showDevicePicker" — or "suggestDevice" with suggestedDeviceIndex when their words clearly identify one device from the list.'
+        : deviceCount === 1
+          ? "5. Once the issue is clear, confirm the problem is on the registered device and verify the service location and contact details are correct."
+          : "5. Once the issue is clear, tell them they can review and submit even without a device on file.",
     context.hasMultipleServiceLocations
-      ? "5. Because this account has multiple locations, ask whether service should use the default ship-to address or a different site before they submit."
+      ? "6. Because this account has multiple locations, ask whether service should use the default ship-to address or a different site before they submit."
       : "",
-    "6. When enough detail is captured, tell them they can pick the device (if needed) and submit the case.",
+    "7. Messages starting with [event] are chat-UI events (for example the customer picking a device from the picker), not typed text — acknowledge them naturally and continue with the next missing detail.",
+    '8. When the symptom, timing, and troubleshooting steps are captured (and the device is picked when devices exist), summarize the issue back in one sentence, tell them to review and submit, and set readyToSubmit to true with ui.action "showReview".',
     "",
     "Return ONLY a JSON object (no prose, no markdown) with keys:",
     '  "reply": your next message to the customer (<=600 chars),',
     '  "subject": a short case title (<=120 chars),',
     '  "description": the consolidated issue description so far,',
-    '  "priority": one of "Low", "Medium", or "High" based on impact.',
+    '  "priority": one of "Low", "Medium", or "High" based on impact,',
+    '  "ui": {"action": one of "none" | "showDevicePicker" | "suggestDevice" | "showReview", "suggestedDeviceIndex": 1-based device number, only with "suggestDevice"},',
+    '  "readyToSubmit": boolean — true only when nothing is missing.',
     "Base priority only on the described impact; do not invent facts."
   ];
 
   return lines.filter((line) => line.length > 0).join(" ");
 }
 
+interface ParsedTurn {
+  reply: string;
+  fields: IntakeTurnExtractedDto;
+  ui?: { action?: unknown; suggestedDeviceIndex?: unknown };
+  readyToSubmit: boolean;
+}
+
 /**
- * Drives the conversational triage turn: given the transcript, the model
- * responds AND extracts the structured case fields (subject/description/
- * priority) in one call, following the repo's prompt+JSON.parse extraction
- * pattern. Parsing is defensive so malformed model output can never break the
- * flow — it degrades to a safe reply and empty extraction.
+ * Drives the conversational triage turn: given the transcript plus the live
+ * chat-UI state, the model responds, extracts the structured case fields
+ * (subject/description/priority), and cues the UI (device picker / review)
+ * in one call, following the repo's prompt+JSON.parse extraction pattern.
+ * Parsing is defensive so malformed model output can never break the flow —
+ * it degrades to a safe reply, empty extraction, and heuristic readiness.
  */
 @Injectable()
 export class IntakeAgentService {
+  private readonly contextCache = new Map<
+    string,
+    { context: IntakeContextResponseDto; expiresAt: number }
+  >();
+
   constructor(
     private readonly modelRouter: ModelRouter,
     private readonly intakeService: IntakeService
@@ -98,11 +142,22 @@ export class IntakeAgentService {
     principal: AuthPrincipal | undefined,
     dto: IntakeTurnRequestDto
   ): Promise<IntakeTurnResponseDto> {
-    requireIntakeIdentity(principal);
-    const context = await this.intakeService.getContext(principal);
+    const identity = requireIntakeIdentity(principal);
+    const context = await this.getCachedContext(identity, principal);
+
+    // The selection is a client hint; only a match against the server-side
+    // catalog reaches the prompt, so client text can never be injected.
+    const selectedDevice = dto.uiState?.selectedAssetId
+      ? context.devices.find(
+          (device) => device.assetId === dto.uiState?.selectedAssetId
+        )
+      : undefined;
 
     const messages: LlmMessage[] = [
-      { role: "system", content: buildIntakeSystemPrompt(context) },
+      {
+        role: "system",
+        content: buildIntakeSystemPrompt(context, selectedDevice)
+      },
       ...dto.messages.map((message) => ({
         role: message.role,
         content: message.content
@@ -113,39 +168,130 @@ export class IntakeAgentService {
       requestId: dto.requestId,
       useCase: "customer_chat_intake",
       tenantId: principal?.tenantId,
-      clientId: principal?.raw?.accountId as string | undefined,
+      clientId: identity.accountId,
       surface: "react-chat-window",
       messages,
       temperature: 0.3
     };
 
     const response = await this.modelRouter.chat(request);
-    const extracted = IntakeAgentService.parseExtraction(response.content);
+    const parsed = IntakeAgentService.parseExtraction(response.content);
 
-    const userWordCount = dto.messages
-      .filter((m) => m.role === "user")
-      .reduce((sum, m) => sum + m.content.trim().split(/\s+/).length, 0);
+    const userMessages = dto.messages.filter((m) => m.role === "user");
+    const userWordCount = userMessages.reduce(
+      (sum, m) => sum + m.content.trim().split(/\s+/).length,
+      0
+    );
+
+    // The model's judgment is primary; the fallback only guarantees the
+    // customer is never trapped without a submit path.
+    const readyToSubmit =
+      parsed.readyToSubmit ||
+      (userMessages.length >= FALLBACK_MIN_USER_TURNS &&
+        userWordCount >= FALLBACK_MIN_USER_WORDS);
 
     return {
       reply:
-        extracted.reply ||
+        parsed.reply ||
         "Thanks — could you tell me a bit more about the issue you're seeing?",
-      extracted: extracted.fields,
+      extracted: parsed.fields,
       issueCaptured:
         Boolean(
-          extracted.fields.description &&
-          extracted.fields.description.trim().length >= MIN_DESCRIPTION_LENGTH
-        ) || userWordCount >= 10
+          parsed.fields.description &&
+            parsed.fields.description.trim().length >= MIN_DESCRIPTION_LENGTH
+        ) || userWordCount >= 10,
+      ui: IntakeAgentService.resolveUiDirective(
+        parsed.ui,
+        context,
+        selectedDevice,
+        readyToSubmit
+      ),
+      readyToSubmit
     };
   }
 
-  private static parseExtraction(content: string): {
-    reply: string;
-    fields: IntakeTurnExtractedDto;
-  } {
+  private async getCachedContext(
+    identity: IntakeIdentity,
+    principal: AuthPrincipal | undefined
+  ): Promise<IntakeContextResponseDto> {
+    const key = `${identity.accountId}:${identity.contactId}`;
+    const cached = this.contextCache.get(key);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.context;
+    }
+    this.contextCache.delete(key);
+    const context = await this.intakeService.getContext(principal);
+    if (this.contextCache.size >= CONTEXT_CACHE_MAX_ENTRIES) {
+      const oldestKey = this.contextCache.keys().next().value;
+      if (oldestKey !== undefined) {
+        this.contextCache.delete(oldestKey);
+      }
+    }
+    this.contextCache.set(key, {
+      context,
+      expiresAt: Date.now() + CONTEXT_CACHE_TTL_MS
+    });
+    return context;
+  }
+
+  /**
+   * Validates the model's widget cue and enforces the never-trapped rules:
+   * picker cues are moot once a device is picked, an unresolvable suggestion
+   * degrades to the picker, and a ready case always cues the widget that
+   * unblocks submission.
+   */
+  private static resolveUiDirective(
+    raw: { action?: unknown; suggestedDeviceIndex?: unknown } | undefined,
+    context: IntakeContextResponseDto,
+    selectedDevice: IntakeDeviceDto | undefined,
+    readyToSubmit: boolean
+  ): IntakeTurnUiDirectiveDto {
+    const deviceCount = context.devices.length;
+    let action: IntakeTurnUiAction =
+      typeof raw?.action === "string" &&
+      UI_ACTIONS.has(raw.action as IntakeTurnUiAction)
+        ? (raw.action as IntakeTurnUiAction)
+        : "none";
+    let suggestedAssetId: string | undefined;
+
+    if (action === "suggestDevice") {
+      const index =
+        typeof raw?.suggestedDeviceIndex === "number"
+          ? Math.trunc(raw.suggestedDeviceIndex)
+          : NaN;
+      const device = index >= 1 ? context.devices[index - 1] : undefined;
+      if (device) {
+        suggestedAssetId = device.assetId;
+      } else {
+        action = "showDevicePicker";
+      }
+    }
+
+    if (
+      selectedDevice &&
+      (action === "showDevicePicker" || action === "suggestDevice")
+    ) {
+      action = "none";
+      suggestedAssetId = undefined;
+    }
+
+    if (readyToSubmit) {
+      if (!selectedDevice && deviceCount > 0) {
+        if (action !== "suggestDevice") {
+          action = "showDevicePicker";
+        }
+      } else {
+        action = "showReview";
+      }
+    }
+
+    return suggestedAssetId ? { action, suggestedAssetId } : { action };
+  }
+
+  private static parseExtraction(content: string): ParsedTurn {
     const trimmed = (content ?? "").trim();
     if (!trimmed) {
-      return { reply: "", fields: {} };
+      return { reply: "", fields: {}, readyToSubmit: false };
     }
     try {
       const start = trimmed.indexOf("{");
@@ -173,10 +319,21 @@ export class IntakeAgentService {
       const priority = PRIORITIES.has(priorityRaw)
         ? (priorityRaw as IntakeTurnExtractedDto["priority"])
         : undefined;
+      const ui =
+        parsed["ui"] && typeof parsed["ui"] === "object"
+          ? (parsed["ui"] as { action?: unknown; suggestedDeviceIndex?: unknown })
+          : undefined;
 
-      return { reply, fields: { subject, description, priority } };
+      return {
+        reply,
+        fields: { subject, description, priority },
+        ui,
+        readyToSubmit: parsed["readyToSubmit"] === true
+      };
     } catch {
-      return { reply: trimmed.slice(0, 600), fields: {} };
+      // Non-JSON output: surface the raw text so the user sees the LLM response
+      // rather than the generic "tell me more" fallback.
+      return { reply: trimmed.slice(0, 600), fields: {}, readyToSubmit: false };
     }
   }
 }
