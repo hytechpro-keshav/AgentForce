@@ -181,7 +181,7 @@ export function LandingChatPanel() {
       if (greeting) {
         dispatch({
           type: "appendMessage",
-          message: { role: "assistant", content: greeting }
+          message: { role: "assistant", content: greeting, uiOnly: true }
         });
       }
     } catch {
@@ -195,7 +195,7 @@ export function LandingChatPanel() {
     const text = chatInput.trim();
     if (!text || !state.session?.accessToken) return;
     const nextMessages = [
-      ...state.messages,
+      ...state.messages.filter((m) => !m.uiOnly),
       { role: "user" as const, content: text }
     ];
     dispatch({ type: "appendMessage", message: { role: "user", content: text } });
@@ -579,7 +579,7 @@ export function LandingChatPanel() {
             ))}
             <div ref={messagesEndRef} />
           </div>
-          {devices.length > 0 && (
+          {devices.length > 0 && !state.selectedAssetId && (
             <div
               style={{ display: "flex", flexWrap: "wrap", gap: "6px", paddingTop: "4px" }}
             >
@@ -592,17 +592,9 @@ export function LandingChatPanel() {
                   style={{
                     fontSize: "12px",
                     fontWeight: 600,
-                    color:
-                      state.selectedAssetId === d.assetId ? "#fff" : "#0E5E86",
-                    background:
-                      state.selectedAssetId === d.assetId
-                        ? "#139ED9"
-                        : "#fff",
-                    border: `1px solid ${
-                      state.selectedAssetId === d.assetId
-                        ? "#139ED9"
-                        : "rgba(19,158,217,.3)"
-                    }`,
+                    color: "#0E5E86",
+                    background: "#fff",
+                    border: "1px solid rgba(19,158,217,.3)",
                     borderRadius: "100px",
                     padding: "6px 12px",
                     cursor: "pointer",
@@ -612,6 +604,44 @@ export function LandingChatPanel() {
                   {d.label}
                 </button>
               ))}
+            </div>
+          )}
+          {devices.length > 0 && state.selectedAssetId && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                paddingTop: "4px",
+                fontSize: "12px"
+              }}
+            >
+              <span
+                style={{
+                  background: "#139ED9",
+                  color: "#fff",
+                  borderRadius: "100px",
+                  padding: "5px 11px",
+                  fontWeight: 600
+                }}
+              >
+                {devices.find((d) => d.assetId === state.selectedAssetId)?.label}
+              </span>
+              <button
+                onClick={() => dispatch({ type: "clearDevice" })}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#5A7189",
+                  fontSize: "12px",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  padding: 0,
+                  textDecoration: "underline"
+                }}
+              >
+                Change
+              </button>
             </div>
           )}
           {turnError && (

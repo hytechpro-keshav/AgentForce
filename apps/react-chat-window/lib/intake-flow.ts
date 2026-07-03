@@ -38,6 +38,8 @@ export interface IntakeContext {
 export interface IntakeMessage {
   role: "user" | "assistant";
   content: string;
+  /** True for UI-injected messages (e.g. device greeting) that must NOT be sent to the LLM. */
+  uiOnly?: boolean;
 }
 
 export interface IntakeExtracted {
@@ -95,6 +97,7 @@ export type IntakeAction =
       issueCaptured: boolean;
     }
   | { type: "selectDevice"; assetId: string }
+  | { type: "clearDevice" }
   | { type: "toConfirm" }
   | { type: "backToTriage" }
   | { type: "caseCreated"; caseId: string; caseNumber?: string }
@@ -135,6 +138,8 @@ export function intakeReducer(
       };
     case "selectDevice":
       return { ...state, selectedAssetId: action.assetId };
+    case "clearDevice":
+      return { ...state, selectedAssetId: null };
     case "toConfirm":
       return { ...state, phase: "confirm" };
     case "backToTriage":

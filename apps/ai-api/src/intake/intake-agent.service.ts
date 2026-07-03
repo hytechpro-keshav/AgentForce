@@ -70,15 +70,23 @@ export class IntakeAgentService {
     const response = await this.modelRouter.chat(request);
     const extracted = IntakeAgentService.parseExtraction(response.content);
 
+    // Count how many words the user has supplied across all their turns.
+    const userWordCount = dto.messages
+      .filter((m) => m.role === "user")
+      .reduce((sum, m) => sum + m.content.trim().split(/\s+/).length, 0);
+
     return {
       reply:
         extracted.reply ||
         "Thanks — could you tell me a bit more about the issue you're seeing?",
       extracted: extracted.fields,
-      issueCaptured: Boolean(
-        extracted.fields.description &&
-        extracted.fields.description.trim().length >= MIN_DESCRIPTION_LENGTH
-      )
+      // Captured when the LLM extracted a description OR the user has written
+      // enough words across their turns (fallback when JSON parsing fails).
+      issueCaptured:
+        Boolean(
+          extracted.fields.description &&
+          extracted.fields.description.trim().length >= MIN_DESCRIPTION_LENGTH
+        ) || userWordCount >= 10
     };
   }
 
@@ -119,8 +127,9 @@ export class IntakeAgentService {
 
       return { reply, fields: { subject, description, priority } };
     } catch {
-      // Non-JSON output: fall back to a safe reply and no extraction.
-      return { reply: "", fields: {} };
+      // Non-JSON output: surface the raw text so the user sees the LLM response
+      // rather than the generic "tell me more" fallback.
+      return { reply: trimmed.slice(0, 600), fields: {} };
     }
   }
 }
