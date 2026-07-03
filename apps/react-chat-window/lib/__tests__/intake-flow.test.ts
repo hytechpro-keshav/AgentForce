@@ -75,4 +75,29 @@ describe("intakeReducer", () => {
 
     expect(intakeReducer(state, { type: "reset" })).toEqual(initialIntakeState);
   });
+
+  it("auto-selects the only device when context loads", () => {
+    const state = intakeReducer(initialIntakeState, {
+      type: "contextLoaded",
+      context: {
+        devices: [{ assetId: "02i1", label: "ThinkPad X1" }],
+        shipTo: {}
+      }
+    });
+    expect(state.selectedAssetId).toBe("02i1");
+  });
+
+  it("does not auto-select when multiple devices are on file", () => {
+    const state = intakeReducer(initialIntakeState, {
+      type: "contextLoaded",
+      context: {
+        devices: [
+          { assetId: "02i1", label: "ThinkPad X1" },
+          { assetId: "02i2", label: "MacBook Pro" }
+        ],
+        shipTo: {}
+      }
+    });
+    expect(state.selectedAssetId).toBeNull();
+  });
 });

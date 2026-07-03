@@ -138,8 +138,8 @@ test.describe("OTP intake flow (mocked BFF)", () => {
     await expect(
       page.getByText(/pick the affected device below/i)
     ).toBeVisible();
+    await expect(page.getByText("ThinkPad X1")).toBeVisible();
 
-    await page.getByRole("button", { name: "ThinkPad X1" }).click();
     await page.getByRole("button", { name: /review & submit/i }).click();
 
     await expect(
@@ -196,8 +196,6 @@ test.describe("OTP intake flow (mocked BFF)", () => {
     await page.getByLabel("Verification code").fill("123456");
     await page.getByRole("button", { name: /verify and continue/i }).click();
 
-    await expect(page.getByText(/no devices are on file/i)).toBeVisible();
-
     await page
       .getByLabel("Describe your issue")
       .fill("Keyboard keys stick after a spill.");
@@ -205,6 +203,7 @@ test.describe("OTP intake flow (mocked BFF)", () => {
     await expect(
       page.getByText(/pick the affected device below/i)
     ).toBeVisible();
+    await expect(page.getByText(/no devices are on file/i)).toBeVisible();
 
     const reviewButton = page.getByRole("button", { name: /review & submit/i });
     await expect(reviewButton).toBeEnabled();

@@ -171,5 +171,6 @@ describe("Customer intake (e2e)", () => {
     const createdFields = caseWriteGateway.createChatCase.mock.calls[0][0];
     expect(createdFields.accountId).toBe(ACCOUNT_ID);
     expect(createdFields.contactId).toBe(CONTACT_ID);
+    expect(createdFields.assetId).toBe(ASSET_ID);
   });
 });

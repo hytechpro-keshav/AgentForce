@@ -8,9 +8,12 @@ import {
 } from "@/lib/intake-flow";
 import {
   bootstrapIntakeSession,
+  buildCaseCreatePayload,
+  canSubmitCase,
   deviceGreeting,
   fetchIntakeConfig,
-  loadIntakeContext
+  loadIntakeContext,
+  shouldShowDevicePicker
 } from "@/lib/intake-client";
 
 export function LandingChatPanel() {
@@ -178,12 +181,10 @@ export function LandingChatPanel() {
       const context = await loadIntakeContext(accessToken);
       dispatch({ type: "contextLoaded", context });
       const greeting = deviceGreeting(context);
-      if (greeting) {
-        dispatch({
-          type: "appendMessage",
-          message: { role: "assistant", content: greeting, uiOnly: true }
-        });
-      }
+      dispatch({
+        type: "appendMessage",
+        message: { role: "assistant", content: greeting, uiOnly: true }
+      });
     } catch {
       dispatch({ type: "contextLoaded", context: { devices: [], shipTo: {} } });
     } finally {
@@ -240,16 +241,9 @@ export function LandingChatPanel() {
   }
 
   async function handleSubmitCase() {
-    if (!state.session?.accessToken) return;
+    if (!state.session?.accessToken || !canSubmitCase(state)) return;
     setSubmitting(true);
     setSubmitError(null);
-    const description =
-      state.extracted.description?.trim() ||
-      state.messages
-        .filter((m) => m.role === "user")
-        .map((m) => m.content)
-        .join("\n") ||
-      "Laptop issue reported via chat.";
     try {
       const res = await fetch("/api/intake/case", {
         method: "POST",
@@ -257,12 +251,7 @@ export function LandingChatPanel() {
           "content-type": "application/json",
           authorization: `Bearer ${state.session.accessToken}`
         },
-        body: JSON.stringify({
-          issueDescription: description,
-          ...(state.extracted.subject ? { subject: state.extracted.subject } : {}),
-          ...(state.extracted.priority ? { priority: state.extracted.priority } : {}),
-          ...(state.selectedAssetId ? { assetId: state.selectedAssetId } : {})
-        })
+        body: JSON.stringify(buildCaseCreatePayload(state))
       });
       const json = (await res.json().catch(() => ({}))) as {
         caseId?: string;
@@ -285,6 +274,7 @@ export function LandingChatPanel() {
   }
 
   const devices = state.context?.devices ?? [];
+  const showDevicePicker = shouldShowDevicePicker(state);
   const reviewReady =
     state.issueCaptured &&
     (devices.length === 0 ? true : state.selectedAssetId !== null);
@@ -579,10 +569,21 @@ export function LandingChatPanel() {
             ))}
             <div ref={messagesEndRef} />
           </div>
-          {devices.length > 0 && !state.selectedAssetId && (
-            <div
-              style={{ display: "flex", flexWrap: "wrap", gap: "6px", paddingTop: "4px" }}
-            >
+          {showDevicePicker && (
+            <div style={{ paddingTop: "4px" }}>
+              <div
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  color: "#5A7189",
+                  marginBottom: "6px"
+                }}
+              >
+                Which device is affected?
+              </div>
+              <div
+                style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}
+              >
               {devices.map((d) => (
                 <button
                   key={d.assetId}
@@ -604,6 +605,7 @@ export function LandingChatPanel() {
                   {d.label}
                 </button>
               ))}
+              </div>
             </div>
           )}
           {devices.length > 0 && state.selectedAssetId && (
@@ -743,7 +745,7 @@ export function LandingChatPanel() {
           )}
           <button
             onClick={() => void handleSubmitCase()}
-            disabled={submitting}
+            disabled={submitting || !canSubmitCase(state)}
             style={{
               background: "#139ED9",
               color: "#fff",

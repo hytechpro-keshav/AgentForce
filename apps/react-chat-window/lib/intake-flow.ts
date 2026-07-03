@@ -28,11 +28,20 @@ export interface IntakeDevice {
   product?: string;
 }
 
+export interface IntakeLocation {
+  city?: string;
+  state?: string;
+  country?: string;
+}
+
 export interface IntakeContext {
   displayName?: string;
   accountName?: string;
+  contactEmail?: string;
   devices: IntakeDevice[];
-  shipTo: { city?: string; state?: string; country?: string };
+  shipTo: IntakeLocation;
+  billingLocation?: IntakeLocation;
+  hasMultipleServiceLocations?: boolean;
 }
 
 export interface IntakeMessage {
@@ -116,8 +125,17 @@ export function intakeReducer(
       return { ...state, phase: "otp", email: action.email };
     case "verified":
       return { ...state, phase: "triage", session: action.session };
-    case "contextLoaded":
-      return { ...state, context: action.context };
+    case "contextLoaded": {
+      const autoSelectedAssetId =
+        action.context.devices.length === 1
+          ? action.context.devices[0]?.assetId ?? null
+          : state.selectedAssetId;
+      return {
+        ...state,
+        context: action.context,
+        selectedAssetId: autoSelectedAssetId
+      };
+    }
     case "appendMessage":
       return { ...state, messages: [...state.messages, action.message] };
     case "turnResult":

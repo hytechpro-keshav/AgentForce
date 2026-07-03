@@ -1,5 +1,6 @@
 import {
   BadGatewayException,
+  BadRequestException,
   ForbiddenException,
   NotFoundException,
   ServiceUnavailableException,
@@ -87,6 +88,7 @@ describe("IntakeService.getContext", () => {
 
     expect(context.displayName).toBe("Ada Lovelace");
     expect(context.accountName).toBe("Analytical Engines Ltd");
+    expect(context.contactEmail).toBe("user@example.com");
     expect(context.devices).toEqual([
       { assetId: ASSET_ID, label: "ThinkPad X1", product: "ThinkPad" }
     ]);
@@ -110,6 +112,26 @@ describe("IntakeService.getContext", () => {
     await expect(h.service.getContext(principal())).rejects.toBeInstanceOf(
       ServiceUnavailableException
     );
+  });
+
+  it("flags multiple service locations when billing differs from shipping", async () => {
+    const h = buildHarness();
+    h.gateway.readAccountContext.mockResolvedValueOnce({
+      accountName: "Analytical Engines Ltd",
+      shipToCity: "London",
+      shipToState: "LDN",
+      shipToCountry: "UK",
+      billingCity: "Paris",
+      billingState: "IDF",
+      billingCountry: "FR"
+    });
+    const context = await h.service.getContext(principal());
+    expect(context.hasMultipleServiceLocations).toBe(true);
+    expect(context.billingLocation).toEqual({
+      city: "Paris",
+      state: "IDF",
+      country: "FR"
+    });
   });
 
   it("degrades a failed asset read to an empty device list", async () => {
@@ -150,6 +172,7 @@ describe("IntakeService.createCase", () => {
 
   it("prefers explicit subject/priority/ship-to overrides", async () => {
     const h = buildHarness();
+    h.gateway.listAccountAssets.mockResolvedValueOnce([]);
     await h.service.createCase(principal(), {
       issueDescription: "Battery drains fast",
       subject: "Battery issue",
@@ -161,6 +184,63 @@ describe("IntakeService.createCase", () => {
     expect(fields.priority).toBe("High");
     expect(fields.serviceShipToCity).toBe("Paris");
     expect(fields.assetId).toBeUndefined();
+  });
+
+  it("auto-attaches the only registered device when assetId is omitted", async () => {
+    const h = buildHarness();
+    await h.service.createCase(principal(), {
+      issueDescription: "Won't boot"
+    });
+    const fields = h.gateway.createChatCase.mock.calls[0][0];
+    expect(fields.assetId).toBe(ASSET_ID);
+  });
+
+  it("resolves the asset from deviceLabel when assetId is omitted", async () => {
+    const h = buildHarness();
+    h.gateway.listAccountAssets.mockResolvedValueOnce([
+      {
+        assetId: ASSET_ID,
+        label: "ThinkPad X1",
+        product: "ThinkPad",
+        serialNumber: "SN-SECRET-123"
+      },
+      {
+        assetId: "02i000000000002",
+        label: "MacBook Pro",
+        product: "MacBook",
+        serialNumber: "SN-SECRET-456"
+      }
+    ]);
+    await h.service.createCase(principal(), {
+      issueDescription: "Keyboard sticks",
+      deviceLabel: "MacBook Pro"
+    });
+    const fields = h.gateway.createChatCase.mock.calls[0][0];
+    expect(fields.assetId).toBe("02i000000000002");
+  });
+
+  it("requires a device when multiple assets are on file and none is selected", async () => {
+    const h = buildHarness();
+    h.gateway.listAccountAssets.mockResolvedValueOnce([
+      {
+        assetId: ASSET_ID,
+        label: "ThinkPad X1",
+        product: "ThinkPad",
+        serialNumber: "SN-1"
+      },
+      {
+        assetId: "02i000000000002",
+        label: "MacBook Pro",
+        product: "MacBook",
+        serialNumber: "SN-2"
+      }
+    ]);
+    await expect(
+      h.service.createCase(principal(), {
+        issueDescription: "Screen flickers"
+      })
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(h.gateway.createChatCase).not.toHaveBeenCalled();
   });
 
   it("rejects a device that does not belong to the account", async () => {
@@ -177,6 +257,7 @@ describe("IntakeService.createCase", () => {
 
   it("maps a not_found gateway error to 404", async () => {
     const h = buildHarness();
+    h.gateway.listAccountAssets.mockResolvedValueOnce([]);
     h.gateway.createChatCase.mockRejectedValueOnce(
       new SalesforceGatewayError("not_found", "missing")
     );
@@ -187,6 +268,7 @@ describe("IntakeService.createCase", () => {
 
   it("maps other gateway errors to 502", async () => {
     const h = buildHarness();
+    h.gateway.listAccountAssets.mockResolvedValueOnce([]);
     h.gateway.createChatCase.mockRejectedValueOnce(
       new SalesforceGatewayError("backend", "boom")
     );

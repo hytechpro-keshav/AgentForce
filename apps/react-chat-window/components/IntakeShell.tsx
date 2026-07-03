@@ -10,9 +10,12 @@ import { IntakeSummaryCard } from "@/components/intake/IntakeSummaryCard";
 import { OtpCard } from "@/components/intake/OtpCard";
 import {
   bootstrapIntakeSession,
+  buildCaseCreatePayload,
+  canSubmitCase,
   deviceGreeting,
   fetchIntakeConfig,
-  loadIntakeContext
+  loadIntakeContext,
+  shouldShowDevicePicker
 } from "@/lib/intake-client";
 import {
   createInitialIntakeState,
@@ -50,6 +53,7 @@ export function IntakeShell({
 
   const token = state.session?.accessToken;
   const devices = state.context?.devices ?? [];
+  const showDevicePicker = shouldShowDevicePicker(state);
   const reviewReady =
     state.issueCaptured &&
     (devices.length === 0 ? true : state.selectedAssetId !== null);
@@ -96,12 +100,10 @@ export function IntakeShell({
       const context = await loadIntakeContext(session.accessToken);
       dispatch({ type: "contextLoaded", context });
       const greeting = deviceGreeting(context);
-      if (greeting) {
-        dispatch({
-          type: "appendMessage",
-          message: { role: "assistant", content: greeting }
-        });
-      }
+      dispatch({
+        type: "appendMessage",
+        message: { role: "assistant", content: greeting, uiOnly: true }
+      });
     } catch {
       dispatch({ type: "contextLoaded", context: { devices: [], shipTo: {} } });
     } finally {
@@ -112,7 +114,7 @@ export function IntakeShell({
   async function handleSend(text: string) {
     if (!token) return;
     const nextMessages = [
-      ...state.messages,
+      ...state.messages.filter((m) => !m.uiOnly),
       { role: "user" as const, content: text }
     ];
     dispatch({
@@ -164,16 +166,9 @@ export function IntakeShell({
   }
 
   async function handleSubmit() {
-    if (!token) return;
+    if (!token || !canSubmitCase(state)) return;
     setSubmitting(true);
     setSubmitError(null);
-    const description =
-      state.extracted.description?.trim() ||
-      state.messages
-        .filter((m) => m.role === "user")
-        .map((m) => m.content)
-        .join("\n") ||
-      "Laptop issue reported via chat.";
     try {
       const res = await fetch("/api/intake/case", {
         method: "POST",
@@ -181,16 +176,7 @@ export function IntakeShell({
           "content-type": "application/json",
           authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({
-          issueDescription: description,
-          ...(state.extracted.subject
-            ? { subject: state.extracted.subject }
-            : {}),
-          ...(state.extracted.priority
-            ? { priority: state.extracted.priority }
-            : {}),
-          ...(state.selectedAssetId ? { assetId: state.selectedAssetId } : {})
-        })
+        body: JSON.stringify(buildCaseCreatePayload(state))
       });
       const json = (await res.json().catch(() => ({}))) as {
         caseId?: string;
@@ -264,6 +250,8 @@ export function IntakeShell({
         messages={state.messages}
         devices={devices}
         selectedAssetId={state.selectedAssetId}
+        issueCaptured={state.issueCaptured}
+        showDevicePicker={showDevicePicker}
         sending={sending}
         reviewReady={reviewReady}
         error={turnError}
@@ -271,6 +259,7 @@ export function IntakeShell({
         onSelectDevice={(assetId) =>
           dispatch({ type: "selectDevice", assetId })
         }
+        onClearDevice={() => dispatch({ type: "clearDevice" })}
         onReview={() => dispatch({ type: "toConfirm" })}
       />
     );

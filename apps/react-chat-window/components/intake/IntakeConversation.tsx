@@ -14,11 +14,14 @@ interface IntakeConversationProps {
   messages: IntakeMessage[];
   devices: IntakeDevice[];
   selectedAssetId: string | null;
+  issueCaptured: boolean;
+  showDevicePicker: boolean;
   sending: boolean;
   reviewReady: boolean;
   error: string | null;
   onSend(text: string): void;
   onSelectDevice(assetId: string): void;
+  onClearDevice(): void;
   onReview(): void;
 }
 
@@ -27,11 +30,14 @@ export function IntakeConversation({
   messages,
   devices,
   selectedAssetId,
+  issueCaptured,
+  showDevicePicker,
   sending,
   reviewReady,
   error,
   onSend,
   onSelectDevice,
+  onClearDevice,
   onReview
 }: IntakeConversationProps) {
   const [input, setInput] = useState("");
@@ -56,7 +62,8 @@ export function IntakeConversation({
           laptop?
         </h1>
         <p className="text-sm text-muted-foreground">
-          Describe the issue you&apos;re seeing and pick the affected device.
+          Describe the issue first — we&apos;ll ask which device is affected when
+          we have enough detail.
         </p>
       </header>
 
@@ -121,25 +128,18 @@ export function IntakeConversation({
         </Button>
       </div>
 
-      <section className="space-y-2 rounded-lg border bg-card p-4">
-        <h2 className="flex items-center gap-2 text-sm font-medium">
-          <Laptop className="h-4 w-4" />
-          Which device is affected?
-        </h2>
-        {devices.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No devices are on file for your account — you can still submit the
-            issue.
-          </p>
-        ) : (
+      {showDevicePicker ? (
+        <section className="space-y-2 rounded-lg border bg-card p-4">
+          <h2 className="flex items-center gap-2 text-sm font-medium">
+            <Laptop className="h-4 w-4" />
+            Which device is affected?
+          </h2>
           <div className="flex flex-wrap gap-2">
             {devices.map((device) => (
               <Button
                 key={device.assetId}
                 type="button"
-                variant={
-                  selectedAssetId === device.assetId ? "default" : "outline"
-                }
+                variant="outline"
                 size="sm"
                 onClick={() => onSelectDevice(device.assetId)}
               >
@@ -147,8 +147,37 @@ export function IntakeConversation({
               </Button>
             ))}
           </div>
-        )}
-      </section>
+        </section>
+      ) : null}
+
+      {issueCaptured && devices.length === 0 ? (
+        <section className="rounded-lg border bg-card p-4">
+          <p className="text-sm text-muted-foreground">
+            No devices are on file for your account — you can still submit the
+            issue.
+          </p>
+        </section>
+      ) : null}
+
+      {selectedAssetId ? (
+        <section className="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-4 text-sm">
+          <span className="font-medium text-muted-foreground">Device:</span>
+          <span className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground">
+            {devices.find((device) => device.assetId === selectedAssetId)?.label}
+          </span>
+          {devices.length > 1 ? (
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              className="h-auto p-0 text-muted-foreground"
+              onClick={onClearDevice}
+            >
+              Change
+            </Button>
+          ) : null}
+        </section>
+      ) : null}
 
       <Button
         type="button"

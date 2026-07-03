@@ -59,6 +59,9 @@ export interface AccountContext {
   shipToCity?: string;
   shipToState?: string;
   shipToCountry?: string;
+  billingCity?: string;
+  billingState?: string;
+  billingCountry?: string;
 }
 
 /** Verified Contact summary used for the greeting and Case supplied fields. */
@@ -262,14 +265,17 @@ export class SalesforceCaseWriteGateway {
   async readAccountContext(accountId: string): Promise<AccountContext> {
     this.requireId(accountId);
     const records = await this.runQuery(
-      `SELECT Name, ShippingCity, ShippingState, ShippingCountry FROM Account WHERE Id = '${accountId}' LIMIT 1`
+      `SELECT Name, ShippingCity, ShippingState, ShippingCountry, BillingCity, BillingState, BillingCountry FROM Account WHERE Id = '${accountId}' LIMIT 1`
     );
     const row = records[0];
     return {
       accountName: SalesforceCaseWriteGateway.str(row, "Name"),
       shipToCity: SalesforceCaseWriteGateway.str(row, "ShippingCity"),
       shipToState: SalesforceCaseWriteGateway.str(row, "ShippingState"),
-      shipToCountry: SalesforceCaseWriteGateway.str(row, "ShippingCountry")
+      shipToCountry: SalesforceCaseWriteGateway.str(row, "ShippingCountry"),
+      billingCity: SalesforceCaseWriteGateway.str(row, "BillingCity"),
+      billingState: SalesforceCaseWriteGateway.str(row, "BillingState"),
+      billingCountry: SalesforceCaseWriteGateway.str(row, "BillingCountry")
     };
   }
 

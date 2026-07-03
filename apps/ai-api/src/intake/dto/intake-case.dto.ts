@@ -50,6 +50,12 @@ export class IntakeCaseCreateDto {
   @Matches(SF_ID)
   assetId?: string;
 
+  /** Picker label fallback when the client omits assetId. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  deviceLabel?: string;
+
   @IsOptional()
   @ValidateNested()
   @Type(() => IntakeShipToDto)

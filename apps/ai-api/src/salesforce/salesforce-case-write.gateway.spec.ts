@@ -93,7 +93,35 @@ describe("SalesforceCaseWriteGateway", () => {
     const [, postInit] = h.fetchMock.mock.calls[0];
     const body = JSON.parse((postInit as RequestInit).body as string);
     expect(body.Subject).toBe("Battery swap");
+    expect(body.AssetId).toBe("02i000000000001");
     expect(body.Service_Ship_To_City__c).toBe("Austin");
+  });
+
+  it("creates a chat Case with AssetId via createChatCase", async () => {
+    const h = buildHarness();
+    h.fetchMock
+      .mockResolvedValueOnce(jsonResponse({ id: "500000000000001ABC", success: true }))
+      .mockResolvedValueOnce(jsonResponse({ CaseNumber: "00005678" }));
+
+    await h.gateway.createChatCase({
+      subject: "Chat intake",
+      description: "Screen flickers",
+      priority: "Medium",
+      accountId: "001000000000001",
+      contactId: "003000000000001",
+      assetId: "02i000000000001",
+      suppliedName: "Ada Lovelace",
+      suppliedEmail: "ada@corp.com",
+      serviceShipToCity: "London",
+      serviceShipToState: "LDN",
+      serviceShipToCountry: "UK"
+    });
+
+    const [, postInit] = h.fetchMock.mock.calls[0];
+    const body = JSON.parse((postInit as RequestInit).body as string);
+    expect(body.AssetId).toBe("02i000000000001");
+    expect(body.Origin).toBe("Chat");
+    expect(body.AI_Orchestration_Status__c).toBe("stopped_by_user");
   });
 
   it("returns undefined when Asset serial is not found", async () => {

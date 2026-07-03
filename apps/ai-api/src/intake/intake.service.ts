@@ -1,5 +1,6 @@
 import {
   BadGatewayException,
+  BadRequestException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -12,7 +13,8 @@ import { AppConfigService } from "../config/app-config.service";
 import {
   SalesforceCaseWriteGateway,
   type AccountContext,
-  type ContactSummary
+  type ContactSummary,
+  type IntakeDevice
 } from "../salesforce/salesforce-case-write.gateway";
 import { SalesforceGatewayError } from "../salesforce/salesforce-gateway.error";
 import type { IntakeContextResponseDto } from "./dto/intake-context.dto";
@@ -58,20 +60,34 @@ export class IntakeService {
         })
     ]);
 
+    const shipTo = {
+      city: account.shipToCity,
+      state: account.shipToState,
+      country: account.shipToCountry
+    };
+    const billingLocation = {
+      city: account.billingCity,
+      state: account.billingState,
+      country: account.billingCountry
+    };
+    const hasMultipleServiceLocations = IntakeService.hasDistinctLocations(
+      shipTo,
+      billingLocation
+    );
+
     return {
       displayName: contact.name,
       accountName: account.accountName,
+      contactEmail: identity.verifiedEmail ?? contact.email,
       // Serial numbers stay server-side; only id + friendly label reach the UI.
       devices: assets.map((device) => ({
         assetId: device.assetId,
         label: device.label,
         product: device.product
       })),
-      shipTo: {
-        city: account.shipToCity,
-        state: account.shipToState,
-        country: account.shipToCountry
-      }
+      shipTo,
+      ...(hasMultipleServiceLocations ? { billingLocation } : {}),
+      hasMultipleServiceLocations
     };
   }
 
@@ -82,26 +98,19 @@ export class IntakeService {
     this.ensureEnabled();
     const identity = requireIntakeIdentity(principal);
 
-    let assetId: string | undefined;
-    if (dto.assetId) {
-      let owned: boolean;
-      try {
-        owned = await this.caseWriteGateway.assetBelongsToAccount(
-          dto.assetId,
-          identity.accountId
-        );
-      } catch (err) {
-        // Fail closed: never attach a device we could not verify ownership of.
-        throw this.mapError(err);
-      }
-      if (!owned) {
-        throw new ForbiddenException({
-          error: "asset_not_owned",
-          message: "The selected device is not on your account."
-        });
-      }
-      assetId = dto.assetId;
-    }
+    const assets = await this.caseWriteGateway
+      .listAccountAssets(identity.accountId)
+      .catch((err) => {
+        this.logger.warn(`Intake asset list degraded: ${this.kind(err)}`);
+        return [] as IntakeDevice[];
+      });
+
+    const assetId = await this.resolveCaseAssetId(
+      identity.accountId,
+      assets,
+      dto.assetId,
+      dto.deviceLabel
+    );
 
     const [account, contact] = await Promise.all([
       this.caseWriteGateway
@@ -180,5 +189,105 @@ export class IntakeService {
     const firstLine = description.trim().split(/\r?\n/)[0] ?? "";
     const subject = firstLine.slice(0, 120).trim();
     return subject.length > 0 ? subject : "Laptop support request";
+  }
+
+  private static hasDistinctLocations(
+    shipTo: { city?: string; state?: string; country?: string },
+    billing: { city?: string; state?: string; country?: string }
+  ): boolean {
+    const shipKey = IntakeService.locationKey(shipTo);
+    const billingKey = IntakeService.locationKey(billing);
+    if (!shipKey || !billingKey) {
+      return false;
+    }
+    return shipKey !== billingKey;
+  }
+
+  private static locationKey(location: {
+    city?: string;
+    state?: string;
+    country?: string;
+  }): string {
+    return [location.city, location.state, location.country]
+      .map((part) => part?.trim().toLowerCase() ?? "")
+      .filter(Boolean)
+      .join("|");
+  }
+
+  private async resolveCaseAssetId(
+    accountId: string,
+    assets: IntakeDevice[],
+    requestedAssetId?: string,
+    deviceLabel?: string
+  ): Promise<string | undefined> {
+    if (assets.length === 0) {
+      return undefined;
+    }
+
+    if (requestedAssetId) {
+      try {
+        const owned = await this.caseWriteGateway.assetBelongsToAccount(
+          requestedAssetId,
+          accountId
+        );
+        if (!owned) {
+          throw new ForbiddenException({
+            error: "asset_not_owned",
+            message: "The selected device is not on your account."
+          });
+        }
+        return requestedAssetId;
+      } catch (err) {
+        if (err instanceof ForbiddenException) {
+          throw err;
+        }
+        throw this.mapError(err);
+      }
+    }
+
+    const fallbackCandidates = [
+      assets.length === 1 ? assets[0]?.assetId : undefined,
+      IntakeService.matchDeviceLabel(assets, deviceLabel)
+    ].filter((value): value is string => Boolean(value));
+
+    for (const candidate of fallbackCandidates) {
+      try {
+        const owned = await this.caseWriteGateway.assetBelongsToAccount(
+          candidate,
+          accountId
+        );
+        if (owned) {
+          return candidate;
+        }
+      } catch (err) {
+        throw this.mapError(err);
+      }
+    }
+
+    throw new BadRequestException({
+      error: "device_required",
+      message:
+        "Select the affected device from your account before submitting the case."
+    });
+  }
+
+  private static matchDeviceLabel(
+    assets: IntakeDevice[],
+    deviceLabel?: string
+  ): string | undefined {
+    const normalized = deviceLabel?.trim().toLowerCase();
+    if (!normalized) {
+      return undefined;
+    }
+    const exact = assets.find(
+      (device) => device.label.trim().toLowerCase() === normalized
+    );
+    if (exact) {
+      return exact.assetId;
+    }
+    const partial = assets.find((device) =>
+      device.label.toLowerCase().includes(normalized)
+    );
+    return partial?.assetId;
   }
 }
