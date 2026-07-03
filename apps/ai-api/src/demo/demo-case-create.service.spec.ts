@@ -36,7 +36,9 @@ describe("DemoCaseCreateService", () => {
   } as unknown as SalesforceCaseWriteGateway;
 
   const caseGateway = {
-    resolveCaseIdByNumber: jest.fn()
+    resolveCaseIdByNumber: jest.fn(),
+    readOrchestrationStatus: jest.fn(),
+    writeOrchestrationSuppressed: jest.fn()
   } as unknown as SalesforceCaseGateway;
 
   const service = new DemoCaseCreateService(gateway, caseGateway);
@@ -86,5 +88,42 @@ describe("DemoCaseCreateService", () => {
     await expect(
       service.create({ scenarioId: "same-day-battery-fix" })
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("prepareCaseForSteppedActivation flips stopped_by_user to suppressed", async () => {
+    (caseGateway.readOrchestrationStatus as jest.Mock).mockResolvedValue(
+      "stopped_by_user"
+    );
+    (caseGateway.writeOrchestrationSuppressed as jest.Mock).mockResolvedValue(
+      undefined
+    );
+
+    const result = await service.prepareCaseForSteppedActivation(
+      "500000000000001ABC"
+    );
+
+    expect(result).toEqual({
+      prepared: true,
+      previousStatus: "stopped_by_user"
+    });
+    expect(caseGateway.writeOrchestrationSuppressed).toHaveBeenCalledWith(
+      "500000000000001ABC"
+    );
+  });
+
+  it("prepareCaseForSteppedActivation is a no-op when Case is already suppressed", async () => {
+    (caseGateway.readOrchestrationStatus as jest.Mock).mockResolvedValue(
+      "suppressed"
+    );
+
+    const result = await service.prepareCaseForSteppedActivation(
+      "500000000000001ABC"
+    );
+
+    expect(result).toEqual({
+      prepared: false,
+      previousStatus: "suppressed"
+    });
+    expect(caseGateway.writeOrchestrationSuppressed).not.toHaveBeenCalled();
   });
 });

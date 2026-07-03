@@ -188,7 +188,7 @@ describe("resolveCaseDescription", () => {
 
   it("falls back to a safe default when nothing was typed", () => {
     expect(resolveCaseDescription(initialIntakeState)).toBe(
-      "Laptop issue reported via chat."
+      "Issue reported via chat."
     );
   });
 });

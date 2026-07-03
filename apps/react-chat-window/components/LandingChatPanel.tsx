@@ -357,8 +357,7 @@ export function LandingChatPanel() {
               border: "1px solid #E6EDF4"
             }}
           >
-            Hi, I&apos;m Ably — describe your laptop issue and I&apos;ll help
-            you raise a support case.
+            Hi, I&apos;m Ably — how can I help you today?
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             <label

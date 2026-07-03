@@ -39,6 +39,22 @@ interface CreatedCase {
   salesforceCaseUrl?: string;
 }
 
+function activationErrorMessage(data: {
+  message?: string;
+  error?: string;
+}): string {
+  if (data.message) {
+    return data.message;
+  }
+  if (data.error === "orchestration_stopped") {
+    return "AI orchestration was stopped for this Case. Try again — chat-created Cases are prepared automatically before activation.";
+  }
+  if (data.error === "case_not_found") {
+    return "No Case found with that Case Number.";
+  }
+  return "Could not activate the agent for this Case.";
+}
+
 export function DemoCaseCreateForm({ scenarios }: DemoCaseCreateFormProps) {
   const defaultScenarioId =
     scenarios.find((scenario) => scenario.id !== "custom")?.id ??
@@ -180,9 +196,7 @@ export function DemoCaseCreateForm({ scenarios }: DemoCaseCreateFormProps) {
       }
 
       if (!response.ok) {
-        throw new Error(
-          data.message ?? "Could not activate the agent for this Case."
-        );
+        throw new Error(activationErrorMessage(data));
       }
       if (!data.workflowId) {
         throw new Error("Agent activation did not return a workflow id.");
@@ -237,7 +251,7 @@ export function DemoCaseCreateForm({ scenarios }: DemoCaseCreateFormProps) {
       }
 
       if (!response.ok) {
-        throw new Error(data.message ?? "Could not activate the agent for this Case.");
+        throw new Error(activationErrorMessage(data));
       }
       if (!data.workflowId) {
         throw new Error("Agent activation did not return a workflow id.");

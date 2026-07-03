@@ -39,6 +39,27 @@ export class DemoCaseCreateService {
     return this.gateway.isConfigured();
   }
 
+  /**
+   * Chat-intake Cases are created with `stopped_by_user` so the insert
+   * handoff Flow does not auto-run. Demo "activate existing" must flip that
+   * to `suppressed` (same as demo Case create) before stepped orchestration.
+   */
+  async prepareCaseForSteppedActivation(caseId: string): Promise<{
+    prepared: boolean;
+    previousStatus?: string;
+  }> {
+    const previousStatus =
+      await this.caseGateway.readOrchestrationStatus(caseId);
+    if (previousStatus !== "stopped_by_user") {
+      return { prepared: false, previousStatus };
+    }
+    await this.caseGateway.writeOrchestrationSuppressed(caseId);
+    this.logger.log(
+      `Demo Case prepared for stepped activation caseId=${caseId}`
+    );
+    return { prepared: true, previousStatus };
+  }
+
   async create(
     dto: DemoCaseCreateDto
   ): Promise<DemoCaseCreateResponseDto> {

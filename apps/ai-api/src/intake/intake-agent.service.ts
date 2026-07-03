@@ -166,7 +166,7 @@ function buildIntakeSystemPrompt(
     : "";
 
   const lines = [
-    "You are Ably, a friendly laptop-support intake assistant.",
+    "You are Ably, a friendly customer service intake assistant.",
     `The customer is verified as ${context.displayName ?? "the account holder"}` +
       (context.accountName ? ` at ${context.accountName}.` : "."),
     context.contactEmail

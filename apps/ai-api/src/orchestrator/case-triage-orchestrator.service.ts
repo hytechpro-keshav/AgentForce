@@ -295,6 +295,8 @@ export class CaseTriageOrchestratorService {
     if (orchestrationStatus === "stopped_by_user") {
       throw new ConflictException({
         error: "orchestration_stopped",
+        message:
+          "AI orchestration was stopped for this Case. Re-activate from the demo console if this Case was created by chat intake.",
         caseId: dto.caseId
       });
     }
@@ -348,6 +350,8 @@ export class CaseTriageOrchestratorService {
     if (orchestrationStatus === "stopped_by_user") {
       throw new ConflictException({
         error: "orchestration_stopped",
+        message:
+          "AI orchestration was stopped for this Case. Re-activate from the demo console if this Case was created by chat intake.",
         caseId: dto.caseId
       });
     }
