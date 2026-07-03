@@ -183,7 +183,7 @@ export function resolveCaseDescription(state: IntakeState): string {
   if (edited) {
     return edited;
   }
-  return transcriptFallbackDescription(state) || "Laptop issue reported via chat.";
+  return transcriptFallbackDescription(state) || "Issue reported via chat.";
 }
 
 function selectedDevice(

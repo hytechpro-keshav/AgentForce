@@ -61,8 +61,7 @@ export function IntakeConversation({
     <main className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-4 px-4 py-6">
       <header className="space-y-1">
         <h1 className="text-xl font-semibold">
-          {displayName ? `Hi ${displayName}, ` : ""}how can we help with your
-          laptop?
+          {displayName ? `Hi ${displayName}, ` : ""}how can we help you today?
         </h1>
         <p className="text-sm text-muted-foreground">
           Describe the issue first — we&apos;ll ask which device is affected when
@@ -76,7 +75,7 @@ export function IntakeConversation({
       >
         {messages.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Tell us what&apos;s happening with your laptop to get started.
+            Tell us what&apos;s going on and we&apos;ll help you get started.
           </p>
         ) : null}
         {messages.map((message, index) => (
