@@ -13,9 +13,12 @@ import {
   canSubmitCase,
   caseCreatedAnnouncement,
   caseCreatedEvent,
+  caseStatusAnnouncement,
+  caseStatusEvent,
   deviceGreeting,
   deviceSelectionEvent,
   fetchIntakeConfig,
+  fetchOpenCases,
   loadIntakeContext,
   parseTurnResponse,
   shouldShowDevicePicker
@@ -94,6 +97,30 @@ export function IntakeShell({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.phase]);
+
+  // The model's showTicketStatus directive triggers a live status fetch; the
+  // status bubble is composed deterministically from Salesforce data so the
+  // model can never invent case progress.
+  useEffect(() => {
+    if (!state.ticketStatusRequested) return;
+    dispatch({ type: "ticketStatusHandled" });
+    if (!token) return;
+    void fetchOpenCases(token).then(({ cases, summary }) => {
+      dispatch({
+        type: "appendMessage",
+        message: {
+          role: "assistant",
+          content: caseStatusAnnouncement(cases, summary),
+          uiOnly: true
+        }
+      });
+      dispatch({
+        type: "appendMessage",
+        message: { role: "user", content: caseStatusEvent(cases), hidden: true }
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.ticketStatusRequested]);
 
   // The model's createCase directive triggers the actual case create; the
   // announcement (case number, follow-up email, "anything else?") is composed
@@ -213,7 +240,11 @@ export function IntakeShell({
           authorization: `Bearer ${token}`
         },
         body: JSON.stringify(
-          buildTurnRequestBody(nextMessages, selectedAssetId)
+          buildTurnRequestBody(
+            nextMessages,
+            selectedAssetId,
+            state.troubleshootingCount
+          )
         )
       });
       if (!res.ok) {

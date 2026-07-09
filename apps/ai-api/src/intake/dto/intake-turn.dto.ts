@@ -4,10 +4,13 @@ import {
   ArrayMinSize,
   IsArray,
   IsIn,
+  IsInt,
   IsObject,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
+  Min,
   MinLength,
   ValidateNested
 } from "class-validator";
@@ -33,6 +36,17 @@ export class IntakeTurnUiStateDto {
   @IsString()
   @MaxLength(64)
   selectedAssetId?: string;
+
+  /**
+   * How many troubleshooting suggestions the assistant has already offered in
+   * this conversation (client-counted from server-declared `offeredSuggestion`
+   * flags). The server hard-caps suggestions at 2 based on this value.
+   */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(10)
+  troubleshootingCount?: number;
 }
 
 export class IntakeTurnRequestDto {
@@ -74,7 +88,9 @@ export type IntakeTurnUiAction =
   /** Deprecated review-card cue; accepted for compat but mapped to "none". */
   | "showReview"
   /** Customer confirmed in chat — the client should create the Case now. */
-  | "createCase";
+  | "createCase"
+  /** Customer asked about an existing ticket — the client shows live status. */
+  | "showTicketStatus";
 
 /** Widget cue chosen by the model (validated server-side) for this turn. */
 export interface IntakeTurnUiDirectiveDto {
@@ -91,4 +107,10 @@ export interface IntakeTurnResponseDto {
   ui: IntakeTurnUiDirectiveDto;
   /** Model's judgment (plus an anti-trap fallback) that the case is ready for review. */
   readyToSubmit: boolean;
+  /**
+   * True when this reply offers a troubleshooting suggestion to try. The
+   * client counts these into `uiState.troubleshootingCount`; the server
+   * clamps the flag to false once the 2-suggestion cap is reached.
+   */
+  offeredSuggestion: boolean;
 }

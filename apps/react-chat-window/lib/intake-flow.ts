@@ -31,6 +31,31 @@ export interface IntakeLocation {
   country?: string;
 }
 
+/** Latest orchestrator agent update posted on a case (agent narratives only). */
+export interface IntakeCaseUpdate {
+  body: string;
+  createdDate?: string;
+}
+
+/** Open-case summary carried in context (count/greeting only; the status
+ * bubble always re-fetches live data via GET /api/intake/cases). */
+export interface IntakeOpenCaseSummary {
+  caseNumber: string;
+  subject?: string;
+  status?: string;
+  latestUpdate?: IntakeCaseUpdate;
+}
+
+/** Live open-case row rendered in the deterministic status bubble. */
+export interface IntakeOpenCase {
+  caseNumber: string;
+  subject?: string;
+  status?: string;
+  priority?: string;
+  createdDate?: string;
+  latestUpdate?: IntakeCaseUpdate;
+}
+
 export interface IntakeContext {
   displayName?: string;
   accountName?: string;
@@ -39,6 +64,7 @@ export interface IntakeContext {
   shipTo: IntakeLocation;
   billingLocation?: IntakeLocation;
   hasMultipleServiceLocations?: boolean;
+  openCases?: IntakeOpenCaseSummary[];
 }
 
 export interface IntakeMessage {
@@ -69,7 +95,9 @@ export type IntakeUiAction =
   /** Deprecated review-card cue from older servers; treated as "none". */
   | "showReview"
   /** Customer confirmed in chat — create the Case now. */
-  | "createCase";
+  | "createCase"
+  /** Customer asked about an existing ticket — show live case status. */
+  | "showTicketStatus";
 
 /** Widget cue returned by the model for a turn (validated server-side). */
 export interface IntakeUiDirective {
@@ -94,6 +122,10 @@ export interface IntakeState {
   selectedAssetId: string | null;
   /** Set by a createCase directive; the component submits and then clears it. */
   createCaseRequested: boolean;
+  /** Set by a showTicketStatus directive; the component fetches live status and clears it. */
+  ticketStatusRequested: boolean;
+  /** Bot-offered troubleshooting suggestions so far (server caps at 2). */
+  troubleshootingCount: number;
   caseId: string | null;
   caseNumber: string | null;
 }
@@ -111,6 +143,8 @@ export const initialIntakeState: IntakeState = {
   suggestedAssetId: null,
   selectedAssetId: null,
   createCaseRequested: false,
+  ticketStatusRequested: false,
+  troubleshootingCount: 0,
   caseId: null,
   caseNumber: null
 };
@@ -138,10 +172,12 @@ export type IntakeAction =
       issueCaptured: boolean;
       ui?: IntakeUiDirective;
       readyToSubmit?: boolean;
+      offeredSuggestion?: boolean;
     }
   | { type: "selectDevice"; assetId: string }
   | { type: "clearDevice" }
   | { type: "createCaseHandled" }
+  | { type: "ticketStatusHandled" }
   | { type: "caseCreated"; caseId: string; caseNumber?: string }
   | { type: "reset"; skipEmailVerification?: boolean };
 
@@ -198,6 +234,10 @@ export function intakeReducer(
           ...state.messages,
           { role: "assistant", content: action.reply }
         ],
+        ticketStatusRequested:
+          state.ticketStatusRequested || uiAction === "showTicketStatus",
+        troubleshootingCount:
+          state.troubleshootingCount + (action.offeredSuggestion ? 1 : 0),
         // Extracted fields only ever accumulate the latest non-empty values.
         extracted: {
           subject: action.extracted.subject ?? state.extracted.subject,
@@ -237,6 +277,8 @@ export function intakeReducer(
       };
     case "createCaseHandled":
       return { ...state, createCaseRequested: false };
+    case "ticketStatusHandled":
+      return { ...state, ticketStatusRequested: false };
     case "caseCreated":
       // The conversation continues after a create ("anything else?"), so the
       // per-case fields reset while the transcript, session, and context stay.
@@ -250,6 +292,8 @@ export function intakeReducer(
         suggestedAssetId: null,
         selectedAssetId: autoSelectedAssetId(state.context),
         createCaseRequested: false,
+        // A fresh issue gets a fresh troubleshooting budget.
+        troubleshootingCount: 0,
         caseId: action.caseId,
         caseNumber: action.caseNumber ?? null
       };

@@ -438,6 +438,10 @@ export interface CustomerIntakeConfig {
   /** Salesforce Account Id used by bootstrap when email verification is off. */
   bootstrapAccountId?: string;
   otpApexBasePath: string;
+  /** Apex REST base path for the chat-case confirmation email. */
+  caseNotifyApexBasePath: string;
+  /** When true, a case create fires a Salesforce confirmation email (fire-and-forget). */
+  confirmationEmailEnabled: boolean;
   rateLimitWindowMs: number;
   rateLimitMaxRequests: number;
   sessionTtlSeconds: number;
@@ -2192,6 +2196,10 @@ export class AppConfigService {
     const otpApexBasePath = (
       rawBasePath ?? "/services/apexrest/agentforce/otp"
     ).replace(/\/+$/, "");
+    const caseNotifyApexBasePath = (
+      AppConfigService.normalize(env.CUSTOMER_INTAKE_CASE_NOTIFY_BASE_PATH) ??
+      "/services/apexrest/agentforce/case-notify"
+    ).replace(/\/+$/, "");
     const skipEmailVerification = AppConfigService.parseBooleanFlag(
       env.CUSTOMER_INTAKE_SKIP_EMAIL_VERIFICATION,
       false,
@@ -2209,6 +2217,12 @@ export class AppConfigService {
       emailVerificationEnabled: !skipEmailVerification,
       bootstrapAccountId,
       otpApexBasePath,
+      caseNotifyApexBasePath,
+      confirmationEmailEnabled: AppConfigService.parseBooleanFlag(
+        env.CUSTOMER_INTAKE_CONFIRMATION_EMAIL_ENABLED,
+        true,
+        "CUSTOMER_INTAKE_CONFIRMATION_EMAIL_ENABLED"
+      ),
       rateLimitWindowMs: AppConfigService.parsePositiveInteger(
         env.CUSTOMER_INTAKE_RATE_LIMIT_WINDOW_MS,
         60000,

@@ -11,6 +11,7 @@ import {
 import type { AuthenticatedRequest } from "../auth/jwt-auth.guard";
 import { Public } from "../auth/public.decorator";
 import { RequireScopes } from "../auth/require-scopes.decorator";
+import type { IntakeCasesResponseDto } from "./dto/intake-cases.dto";
 import type { IntakeConfigResponseDto } from "./dto/intake-config.dto";
 import type { IntakeContextResponseDto } from "./dto/intake-context.dto";
 import {
@@ -89,6 +90,15 @@ export class IntakeController {
     @Req() request: AuthenticatedRequest
   ): Promise<IntakeContextResponseDto> {
     return this.intake.getContext(request.authPrincipal);
+  }
+
+  @RequireScopes("chat:intake")
+  @UseGuards(IntakeRateLimitGuard)
+  @Get("cases")
+  listCases(
+    @Req() request: AuthenticatedRequest
+  ): Promise<IntakeCasesResponseDto> {
+    return this.agent.listOpenCasesWithSummary(request.authPrincipal);
   }
 
   @RequireScopes("chat:intake")

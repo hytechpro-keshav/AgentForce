@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 
 import { AppConfigModule } from "../config/app-config.module";
 import { LlmModule } from "../llm/llm.module";
+import { RagModule } from "../rag/rag.module";
 import { SalesforceModule } from "../salesforce/salesforce.module";
 import { IntakeController } from "./intake.controller";
 import { IntakeAgentService } from "./intake-agent.service";
@@ -17,7 +18,7 @@ import { IntakeSessionService } from "./intake-session.service";
  * the intake context/turn/case endpoints scoped to the verified customer.
  */
 @Module({
-  imports: [AppConfigModule, SalesforceModule, LlmModule],
+  imports: [AppConfigModule, SalesforceModule, LlmModule, RagModule],
   controllers: [IntakeController],
   providers: [
     IntakeOtpService,

@@ -136,3 +136,22 @@ Manual UAT (skip OTP on):
 - `intake-skip-email-verification` — toggle OTP bypass + bootstrap account
 - `railway-quick-deploy` — ship to production
 - `salesforce-case-create` — seed test Cases/assets in the org
+
+## 2026-07-09 — Ticket status, troubleshooting loop, confirmation email
+
+New conversation capabilities (both `/landing` panel and `/intake` page):
+
+| Piece                | How it works                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Ticket status lookup | `GET /intake/cases` (chat:intake JWT) returns the verified contact's open Cases (contact-scoped SOQL, `listOpenCasesForContact`). Model cues `ui.action "showTicketStatus"`; the client fetches live data and composes a deterministic status bubble (`caseStatusAnnouncement`) — the model never states status itself. Context now carries `openCases` so the greeting advertises them. No-open-cases → directive downgraded server-side.                                                 |
+| Troubleshooting loop | Prompt rule 1c: offer ONE suggestion, ask "did this resolve?", max 2 per conversation. Model returns `offeredSuggestion`; client counts into `uiState.troubleshootingCount`; server injects the count and hard-caps the flag at 2 (`MAX_TROUBLESHOOTING_SUGGESTIONS`). Count resets after each case create. Suggestions are grounded on RAG (`RagRetrievalService`, namespace `customer-self-service`, kb-laptop-corpus) — degrade-safe, skipped when `RAG_ENABLED` false or budget spent. |
+| Confirmation email   | Fire-and-forget after `createChatCase`: `SalesforceCaseNotifyGateway` → Apex `AgentforceCaseNotifyRest` (`/services/apexrest/agentforce/case-notify/confirmation`) → `CaseConfirmationService` (OtpService mail pattern, `Otp_Config__c.From_Address__c`). Toggle `CUSTOMER_INTAKE_CONFIRMATION_EMAIL_ENABLED` (default true); gateway degrades (never fails the create) while Apex is undeployed.                                                                                         |
+
+Gotchas:
+
+- `uiState.troubleshootingCount` is only sent when > 0 (strict DTO whitelists on older servers).
+- The status bubble re-fetches `/intake/cases` fresh; `context.openCases` may be stale up to the 5-min context cache TTL — use it for the greeting/prompt only.
+- No ETA is shown — no per-case data source exists yet (candidate: Node 5 ServiceAppointment window).
+- e2e: `intake-flow.spec.ts` covers both flows (`withOpenCases`, `turnScript` mock options). Kill anything on :4173/:3000 before `test:e2e:intake` — a reused dev server with the skip-OTP flag breaks the email-step assertions.
+- Live-verified 2026-07-09 (Case #00001209, prod): model may copy the status reply text but cue `action:"none"` — server reconciles via `referencesStatusCard()` (same class as `CREATE_REFERENCE_PATTERN`); never remove that guard.
+- Agent-update surfacing (2026-07-09, live-verified): `listOpenCasesForContact` also reads the newest CaseComment per open case, but ONLY bodies matching `^Agent [1-5] [–-] ` (the orchestrator narratives from `agent-case-narrative.builder.ts` — deterministic, non-PII); human/internal comments are never surfaced. The status bubble shows an `Update (date): …` line (300-char cap) and the system prompt carries the same snippets so the bot can relay progress/ETA from Agent 4 – Scheduling comments; with no scheduling comment it must answer "the service team has not posted that detail yet". Comment read is degrade-safe (status renders without updates).

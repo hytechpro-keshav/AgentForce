@@ -25,7 +25,19 @@ const CASE_NUMBER = "00001234";
 interface IntakeMockOptions {
   invalidOtp?: boolean;
   noDevices?: boolean;
+  /** Adds an open case to context and serves GET /api/intake/cases. */
+  withOpenCases?: boolean;
+  /** Serves these turn responses in order (last one repeats). */
+  turnScript?: Array<Record<string, unknown>>;
 }
+
+const OPEN_CASE = {
+  caseNumber: "00001202",
+  subject: "Laptop running slow",
+  status: "New",
+  priority: "High",
+  createdDate: "2026-07-06T10:00:00.000Z"
+};
 
 async function fulfillJson(route: Route, status: number, body: unknown) {
   await route.fulfill({
@@ -37,6 +49,8 @@ async function fulfillJson(route: Route, status: number, body: unknown) {
 
 async function mockIntakeBff(page: Page, options: IntakeMockOptions = {}) {
   let turnCount = 0;
+  /** Request bodies POSTed to /api/intake/turn, for uiState assertions. */
+  const turnBodies: Array<Record<string, unknown>> = [];
 
   await page.route("**/api/intake/otp/request", async (route) => {
     await fulfillJson(route, 200, { status: "sent" });
@@ -77,7 +91,14 @@ async function mockIntakeBff(page: Page, options: IntakeMockOptions = {}) {
           product: "ThinkPad"
         }
       ],
-      shipTo: { city: "London", state: "LDN", country: "UK" }
+      shipTo: { city: "London", state: "LDN", country: "UK" },
+      ...(options.withOpenCases ? { openCases: [OPEN_CASE] } : {})
+    });
+  });
+
+  await page.route("**/api/intake/cases", async (route) => {
+    await fulfillJson(route, 200, {
+      cases: options.withOpenCases ? [OPEN_CASE] : []
     });
   });
 
@@ -90,6 +111,17 @@ async function mockIntakeBff(page: Page, options: IntakeMockOptions = {}) {
 
   await page.route("**/api/intake/turn", async (route) => {
     turnCount += 1;
+    turnBodies.push(
+      (route.request().postDataJSON() ?? {}) as Record<string, unknown>
+    );
+    if (options.turnScript && options.turnScript.length > 0) {
+      const scripted =
+        options.turnScript[
+          Math.min(turnCount - 1, options.turnScript.length - 1)
+        ];
+      await fulfillJson(route, 200, scripted);
+      return;
+    }
     if (turnCount === 1) {
       // Model has everything it needs: in-chat summary + confirm ask.
       await fulfillJson(route, 200, {
@@ -118,6 +150,8 @@ async function mockIntakeBff(page: Page, options: IntakeMockOptions = {}) {
       caseNumber: CASE_NUMBER
     });
   });
+
+  return { turnBodies };
 }
 
 test.describe("OTP intake flow (mocked BFF)", () => {
@@ -225,6 +259,136 @@ test.describe("OTP intake flow (mocked BFF)", () => {
     await expect(
       page.getByText(/anything else I can help you with\?/i)
     ).toBeVisible();
+  });
+
+  test("shows live status for an existing ticket instead of inventing one", async ({
+    page
+  }) => {
+    await mockIntakeBff(page, {
+      withOpenCases: true,
+      turnScript: [
+        {
+          reply:
+            "Let me pull up the latest on your open cases — here it is below.",
+          extracted: {},
+          issueCaptured: false,
+          ui: { action: "showTicketStatus" },
+          readyToSubmit: false
+        }
+      ]
+    });
+
+    await page.goto("/intake");
+    await page.getByLabel("Email address").fill(TEST_EMAIL);
+    await page.getByRole("button", { name: /send verification code/i }).click();
+    await page.getByLabel("Verification code").fill("123456");
+    await page.getByRole("button", { name: /verify and continue/i }).click();
+
+    // The greeting advertises the open case up front.
+    await expect(page.getByText(/1 open case/i)).toBeVisible();
+
+    const issueInput = page.getByLabel("Describe your issue");
+    await issueInput.fill(
+      "I already have a ticket for this — what's the status?"
+    );
+    await page.getByRole("button", { name: /^send$/i }).click();
+
+    // Deterministic status bubble composed from GET /api/intake/cases.
+    await expect(
+      page.getByText(/Case #00001202 — Laptop running slow/)
+    ).toBeVisible();
+    await expect(
+      page.getByText(/Status: New \(received — awaiting review\)/)
+    ).toBeVisible();
+    await expect(page.getByText(/Priority: High/)).toBeVisible();
+  });
+
+  test("offers at most two troubleshooting suggestions before raising the ticket", async ({
+    page
+  }) => {
+    const { turnBodies } = await mockIntakeBff(page, {
+      turnScript: [
+        {
+          reply:
+            "Open Task Manager (Ctrl + Shift + Esc) and close the apps using the most CPU. Did this resolve your issue?",
+          extracted: {
+            subject: "Laptop slow",
+            description: "Laptop slow, apps freezing"
+          },
+          issueCaptured: true,
+          ui: { action: "none" },
+          readyToSubmit: false,
+          offeredSuggestion: true
+        },
+        {
+          reply:
+            "Restart the laptop to clear stuck processes, then open only the app you need. Did this resolve your issue?",
+          extracted: {},
+          issueCaptured: true,
+          ui: { action: "none" },
+          readyToSubmit: false,
+          offeredSuggestion: true
+        },
+        {
+          reply:
+            "Understood — your laptop stays slow with apps freezing even after those steps. Shall I go ahead and register this case?",
+          extracted: {
+            subject: "Laptop slow",
+            description:
+              "Laptop extremely slow with apps freezing; Task Manager cleanup and restart did not help.",
+            priority: "High"
+          },
+          issueCaptured: true,
+          ui: { action: "none" },
+          readyToSubmit: true,
+          offeredSuggestion: false
+        },
+        {
+          reply: "Creating your case now…",
+          extracted: {},
+          issueCaptured: true,
+          ui: { action: "createCase" },
+          readyToSubmit: true,
+          offeredSuggestion: false
+        }
+      ]
+    });
+
+    await page.goto("/intake");
+    await page.getByLabel("Email address").fill(TEST_EMAIL);
+    await page.getByRole("button", { name: /send verification code/i }).click();
+    await page.getByLabel("Verification code").fill("123456");
+    await page.getByRole("button", { name: /verify and continue/i }).click();
+
+    const issueInput = page.getByLabel("Describe your issue");
+    await issueInput.fill(
+      "My laptop is extremely slow and apps keep freezing."
+    );
+    await page.getByRole("button", { name: /^send$/i }).click();
+    await expect(page.getByText(/Open Task Manager/)).toBeVisible();
+
+    await issueInput.fill("No, still slow.");
+    await page.getByRole("button", { name: /^send$/i }).click();
+    await expect(page.getByText(/Restart the laptop/)).toBeVisible();
+
+    await issueInput.fill("No, that didn't help either.");
+    await page.getByRole("button", { name: /^send$/i }).click();
+    await expect(
+      page.getByText(/shall I go ahead and register this case\?/i)
+    ).toBeVisible();
+
+    await issueInput.fill("yes please");
+    await page.getByRole("button", { name: /^send$/i }).click();
+    await expect(page.getByText(`#${CASE_NUMBER}`)).toBeVisible();
+
+    // The client reported the running suggestion count back to the server.
+    const uiStates = turnBodies.map(
+      (body) => (body.uiState ?? {}) as { troubleshootingCount?: number }
+    );
+    expect(uiStates[0]?.troubleshootingCount).toBeUndefined();
+    expect(uiStates[1]?.troubleshootingCount).toBe(1);
+    expect(uiStates[2]?.troubleshootingCount).toBe(2);
+    expect(uiStates[3]?.troubleshootingCount).toBe(2);
   });
 
   test("can navigate back from OTP to email", async ({ page }) => {

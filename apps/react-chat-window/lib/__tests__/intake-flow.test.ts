@@ -349,3 +349,55 @@ describe("intakeReducer", () => {
     expect(state.selectedAssetId).toBeNull();
   });
 });
+
+describe("intakeReducer ticket status + troubleshooting", () => {
+  it("latches ticketStatusRequested on a showTicketStatus cue and clears on handled", () => {
+    let state: IntakeState = { ...initialIntakeState, phase: "triage" };
+    state = intakeReducer(state, {
+      type: "turnResult",
+      reply: "Let me pull up the latest on your open cases.",
+      extracted: {},
+      issueCaptured: false,
+      ui: { action: "showTicketStatus" }
+    });
+    expect(state.ticketStatusRequested).toBe(true);
+
+    state = intakeReducer(state, { type: "ticketStatusHandled" });
+    expect(state.ticketStatusRequested).toBe(false);
+  });
+
+  it("counts server-declared suggestions and resets the budget after a create", () => {
+    let state: IntakeState = { ...initialIntakeState, phase: "triage" };
+    state = intakeReducer(state, {
+      type: "turnResult",
+      reply: "Try closing heavy apps — did that resolve it?",
+      extracted: {},
+      issueCaptured: true,
+      offeredSuggestion: true
+    });
+    state = intakeReducer(state, {
+      type: "turnResult",
+      reply: "Try a restart — did that help?",
+      extracted: {},
+      issueCaptured: true,
+      offeredSuggestion: true
+    });
+    expect(state.troubleshootingCount).toBe(2);
+
+    // a plain turn must not inflate the count
+    state = intakeReducer(state, {
+      type: "turnResult",
+      reply: "Understood — let me raise a ticket.",
+      extracted: {},
+      issueCaptured: true
+    });
+    expect(state.troubleshootingCount).toBe(2);
+
+    state = intakeReducer(state, {
+      type: "caseCreated",
+      caseId: "500000000000001",
+      caseNumber: "00001234"
+    });
+    expect(state.troubleshootingCount).toBe(0);
+  });
+});

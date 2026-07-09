@@ -1,7 +1,9 @@
 import { UnauthorizedException } from "@nestjs/common";
 
 import type { AuthPrincipal } from "../auth/jwt-auth.guard";
+import type { AppConfigService } from "../config/app-config.service";
 import type { ModelRouter } from "../llm/model-router";
+import type { RagRetrievalService } from "../rag/rag-retrieval.service";
 import type { IntakeContextResponseDto } from "./dto/intake-context.dto";
 import { IntakeAgentService } from "./intake-agent.service";
 import type { IntakeService } from "./intake.service";
@@ -43,11 +45,18 @@ const multiDeviceContext: IntakeContextResponseDto = {
 
 function buildService(
   content: string,
-  context: IntakeContextResponseDto = mockContext
+  context: IntakeContextResponseDto = mockContext,
+  options: {
+    ragEnabled?: boolean;
+    ragMatches?: Array<{ text: string; title?: string }>;
+    ragError?: boolean;
+  } = {}
 ): {
   service: IntakeAgentService;
   chat: jest.Mock;
   getContext: jest.Mock;
+  listOpenCases: jest.Mock;
+  search: jest.Mock;
 } {
   const chat = jest.fn().mockResolvedValue({
     content,
@@ -60,11 +69,52 @@ function buildService(
   });
   const modelRouter = { chat } as unknown as ModelRouter;
   const getContext = jest.fn().mockResolvedValue(context);
-  const intakeService = { getContext } as unknown as IntakeService;
+  const listOpenCases = jest.fn().mockResolvedValue({
+    cases: [
+      {
+        caseNumber: "00001209",
+        subject: "Slow laptop",
+        status: "New",
+        priority: "High",
+        latestUpdate: {
+          body: "Agent 1 – Triage: Case classified as Critical priority.",
+          createdDate: "2026-07-09T17:00:00.000Z"
+        }
+      }
+    ]
+  });
+  const intakeService = {
+    getContext,
+    listOpenCases
+  } as unknown as IntakeService;
+  const search = options.ragError
+    ? jest.fn().mockRejectedValue(new Error("vector store down"))
+    : jest.fn().mockResolvedValue({
+        rawMatches: (options.ragMatches ?? []).map((match, index) => ({
+          id: `chunk-${index}`,
+          text: match.text,
+          score: 0.9,
+          metadata: { title: match.title ?? "" }
+        }))
+      });
+  const ragRetrieval = { search } as unknown as RagRetrievalService;
+  const config = {
+    rag: {
+      enabled: options.ragEnabled === true,
+      defaultNamespace: "customer-self-service"
+    }
+  } as unknown as AppConfigService;
   return {
-    service: new IntakeAgentService(modelRouter, intakeService),
+    service: new IntakeAgentService(
+      modelRouter,
+      intakeService,
+      ragRetrieval,
+      config
+    ),
     chat,
-    getContext
+    getContext,
+    listOpenCases,
+    search
   };
 }
 
@@ -704,5 +754,280 @@ describe("IntakeAgentService.nextTurn", () => {
     });
     expect(result.extracted.contactEmail).toBeUndefined();
     expect(result.extracted.contactPhone).toBeUndefined();
+  });
+});
+
+describe("IntakeAgentService ticket status", () => {
+  const openCaseContext: IntakeContextResponseDto = {
+    ...mockContext,
+    openCases: [
+      {
+        caseNumber: "00001202",
+        subject: "Laptop running slow",
+        status: "New",
+        latestUpdate: {
+          body: "Agent 4 – Scheduling: Technician visit planned for Jul 11 morning window.",
+          createdDate: "2026-07-07T09:00:00.000Z"
+        }
+      }
+    ]
+  };
+  const turn = {
+    messages: [
+      { role: "user" as const, content: "what is the status of my ticket?" }
+    ]
+  };
+
+  it("tells the model about open cases and honors showTicketStatus", async () => {
+    const { service, chat } = buildService(
+      JSON.stringify({
+        reply:
+          "Let me pull up the latest on your open cases — here it is below.",
+        ui: { action: "showTicketStatus" }
+      }),
+      openCaseContext
+    );
+    const result = await service.nextTurn(principal(), turn);
+    const system = chat.mock.calls[0][0].messages[0].content as string;
+    expect(system).toContain("#00001202");
+    expect(system).toContain('"showTicketStatus"');
+    expect(system).toContain(
+      "latest agent update: Agent 4 – Scheduling: Technician visit planned"
+    );
+    expect(system).toContain("NEVER state, guess, or invent case status");
+    expect(result.ui.action).toBe("showTicketStatus");
+  });
+
+  it("honors a status announcement whose directive said none", async () => {
+    // Live failure (2026-07-09 prod): the model copied the example reply
+    // "here it is below" but cued action "none" — the status card never
+    // rendered and the customer stared at a promise with nothing under it.
+    const { service } = buildService(
+      JSON.stringify({
+        reply:
+          "Let me pull up the latest on your open cases — here it is below.",
+        ui: { action: "none" }
+      }),
+      openCaseContext
+    );
+    const result = await service.nextTurn(principal(), turn);
+    expect(result.ui.action).toBe("showTicketStatus");
+  });
+
+  it("keeps a status-announcing reply as a plain turn when no open cases exist", async () => {
+    const { service } = buildService(
+      JSON.stringify({
+        reply:
+          "Let me pull up the latest on your open cases — here it is below.",
+        ui: { action: "none" }
+      })
+    );
+    const result = await service.nextTurn(principal(), turn);
+    expect(result.ui.action).toBe("none");
+  });
+
+  it("does not upgrade an ordinary reply that merely mentions a case", async () => {
+    const { service } = buildService(
+      JSON.stringify({
+        reply: "I've registered your case — our team will follow up soon.",
+        ui: { action: "none" }
+      }),
+      openCaseContext
+    );
+    const result = await service.nextTurn(principal(), turn);
+    expect(result.ui.action).toBe("none");
+  });
+
+  it("downgrades showTicketStatus to a plain turn when no open cases exist", async () => {
+    const { service, chat } = buildService(
+      JSON.stringify({
+        reply: "You have no open cases on file.",
+        ui: { action: "showTicketStatus" }
+      })
+    );
+    const result = await service.nextTurn(principal(), turn);
+    const system = chat.mock.calls[0][0].messages[0].content as string;
+    expect(system).toContain("NO open support cases on file");
+    expect(result.ui.action).toBe("none");
+  });
+});
+
+describe("IntakeAgentService troubleshooting loop", () => {
+  const issueTurn = {
+    messages: [
+      {
+        role: "user" as const,
+        content: "my laptop is extremely slow and apps keep freezing"
+      }
+    ]
+  };
+
+  it("instructs a first suggestion and passes the offered flag through", async () => {
+    const { service, chat } = buildService(
+      JSON.stringify({
+        reply:
+          "Open Task Manager and close the heaviest apps — did that resolve it?",
+        offeredSuggestion: true
+      })
+    );
+    const result = await service.nextTurn(principal(), issueTurn);
+    const system = chat.mock.calls[0][0].messages[0].content as string;
+    expect(system).toContain("TROUBLESHOOT BEFORE TICKETING");
+    expect(system).toContain("offered 0 of 2");
+    expect(result.offeredSuggestion).toBe(true);
+  });
+
+  it("tells the model the running count from uiState", async () => {
+    const { service, chat } = buildService(
+      JSON.stringify({ reply: "ok", offeredSuggestion: true })
+    );
+    await service.nextTurn(principal(), {
+      ...issueTurn,
+      uiState: { troubleshootingCount: 1 }
+    });
+    const system = chat.mock.calls[0][0].messages[0].content as string;
+    expect(system).toContain("offered 1 of 2");
+  });
+
+  it("hard-caps the flag once two suggestions are spent", async () => {
+    const { service, chat } = buildService(
+      JSON.stringify({
+        reply: "One more idea — try a restart. Did that help?",
+        offeredSuggestion: true
+      })
+    );
+    const result = await service.nextTurn(principal(), {
+      ...issueTurn,
+      uiState: { troubleshootingCount: 2 }
+    });
+    const system = chat.mock.calls[0][0].messages[0].content as string;
+    expect(system).toContain("Do NOT offer another");
+    expect(result.offeredSuggestion).toBe(false);
+  });
+
+  it("never counts the create turn as a suggestion", async () => {
+    const { service } = buildService(
+      JSON.stringify({
+        reply: "Creating your case now…",
+        offeredSuggestion: true,
+        ui: { action: "createCase" }
+      })
+    );
+    const result = await service.nextTurn(principal(), {
+      messages: [{ role: "user" as const, content: "yes go ahead please" }],
+      uiState: { selectedAssetId: "02i000000000001" }
+    });
+    expect(result.ui.action).toBe("createCase");
+    expect(result.offeredSuggestion).toBe(false);
+  });
+});
+
+describe("IntakeAgentService knowledge grounding", () => {
+  const issueTurn = {
+    messages: [
+      {
+        role: "user" as const,
+        content: "battery not charging on my ProBook 15X"
+      }
+    ]
+  };
+
+  it("grounds suggestions on retrieved KB snippets", async () => {
+    const { service, chat, search } = buildService(
+      JSON.stringify({ reply: "ok", offeredSuggestion: true }),
+      mockContext,
+      {
+        ragEnabled: true,
+        ragMatches: [
+          {
+            title: "Battery Not Charging on AeroVolt ProBook 15X",
+            text: "Symptoms: battery stuck at 0%. Resolution: reseat the battery connector and reset the charge controller."
+          }
+        ]
+      }
+    );
+    await service.nextTurn(principal(), issueTurn);
+    expect(search).toHaveBeenCalledTimes(1);
+    expect(search.mock.calls[0][0].query).toContain("battery not charging");
+    const system = chat.mock.calls[0][0].messages[0].content as string;
+    expect(system).toContain("KNOWLEDGE BASE GUIDANCE");
+    expect(system).toContain(
+      "[KB 1] Battery Not Charging on AeroVolt ProBook 15X"
+    );
+  });
+
+  it("degrades to no KB block when retrieval fails", async () => {
+    const { service, chat } = buildService(
+      JSON.stringify({ reply: "ok" }),
+      mockContext,
+      { ragEnabled: true, ragError: true }
+    );
+    const result = await service.nextTurn(principal(), issueTurn);
+    const system = chat.mock.calls[0][0].messages[0].content as string;
+    expect(system).not.toContain("KNOWLEDGE BASE GUIDANCE");
+    expect(result.reply).toBe("ok");
+  });
+
+  it("skips retrieval entirely once the suggestion budget is spent", async () => {
+    const { service, search } = buildService(
+      JSON.stringify({ reply: "ok" }),
+      mockContext,
+      { ragEnabled: true }
+    );
+    await service.nextTurn(principal(), {
+      ...issueTurn,
+      uiState: { troubleshootingCount: 2 }
+    });
+    expect(search).not.toHaveBeenCalled();
+  });
+
+  it("skips retrieval when RAG is disabled", async () => {
+    const { service, search } = buildService(JSON.stringify({ reply: "ok" }));
+    await service.nextTurn(principal(), issueTurn);
+    expect(search).not.toHaveBeenCalled();
+  });
+});
+
+describe("IntakeAgentService.listOpenCasesWithSummary", () => {
+  it("returns the cases plus a grounded plain-English summary", async () => {
+    const { service, chat, listOpenCases } = buildService(
+      "Your case #00001209 about the slow laptop has been marked critical and is being escalated to technical support."
+    );
+    const result = await service.listOpenCasesWithSummary(principal());
+
+    expect(listOpenCases).toHaveBeenCalledTimes(1);
+    expect(chat).toHaveBeenCalledTimes(1);
+    const request = chat.mock.calls[0][0];
+    // grounded: the ONLY input is the fetched case JSON
+    expect(request.messages[0].content).toContain("based ONLY on this data");
+    expect(request.messages[0].content).toContain(
+      'NEVER use terms like "Agent 1"'
+    );
+    expect(request.messages[1].content).toContain("00001209");
+    expect(result.cases).toHaveLength(1);
+    expect(result.summary).toContain("escalated to technical support");
+  });
+
+  it("degrades to no summary when the model call fails", async () => {
+    const { service, chat } = buildService("unused");
+    chat.mockRejectedValueOnce(new Error("provider down"));
+    const result = await service.listOpenCasesWithSummary(principal());
+    expect(result.cases).toHaveLength(1);
+    expect(result.summary).toBeUndefined();
+  });
+
+  it("skips the model entirely when there are no open cases", async () => {
+    const { service, chat, listOpenCases } = buildService("unused");
+    listOpenCases.mockResolvedValueOnce({ cases: [] });
+    const result = await service.listOpenCasesWithSummary(principal());
+    expect(chat).not.toHaveBeenCalled();
+    expect(result.summary).toBeUndefined();
+  });
+
+  it("requires a verified intake identity", async () => {
+    const { service } = buildService("unused");
+    await expect(
+      service.listOpenCasesWithSummary(principal({ verified: false }))
+    ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 });

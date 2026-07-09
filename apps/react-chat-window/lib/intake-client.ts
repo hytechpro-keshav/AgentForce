@@ -2,6 +2,7 @@ import type {
   IntakeContext,
   IntakeDevice,
   IntakeExtracted,
+  IntakeOpenCase,
   IntakeSession,
   IntakeState,
   IntakeUiDirective
@@ -65,8 +66,44 @@ export async function loadIntakeContext(
     devices: Array.isArray(context.devices) ? context.devices : [],
     shipTo: context.shipTo ?? {},
     billingLocation: context.billingLocation,
-    hasMultipleServiceLocations: context.hasMultipleServiceLocations === true
+    hasMultipleServiceLocations: context.hasMultipleServiceLocations === true,
+    openCases: Array.isArray(context.openCases) ? context.openCases : []
   };
+}
+
+/** Live open cases plus the server's plain-English AI digest of them. */
+export interface IntakeCasesStatus {
+  cases: IntakeOpenCase[];
+  summary?: string;
+}
+
+/** Live open-case status for the status bubble; degrades to an empty list. */
+export async function fetchOpenCases(
+  accessToken: string
+): Promise<IntakeCasesStatus> {
+  try {
+    const res = await fetch("/api/intake/cases", {
+      headers: { authorization: `Bearer ${accessToken}` },
+      cache: "no-store"
+    });
+    if (!res.ok) {
+      return { cases: [] };
+    }
+    const json = (await res.json()) as {
+      cases?: IntakeOpenCase[];
+      summary?: string;
+    };
+    const cases = Array.isArray(json.cases)
+      ? json.cases.filter((openCase) => Boolean(openCase?.caseNumber))
+      : [];
+    const summary =
+      typeof json.summary === "string" && json.summary.trim()
+        ? json.summary.trim()
+        : undefined;
+    return summary ? { cases, summary } : { cases };
+  } catch {
+    return { cases: [] };
+  }
 }
 
 /** Above this count the device picker shows a search box. */
@@ -85,10 +122,17 @@ export function deviceGreeting(context: IntakeContext): string {
       : deviceCount > 1
         ? ` I can see ${deviceCount} registered devices on your account.`
         : "";
+  const openCaseCount = context.openCases?.length ?? 0;
+  const openCaseHint =
+    openCaseCount === 1
+      ? " You also have 1 open case — ask me for a status update anytime."
+      : openCaseCount > 1
+        ? ` You also have ${openCaseCount} open cases — ask me for a status update anytime.`
+        : "";
   if (firstName) {
-    return `Hi ${firstName}, I'm Ably — your AI service guide${accountSuffix}.${deviceHint} What issue are you experiencing today?`;
+    return `Hi ${firstName}, I'm Ably — your AI service guide${accountSuffix}.${deviceHint}${openCaseHint} What issue are you experiencing today?`;
   }
-  return `Hi, I'm Ably — your AI service guide${accountSuffix}.${deviceHint} What issue are you experiencing today?`;
+  return `Hi, I'm Ably — your AI service guide${accountSuffix}.${deviceHint}${openCaseHint} What issue are you experiencing today?`;
 }
 
 /** Filter device chips by label when the account has many assets. */
@@ -132,6 +176,103 @@ export function caseCreatedEvent(caseNumber: string | undefined): string {
   return `[event] Case created${caseNumber ? `: #${caseNumber}` : ""}. The chat UI has already shown the case number and next steps to the customer.`;
 }
 
+/** Hidden transcript note after the live status bubble has been shown. */
+export function caseStatusEvent(cases: IntakeOpenCase[]): string {
+  if (cases.length === 0) {
+    return "[event] The chat UI checked live case status: no open cases were found for this customer. Offer to register a new case if something needs attention.";
+  }
+  const summary = cases
+    .map(
+      (openCase) =>
+        `#${openCase.caseNumber} (${openCase.status ?? "status unknown"})`
+    )
+    .join(", ");
+  return `[event] The chat UI showed the customer live status for their open cases: ${summary}. Do not restate these details; continue the conversation.`;
+}
+
+/** Customer-friendly phrasing for common Salesforce Case statuses. */
+const STATUS_HINTS: Record<string, string> = {
+  New: "received — awaiting review",
+  Working: "in progress — our team is on it",
+  "In Progress": "in progress — our team is on it",
+  Escalated: "escalated to a senior specialist",
+  "On Hold": "on hold"
+};
+
+function formatOpenedDate(createdDate: string | undefined): string {
+  if (!createdDate) {
+    return "";
+  }
+  const parsed = new Date(createdDate);
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+  return parsed.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric"
+  });
+}
+
+/**
+ * In-chat status bubble for the customer's open cases. Preferred shape: the
+ * server's plain-English AI digest (generated from ONLY the live case data)
+ * plus a compact case-number reference line. Fallback when no summary came
+ * back: the deterministic per-case list, so status never breaks and is never
+ * invented.
+ */
+export function caseStatusAnnouncement(
+  cases: IntakeOpenCase[],
+  summary?: string
+): string {
+  if (cases.length === 0) {
+    return "I couldn't find any open cases on your account. If something needs attention, describe the issue and I'll help you register a new case.";
+  }
+  if (summary?.trim()) {
+    const caseNumbers = cases
+      .map((openCase) => `#${openCase.caseNumber}`)
+      .join(", ");
+    return [
+      summary.trim(),
+      `Your open cases: ${caseNumbers}`,
+      "Is there anything else I can help you with?"
+    ].join("\n\n");
+  }
+  const blocks = cases.map((openCase) => {
+    const title = openCase.subject
+      ? `📋 Case #${openCase.caseNumber} — ${openCase.subject}`
+      : `📋 Case #${openCase.caseNumber}`;
+    const status = openCase.status
+      ? `Status: ${openCase.status}${
+          STATUS_HINTS[openCase.status]
+            ? ` (${STATUS_HINTS[openCase.status]})`
+            : ""
+        }`
+      : "Status: unavailable";
+    const opened = formatOpenedDate(openCase.createdDate);
+    const facts = [
+      status,
+      openCase.priority ? `Priority: ${openCase.priority}` : "",
+      opened ? `Opened: ${opened}` : ""
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    // Latest orchestrator agent narrative — shown without the internal
+    // "Agent N – Team:" prefix, which means nothing to a customer.
+    const updated = formatOpenedDate(openCase.latestUpdate?.createdDate);
+    const update = openCase.latestUpdate
+      ? `\nUpdate${updated ? ` (${updated})` : ""}: ${openCase.latestUpdate.body.replace(/^Agent [1-5] [–-] [^:]+: /, "")}`
+      : "";
+    return `${title}\n${facts}${update}`;
+  });
+  const intro =
+    cases.length === 1
+      ? "Here's the latest on your open case:"
+      : "Here's the latest on your open cases:";
+  return [intro, ...blocks, "Is there anything else I can help you with?"].join(
+    "\n\n"
+  );
+}
+
 /**
  * Deterministic in-chat confirmation shown right after the case is created —
  * the case number must never depend on model output, so the UI composes this
@@ -161,7 +302,7 @@ export function caseCreatedAnnouncement(details: {
     lines.push(facts.join("\n"));
   }
   lines.push(
-    `Our service team will review it and follow up${details.email ? ` at ${details.email}` : ""} shortly.`,
+    `Our service team will review it and follow up${details.email ? ` at ${details.email}` : ""} shortly — you'll receive updates every step of the way.`,
     "Is there anything else I can help you with?"
   );
   return lines.join("\n\n");
@@ -170,14 +311,21 @@ export function caseCreatedAnnouncement(details: {
 /** Build the POST /api/intake/turn body: transcript + live chat-UI state. */
 export function buildTurnRequestBody(
   messages: Array<{ role: "user" | "assistant"; content: string }>,
-  selectedAssetId: string | null
+  selectedAssetId: string | null,
+  troubleshootingCount = 0
 ): {
   messages: Array<{ role: "user" | "assistant"; content: string }>;
-  uiState?: { selectedAssetId: string };
+  uiState?: { selectedAssetId?: string; troubleshootingCount?: number };
 } {
+  // Fields are only sent when set so older servers (strict DTO whitelists)
+  // never see keys they don't know; a non-zero count implies a new server.
+  const uiState: { selectedAssetId?: string; troubleshootingCount?: number } = {
+    ...(selectedAssetId ? { selectedAssetId } : {}),
+    ...(troubleshootingCount > 0 ? { troubleshootingCount } : {})
+  };
   return {
     messages,
-    ...(selectedAssetId ? { uiState: { selectedAssetId } } : {})
+    ...(Object.keys(uiState).length > 0 ? { uiState } : {})
   };
 }
 
@@ -187,6 +335,7 @@ export interface IntakeTurnResult {
   issueCaptured: boolean;
   ui?: IntakeUiDirective;
   readyToSubmit?: boolean;
+  offeredSuggestion?: boolean;
 }
 
 const UI_ACTIONS = new Set([
@@ -194,7 +343,8 @@ const UI_ACTIONS = new Set([
   "showDevicePicker",
   "suggestDevice",
   "showReview",
-  "createCase"
+  "createCase",
+  "showTicketStatus"
 ]);
 
 /** Defensive parse of the turn response; unknown fields degrade to a plain turn. */
@@ -221,7 +371,8 @@ export function parseTurnResponse(json: unknown): IntakeTurnResult {
     ui,
     ...(typeof body.readyToSubmit === "boolean"
       ? { readyToSubmit: body.readyToSubmit }
-      : {})
+      : {}),
+    offeredSuggestion: body.offeredSuggestion === true
   };
 }
 

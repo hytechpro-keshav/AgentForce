@@ -10,13 +10,16 @@ import {
 
 import type { AuthPrincipal } from "../auth/jwt-auth.guard";
 import { AppConfigService } from "../config/app-config.service";
+import { SalesforceCaseNotifyGateway } from "../salesforce/salesforce-case-notify.gateway";
 import {
   SalesforceCaseWriteGateway,
   type AccountContext,
   type ContactSummary,
-  type IntakeDevice
+  type IntakeDevice,
+  type IntakeOpenCase
 } from "../salesforce/salesforce-case-write.gateway";
 import { SalesforceGatewayError } from "../salesforce/salesforce-gateway.error";
+import type { IntakeCasesResponseDto } from "./dto/intake-cases.dto";
 import type { IntakeContextResponseDto } from "./dto/intake-context.dto";
 import type {
   IntakeCaseCreateDto,
@@ -36,6 +39,7 @@ export class IntakeService {
 
   constructor(
     private readonly caseWriteGateway: SalesforceCaseWriteGateway,
+    private readonly caseNotifyGateway: SalesforceCaseNotifyGateway,
     private readonly config: AppConfigService
   ) {}
 
@@ -45,7 +49,7 @@ export class IntakeService {
     this.ensureEnabled();
     const identity = requireIntakeIdentity(principal);
 
-    const [contact, account, assets] = await Promise.all([
+    const [contact, account, assets, openCases] = await Promise.all([
       this.caseWriteGateway
         .readContactSummary(identity.contactId)
         .catch((err) => this.degradeContact(err)),
@@ -56,6 +60,12 @@ export class IntakeService {
         .listAccountAssets(identity.accountId)
         .catch((err) => {
           this.logger.warn(`Intake asset list degraded: ${this.kind(err)}`);
+          return [];
+        }),
+      this.caseWriteGateway
+        .listOpenCasesForContact(identity.accountId, identity.contactId)
+        .catch((err): IntakeOpenCase[] => {
+          this.logger.warn(`Intake open-case list degraded: ${this.kind(err)}`);
           return [];
         })
     ]);
@@ -87,7 +97,41 @@ export class IntakeService {
       })),
       shipTo,
       ...(hasMultipleServiceLocations ? { billingLocation } : {}),
-      hasMultipleServiceLocations
+      hasMultipleServiceLocations,
+      openCases: openCases.map((openCase) => ({
+        caseNumber: openCase.caseNumber,
+        subject: openCase.subject,
+        status: openCase.status,
+        latestUpdate: openCase.latestUpdate
+      }))
+    };
+  }
+
+  /**
+   * Live status of the verified contact's open cases for the in-chat status
+   * card. Always fresh (never served from the context cache) so the customer
+   * sees the case they created seconds ago.
+   */
+  async listOpenCases(
+    principal: AuthPrincipal | undefined
+  ): Promise<IntakeCasesResponseDto> {
+    this.ensureEnabled();
+    const identity = requireIntakeIdentity(principal);
+    const cases = await this.caseWriteGateway
+      .listOpenCasesForContact(identity.accountId, identity.contactId)
+      .catch((err): IntakeOpenCase[] => {
+        this.logger.warn(`Intake open-case list degraded: ${this.kind(err)}`);
+        return [];
+      });
+    return {
+      cases: cases.map((openCase) => ({
+        caseNumber: openCase.caseNumber,
+        subject: openCase.subject,
+        status: openCase.status,
+        priority: openCase.priority,
+        createdDate: openCase.createdDate,
+        latestUpdate: openCase.latestUpdate
+      }))
     };
   }
 
@@ -132,8 +176,12 @@ export class IntakeService {
       ? `${dto.issueDescription}\n\nService address (customer provided): ${serviceAddress}`
       : dto.issueDescription;
 
+    const suppliedEmail =
+      dto.contactEmail?.trim() || (identity.verifiedEmail ?? contact.email);
+
+    let created: IntakeCaseResponseDto;
     try {
-      return await this.caseWriteGateway.createChatCase({
+      created = await this.caseWriteGateway.createChatCase({
         subject,
         description,
         priority: dto.priority ?? "Medium",
@@ -141,8 +189,7 @@ export class IntakeService {
         contactId: identity.contactId,
         assetId,
         suppliedName: contact.name,
-        suppliedEmail:
-          dto.contactEmail?.trim() || (identity.verifiedEmail ?? contact.email),
+        suppliedEmail,
         suppliedPhone: dto.contactPhone?.trim() || undefined,
         serviceShipToCity: dto.shipTo?.city ?? account.shipToCity,
         serviceShipToState: dto.shipTo?.state ?? account.shipToState,
@@ -151,6 +198,32 @@ export class IntakeService {
     } catch (err) {
       throw this.mapError(err);
     }
+
+    // Fire-and-forget: Salesforce owns the confirmation email; the gateway
+    // degrades (never throws), so a mail outage can never fail the create or
+    // delay the chat response.
+    if (
+      this.config.customerIntake.confirmationEmailEnabled &&
+      suppliedEmail &&
+      created.caseNumber
+    ) {
+      void this.caseNotifyGateway
+        .sendCaseConfirmation({
+          email: suppliedEmail,
+          caseNumber: created.caseNumber,
+          customerName: contact.name,
+          subject
+        })
+        .then((result) => {
+          if (!result.sent) {
+            this.logger.warn(
+              `Case confirmation email not sent: status=${result.status}`
+            );
+          }
+        });
+    }
+
+    return created;
   }
 
   private ensureEnabled(): void {

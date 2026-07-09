@@ -9,6 +9,7 @@ import {
 
 import type { AuthPrincipal } from "../auth/jwt-auth.guard";
 import type { AppConfigService } from "../config/app-config.service";
+import type { SalesforceCaseNotifyGateway } from "../salesforce/salesforce-case-notify.gateway";
 import type { SalesforceCaseWriteGateway } from "../salesforce/salesforce-case-write.gateway";
 import { SalesforceGatewayError } from "../salesforce/salesforce-gateway.error";
 import { IntakeService } from "./intake.service";
@@ -39,12 +40,17 @@ interface Harness {
     readContactSummary: jest.Mock;
     readAccountContext: jest.Mock;
     listAccountAssets: jest.Mock;
+    listOpenCasesForContact: jest.Mock;
     assetBelongsToAccount: jest.Mock;
     createChatCase: jest.Mock;
   };
+  notify: { sendCaseConfirmation: jest.Mock };
 }
 
-function buildHarness(enabled = true): Harness {
+function buildHarness(
+  enabled = true,
+  confirmationEmailEnabled = true
+): Harness {
   const gateway = {
     isConfigured: jest.fn().mockReturnValue(true),
     readContactSummary: jest
@@ -64,20 +70,40 @@ function buildHarness(enabled = true): Harness {
         serialNumber: "SN-SECRET-123"
       }
     ]),
+    listOpenCasesForContact: jest.fn().mockResolvedValue([
+      {
+        caseNumber: "00001202",
+        subject: "Laptop running slow",
+        status: "New",
+        priority: "High",
+        createdDate: "2026-07-06T10:00:00.000Z",
+        latestUpdate: {
+          body: "Agent 4 – Scheduling: Technician visit planned for the earliest available window.",
+          createdDate: "2026-07-07T09:00:00.000Z"
+        }
+      }
+    ]),
     assetBelongsToAccount: jest.fn().mockResolvedValue(true),
     createChatCase: jest
       .fn()
       .mockResolvedValue({ caseId: "500000000000001", caseNumber: "00001234" })
   };
+  const notify = {
+    sendCaseConfirmation: jest
+      .fn()
+      .mockResolvedValue({ sent: true, status: "SENT" })
+  };
   const config = {
-    customerIntake: { enabled }
+    customerIntake: { enabled, confirmationEmailEnabled }
   } as unknown as AppConfigService;
   return {
     service: new IntakeService(
       gateway as unknown as SalesforceCaseWriteGateway,
+      notify as unknown as SalesforceCaseNotifyGateway,
       config
     ),
-    gateway
+    gateway,
+    notify
   };
 }
 
@@ -142,6 +168,82 @@ describe("IntakeService.getContext", () => {
     const context = await h.service.getContext(principal());
     expect(context.devices).toEqual([]);
     expect(context.displayName).toBe("Ada Lovelace");
+  });
+
+  it("includes the contact's open cases (number/subject/status only)", async () => {
+    const h = buildHarness();
+    const context = await h.service.getContext(principal());
+    expect(h.gateway.listOpenCasesForContact).toHaveBeenCalledWith(
+      ACCOUNT_ID,
+      CONTACT_ID
+    );
+    expect(context.openCases).toEqual([
+      {
+        caseNumber: "00001202",
+        subject: "Laptop running slow",
+        status: "New",
+        latestUpdate: {
+          body: "Agent 4 – Scheduling: Technician visit planned for the earliest available window.",
+          createdDate: "2026-07-07T09:00:00.000Z"
+        }
+      }
+    ]);
+  });
+
+  it("degrades a failed open-case read to an empty list", async () => {
+    const h = buildHarness();
+    h.gateway.listOpenCasesForContact.mockRejectedValueOnce(
+      new SalesforceGatewayError("backend", "boom")
+    );
+    const context = await h.service.getContext(principal());
+    expect(context.openCases).toEqual([]);
+  });
+});
+
+describe("IntakeService.listOpenCases", () => {
+  it("returns the verified contact's open cases with live status", async () => {
+    const h = buildHarness();
+    const result = await h.service.listOpenCases(principal());
+    expect(h.gateway.listOpenCasesForContact).toHaveBeenCalledWith(
+      ACCOUNT_ID,
+      CONTACT_ID
+    );
+    expect(result.cases).toEqual([
+      {
+        caseNumber: "00001202",
+        subject: "Laptop running slow",
+        status: "New",
+        priority: "High",
+        createdDate: "2026-07-06T10:00:00.000Z",
+        latestUpdate: {
+          body: "Agent 4 – Scheduling: Technician visit planned for the earliest available window.",
+          createdDate: "2026-07-07T09:00:00.000Z"
+        }
+      }
+    ]);
+  });
+
+  it("rejects a session without verified identity claims", async () => {
+    const h = buildHarness();
+    await expect(
+      h.service.listOpenCases(principal({ verified: false }))
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it("degrades a gateway failure to an empty case list", async () => {
+    const h = buildHarness();
+    h.gateway.listOpenCasesForContact.mockRejectedValueOnce(
+      new SalesforceGatewayError("backend", "boom")
+    );
+    const result = await h.service.listOpenCases(principal());
+    expect(result.cases).toEqual([]);
+  });
+
+  it("is unavailable when the feature is disabled", async () => {
+    const h = buildHarness(false);
+    await expect(h.service.listOpenCases(principal())).rejects.toBeInstanceOf(
+      ServiceUnavailableException
+    );
   });
 });
 
@@ -308,5 +410,53 @@ describe("IntakeService.createCase", () => {
     await expect(
       h.service.createCase(principal(), { issueDescription: "Won't boot" })
     ).rejects.toBeInstanceOf(BadGatewayException);
+  });
+
+  it("fires the confirmation email with the case number and supplied email", async () => {
+    const h = buildHarness();
+    await h.service.createCase(principal(), {
+      issueDescription: "Won't boot",
+      assetId: ASSET_ID
+    });
+    expect(h.notify.sendCaseConfirmation).toHaveBeenCalledWith({
+      email: "user@example.com",
+      caseNumber: "00001234",
+      customerName: "Ada Lovelace",
+      subject: "Won't boot"
+    });
+  });
+
+  it("sends the confirmation to a chat-provided override email", async () => {
+    const h = buildHarness();
+    await h.service.createCase(principal(), {
+      issueDescription: "Won't boot",
+      assetId: ASSET_ID,
+      contactEmail: "jason.alt@corp.com"
+    });
+    expect(h.notify.sendCaseConfirmation).toHaveBeenCalledWith(
+      expect.objectContaining({ email: "jason.alt@corp.com" })
+    );
+  });
+
+  it("skips the confirmation email when disabled by config", async () => {
+    const h = buildHarness(true, false);
+    await h.service.createCase(principal(), {
+      issueDescription: "Won't boot",
+      assetId: ASSET_ID
+    });
+    expect(h.notify.sendCaseConfirmation).not.toHaveBeenCalled();
+  });
+
+  it("still returns the created case when the confirmation degrades", async () => {
+    const h = buildHarness();
+    h.notify.sendCaseConfirmation.mockResolvedValueOnce({
+      sent: false,
+      status: "DEGRADED"
+    });
+    const result = await h.service.createCase(principal(), {
+      issueDescription: "Won't boot",
+      assetId: ASSET_ID
+    });
+    expect(result.caseNumber).toBe("00001234");
   });
 });

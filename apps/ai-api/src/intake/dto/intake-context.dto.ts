@@ -16,6 +16,15 @@ export interface IntakeLocationDto {
   country?: string;
 }
 
+/** Open-case summary included in context so the assistant knows what exists. */
+export interface IntakeContextOpenCaseDto {
+  caseNumber: string;
+  subject?: string;
+  status?: string;
+  /** Latest orchestrator agent update, so the assistant can answer follow-ups. */
+  latestUpdate?: { body: string; createdDate?: string };
+}
+
 export interface IntakeContextResponseDto {
   displayName?: string;
   accountName?: string;
@@ -27,4 +36,9 @@ export interface IntakeContextResponseDto {
   billingLocation?: IntakeLocationDto;
   /** True when billing and shipping addresses differ on the Account. */
   hasMultipleServiceLocations?: boolean;
+  /**
+   * The verified contact's open cases (may be stale by the context cache
+   * TTL; the live status card always re-fetches via GET /intake/cases).
+   */
+  openCases?: IntakeContextOpenCaseDto[];
 }

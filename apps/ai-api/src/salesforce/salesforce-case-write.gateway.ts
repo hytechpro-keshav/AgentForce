@@ -70,6 +70,30 @@ export interface ContactSummary {
   email?: string;
 }
 
+/** Latest orchestrator agent update on a Case (deterministic narratives only). */
+export interface IntakeCaseAgentUpdate {
+  body: string;
+  createdDate?: string;
+}
+
+/** An open Case shown to the verified customer in the intake status card. */
+export interface IntakeOpenCase {
+  caseNumber: string;
+  subject?: string;
+  status?: string;
+  priority?: string;
+  createdDate?: string;
+  latestUpdate?: IntakeCaseAgentUpdate;
+}
+
+/**
+ * Only orchestrator agent narratives (see agent-case-narrative.builder.ts,
+ * "Agent 1 – Triage: …" … "Agent 5 – Guardrail: …") are customer-safe by
+ * design; every other Case comment is treated as internal and never surfaced.
+ */
+const AGENT_COMMENT_PREFIX = /^Agent [1-5] [–-] /;
+const AGENT_UPDATE_MAX_LENGTH = 300;
+
 /**
  * Fields for an OTP-verified, chat-driven Case create. Account/Contact come
  * from the verified token; ship-to is optional (defaulted from the Account).
@@ -329,6 +353,92 @@ export class SalesforceCaseWriteGateway {
   }
 
   /**
+   * Lists the verified customer's open Cases for the in-chat status update.
+   * Contact-scoped (not just Account-scoped) so one verified contact never
+   * sees cases another contact on the same Account raised.
+   */
+  async listOpenCasesForContact(
+    accountId: string,
+    contactId: string
+  ): Promise<IntakeOpenCase[]> {
+    this.requireId(accountId);
+    this.requireId(contactId);
+    const records = await this.runQuery(
+      `SELECT Id, CaseNumber, Subject, Status, Priority, CreatedDate FROM Case WHERE AccountId = '${accountId}' AND ContactId = '${contactId}' AND IsClosed = false ORDER BY CreatedDate DESC LIMIT 10`
+    );
+    const rows = records
+      .map((row): { caseId: string; openCase: IntakeOpenCase } | undefined => {
+        const caseId = SalesforceCaseWriteGateway.str(row, "Id");
+        const caseNumber = SalesforceCaseWriteGateway.str(row, "CaseNumber");
+        if (!caseId || !caseNumber) {
+          return undefined;
+        }
+        return {
+          caseId,
+          openCase: {
+            caseNumber,
+            subject: SalesforceCaseWriteGateway.str(row, "Subject"),
+            status: SalesforceCaseWriteGateway.str(row, "Status"),
+            priority: SalesforceCaseWriteGateway.str(row, "Priority"),
+            createdDate: SalesforceCaseWriteGateway.str(row, "CreatedDate")
+          }
+        };
+      })
+      .filter((row): row is { caseId: string; openCase: IntakeOpenCase } =>
+        Boolean(row)
+      );
+    const updates = await this.readLatestAgentUpdates(
+      rows.map((row) => row.caseId)
+    );
+    // The Case Id stays server-side; only the case number reaches the client.
+    return rows.map(({ caseId, openCase }) => {
+      const latestUpdate = updates.get(caseId);
+      return latestUpdate ? { ...openCase, latestUpdate } : openCase;
+    });
+  }
+
+  /**
+   * Newest orchestrator agent narrative per Case. Degrade-not-throw: a
+   * comments outage only means the status card shows no update lines. Ids
+   * come from our own scoped Case query, never from the client.
+   */
+  private async readLatestAgentUpdates(
+    caseIds: string[]
+  ): Promise<Map<string, IntakeCaseAgentUpdate>> {
+    const updates = new Map<string, IntakeCaseAgentUpdate>();
+    if (caseIds.length === 0) {
+      return updates;
+    }
+    try {
+      const idList = caseIds.map((id) => `'${id}'`).join(", ");
+      const records = await this.runQuery(
+        `SELECT ParentId, CommentBody, CreatedDate FROM CaseComment WHERE ParentId IN (${idList}) ORDER BY CreatedDate DESC LIMIT 200`
+      );
+      for (const row of records) {
+        const parentId = SalesforceCaseWriteGateway.str(row, "ParentId");
+        const body = SalesforceCaseWriteGateway.str(row, "CommentBody");
+        if (
+          !parentId ||
+          !body ||
+          updates.has(parentId) ||
+          !AGENT_COMMENT_PREFIX.test(body)
+        ) {
+          continue;
+        }
+        updates.set(parentId, {
+          body: SalesforceCaseWriteGateway.clipUpdate(body),
+          createdDate: SalesforceCaseWriteGateway.str(row, "CreatedDate")
+        });
+      }
+    } catch {
+      this.logger.warn(
+        "Case agent-update read degraded; status shown without updates."
+      );
+    }
+    return updates;
+  }
+
+  /**
    * Confirms the chosen Asset belongs to the verified Account, so a tampered
    * client cannot attach another customer's device to the Case.
    */
@@ -496,6 +606,17 @@ export class SalesforceCaseWriteGateway {
         "Invalid Salesforce record id for lookup."
       );
     }
+  }
+
+  /** Clips at a word boundary so the update never ends mid-word. */
+  private static clipUpdate(body: string): string {
+    const normalized = body.replace(/\s+/g, " ").trim();
+    if (normalized.length <= AGENT_UPDATE_MAX_LENGTH) {
+      return normalized;
+    }
+    const cut = normalized.slice(0, AGENT_UPDATE_MAX_LENGTH);
+    const lastSpace = cut.lastIndexOf(" ");
+    return `${lastSpace > AGENT_UPDATE_MAX_LENGTH / 2 ? cut.slice(0, lastSpace) : cut}…`;
   }
 
   private static soqlString(value: string): string {

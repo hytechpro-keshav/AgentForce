@@ -1,11 +1,14 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 
 import type { AuthPrincipal } from "../auth/jwt-auth.guard";
+import { AppConfigService } from "../config/app-config.service";
 import type {
   LlmChatRequest,
   LlmMessage
 } from "../llm/interfaces/llm-contracts";
 import { ModelRouter } from "../llm/model-router";
+import { RagRetrievalService } from "../rag/rag-retrieval.service";
+import { resolveTrustedRagContext } from "../rag/trusted-rag-context";
 import type {
   IntakeContextResponseDto,
   IntakeDeviceDto
@@ -17,6 +20,10 @@ import type {
   IntakeTurnUiAction,
   IntakeTurnUiDirectiveDto
 } from "./dto/intake-turn.dto";
+import type {
+  IntakeCasesResponseDto,
+  IntakeOpenCaseDto
+} from "./dto/intake-cases.dto";
 import { requireIntakeIdentity, type IntakeIdentity } from "./intake-claims";
 import { IntakeService } from "./intake.service";
 
@@ -26,8 +33,32 @@ const UI_ACTIONS = new Set<IntakeTurnUiAction>([
   "showDevicePicker",
   "suggestDevice",
   "showReview",
-  "createCase"
+  "createCase",
+  "showTicketStatus"
 ]);
+
+/** Hard cap on bot-offered troubleshooting suggestions per conversation. */
+const MAX_TROUBLESHOOTING_SUGGESTIONS = 2;
+
+/**
+ * Grounded rewrite of the open-case list into customer language. The input
+ * is ONLY the live case JSON, so a wrong fact can't come from anywhere else;
+ * internal operator vocabulary is banned explicitly.
+ */
+const CASE_SUMMARY_PROMPT =
+  "You are Ably, a friendly customer support assistant. The JSON below lists the customer's open support cases; entries may include a latestUpdate note written by internal service systems. " +
+  "Write a short, plain-English status update for the customer based ONLY on this data. " +
+  "Group duplicate or similar cases together instead of listing every one (for example: several cases about the same black-screen issue opened the same week). " +
+  "Include case numbers (like #00001209) when referring to cases. " +
+  'Translate internal wording into simple customer language: NEVER use terms like "Agent 1", "Triage", "strategic account", "business risk", "customer context", or "guardrail". ' +
+  "Relay concrete progress, next steps, appointments, or timing from the updates in simple words; if no timing exists, do not invent any. " +
+  "No markdown, no bullet lists, no emoji. At most 120 words. Do not ask the customer any question — the chat UI adds the follow-up question itself.";
+const CASE_SUMMARY_MAX_LENGTH = 1200;
+/** KB grounding for suggestions: few short snippets, titles + trimmed text. */
+const KB_SNIPPET_COUNT = 3;
+const KB_SNIPPET_MAX_LENGTH = 400;
+const KB_QUERY_MAX_LENGTH = 500;
+const KB_QUERY_MIN_LENGTH = 12;
 
 /**
  * Reply text that references the device chips — used to reconcile a model
@@ -46,6 +77,23 @@ const CHIP_REFERENCE_PATTERN =
  */
 const CREATE_REFERENCE_PATTERN =
   /\b(creating|submitting|registering)\b.{0,24}\bcase\b.{0,12}\bnow\b/i;
+
+/**
+ * Reply text that announces the open-case status is being shown — used to
+ * reconcile a reply like "here's the latest on your open cases below" whose
+ * own directive said "none" (observed live: the customer is pointed at a
+ * status card that never renders).
+ */
+function referencesStatusCard(reply: string): boolean {
+  const caseRef =
+    /\b(open (cases?|tickets?)|(case|ticket) status|status (of|on|for) your (cases?|tickets?))\b/i.test(
+      reply
+    );
+  const showRef = /\b(below|pull(ing)? up|here('s| is| it is)|latest)\b/i.test(
+    reply
+  );
+  return caseRef && showRef;
+}
 const MIN_DESCRIPTION_LENGTH = 10;
 /** Above this count the UI shows a search box instead of bare chips. */
 const DEVICE_PICKER_SEARCH_THRESHOLD = 6;
@@ -252,7 +300,9 @@ function matchDeviceFromTranscript(
 
 function buildIntakeSystemPrompt(
   context: IntakeContextResponseDto,
-  selectedDevice: IntakeDeviceDto | undefined
+  selectedDevice: IntakeDeviceDto | undefined,
+  troubleshootingCount: number,
+  kbGuidance: string[]
 ): string {
   const deviceCount = context.devices.length;
   const deviceList = context.devices
@@ -262,6 +312,21 @@ function buildIntakeSystemPrompt(
   const billingLine = context.billingLocation
     ? formatLocation(context.billingLocation)
     : "";
+  const openCases = context.openCases ?? [];
+  const openCaseList = openCases
+    .map(
+      (openCase) =>
+        `#${openCase.caseNumber} (${openCase.status ?? "status unknown"}${
+          openCase.subject ? ` — ${openCase.subject}` : ""
+        }${
+          openCase.latestUpdate
+            ? `; latest agent update: ${openCase.latestUpdate.body.slice(0, 200)}`
+            : ""
+        })`
+    )
+    .join("; ");
+  const suggestionsLeft =
+    MAX_TROUBLESHOOTING_SUGGESTIONS - troubleshootingCount;
 
   const lines = [
     "You are Ably, a friendly customer service intake assistant.",
@@ -284,9 +349,18 @@ function buildIntakeSystemPrompt(
     selectedDevice
       ? `The customer has already picked the affected device in the chat UI: ${selectedDevice.label}. NEVER ask which device is affected.`
       : "No device has been picked in the chat UI yet.",
+    openCases.length === 0
+      ? "The customer has NO open support cases on file."
+      : `Open support cases already on file for this customer: ${openCaseList}.`,
     "",
     "Conversation flow:",
     "1. Understand the issue: symptom, when it started, and what they already tried.",
+    openCases.length > 0
+      ? '1b. The customer has open cases on file. When they describe an issue, first ask (as your single question) whether it relates to one of their existing open cases or is something new. If it relates to an existing case — or they ask for a ticket/case status update at any point — set ui.action to "showTicketStatus" with a SHORT reply like "Let me pull up the latest on your open cases — here it is below." The chat UI renders the live status itself. For follow-up questions about a specific case (progress, next steps, scheduling, ETA), answer using ONLY the open-case facts and latest agent updates listed above — relay what they say, and when they contain no answer, say the service team has not posted that detail yet. NEVER state, guess, or invent case status, progress, or arrival estimates beyond those updates.'
+      : "1b. If the customer asks about an existing ticket or case status, there are no open cases on file for their account — say exactly that and offer to register a new case instead. Never invent a case or its status.",
+    suggestionsLeft > 0
+      ? `1c. TROUBLESHOOT BEFORE TICKETING: once the symptom is clear (and the issue is not about an existing case), offer ONE practical troubleshooting step the customer can try right now, then ask — as your single question — whether it resolved the issue. You have offered ${troubleshootingCount} of ${MAX_TROUBLESHOOTING_SUGGESTIONS} suggestions so far; never exceed ${MAX_TROUBLESHOOTING_SUGGESTIONS} in the whole conversation and never repeat one. Set "offeredSuggestion" to true on every reply that proposes a step to try. If the customer says the issue is resolved, be glad, do NOT register a case, and ask if there is anything else. If they decline to troubleshoot, already tried that step, or want a ticket straight away, move on to case registration.`
+      : `1c. You have already offered ${MAX_TROUBLESHOOTING_SUGGESTIONS} troubleshooting suggestions — the maximum. Do NOT offer another. Tell the customer you'll get a technician on it and proceed with case registration. Keep "offeredSuggestion" false.`,
     '2. Ask ONE question per turn and one question only. Your entire "reply" must contain AT MOST ONE question mark ("?"). Never put two questions in a single message — not joined with "and" and not as two separate sentences. If several things are missing, ask the single most important one now and save the rest for later turns.',
     "3. NEVER re-ask anything the customer already answered or anything stated above.",
     "4. Do NOT list every device name in your opening message or in free-text replies when the device picker is visible — the chat UI shows tappable device chips (with search when many devices exist) below your message instead.",
@@ -322,6 +396,14 @@ function buildIntakeSystemPrompt(
     '12. After a "[event] Case created" note, the UI has already told the customer their case number and next steps. From then on, help with whatever they need next; if they describe a NEW issue, run this same intake flow again for a new case, and base subject/description/priority ONLY on messages that came after the latest case-created event.',
     "13. Never repeat your previous message. Every reply must move the conversation forward.",
     "",
+    ...(kbGuidance.length > 0
+      ? [
+          "",
+          "KNOWLEDGE BASE GUIDANCE — ground your troubleshooting suggestions on these support articles when they match the customer's device and symptom; ignore entries that do not apply. Never mention the knowledge base or article names to the customer:",
+          ...kbGuidance.map((snippet, index) => `[KB ${index + 1}] ${snippet}`)
+        ]
+      : []),
+    "",
     "On EVERY turn, after reading the customer's latest message, re-read the whole conversation and fill subject, description, and priority from everything said so far. These three fields are REQUIRED on every response and must never be empty or omitted once the customer has described anything — update them as new detail arrives; do not wait until the end.",
     'On the turns where you send the issue summary and where you set ui.action "createCase", the description field is CRITICAL: it becomes the case record the service team reads, so it must be the complete, final consolidation — symptom, affected device, when it started, and every troubleshooting step the customer mentioned anywhere in the conversation.',
     "",
@@ -333,7 +415,8 @@ function buildIntakeSystemPrompt(
     '  "contactEmail": the DIFFERENT email the customer asked updates to go to, or "" when the on-file email is fine,',
     '  "contactPhone": the phone number the customer offered for this case, or "",',
     '  "reply": your next message to the customer (<=600 chars),',
-    '  "ui": {"action": one of "none" | "showDevicePicker" | "suggestDevice" | "createCase", "suggestedDeviceIndex": 1-based device number, only with "suggestDevice"},',
+    '  "ui": {"action": one of "none" | "showDevicePicker" | "suggestDevice" | "showTicketStatus" | "createCase", "suggestedDeviceIndex": 1-based device number, only with "suggestDevice"},',
+    '  "offeredSuggestion": boolean — true only when this reply proposes a troubleshooting step for the customer to try now,',
     '  "readyToSubmit": boolean — true only when nothing is missing.',
     "Do not invent facts; base subject, description, priority, and the contact/address fields solely on what the customer has said."
   ];
@@ -346,6 +429,7 @@ interface ParsedTurn {
   fields: IntakeTurnExtractedDto;
   ui?: { action?: unknown; suggestedDeviceIndex?: unknown };
   readyToSubmit: boolean;
+  offeredSuggestion: boolean;
 }
 
 /**
@@ -358,6 +442,7 @@ interface ParsedTurn {
  */
 @Injectable()
 export class IntakeAgentService {
+  private readonly logger = new Logger(IntakeAgentService.name);
   private readonly contextCache = new Map<
     string,
     { context: IntakeContextResponseDto; expiresAt: number }
@@ -365,7 +450,9 @@ export class IntakeAgentService {
 
   constructor(
     private readonly modelRouter: ModelRouter,
-    private readonly intakeService: IntakeService
+    private readonly intakeService: IntakeService,
+    private readonly ragRetrieval: RagRetrievalService,
+    private readonly config: AppConfigService
   ) {}
 
   async nextTurn(
@@ -383,10 +470,26 @@ export class IntakeAgentService {
         )
       : undefined;
 
+    const troubleshootingCount = Math.max(
+      0,
+      Math.trunc(dto.uiState?.troubleshootingCount ?? 0)
+    );
+    // KB grounding is only worth the retrieval latency while suggestions are
+    // still allowed; later turns (confirm/create) skip it entirely.
+    const kbGuidance =
+      troubleshootingCount < MAX_TROUBLESHOOTING_SUGGESTIONS
+        ? await this.retrieveTroubleshootingGuidance(dto, principal)
+        : [];
+
     const messages: LlmMessage[] = [
       {
         role: "system",
-        content: buildIntakeSystemPrompt(context, selectedDevice)
+        content: buildIntakeSystemPrompt(
+          context,
+          selectedDevice,
+          troubleshootingCount,
+          kbGuidance
+        )
       },
       ...dto.messages.map((message) => ({
         role: message.role,
@@ -479,8 +582,115 @@ export class IntakeAgentService {
           fields.description.trim().length >= MIN_DESCRIPTION_LENGTH
         ) || userWordCount >= 10,
       ui,
-      readyToSubmit
+      readyToSubmit,
+      // The cap is enforced here, not in the client: once 2 suggestions are
+      // spent (or the turn is the create itself), the flag can never count.
+      offeredSuggestion:
+        parsed.offeredSuggestion &&
+        ui.action !== "createCase" &&
+        troubleshootingCount < MAX_TROUBLESHOOTING_SUGGESTIONS
     };
+  }
+
+  /**
+   * Live open cases plus a plain-English AI digest of them. The digest is
+   * generated from ONLY the fetched case data (grounded), and any failure
+   * degrades to no summary — the client then renders the deterministic list.
+   */
+  async listOpenCasesWithSummary(
+    principal: AuthPrincipal | undefined
+  ): Promise<IntakeCasesResponseDto> {
+    const identity = requireIntakeIdentity(principal);
+    const result = await this.intakeService.listOpenCases(principal);
+    const summary = await this.summarizeOpenCases(
+      result.cases,
+      principal,
+      identity
+    );
+    return summary ? { ...result, summary } : result;
+  }
+
+  private async summarizeOpenCases(
+    cases: IntakeOpenCaseDto[],
+    principal: AuthPrincipal | undefined,
+    identity: IntakeIdentity
+  ): Promise<string | undefined> {
+    if (cases.length === 0) {
+      return undefined;
+    }
+    try {
+      const request: LlmChatRequest = {
+        useCase: "customer_chat_intake",
+        tenantId: principal?.tenantId,
+        clientId: identity.accountId,
+        surface: "react-chat-window",
+        temperature: 0.2,
+        messages: [
+          { role: "system", content: CASE_SUMMARY_PROMPT },
+          { role: "user", content: JSON.stringify(cases) }
+        ]
+      };
+      const response = await this.modelRouter.chat(request);
+      const summary = response.content?.trim();
+      return summary ? summary.slice(0, CASE_SUMMARY_MAX_LENGTH) : undefined;
+    } catch (err) {
+      this.logger.warn(
+        `Open-case summary degraded (${(err as Error)?.name ?? "unexpected"}); deterministic list shown.`
+      );
+      return undefined;
+    }
+  }
+
+  /**
+   * Grounds the bot's troubleshooting suggestions on the tenant's support
+   * knowledge base. Degrade-not-throw: RAG being disabled, unconfigured, or
+   * unreachable yields no guidance and the conversation continues on the
+   * model's own knowledge. Only titles + trimmed snippet text reach the
+   * prompt; nothing retrieved is ever logged.
+   */
+  private async retrieveTroubleshootingGuidance(
+    dto: IntakeTurnRequestDto,
+    principal: AuthPrincipal | undefined
+  ): Promise<string[]> {
+    if (!this.config.rag.enabled) {
+      return [];
+    }
+    const query = dto.messages
+      .filter(isTypedUserMessage)
+      .map((message) => message.content.trim())
+      .join(" ")
+      .slice(-KB_QUERY_MAX_LENGTH)
+      .trim();
+    if (query.length < KB_QUERY_MIN_LENGTH) {
+      return [];
+    }
+    try {
+      const context = resolveTrustedRagContext(
+        principal,
+        undefined,
+        this.config
+      );
+      const result = await this.ragRetrieval.search(
+        { query, topK: KB_SNIPPET_COUNT },
+        context
+      );
+      return result.rawMatches
+        .slice(0, KB_SNIPPET_COUNT)
+        .map((match) => {
+          const text = match.text
+            .replace(/\s+/g, " ")
+            .trim()
+            .slice(0, KB_SNIPPET_MAX_LENGTH);
+          const title = match.metadata.title?.trim();
+          return title && text ? `${title}: ${text}` : text;
+        })
+        .filter((snippet) => snippet.length > 0);
+    } catch (err) {
+      this.logger.warn(
+        `Intake KB retrieval degraded: ${(err as Error)?.name ?? "unexpected"}`
+      );
+      return [];
+    }
   }
 
   /**
@@ -577,6 +787,25 @@ export class IntakeAgentService {
       action = "none";
     }
 
+    // The model announced the status card in prose but cued no action —
+    // without this the customer stares at "here it is below" forever.
+    if (
+      action === "none" &&
+      (context.openCases ?? []).length > 0 &&
+      referencesStatusCard(reply)
+    ) {
+      action = "showTicketStatus";
+    }
+
+    // The status card renders live open cases; with none on file the model
+    // was told to answer directly, so the cue degrades to a plain turn.
+    if (
+      action === "showTicketStatus" &&
+      (context.openCases ?? []).length === 0
+    ) {
+      action = "none";
+    }
+
     if (action === "suggestDevice") {
       const index =
         typeof raw?.suggestedDeviceIndex === "number"
@@ -641,7 +870,12 @@ export class IntakeAgentService {
   private static parseExtraction(content: string): ParsedTurn {
     const trimmed = (content ?? "").trim();
     if (!trimmed) {
-      return { reply: "", fields: {}, readyToSubmit: false };
+      return {
+        reply: "",
+        fields: {},
+        readyToSubmit: false,
+        offeredSuggestion: false
+      };
     }
     try {
       const start = trimmed.indexOf("{");
@@ -716,12 +950,18 @@ export class IntakeAgentService {
           contactPhone
         },
         ui,
-        readyToSubmit: parsed["readyToSubmit"] === true
+        readyToSubmit: parsed["readyToSubmit"] === true,
+        offeredSuggestion: parsed["offeredSuggestion"] === true
       };
     } catch {
       // Non-JSON output: surface the raw text so the user sees the LLM response
       // rather than the generic "tell me more" fallback.
-      return { reply: trimmed.slice(0, 600), fields: {}, readyToSubmit: false };
+      return {
+        reply: trimmed.slice(0, 600),
+        fields: {},
+        readyToSubmit: false,
+        offeredSuggestion: false
+      };
     }
   }
 }

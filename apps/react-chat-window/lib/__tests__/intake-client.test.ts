@@ -6,6 +6,8 @@ import {
   canSubmitCase,
   caseCreatedAnnouncement,
   caseCreatedEvent,
+  caseStatusAnnouncement,
+  caseStatusEvent,
   deviceGreeting,
   deviceSelectionEvent,
   filterDevicesByQuery,
@@ -356,5 +358,161 @@ describe("canSubmitCase", () => {
         selectedAssetId: "02i1"
       })
     ).toBe(true);
+  });
+});
+
+describe("caseStatusAnnouncement", () => {
+  it("renders live status facts for each open case", () => {
+    const message = caseStatusAnnouncement([
+      {
+        caseNumber: "00001202",
+        subject: "Laptop running slow",
+        status: "New",
+        priority: "High",
+        createdDate: "2026-07-06T10:00:00.000Z"
+      }
+    ]);
+    expect(message).toContain("Case #00001202 — Laptop running slow");
+    expect(message).toContain("Status: New (received — awaiting review)");
+    expect(message).toContain("Priority: High");
+    expect(message).toContain("anything else I can help you with?");
+  });
+
+  it("offers to register a new case when none are open", () => {
+    const message = caseStatusAnnouncement([]);
+    expect(message).toContain("couldn't find any open cases");
+    expect(message).toContain("register a new case");
+  });
+});
+
+describe("caseStatusEvent", () => {
+  it("summarizes what the UI showed for the model", () => {
+    const event = caseStatusEvent([
+      { caseNumber: "00001202", status: "New" },
+      { caseNumber: "00001205", status: "Working" }
+    ]);
+    expect(event).toContain("[event]");
+    expect(event).toContain("#00001202 (New)");
+    expect(event).toContain("#00001205 (Working)");
+  });
+
+  it("tells the model when no open cases were found", () => {
+    expect(caseStatusEvent([])).toContain("no open cases were found");
+  });
+});
+
+describe("buildTurnRequestBody troubleshooting count", () => {
+  it("sends the count once suggestions have been offered", () => {
+    const body = buildTurnRequestBody(
+      [{ role: "user", content: "still slow" }],
+      "02i1",
+      1
+    );
+    expect(body.uiState).toEqual({
+      selectedAssetId: "02i1",
+      troubleshootingCount: 1
+    });
+  });
+
+  it("omits a zero count so older servers never see the key", () => {
+    const body = buildTurnRequestBody(
+      [{ role: "user", content: "hello" }],
+      null,
+      0
+    );
+    expect(body.uiState).toBeUndefined();
+  });
+});
+
+describe("parseTurnResponse new directives", () => {
+  it("accepts the showTicketStatus action and the offered flag", () => {
+    const result = parseTurnResponse({
+      reply: "Here's the latest below.",
+      extracted: {},
+      issueCaptured: false,
+      ui: { action: "showTicketStatus" },
+      offeredSuggestion: true
+    });
+    expect(result.ui?.action).toBe("showTicketStatus");
+    expect(result.offeredSuggestion).toBe(true);
+  });
+
+  it("defaults offeredSuggestion to false when absent", () => {
+    const result = parseTurnResponse({ reply: "ok" });
+    expect(result.offeredSuggestion).toBe(false);
+  });
+});
+
+describe("deviceGreeting open cases", () => {
+  it("mentions open cases and the status-update capability", () => {
+    const greeting = deviceGreeting({
+      displayName: "Ada Lovelace",
+      devices: [],
+      shipTo: {},
+      openCases: [{ caseNumber: "00001202", status: "New" }]
+    });
+    expect(greeting).toContain("1 open case");
+    expect(greeting).toContain("status update");
+  });
+
+  it("stays quiet about cases when none are open", () => {
+    const greeting = deviceGreeting({
+      displayName: "Ada Lovelace",
+      devices: [],
+      shipTo: {}
+    });
+    expect(greeting).not.toContain("open case");
+  });
+});
+
+describe("caseStatusAnnouncement agent updates", () => {
+  it("renders the latest agent update line when the case has one", () => {
+    const message = caseStatusAnnouncement([
+      {
+        caseNumber: "00001202",
+        subject: "Laptop running slow",
+        status: "New",
+        priority: "High",
+        createdDate: "2026-07-06T10:00:00.000Z",
+        latestUpdate: {
+          body: "Agent 4 – Scheduling: Technician visit planned for Jul 11 morning window.",
+          createdDate: "2026-07-07T09:00:00.000Z"
+        }
+      }
+    ]);
+    // The internal "Agent 4 – Scheduling:" prefix is stripped for customers.
+    expect(message).toContain("Update (Jul 7): Technician visit planned");
+    expect(message).not.toContain("Agent 4");
+  });
+
+  it("omits the update line when no agent has posted yet", () => {
+    const message = caseStatusAnnouncement([
+      { caseNumber: "00001202", status: "New" }
+    ]);
+    expect(message).not.toContain("Update");
+  });
+});
+
+describe("caseStatusAnnouncement AI summary", () => {
+  const cases = [
+    { caseNumber: "00001209", subject: "Slow laptop", status: "New" },
+    { caseNumber: "00001208", subject: "Black screen", status: "New" }
+  ];
+
+  it("prefers the plain-English summary with a compact case reference", () => {
+    const message = caseStatusAnnouncement(
+      cases,
+      "Your newest case #00001209 about the slow laptop is being escalated to technical support. Your other cases about black screens are all awaiting review."
+    );
+    expect(message).toContain("escalated to technical support");
+    expect(message).toContain("Your open cases: #00001209, #00001208");
+    expect(message).toContain("anything else I can help you with?");
+    expect(message).not.toContain("📋");
+  });
+
+  it("falls back to the deterministic list when the summary is missing or blank", () => {
+    const message = caseStatusAnnouncement(cases, "   ");
+    expect(message).toContain("📋 Case #00001209 — Slow laptop");
+    expect(message).toContain("📋 Case #00001208 — Black screen");
   });
 });
