@@ -169,7 +169,9 @@ test.describe("Ablypro landing page (/landing)", () => {
         timeout: 15_000
       });
       await expect(
-        page.getByText(/device\(s\) on your account|what's going wrong/i).first()
+        page
+          .getByText(/registered devices? on your account|what issue are you experiencing/i)
+          .first()
       ).toBeVisible({ timeout: 20_000 });
       return;
     }

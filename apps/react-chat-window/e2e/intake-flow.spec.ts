@@ -11,7 +11,10 @@ import { expect, test, type Page, type Route } from "@playwright/test";
  *     npm run test:e2e:intake --workspace @agentforce/react-chat-window
  *
  * The spec mocks BFF routes so the full UI state machine can run without
- * Salesforce OTP email delivery or a live AI API.
+ * Salesforce OTP email delivery or a live AI API. Case creation is fully
+ * conversational: the model summarizes in chat, the customer confirms in
+ * chat, the createCase directive triggers the POST, and the chat announces
+ * the case number and keeps going — there is no review/submit screen.
  */
 const TEST_EMAIL = "ada@corp.com";
 const MOCK_TOKEN = "mock-intake-jwt-token";
@@ -78,24 +81,34 @@ async function mockIntakeBff(page: Page, options: IntakeMockOptions = {}) {
     });
   });
 
+  const extracted = {
+    subject: "Screen flickers on startup",
+    description:
+      "Screen flickers and goes black on startup. Started recently; customer reported it via chat.",
+    priority: "High"
+  };
+
   await page.route("**/api/intake/turn", async (route) => {
     turnCount += 1;
-    const issueCaptured = turnCount >= 1;
+    if (turnCount === 1) {
+      // Model has everything it needs: in-chat summary + confirm ask.
+      await fulfillJson(route, 200, {
+        reply:
+          "Here's what I understood: your screen flickers and then goes black when you power on. Shall I go ahead and create the case?",
+        extracted,
+        issueCaptured: true,
+        ui: { action: "none" },
+        readyToSubmit: true
+      });
+      return;
+    }
+    // Customer confirmed → the model cues the case create.
     await fulfillJson(route, 200, {
-      reply: issueCaptured
-        ? "Thanks — I have enough detail. Pick the affected device below, then review and submit."
-        : "Could you tell me a bit more about when the issue started?",
-      extracted: issueCaptured
-        ? {
-            subject: "Screen flickers on startup",
-            description:
-              "My screen flickers and then goes black when I power on the laptop.",
-            priority: "High"
-          }
-        : {},
-      issueCaptured,
-      ui: { action: issueCaptured ? "showReview" : "none" },
-      readyToSubmit: issueCaptured
+      reply: "Creating your case now…",
+      extracted,
+      issueCaptured: true,
+      ui: { action: "createCase" },
+      readyToSubmit: true
     });
   });
 
@@ -112,7 +125,9 @@ test.describe("OTP intake flow (mocked BFF)", () => {
     await mockIntakeBff(page);
   });
 
-  test("full happy path through case creation", async ({ page }) => {
+  test("full conversational happy path through case creation", async ({
+    page
+  }) => {
     await page.goto("/intake");
 
     await expect(page.getByLabel("Email address")).toBeVisible();
@@ -137,26 +152,23 @@ test.describe("OTP intake flow (mocked BFF)", () => {
     );
     await page.getByRole("button", { name: /^send$/i }).click();
 
+    // The bot summarizes in chat and asks for confirmation — no review screen.
     await expect(
-      page.getByText(/pick the affected device below/i)
+      page.getByText(/shall I go ahead and create the case\?/i)
     ).toBeVisible();
+    // The single registered device is auto-selected and shown inline.
     await expect(page.getByText("ThinkPad X1")).toBeVisible();
+    expect(await page.getByRole("button", { name: /review/i }).count()).toBe(0);
 
-    await page.getByRole("button", { name: /review & submit/i }).click();
+    await issueInput.fill("yes please");
+    await page.getByRole("button", { name: /^send$/i }).click();
 
+    // The chat announces the created case and keeps the conversation going.
+    await expect(page.getByText(`#${CASE_NUMBER}`)).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Review your case" })
+      page.getByText(/anything else I can help you with\?/i)
     ).toBeVisible();
-    await expect(page.getByText("Screen flickers on startup")).toBeVisible();
-    await expect(page.getByText("ThinkPad X1")).toBeVisible();
-    await expect(page.getByText("London, LDN, UK")).toBeVisible();
-
-    await page.getByRole("button", { name: /create support case/i }).click();
-
-    await expect(page.getByRole("heading", { name: "Case created" })).toBeVisible();
-    await expect(
-      page.getByText(new RegExp(`support case ${CASE_NUMBER}`, "i"))
-    ).toBeVisible();
+    await expect(page.getByLabel("Describe your issue")).toBeEnabled();
   });
 
   test("advances to OTP step even when email is unknown (uniform response)", async ({
@@ -181,15 +193,15 @@ test.describe("OTP intake flow (mocked BFF)", () => {
     await page.getByLabel("Verification code").fill("000000");
     await page.getByRole("button", { name: /verify and continue/i }).click();
 
-    await expect(
-      page.getByText(/invalid or has expired/i)
-    ).toBeVisible();
+    await expect(page.getByText(/invalid or has expired/i)).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "Enter your code" })
     ).toBeVisible();
   });
 
-  test("allows review without a device when none are on file", async ({ page }) => {
+  test("creates a case conversationally when no devices are on file", async ({
+    page
+  }) => {
     await mockIntakeBff(page, { noDevices: true });
 
     await page.goto("/intake");
@@ -198,23 +210,21 @@ test.describe("OTP intake flow (mocked BFF)", () => {
     await page.getByLabel("Verification code").fill("123456");
     await page.getByRole("button", { name: /verify and continue/i }).click();
 
-    await page
-      .getByLabel("Describe your issue")
-      .fill("Keyboard keys stick after a spill.");
+    const issueInput = page.getByLabel("Describe your issue");
+    await issueInput.fill("Keyboard keys stick after a spill.");
     await page.getByRole("button", { name: /^send$/i }).click();
     await expect(
-      page.getByText(/pick the affected device below/i)
+      page.getByText(/shall I go ahead and create the case\?/i)
     ).toBeVisible();
     await expect(page.getByText(/no devices are on file/i)).toBeVisible();
 
-    const reviewButton = page.getByRole("button", { name: /review & submit/i });
-    await expect(reviewButton).toBeEnabled();
-    await reviewButton.click();
+    await issueInput.fill("yes go ahead");
+    await page.getByRole("button", { name: /^send$/i }).click();
 
+    await expect(page.getByText(`#${CASE_NUMBER}`)).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "Review your case" })
+      page.getByText(/anything else I can help you with\?/i)
     ).toBeVisible();
-    await expect(page.getByText("Not specified")).toBeVisible();
   });
 
   test("can navigate back from OTP to email", async ({ page }) => {

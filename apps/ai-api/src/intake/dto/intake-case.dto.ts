@@ -1,5 +1,6 @@
 import { Type } from "class-transformer";
 import {
+  IsEmail,
   IsIn,
   IsOptional,
   IsString,
@@ -60,6 +61,24 @@ export class IntakeCaseCreateDto {
   @ValidateNested()
   @Type(() => IntakeShipToDto)
   shipTo?: IntakeShipToDto;
+
+  /** Customer-provided service address when different from the on-file ship-to. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  serviceAddress?: string;
+
+  /** Customer-provided email for case updates when different from the on-file contact email. */
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(254)
+  contactEmail?: string;
+
+  /** Customer-provided phone number for this case. */
+  @IsOptional()
+  @IsString()
+  @Matches(/^[+()\d][\d\s().-]{4,39}$/)
+  contactPhone?: string;
 }
 
 export interface IntakeCaseResponseDto {

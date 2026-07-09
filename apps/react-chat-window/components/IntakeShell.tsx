@@ -5,20 +5,19 @@ import { Loader2 } from "lucide-react";
 
 import { EmailCard } from "@/components/intake/EmailCard";
 import { IntakeConversation } from "@/components/intake/IntakeConversation";
-import { IntakeDone } from "@/components/intake/IntakeDone";
-import { IntakeSummaryCard } from "@/components/intake/IntakeSummaryCard";
 import { OtpCard } from "@/components/intake/OtpCard";
 import {
   bootstrapIntakeSession,
   buildCaseCreatePayload,
   buildTurnRequestBody,
   canSubmitCase,
+  caseCreatedAnnouncement,
+  caseCreatedEvent,
   deviceGreeting,
   deviceSelectionEvent,
   fetchIntakeConfig,
   loadIntakeContext,
   parseTurnResponse,
-  resolveCaseDescription,
   shouldShowDevicePicker
 } from "@/lib/intake-client";
 import {
@@ -37,7 +36,10 @@ interface IntakeShellProps {
 /**
  * Guided intake orchestrator. When email verification is disabled, bootstraps
  * a verified session from the configured Salesforce account so the user can
- * talk to the AI immediately and create a Case.
+ * talk to the AI immediately and create a Case. Case creation is fully
+ * conversational: the model summarizes in chat, the customer confirms in
+ * chat, and the model's createCase directive triggers the create — there is
+ * no separate review/submit screen, and the chat continues afterwards.
  */
 export function IntakeShell({
   brandName,
@@ -53,12 +55,10 @@ export function IntakeShell({
   const [sending, setSending] = useState(false);
   const [turnError, setTurnError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const token = state.session?.accessToken;
   const devices = state.context?.devices ?? [];
   const showDevicePicker = shouldShowDevicePicker(state);
-  const reviewReady = state.readyToSubmit && canSubmitCase(state);
 
   useEffect(() => {
     if (state.phase !== "bootstrapping") {
@@ -94,6 +94,91 @@ export function IntakeShell({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.phase]);
+
+  // The model's createCase directive triggers the actual case create; the
+  // announcement (case number, follow-up email, "anything else?") is composed
+  // deterministically here and the conversation simply continues.
+  useEffect(() => {
+    if (!state.createCaseRequested || submitting) return;
+    dispatch({ type: "createCaseHandled" });
+
+    async function createCase() {
+      if (!token || !canSubmitCase(state)) return;
+      setSubmitting(true);
+      try {
+        const res = await fetch("/api/intake/case", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify(buildCaseCreatePayload(state))
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          caseId?: string;
+          caseNumber?: string;
+        };
+        if (!res.ok || !json.caseId) {
+          dispatch({
+            type: "appendMessage",
+            message: {
+              role: "assistant",
+              content:
+                "I couldn't create the case just now — say “try again” and I'll retry.",
+              uiOnly: true
+            }
+          });
+          return;
+        }
+        // Compose from state BEFORE caseCreated resets the per-case fields.
+        const announcement = caseCreatedAnnouncement({
+          caseNumber: json.caseNumber,
+          subject: state.extracted.subject,
+          deviceLabel: devices.find(
+            (device) => device.assetId === state.selectedAssetId
+          )?.label,
+          priority: state.extracted.priority,
+          email:
+            state.extracted.contactEmail ||
+            state.email ||
+            state.context?.contactEmail,
+          serviceAddress: state.extracted.serviceAddress
+        });
+        dispatch({
+          type: "caseCreated",
+          caseId: json.caseId,
+          caseNumber: json.caseNumber
+        });
+        dispatch({
+          type: "appendMessage",
+          message: { role: "assistant", content: announcement, uiOnly: true }
+        });
+        dispatch({
+          type: "appendMessage",
+          message: {
+            role: "user",
+            content: caseCreatedEvent(json.caseNumber),
+            hidden: true
+          }
+        });
+      } catch {
+        dispatch({
+          type: "appendMessage",
+          message: {
+            role: "assistant",
+            content:
+              "I couldn't reach the service to create the case — check your connection and say “try again”.",
+            uiOnly: true
+          }
+        });
+      } finally {
+        setSubmitting(false);
+      }
+    }
+
+    void createCase();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.createCaseRequested, submitting]);
 
   async function handleVerified(session: IntakeSession) {
     dispatch({ type: "verified", session });
@@ -146,7 +231,7 @@ export function IntakeShell({
   }
 
   function handleSend(text: string) {
-    if (!token || sending) return;
+    if (!token || sending || submitting) return;
     const userMessage = { role: "user" as const, content: text };
     const nextMessages = [
       ...state.messages.filter((m) => !m.uiOnly),
@@ -159,7 +244,7 @@ export function IntakeShell({
   // Selection is a conversation event: a hidden [event] note goes to the
   // model so it acknowledges the pick instead of asking which device.
   function handleSelectDevice(assetId: string) {
-    if (sending) return;
+    if (sending || submitting) return;
     dispatch({ type: "selectDevice", assetId });
     const label = devices.find((d) => d.assetId === assetId)?.label;
     if (!label || !token) return;
@@ -174,43 +259,6 @@ export function IntakeShell({
       event
     ].map((m) => ({ role: m.role, content: m.content }));
     void sendTurn(nextMessages, assetId);
-  }
-
-  async function handleSubmit() {
-    if (!token || !canSubmitCase(state)) return;
-    setSubmitting(true);
-    setSubmitError(null);
-    try {
-      const res = await fetch("/api/intake/case", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(buildCaseCreatePayload(state))
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        caseId?: string;
-        caseNumber?: string;
-      };
-      if (!res.ok || !json.caseId) {
-        setSubmitError(
-          "We couldn't create the case right now. Please try again."
-        );
-        return;
-      }
-      dispatch({
-        type: "caseCreated",
-        caseId: json.caseId,
-        caseNumber: json.caseNumber
-      });
-    } catch {
-      setSubmitError(
-        "Could not reach the service. Please check your connection and try again."
-      );
-    } finally {
-      setSubmitting(false);
-    }
   }
 
   if (state.phase === "bootstrapping") {
@@ -247,66 +295,28 @@ export function IntakeShell({
     );
   }
 
-  if (state.phase === "triage") {
-    if (contextLoading) {
-      return (
-        <main className="flex min-h-screen w-full items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </main>
-      );
-    }
+  if (contextLoading) {
     return (
-      <IntakeConversation
-        displayName={state.context?.displayName}
-        messages={state.messages.filter((m) => !m.hidden)}
-        devices={devices}
-        selectedAssetId={state.selectedAssetId}
-        suggestedAssetId={state.suggestedAssetId}
-        issueCaptured={state.issueCaptured}
-        showDevicePicker={showDevicePicker}
-        sending={sending}
-        reviewReady={reviewReady}
-        error={turnError}
-        onSend={handleSend}
-        onSelectDevice={handleSelectDevice}
-        onClearDevice={() => dispatch({ type: "clearDevice" })}
-        onReview={() => dispatch({ type: "toConfirm" })}
-      />
+      <main className="flex min-h-screen w-full items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </main>
     );
   }
-
-  if (state.phase === "confirm") {
-    const description = resolveCaseDescription(state);
-    const deviceLabel = devices.find(
-      (device) => device.assetId === state.selectedAssetId
-    )?.label;
-    return (
-      <IntakeSummaryCard
-        subject={state.extracted.subject || description.split(/\r?\n/)[0]}
-        description={description}
-        priority={state.extracted.priority ?? "Medium"}
-        deviceLabel={deviceLabel}
-        shipTo={state.context?.shipTo ?? {}}
-        submitting={submitting}
-        error={submitError}
-        onBack={() => dispatch({ type: "backToTriage" })}
-        onSubmit={handleSubmit}
-        onDescriptionChange={(value) =>
-          dispatch({ type: "editDescription", description: value })
-        }
-      />
-    );
-  }
-
   return (
-    <IntakeDone
-      caseNumber={state.caseNumber}
-      onRestart={() =>
-        dispatch({
-          type: "reset",
-          skipEmailVerification
-        })
-      }
+    <IntakeConversation
+      displayName={state.context?.displayName}
+      messages={state.messages.filter((m) => !m.hidden)}
+      devices={devices}
+      selectedAssetId={state.selectedAssetId}
+      suggestedAssetId={state.suggestedAssetId}
+      issueCaptured={state.issueCaptured}
+      showDevicePicker={showDevicePicker}
+      sending={sending}
+      creatingCase={submitting}
+      error={turnError}
+      onSend={handleSend}
+      onSelectDevice={handleSelectDevice}
+      onClearDevice={() => dispatch({ type: "clearDevice" })}
     />
   );
 }

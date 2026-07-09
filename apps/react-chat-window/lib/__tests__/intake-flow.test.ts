@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  canReview,
   initialIntakeState,
   intakeReducer,
   type IntakeState
@@ -58,6 +57,24 @@ describe("intakeReducer", () => {
     // issueCaptured latches true once set
     expect(state.issueCaptured).toBe(true);
     expect(state.messages).toHaveLength(2);
+  });
+
+  it("accumulates contact and service-address overrides across turns", () => {
+    let state: IntakeState = { ...initialIntakeState, phase: "triage" };
+    state = intakeReducer(state, {
+      type: "turnResult",
+      reply: "Noted — updates to your alternate email.",
+      extracted: { contactEmail: "alt@corp.com" },
+      issueCaptured: true
+    });
+    state = intakeReducer(state, {
+      type: "turnResult",
+      reply: "And service at your Dallas office.",
+      extracted: { serviceAddress: "400 Main St, Dallas TX" },
+      issueCaptured: true
+    });
+    expect(state.extracted.contactEmail).toBe("alt@corp.com");
+    expect(state.extracted.serviceAddress).toBe("400 Main St, Dallas TX");
   });
 
   it("latches the picker once the model cues it and releases it on selection", () => {
@@ -151,15 +168,15 @@ describe("intakeReducer", () => {
     let state: IntakeState = { ...initialIntakeState, phase: "triage" };
     state = intakeReducer(state, {
       type: "turnResult",
-      reply: "You can review and submit.",
+      reply: "Shall I create the case?",
       extracted: {},
       issueCaptured: true,
-      ui: { action: "showReview" },
+      ui: { action: "none" },
       readyToSubmit: true
     });
     expect(state.readyToSubmit).toBe(true);
 
-    // new information makes the model ask again → the CTA retracts
+    // new information makes the model ask again → readiness retracts
     state = intakeReducer(state, {
       type: "turnResult",
       reply: "Does the keyboard issue happen on battery too?",
@@ -180,55 +197,131 @@ describe("intakeReducer", () => {
     expect(state.readyToSubmit).toBe(false);
   });
 
-  it("stores a description edit as an override without touching extracted", () => {
-    let state: IntakeState = {
-      ...initialIntakeState,
-      extracted: { description: "model text" }
-    };
-    state = intakeReducer(state, {
-      type: "editDescription",
-      description: "corrected text"
-    });
-    expect(state.descriptionOverride).toBe("corrected text");
-    // the model's extracted.description is a signal only; the edit does not mutate it
-    expect(state.extracted.description).toBe("model text");
-  });
-
-  it("gates review on model readiness and a picked device", () => {
+  it("requests the case create on a createCase directive once a device is picked", () => {
     let state: IntakeState = {
       ...initialIntakeState,
       phase: "triage",
       context: twoDeviceContext,
-      issueCaptured: true
+      selectedAssetId: "02i1"
     };
-    expect(canReview(state)).toBe(false);
-    state = { ...state, readyToSubmit: true };
-    expect(canReview(state)).toBe(false);
-    state = intakeReducer(state, { type: "selectDevice", assetId: "02i1" });
-    expect(canReview(state)).toBe(true);
+    state = intakeReducer(state, {
+      type: "turnResult",
+      reply: "Creating your case now…",
+      extracted: {},
+      issueCaptured: true,
+      ui: { action: "createCase" },
+      readyToSubmit: true
+    });
+    expect(state.createCaseRequested).toBe(true);
+
+    state = intakeReducer(state, { type: "createCaseHandled" });
+    expect(state.createCaseRequested).toBe(false);
   });
 
-  it("allows review without a device when none are on file", () => {
-    const state: IntakeState = {
+  it("ignores a createCase directive while no device is picked (devices exist)", () => {
+    let state: IntakeState = {
       ...initialIntakeState,
       phase: "triage",
-      context: { devices: [], shipTo: {} },
-      readyToSubmit: true
+      context: twoDeviceContext,
+      selectedAssetId: null
     };
-    expect(canReview(state)).toBe(true);
+    state = intakeReducer(state, {
+      type: "turnResult",
+      reply: "Creating your case now…",
+      extracted: {},
+      issueCaptured: true,
+      ui: { action: "createCase" },
+      readyToSubmit: true
+    });
+    expect(state.createCaseRequested).toBe(false);
   });
 
-  it("records the created case and lands on done, and reset restores initial", () => {
-    let state: IntakeState = { ...initialIntakeState, phase: "confirm" };
+  it("allows createCase without a device when none are on file", () => {
+    let state: IntakeState = {
+      ...initialIntakeState,
+      phase: "triage",
+      context: { devices: [], shipTo: {} }
+    };
+    state = intakeReducer(state, {
+      type: "turnResult",
+      reply: "Creating your case now…",
+      extracted: {},
+      issueCaptured: true,
+      ui: { action: "createCase" },
+      readyToSubmit: true
+    });
+    expect(state.createCaseRequested).toBe(true);
+  });
+
+  it("treats the deprecated showReview directive as inert", () => {
+    let state: IntakeState = {
+      ...initialIntakeState,
+      phase: "triage",
+      context: twoDeviceContext,
+      selectedAssetId: "02i1"
+    };
+    state = intakeReducer(state, {
+      type: "turnResult",
+      reply: "You can review and submit.",
+      extracted: {},
+      issueCaptured: true,
+      ui: { action: "showReview" },
+      readyToSubmit: true
+    });
+    expect(state.createCaseRequested).toBe(false);
+    expect(state.devicePickerRequested).toBe(false);
+  });
+
+  it("keeps the conversation going after a case is created and resets per-case fields", () => {
+    let state: IntakeState = {
+      ...initialIntakeState,
+      phase: "triage",
+      context: twoDeviceContext,
+      messages: [{ role: "user", content: "screen is black" }],
+      extracted: { subject: "Black screen", priority: "High" },
+      issueCaptured: true,
+      readyToSubmit: true,
+      selectedAssetId: "02i1",
+      createCaseRequested: true
+    };
     state = intakeReducer(state, {
       type: "caseCreated",
       caseId: "500000000000001",
       caseNumber: "00001234"
     });
-    expect(state.phase).toBe("done");
+    // no done screen: the chat continues in triage for "anything else?"
+    expect(state.phase).toBe("triage");
     expect(state.caseNumber).toBe("00001234");
+    expect(state.extracted).toEqual({});
+    expect(state.issueCaptured).toBe(false);
+    expect(state.readyToSubmit).toBe(false);
+    expect(state.selectedAssetId).toBeNull();
+    expect(state.createCaseRequested).toBe(false);
+    // the transcript survives so the model keeps the history
+    expect(state.messages).toHaveLength(1);
 
     expect(intakeReducer(state, { type: "reset" })).toEqual(initialIntakeState);
+  });
+
+  it("re-applies the single-device auto-select for the next case", () => {
+    const oneDeviceContext = {
+      devices: [{ assetId: "02i1", label: "ThinkPad X1" }],
+      shipTo: {}
+    };
+    let state: IntakeState = {
+      ...initialIntakeState,
+      phase: "triage",
+      context: oneDeviceContext,
+      selectedAssetId: "02i1"
+    };
+    state = intakeReducer(state, {
+      type: "caseCreated",
+      caseId: "500000000000001",
+      caseNumber: "00001234"
+    });
+    // a follow-up issue on a single-device account must not deadlock on
+    // a picker that never renders
+    expect(state.selectedAssetId).toBe("02i1");
   });
 
   it("auto-selects the only device when context loads", () => {

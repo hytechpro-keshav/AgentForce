@@ -11,12 +11,13 @@ import {
   buildCaseCreatePayload,
   buildTurnRequestBody,
   canSubmitCase,
+  caseCreatedAnnouncement,
+  caseCreatedEvent,
   deviceGreeting,
   deviceSelectionEvent,
   fetchIntakeConfig,
   loadIntakeContext,
   parseTurnResponse,
-  resolveCaseDescription,
   shouldShowDevicePicker
 } from "@/lib/intake-client";
 import { IntakeDevicePicker } from "@/components/intake/IntakeDevicePicker";
@@ -47,9 +48,8 @@ export function LandingChatPanel() {
   const [sending, setSending] = useState(false);
   const [turnError, setTurnError] = useState<string | null>(null);
 
-  // confirm phase
+  // case create (triggered by the model's createCase directive)
   const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -73,7 +73,7 @@ export function LandingChatPanel() {
     state.devicePickerRequested,
     state.suggestedAssetId,
     state.selectedAssetId,
-    state.readyToSubmit
+    submitting
   ]);
 
   useEffect(() => {
@@ -237,7 +237,7 @@ export function LandingChatPanel() {
 
   function handleSend() {
     const text = chatInput.trim();
-    if (!text || !state.session?.accessToken || sending) return;
+    if (!text || !state.session?.accessToken || sending || submitting) return;
     const userMessage = { role: "user" as const, content: text };
     const nextMessages = [
       ...state.messages.filter((m) => !m.uiOnly),
@@ -251,7 +251,7 @@ export function LandingChatPanel() {
   // Selection is a conversation event: a hidden [event] note goes to the
   // model so it acknowledges the pick instead of asking which device.
   function handleDeviceSelected(assetId: string) {
-    if (sending) return;
+    if (sending || submitting) return;
     dispatch({ type: "selectDevice", assetId });
     const label = devices.find((d) => d.assetId === assetId)?.label;
     if (!label || !state.session?.accessToken) return;
@@ -268,42 +268,93 @@ export function LandingChatPanel() {
     void sendTurn(nextMessages, assetId);
   }
 
-  async function handleSubmitCase() {
-    if (!state.session?.accessToken || !canSubmitCase(state)) return;
-    setSubmitting(true);
-    setSubmitError(null);
-    try {
-      const res = await fetch("/api/intake/case", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${state.session.accessToken}`
-        },
-        body: JSON.stringify(buildCaseCreatePayload(state))
-      });
-      const json = (await res.json().catch(() => ({}))) as {
-        caseId?: string;
-        caseNumber?: string;
-      };
-      if (!res.ok || !json.caseId) {
-        setSubmitError("Couldn't create the case. Please try again.");
-        return;
+  // The model's createCase directive triggers the actual case create; the
+  // announcement (case number, follow-up email, "anything else?") is composed
+  // deterministically here and the conversation simply continues.
+  useEffect(() => {
+    if (!state.createCaseRequested || submitting) return;
+    dispatch({ type: "createCaseHandled" });
+
+    async function createCase() {
+      if (!state.session?.accessToken || !canSubmitCase(state)) return;
+      setSubmitting(true);
+      try {
+        const res = await fetch("/api/intake/case", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            authorization: `Bearer ${state.session.accessToken}`
+          },
+          body: JSON.stringify(buildCaseCreatePayload(state))
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          caseId?: string;
+          caseNumber?: string;
+        };
+        if (!res.ok || !json.caseId) {
+          dispatch({
+            type: "appendMessage",
+            message: {
+              role: "assistant",
+              content:
+                "I couldn't create the case just now — say “try again” and I'll retry.",
+              uiOnly: true
+            }
+          });
+          return;
+        }
+        // Compose from state BEFORE caseCreated resets the per-case fields.
+        const announcement = caseCreatedAnnouncement({
+          caseNumber: json.caseNumber,
+          subject: state.extracted.subject,
+          deviceLabel: state.context?.devices.find(
+            (d) => d.assetId === state.selectedAssetId
+          )?.label,
+          priority: state.extracted.priority,
+          email:
+            state.extracted.contactEmail ||
+            state.email ||
+            state.context?.contactEmail,
+          serviceAddress: state.extracted.serviceAddress
+        });
+        dispatch({
+          type: "caseCreated",
+          caseId: json.caseId,
+          caseNumber: json.caseNumber
+        });
+        dispatch({
+          type: "appendMessage",
+          message: { role: "assistant", content: announcement, uiOnly: true }
+        });
+        dispatch({
+          type: "appendMessage",
+          message: {
+            role: "user",
+            content: caseCreatedEvent(json.caseNumber),
+            hidden: true
+          }
+        });
+      } catch {
+        dispatch({
+          type: "appendMessage",
+          message: {
+            role: "assistant",
+            content:
+              "I couldn't reach the service to create the case — check your connection and say “try again”.",
+            uiOnly: true
+          }
+        });
+      } finally {
+        setSubmitting(false);
       }
-      dispatch({
-        type: "caseCreated",
-        caseId: json.caseId,
-        caseNumber: json.caseNumber
-      });
-    } catch {
-      setSubmitError("Could not reach the service. Check your connection.");
-    } finally {
-      setSubmitting(false);
     }
-  }
+
+    void createCase();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.createCaseRequested, submitting]);
 
   const devices = state.context?.devices ?? [];
   const showDevicePicker = shouldShowDevicePicker(state);
-  const reviewReady = state.readyToSubmit && canSubmitCase(state);
 
   function renderBody() {
     const { phase } = state;
@@ -335,7 +386,9 @@ export function LandingChatPanel() {
             Connecting to your account…
           </div>
           {bootstrapError ? (
-            <div style={{ fontSize: "12px", color: "#C0492E" }}>{bootstrapError}</div>
+            <div style={{ fontSize: "12px", color: "#C0492E" }}>
+              {bootstrapError}
+            </div>
           ) : null}
         </div>
       );
@@ -416,8 +469,7 @@ export function LandingChatPanel() {
               fontWeight: 600,
               cursor: "pointer",
               fontFamily: "inherit",
-              opacity:
-                emailSubmitting || !emailValue.trim() ? 0.6 : 1
+              opacity: emailSubmitting || !emailValue.trim() ? 0.6 : 1
             }}
           >
             {emailSubmitting ? "Sending code…" : "Send verification code"}
@@ -566,34 +618,34 @@ export function LandingChatPanel() {
             {state.messages
               .filter((m) => !m.hidden)
               .map((m, i) => (
-              <div
-                key={i}
-                style={{
-                  display: "flex",
-                  justifyContent: m.role === "user" ? "flex-end" : "flex-start"
-                }}
-              >
                 <div
+                  key={i}
                   style={{
-                    maxWidth: "82%",
-                    padding: "9px 12px",
-                    borderRadius:
-                      m.role === "user"
-                        ? "13px 13px 4px 13px"
-                        : "13px 13px 13px 4px",
-                    fontSize: "13px",
-                    lineHeight: 1.45,
-                    background:
-                      m.role === "user" ? "#139ED9" : "#fff",
-                    color: m.role === "user" ? "#fff" : "#33495F",
-                    border:
-                      m.role === "user" ? "none" : "1px solid #E6EDF4"
+                    display: "flex",
+                    justifyContent:
+                      m.role === "user" ? "flex-end" : "flex-start"
                   }}
                 >
-                  {m.content}
+                  <div
+                    style={{
+                      maxWidth: "82%",
+                      padding: "9px 12px",
+                      borderRadius:
+                        m.role === "user"
+                          ? "13px 13px 4px 13px"
+                          : "13px 13px 13px 4px",
+                      fontSize: "13px",
+                      lineHeight: 1.45,
+                      whiteSpace: "pre-line",
+                      background: m.role === "user" ? "#139ED9" : "#fff",
+                      color: m.role === "user" ? "#fff" : "#33495F",
+                      border: m.role === "user" ? "none" : "1px solid #E6EDF4"
+                    }}
+                  >
+                    {m.content}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
           </div>
           {showDevicePicker ? (
             <IntakeDevicePicker
@@ -623,7 +675,10 @@ export function LandingChatPanel() {
                   fontWeight: 600
                 }}
               >
-                {devices.find((d) => d.assetId === state.selectedAssetId)?.label}
+                {
+                  devices.find((d) => d.assetId === state.selectedAssetId)
+                    ?.label
+                }
               </span>
               <button
                 onClick={() => dispatch({ type: "clearDevice" })}
@@ -649,241 +704,24 @@ export function LandingChatPanel() {
               {turnError}
             </div>
           )}
-          {reviewReady && (
-            <button
-              onClick={() => dispatch({ type: "toConfirm" })}
+          {submitting && (
+            <div
               style={{
-                background: "#0A2540",
-                color: "#fff",
-                border: 0,
-                borderRadius: "10px",
-                padding: "10px",
-                fontSize: "13.5px",
-                fontWeight: 600,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                marginTop: "4px"
+                fontSize: "12px",
+                color: "#8598AB",
+                fontStyle: "italic",
+                padding: "2px 0"
               }}
             >
-              Review & submit case →
-            </button>
+              Creating your case…
+            </div>
           )}
           <div ref={messagesEndRef} />
         </div>
       );
     }
 
-    if (phase === "confirm") {
-      const description = resolveCaseDescription(state);
-      const subject =
-        state.extracted.subject || description.split(/\r?\n/)[0] || "";
-      const deviceLabel = devices.find(
-        (d) => d.assetId === state.selectedAssetId
-      )?.label;
-      return (
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-          <div
-            style={{
-              background: "#F7FAFD",
-              border: "1px solid #E6EDF4",
-              borderRadius: "12px",
-              padding: "14px"
-            }}
-          >
-            <div
-              style={{
-                fontSize: "11px",
-                fontFamily: "'IBM Plex Mono',monospace",
-                letterSpacing: ".1em",
-                textTransform: "uppercase",
-                color: "#8598AB",
-                marginBottom: "8px"
-              }}
-            >
-              Summary
-            </div>
-            <div
-              style={{
-                fontSize: "13.5px",
-                fontWeight: 600,
-                color: "#0A2540",
-                marginBottom: "4px"
-              }}
-            >
-              {subject}
-            </div>
-            {deviceLabel && (
-              <div style={{ fontSize: "12.5px", color: "#5A7189" }}>
-                Device: {deviceLabel}
-              </div>
-            )}
-            <div style={{ fontSize: "12.5px", color: "#5A7189", marginTop: "4px" }}>
-              Priority: {state.extracted.priority ?? "Medium"}
-            </div>
-            <div
-              style={{
-                fontSize: "11px",
-                fontFamily: "'IBM Plex Mono',monospace",
-                letterSpacing: ".1em",
-                textTransform: "uppercase",
-                color: "#8598AB",
-                margin: "12px 0 6px"
-              }}
-            >
-              Description
-            </div>
-            <textarea
-              value={description}
-              onChange={(e) =>
-                dispatch({
-                  type: "editDescription",
-                  description: e.target.value
-                })
-              }
-              rows={5}
-              aria-label="Case description"
-              style={{
-                width: "100%",
-                boxSizing: "border-box",
-                fontSize: "12.5px",
-                lineHeight: 1.5,
-                color: "#33495F",
-                background: "#fff",
-                border: "1px solid #E6EDF4",
-                borderRadius: "8px",
-                padding: "8px 10px",
-                fontFamily: "inherit",
-                resize: "vertical"
-              }}
-            />
-          </div>
-          {submitError && (
-            <div
-              style={{
-                fontSize: "12px",
-                color: "#C0492E",
-                background: "#FEF2F2",
-                borderRadius: "8px",
-                padding: "8px 12px"
-              }}
-            >
-              {submitError}
-            </div>
-          )}
-          <button
-            onClick={() => void handleSubmitCase()}
-            disabled={submitting || !canSubmitCase(state)}
-            style={{
-              background: "#139ED9",
-              color: "#fff",
-              border: 0,
-              borderRadius: "10px",
-              padding: "11px",
-              fontSize: "14px",
-              fontWeight: 600,
-              cursor: "pointer",
-              fontFamily: "inherit",
-              opacity: submitting ? 0.6 : 1
-            }}
-          >
-            {submitting ? "Submitting…" : "Submit support case"}
-          </button>
-          <button
-            onClick={() => dispatch({ type: "backToTriage" })}
-            disabled={submitting}
-            style={{
-              background: "none",
-              color: "#5A7189",
-              border: 0,
-              borderRadius: "10px",
-              padding: "8px",
-              fontSize: "13px",
-              cursor: "pointer",
-              fontFamily: "inherit"
-            }}
-          >
-            ← Edit description
-          </button>
-        </div>
-      );
-    }
-
-    // done
-    const updatesEmail = state.email || state.context?.contactEmail || "";
-    return (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: "14px",
-          padding: "16px 0",
-          textAlign: "center"
-        }}
-      >
-        <div
-          style={{
-            width: "52px",
-            height: "52px",
-            borderRadius: "50%",
-            background: "#EAF7F1",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center"
-          }}
-        >
-          <svg
-            width="26"
-            height="26"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#1F9D6B"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M20 6 9 17l-5-5" />
-          </svg>
-        </div>
-        <div style={{ fontSize: "15px", fontWeight: 600, color: "#0A2540" }}>
-          Case created!
-        </div>
-        {state.caseNumber && (
-          <div style={{ fontSize: "13px", color: "#5A7189" }}>
-            Case #{state.caseNumber}
-          </div>
-        )}
-        <div
-          style={{ fontSize: "13px", color: "#5A7189", lineHeight: 1.5 }}
-        >
-          We&apos;ll be in touch shortly.
-          {updatesEmail ? (
-            <> You&apos;ll receive updates at {updatesEmail}.</>
-          ) : null}
-        </div>
-        <button
-          onClick={() =>
-            dispatch({
-              type: "reset",
-              skipEmailVerification: bootstrapAvailable
-            })
-          }
-          style={{
-            background: "none",
-            color: "#139ED9",
-            border: "1px solid #139ED9",
-            borderRadius: "10px",
-            padding: "9px 18px",
-            fontSize: "13.5px",
-            fontWeight: 600,
-            cursor: "pointer",
-            fontFamily: "inherit"
-          }}
-        >
-          Start another case
-        </button>
-      </div>
-    );
+    return null;
   }
 
   const showInputBar = state.phase === "triage" && !contextLoading;
@@ -927,8 +765,7 @@ export function LandingChatPanel() {
               alignItems: "center",
               gap: "11px",
               padding: "14px 15px",
-              background:
-                "linear-gradient(135deg, #5EC4E8, #139ED9)",
+              background: "linear-gradient(135deg, #5EC4E8, #139ED9)",
               flexShrink: 0
             }}
           >
@@ -1082,7 +919,7 @@ export function LandingChatPanel() {
                   }
                 }}
                 placeholder="Describe the issue…"
-                disabled={sending}
+                disabled={sending || submitting}
                 style={{
                   flex: 1,
                   minWidth: 0,
@@ -1098,7 +935,7 @@ export function LandingChatPanel() {
               />
               <button
                 onClick={() => void handleSend()}
-                disabled={sending || !chatInput.trim()}
+                disabled={sending || submitting || !chatInput.trim()}
                 aria-label="Send message"
                 style={{
                   flex: "none",
@@ -1113,7 +950,7 @@ export function LandingChatPanel() {
                   alignItems: "center",
                   justifyContent: "center",
                   boxShadow: "0 8px 18px -6px rgba(19,158,217,.7)",
-                  opacity: sending || !chatInput.trim() ? 0.6 : 1
+                  opacity: sending || submitting || !chatInput.trim() ? 0.6 : 1
                 }}
               >
                 <svg

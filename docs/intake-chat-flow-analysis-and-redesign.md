@@ -252,6 +252,82 @@ _The review card now shows the full description (today it shows only subject, de
 8. ✅ **Tests green** — ai-api: 643 tests / 73 suites pass (new: directive resolution, suggestion index → assetId, catalog validation of `selectedAssetId`, readiness fallback, cache). react-chat vitest: intake-flow (11) + intake-client (10) pass. Playwright intake mocks updated with `ui`/`readyToSubmit` (suite needs `@playwright/test` installed to run). Pre-existing failures on this branch (untouched): d3-dependent chart components + two non-intake spec type errors.
    Deploy note: intake API changes require deploying **ai-api and react-chat-window together** (`railway-quick-deploy`).
 
+## 7. Live retest — 2026-07-06 (OTP bypass on, production)
+
+Replayed the Section 1 scenario against production (deploys `42478167` ai-api / `5018d8ae` react-chat-window, branch head `746d0be`). OTP bypass enabled for the run. Result: **Case #00001201 created end-to-end**, several Section 2 fixes verified, but four defects remain — turn response bodies captured for each.
+
+### Verified fixed ✅
+
+- Bootstrap skips email/OTP; greeting personalized with device **count** (5), no device-name dump.
+- Chip tap fires an acknowledgment turn — bot responds "You've selected the AeroVolt Stratos Air 13…" and never re-asks the device (RC‑1/Failure 3).
+- Multi-location rule asks default ship-to vs. different site before submit.
+- Review description is visible and editable (RC‑5 — but see R‑4 below on its content).
+- Done screen: "You'll receive updates at jason.l@ablypro.com." in bootstrap mode (RC‑6).
+- Case lands with correct Account/Contact/Asset, Origin=Chat, `AI_Orchestration_Status__c=stopped_by_user`.
+
+### Still broken 🔴
+
+| #   | Defect                                                                                                                                                                                                                                                                                                 | Evidence (turn response)                                                                                                                                        |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R‑1 | **Double question, re-asks answered item** (Failure 1). Turn 1 reply: "When did this issue start, **and** have you tried any troubleshooting steps?" — model games the one-`?` rule by and-joining; user had just said they tried an external monitor. Prompt-only rule, no server check.              | turn 1 `reply`                                                                                                                                                  |
+| R‑2 | **Directive/text contradiction → dead end.** Turn 2 reply says "tap the matching chip below" but returns `ui.action:"none"` — no chips render; user typed "i dont see any chip here". `sanitizeDevicePickerReply()` guards only the inverse case (picker shown, reply denies listing).                 | `{"reply":"…tap the matching chip below…","ui":{"action":"none"}}`                                                                                              |
+| R‑3 | **`extracted` collapses to `{}` mid-conversation** (turns 2, 3, chip-ack) despite the REQUIRED-every-turn prompt rule. No server-side carry-forward of last-good subject/description/priority.                                                                                                         | turns 2–4 `extracted:{}`                                                                                                                                        |
+| R‑4 | **Case description = raw transcript dump.** `resolveCaseDescription()` now ignores `extracted.description` entirely (deliberate workaround for R‑3) — CRM Description contains typos + meta-chatter: "i dont see any chip here, what devices do i have?" / "default address is fine".                  | Case 00001201 Description                                                                                                                                       |
+| R‑5 | **Fallback readiness fires mid-clarification** (Failure 4 variant). `readyToSubmit:true` at turn 3 via the ≥2-turns/≥25-words fallback while the model is still asking for the device; after the chip tap the server forces `showReview` while the reply is asking the ship-to question — CTA vs. bot. | turn 3 `{"ui":{"action":"showDevicePicker"},"readyToSubmit":true}`; chip-ack turn `{"reply":"…should the on-site service occur…","ui":{"action":"showReview"}}` |
+
+Minor: internal test asset "Node2 Validation Asset 2026-06-08" shows as a customer chip on the bootstrap account (data hygiene); `/landing` favicon 404s.
+
+**Fix direction:** R‑2/R‑3/R‑5 are server-side consistency gaps — reconcile the reply text with the resolved directive (mention chips ⇒ ensure picker directive, or rewrite the reply), carry forward last-non-empty extraction, and don't let the word-count fallback override an explicit model `readyToSubmit:false` mid-question (keep it only for parse failure / genuine trap). R‑4 then becomes safe to revert to extracted-description-first with transcript fallback. R‑1 needs a server-side one-question check (or a reply rewrite pass), not just a prompt rule.
+
+## 8. Conversational create redesign — 2026-07-06 (SHIPPED)
+
+Product decision after the §7 retest: **no review/submit screen at all.** The bot summarizes in chat, the customer confirms in chat, the case is created from the conversation, the bot announces it in chat, and the conversation continues ("anything else?"). Verified live: **Case #00001202** created this way, with a clean AI-written Description in Salesforce.
+
+### Contract changes
+
+- New `ui.action: "createCase"` on the turn response — the model cues it only after the customer confirms its in-chat summary. `showReview` is deprecated (accepted, mapped to `none`).
+- Server guards (`resolveUiDirective`): `createCase` without a locked-in device downgrades to the picker (typed-name match upgrades to `suggestDevice`); **a reply that references chips always renders them** (fixes R‑2 — chip-text with `action:"none"` was the §7 dead end); `readyToSubmit` no longer forces any widget (fixes R‑5 — it is informational only).
+- Prompt: summary + "Shall I go ahead and create the case?" → on explicit confirmation only, `createCase` with a short "Creating your case now…"; after a `[event] Case created` note, help with next needs and base a NEW case only on messages after the latest event; `description` must be the model's OWN consolidated summary (symptom, device, when it started, what was tried) — never transcript verbatim (fixes R‑4 at the source).
+- Client: the reducer accumulates last-non-empty extraction (absorbs R‑3 gaps); `resolveCaseDescription` is **extraction-first** with transcript fallback only when extraction never succeeded; `createCase` directive auto-POSTs `/intake/case` (double-guarded: reducer + server); the announcement (case #, issue, device, priority, follow-up email, "anything else?") is composed deterministically client-side and appended as a bot bubble plus a hidden `[event]` note for the model; per-case state resets after create (single-device auto-select re-applied) so a follow-up issue starts a fresh case in the same chat.
+- Removed: `confirm`/`done` phases, `Review & submit` CTA, `IntakeSummaryCard`, `IntakeDone`, `descriptionOverride`/`editDescription`, `canReview`. Both surfaces (`/landing` panel and `/intake` page) share the new flow.
+
+### Verified live (production, 2026-07-06)
+
+- Bot summary in chat → "yes … create the case" → "Creating your case now…" → ✅ announcement with case number and "Is there anything else I can help you with?" — input stays active, polite close works.
+- Salesforce Case 00001202 Description: _"The AeroVolt Stratos Air 13 - Exec Travel Unit has a black screen issue that started today. The customer has restarted the laptop three times, but the issue persists. An external monitor works fine, indicating the laptop's screen is the problem."_ — the AI's understanding, not the transcript.
+- Chip cue and chips now always appear together (R‑2 regression test added server-side).
+
+### Follow-up shipped 2026-07-06 (later the same day): service address + contact confirmation
+
+UAT feedback: the bot never told the customer which address/contact would be used, only asked about location on multi-location accounts, and never offered different contact details.
+
+- **Summary now always states what will be used** — the on-file ship-to address and contact email are injected into the summary rule for every account (not just multi-location) — and the single confirm question covers them: _"I will use the on-file service address in Austin, TX, US, and send updates to &lt;email&gt;. Is that all correct — shall I go ahead and create the case?"_
+- **Overrides captured in chat** — new extracted fields `serviceAddress` / `contactEmail` / `contactPhone` (validated server-side; empty unless the customer explicitly gave different details). A correction restates the summary and re-asks confirmation.
+- **Overrides land on the Case** — `SuppliedEmail` (override wins over verified/contact email), new `SuppliedPhone`, and a `Service address (customer provided): …` line appended to the Description (free text doesn't decompose into the structured `Service_Ship_To_*__c` fields, which keep the account defaults). Announcement shows the effective email + "Service at:" line.
+- **Deterministic sniff fallback** — live testing caught the model restating a changed email/phone in prose while returning `extracted:{}` (R‑3 striking again); the server now regex-captures an email (≠ on-file) and phone (+‑prefixed or phone-context wording; serials/dates rejected) from the latest typed message whenever the model omits the JSON fields. Model extraction wins when present.
+- Verified live: Case **00001205** — SuppliedEmail `jason.alt@…`, SuppliedPhone `+1 512 555 0100`, Dallas address line in Description; default-path Case confirms on-file address/email in the summary before create.
+
+### Staged confirmation (UAT feedback: single mega-summary was confusing) — SHIPPED 2026-07-06
+
+Registration is now **three beats, never one message** (prompt rules 9/9a/9b/10):
+
+1. **Issue summary** — 1-2 sentences (device, symptom, started, tried) ending "Shall I go ahead and register this case?" — no address/contact in it.
+2. **Service details** — its own message: the on-file service address and update email (or the customer's overrides), ending "Should I use these details, or would you like a different address or contact?"
+3. **Create** — only after both confirmations → `createCase` → announcement.
+
+Live testing caught a second text/directive mismatch: reply "Creating your case now…" with `ui.action:"none"` — the customer waits on a create that never fires. Added `CREATE_REFERENCE_PATTERN` reconciliation (create-announcement prose + no question mark + device locked ⇒ `createCase`; no device ⇒ picker), mirroring the chip reconciliation. Verified live: Case **00001206** created through the staged flow.
+
+**Final-description re-extraction** — Cases 00001206/00001207 landed with the stale turn-1 description ("no troubleshooting steps mentioned yet") because later turns returned `extracted:{}` and the client's accumulate kept the old non-empty value. Prompt nudges didn't fix it. Deterministic fix: on the turn whose resolved action is `createCase` with an empty parsed description, the server makes a second, focused extraction call over the full transcript (`extractFinalCaseFields`) — single-purpose extraction is reliable where the conversational turn is not; failures degrade to the previous fallback chain. Verified live: Case **00001208** Description contains the device, symptom, "since today", and both troubleshooting steps (three restarts + reseated display cable).
+
+### Still open
+
+- R‑1 (double questions joined with "and") — prompt-level only; a server-side reply rewrite/question-splitter remains the fix if it keeps recurring.
+- Bootstrap account still exposes internal test asset "Node2 Validation Asset 2026-06-08" as a customer chip; `/landing` favicon 404.
+- `serviceAddress` has no deterministic fallback (model-only extraction; free-text addresses are too ambiguous to sniff) — the description line has carried it in every live run so far.
+- The service-details message sometimes says "your email on file" instead of printing the literal address — prompt asks for the literal value; model paraphrases occasionally.
+
+Tests: ai-api 664/73 suites green (createCase directive honored/downgraded, chip-reference reconciliation, deprecated showReview mapping, prompt contract incl. address/contact summary, override parse/validation, sniff fallback, case mapping). react-chat vitest 39 intake tests green (createCase reducer gating, post-create reset + single-device reselect, extraction-first description, override accumulate/payload/announcement). Playwright intake mock spec rewritten for the conversational flow (needs `@playwright/test` to run).
+
 ## Related docs
 
 - Intake architecture plan: `docs/sleepy-sparking-newt.md`

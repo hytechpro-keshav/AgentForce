@@ -1,0 +1,616 @@
+- generic [active] [ref=e1]:
+    - generic [ref=e2]:
+        - navigation [ref=e3]:
+            - generic [ref=e4]:
+                - link "AblyPro" [ref=e5] [cursor=pointer]:
+                    - /url: "#top"
+                    - img "AblyPro" [ref=e6]
+                - generic [ref=e7]:
+                    - link "Platform" [ref=e8] [cursor=pointer]:
+                        - /url: "#platform"
+                    - link "Approach" [ref=e9] [cursor=pointer]:
+                        - /url: "#approach"
+                    - link "Results" [ref=e10] [cursor=pointer]:
+                        - /url: "#results"
+                    - link "Case study" [ref=e11] [cursor=pointer]:
+                        - /url: "#case"
+                    - link "Security" [ref=e12] [cursor=pointer]:
+                        - /url: "#security"
+                    - link "Book a service audit" [ref=e13] [cursor=pointer]:
+                        - /url: "#contact"
+        - generic [ref=e15]:
+            - generic [ref=e16]:
+                - generic [ref=e19]: Salesforce-native agentic AI
+                - heading "The Service Command Center for the products that keep the world running." [level=1] [ref=e20]
+                - paragraph [ref=e21]: Ablypro turns fractured, manual after-sales operations into one connected engine — Support, Field, Repair, Parts and Recovery — with autonomous AI agents that reason, decide and act on your real Salesforce data.
+                - generic [ref=e22]:
+                    - link "Book a service audit" [ref=e23] [cursor=pointer]:
+                        - /url: "#contact"
+                        - text: Book a service audit
+                        - img [ref=e24]
+                    - link "See the five pillars" [ref=e26] [cursor=pointer]:
+                        - /url: "#platform"
+                - generic [ref=e27]:
+                    - generic [ref=e28]: Trusted foundation
+                    - generic [ref=e29]: Summit-tier Salesforce Partner
+                    - generic [ref=e31]: Agentforce Specialized
+                    - generic [ref=e33]: SOC 2 Type II
+            - generic [ref=e37]:
+                - generic [ref=e38]:
+                    - generic [ref=e41]: Service Command Center
+                    - generic [ref=e42]: LIVE
+                - generic [ref=e44]:
+                    - generic [ref=e45]:
+                        - generic [ref=e46]: SLA
+                        - generic [ref=e47]: 92%↑
+                    - generic [ref=e48]:
+                        - generic [ref=e49]: First-time fix
+                        - generic [ref=e50]: 85%↑
+                    - generic [ref=e51]:
+                        - generic [ref=e52]: Open critical
+                        - generic [ref=e53]: "6"
+                - generic [ref=e57]:
+                    - generic [ref=e58]:
+                        - img [ref=e60]
+                        - generic [ref=e64]:
+                            - generic [ref=e65]: Support
+                            - generic [ref=e66]: "Case #7741 triaged & routed"
+                        - generic [ref=e67]: auto
+                    - generic [ref=e68]:
+                        - img [ref=e70]
+                        - generic [ref=e72]:
+                            - generic [ref=e73]: Field
+                            - generic [ref=e74]: Tech dispatched · ETA 34 min
+                        - generic [ref=e75]: en route
+                    - generic [ref=e76]:
+                        - img [ref=e78]
+                        - generic [ref=e81]:
+                            - generic [ref=e82]: Repair
+                            - generic [ref=e83]: "RMA #4821 graded · restock"
+                        - generic [ref=e84]: depot
+                    - generic [ref=e85]:
+                        - img [ref=e87]
+                        - generic [ref=e90]:
+                            - generic [ref=e91]: Parts
+                            - generic [ref=e92]: Stock pre-positioned · Dublin
+                        - generic [ref=e93]: ready
+                    - generic [ref=e94]:
+                        - img [ref=e96]
+                        - generic [ref=e99]:
+                            - generic [ref=e100]: Recovery
+                            - generic [ref=e101]: Wiped to NIST 800-88 · cert issued
+                        - generic [ref=e102]: certified
+                - generic [ref=e103]:
+                    - img [ref=e105]
+                    - generic [ref=e107]: "Agent rerouted Tech #17 after a cancellation — SLA protected, no overtime."
+        - generic [ref=e109]:
+            - generic [ref=e110]: Compliance & certifications
+            - generic [ref=e111]: SOC 2 Type II
+            - generic [ref=e112]: ISO 27001
+            - generic [ref=e113]: ISO 9001
+            - generic [ref=e114]: NIST SP 800-88
+            - generic [ref=e115]: NAID AAA
+            - generic [ref=e116]: R2v3
+        - generic [ref=e118]:
+            - generic [ref=e119]:
+                - generic [ref=e120]:
+                    - generic [ref=e121]: The problem we solve
+                    - heading "Great products. Fractured service." [level=2] [ref=e122]:
+                        - text: Great products.
+                        - text: Fractured service.
+                - paragraph [ref=e123]:
+                    - text: Most manufacturers build excellent hardware. Where they struggle is everything
+                    - emphasis [ref=e124]: after the sale
+                    - text: — the moments that decide whether a customer renews, refers and trusts the brand. Today those moments sprawl across a dozen disconnected tools.
+            - generic [ref=e125]:
+                - generic [ref=e126]:
+                    - img [ref=e127]
+                    - generic [ref=e129]: Cases arrive from everywhere
+                    - generic [ref=e130]: Email, phone, portal, resellers and field escalations each land in a different system. Context is lost at every handoff.
+                - generic [ref=e131]:
+                    - img [ref=e132]
+                    - generic [ref=e134]: Warranty data is scattered
+                    - generic [ref=e135]: Agents can't tell in seconds whether a unit is in warranty, what its history is, or whether a known defect applies.
+                - generic [ref=e136]:
+                    - img [ref=e137]
+                    - generic [ref=e139]: Skilled people do low-value work
+                    - generic [ref=e140]: Technicians lose nearly a full working day each week to manual entry and paperwork — and about half of appointments don't go to plan.
+                - generic [ref=e141]:
+                    - img [ref=e142]
+                    - generic [ref=e144]: Dispatch is a manual puzzle
+                    - generic [ref=e145]: Matching tech to job across skills, geography, SLA and parts is done by hand, under pressure — and often wrong the first time.
+                - generic [ref=e146]:
+                    - img [ref=e147]
+                    - generic [ref=e149]: Repairs & returns lose value
+                    - generic [ref=e150]: Without disciplined RMA and depot flow, returned units sit in limbo, lose value daily, and never feed failure data back to engineering.
+                - generic [ref=e151]:
+                    - img [ref=e152]
+                    - generic [ref=e154]: Leadership flies blind
+                    - generic [ref=e155]: By the time a defect shows up in a monthly report, the damage — revenue, SLA credits, trust — is already done.
+            - generic [ref=e156]:
+                - generic [ref=e157]:
+                    - text: Built to solve this cluster
+                    - text: as one problem — because it is.
+                - generic [ref=e158]: Fragmentation is the root cause of most service failures. Ablypro unifies the entire lifecycle onto one platform and one set of AI agents.
+        - generic [ref=e160]:
+            - generic [ref=e161]:
+                - generic [ref=e162]: The platform · five pillars
+                - heading "One connected engine, five pillars." [level=2] [ref=e163]
+                - paragraph [ref=e164]: Each pillar is powerful on its own. The value compounds when they share one data model and one set of AI agents — the whole post-sale lifecycle, end to end.
+            - generic [ref=e166]:
+                - button "01 Support Multi-channel intake" [ref=e167] [cursor=pointer]:
+                    - generic [ref=e168]: "01"
+                    - generic [ref=e169]:
+                        - generic [ref=e170]: Support
+                        - generic [ref=e171]: Multi-channel intake
+                - button "02 Field Dispatch & work orders" [ref=e172] [cursor=pointer]:
+                    - generic [ref=e173]: "02"
+                    - generic [ref=e174]:
+                        - generic [ref=e175]: Field
+                        - generic [ref=e176]: Dispatch & work orders
+                - button "03 Repair Depot · RMA · warranty" [ref=e177] [cursor=pointer]:
+                    - generic [ref=e178]: "03"
+                    - generic [ref=e179]:
+                        - generic [ref=e180]: Repair
+                        - generic [ref=e181]: Depot · RMA · warranty
+                - button "04 Parts Inventory & logistics" [ref=e182] [cursor=pointer]:
+                    - generic [ref=e183]: "04"
+                    - generic [ref=e184]:
+                        - generic [ref=e185]: Parts
+                        - generic [ref=e186]: Inventory & logistics
+                - button "05 Recovery Secure end-of-life" [ref=e187] [cursor=pointer]:
+                    - generic [ref=e188]: "05"
+                    - generic [ref=e189]:
+                        - generic [ref=e190]: Recovery
+                        - generic [ref=e191]: Secure end-of-life
+            - generic [ref=e194]:
+                - generic [ref=e195]:
+                    - generic [ref=e196]:
+                        - generic [ref=e197]: "01"
+                        - generic [ref=e198]:
+                            - generic [ref=e199]: Support
+                            - generic [ref=e200]: Help desk & multi-channel intake
+                    - heading "Every channel, one case queue." [level=3] [ref=e805]
+                    - paragraph [ref=e202]: Email, phone, chat, portal and reseller submissions normalize into one structured record — tied to the customer, the exact asset by serial number, and its warranty entitlement.
+                    - generic [ref=e204]:
+                        - img [ref=e205]
+                        - generic [ref=e207]: The outcome — faster first response, higher deflection, and a clean record every downstream pillar can trust.
+                - generic [ref=e208]:
+                    - img
+                    - generic [ref=e209]: What it does
+                    - list [ref=e210]:
+                        - listitem [ref=e806]:
+                            - img [ref=e807]
+                            - generic [ref=e809]: Omni-channel intake into one record, tied to customer, asset and entitlement
+                        - listitem [ref=e810]:
+                            - img [ref=e811]
+                            - generic [ref=e813]: AI triage classifies severity, checks warranty, links known defects, routes
+                        - listitem [ref=e814]:
+                            - img [ref=e815]
+                            - generic [ref=e817]: Agent assist surfaces the right manual, prior cases and next steps
+                        - listitem [ref=e818]:
+                            - img [ref=e819]
+                            - generic [ref=e821]: 24/7 self-service that resolves, returns or books — autonomously
+        - generic [ref=e228]:
+            - generic [ref=e229]:
+                - generic [ref=e230]: The Ablypro approach
+                - heading "It's not just five pillars — it's how they run." [level=2] [ref=e231]
+                - paragraph [ref=e232]: A single agentic AI engine across the entire lifecycle, built natively on Salesforce. One data model. One set of agents. Coordinated action, grounded in real data.
+            - generic [ref=e233]:
+                - generic [ref=e234]:
+                    - generic [ref=e235]: "01"
+                    - generic [ref=e236]: Grounded in unified data
+                    - generic [ref=e237]: CRM, asset telemetry, service history, warranty, parts and catalogs join into one data layer — so agents act on context, not guesses. One customer, one asset, one source of truth.
+                - generic [ref=e238]:
+                    - generic [ref=e239]: "02"
+                    - generic [ref=e240]: Agents that reason and act
+                    - generic [ref=e241]: "Beyond chat: triage a case, book a field visit end-to-end, reroute a tech when a job cancels, flag a parts shortage before it bites, start a secure recovery — autonomously."
+                - generic [ref=e242]:
+                    - generic [ref=e243]: "03"
+                    - generic [ref=e244]: Trust, security & auditability
+                    - generic [ref=e245]: Every autonomous action is permission-bound, logged and reversible. Sensitive steps carry human approval. Einstein-layer guardrails make agentic AI viable in regulated environments.
+                - generic [ref=e246]:
+                    - generic [ref=e247]: "04"
+                    - generic [ref=e248]: Predictive, not reactive
+                    - generic [ref=e249]: Because all five pillars feed one model, failure modes, demand signals and SLA risk surface early — so leadership acts before a defect becomes a recall or a churn event.
+        - generic [ref=e251]:
+            - generic [ref=e252]:
+                - generic [ref=e253]:
+                    - generic [ref=e254]: Illustrative outcomes
+                    - heading "Numbers that move the business." [level=2] [ref=e255]
+                - paragraph [ref=e256]:
+                    - text: Representative of the Ablypro engagement model for a client of this profile. See the full picture in the
+                    - link "VoltEdge case study ↓" [ref=e257] [cursor=pointer]:
+                        - /url: "#case"
+            - generic [ref=e258]:
+                - generic [ref=e259]:
+                    - generic [ref=e260]: ↓
+                    - generic [ref=e261]: 55%
+                    - generic [ref=e262]: First-response time
+                    - generic [ref=e263]: on critical cases
+                - generic [ref=e264]:
+                    - generic [ref=e265]: ↑
+                    - generic [ref=e266]: 85%
+                    - generic [ref=e267]: First-time fix rate
+                    - generic [ref=e268]: right tech, right parts on the van
+                - generic [ref=e269]:
+                    - generic [ref=e270]: ↑
+                    - generic [ref=e271]: 92%+
+                    - generic [ref=e272]: SLA compliance
+                    - generic [ref=e273]: on priority downtime
+                - generic [ref=e274]:
+                    - generic [ref=e275]: ↓
+                    - generic [ref=e276]: 7 hrs
+                    - generic [ref=e277]: Admin time per tech
+                    - generic [ref=e278]: given back every week
+        - generic [ref=e280]:
+            - generic [ref=e281]:
+                - generic [ref=e282]:
+                    - generic [ref=e283]: Flagship engagement
+                    - heading "VoltEdge Technologies" [level=2] [ref=e284]
+                - generic [ref=e285]:
+                    - generic [ref=e286]: Laptops
+                    - generic [ref=e287]: Routers
+                    - generic [ref=e288]: Enterprise networking
+            - generic [ref=e289]:
+                - generic: “
+                - blockquote [ref=e290]: We were selling faster than we could serve. Ablypro didn't just give us better tools — it gave us one nervous system for the entire service organization.
+                - generic [ref=e291]: — VP of Customer Operations, VoltEdge Technologies
+            - generic [ref=e292]:
+                - generic [ref=e293]:
+                    - generic [ref=e294]: The core conflict
+                    - generic [ref=e295]:
+                        - generic [ref=e296]:
+                            - img [ref=e298]
+                            - generic [ref=e300]:
+                                - generic [ref=e301]: High stakes
+                                - generic [ref=e302]: Retail customers run payment systems on VoltEdge routers. Every hour offline is money out of the till.
+                        - generic [ref=e303]:
+                            - img [ref=e305]
+                            - generic [ref=e310]:
+                                - generic [ref=e311]: Data silos
+                                - generic [ref=e312]: Cases poured in from fragmented channels while warranty data sat scattered across systems.
+                        - generic [ref=e313]:
+                            - img [ref=e315]
+                            - generic [ref=e318]:
+                                - generic [ref=e319]: Manual inefficiencies
+                                - generic [ref=e320]: Agents searched through manuals; dispatchers matched techs by hand — slowly, and often wrong.
+                        - generic [ref=e321]:
+                            - img [ref=e323]
+                            - generic [ref=e325]:
+                                - generic [ref=e326]: Blind spots
+                                - generic [ref=e327]: Leadership lacked real-time visibility, so product and service defects surfaced far too late.
+                - generic [ref=e328]:
+                    - generic [ref=e330]:
+                        - img [ref=e331]
+                        - generic [ref=e334]: Product environment photo
+                    - generic [ref=e335]: Illustrative — VoltEdge routers keep retail payment systems online.
+            - generic [ref=e336]:
+                - generic [ref=e337]: The mandate — an AI Service Command Center
+                - heading "How we deployed the five pillars at VoltEdge" [level=3] [ref=e338]
+            - generic [ref=e339]:
+                - generic [ref=e340]:
+                    - generic [ref=e341]: 01 · SUPPORT
+                    - generic [ref=e342]: Every channel into one queue; AI triage checks warranty and routes a downed payment router straight to a tech.
+                - generic [ref=e343]:
+                    - generic [ref=e344]: 02 · FIELD
+                    - generic [ref=e345]: Autonomous dispatch across skills, SLA and parts-on-van; cancellations reshuffle to protect SLAs and avoid overtime.
+                - generic [ref=e346]:
+                    - generic [ref=e347]: 03 · REPAIR
+                    - generic [ref=e348]: Auto RMAs and labels, serial-scanned intake, depot repair with genealogy; warranty validates and settles in-flow.
+                - generic [ref=e349]:
+                    - generic [ref=e350]: 04 · PARTS
+                    - generic [ref=e351]: Real-time inventory across depots, warehouses and vans; predictive planning pre-positions parts across NA & Europe.
+                - generic [ref=e352]:
+                    - generic [ref=e353]: 05 · RECOVERY
+                    - generic [ref=e354]: Serialized chain of custody, NIST 800-88 wipes with certificates, graded for resale or responsibly recycled.
+            - generic [ref=e355]:
+                - img [ref=e356]
+                - generic [ref=e359]: Above it all, the Command Center. Because all five pillars share one data model, recurring router failures, parts shortages and SLA risks surface early — turning VoltEdge's leadership from the last to know into the first.
+            - generic [ref=e360]:
+                - generic [ref=e361]:
+                    - generic [ref=e362]: Illustrative outcomes
+                    - generic [ref=e363]: Representative of the Ablypro engagement model
+                - generic [ref=e364]:
+                    - generic [ref=e365]:
+                        - generic [ref=e366]: ↓
+                        - generic [ref=e367]: First-response time on critical cases
+                        - generic [ref=e368]: Down ~55%
+                    - generic [ref=e369]:
+                        - generic [ref=e370]: ↑
+                        - generic [ref=e371]: First-time fix rate
+                        - generic [ref=e372]: Up to ~85%
+                    - generic [ref=e373]:
+                        - generic [ref=e374]: ↑
+                        - generic [ref=e375]: SLA compliance on priority downtime
+                        - generic [ref=e376]: 92%+
+                    - generic [ref=e377]:
+                        - generic [ref=e378]: ↓
+                        - generic [ref=e379]: Depot repair turnaround (mean time to repair)
+                        - generic [ref=e380]: Down ~40%
+                    - generic [ref=e381]:
+                        - generic [ref=e382]: ↑
+                        - generic [ref=e383]: Parts fill rate for scheduled jobs
+                        - generic [ref=e384]: Up ~30%
+                    - generic [ref=e385]:
+                        - generic [ref=e386]: ↓
+                        - generic [ref=e387]: Technician admin time
+                        - generic [ref=e388]: −7 hrs / week per tech
+                    - generic [ref=e389]:
+                        - generic [ref=e390]: ↑
+                        - generic [ref=e391]: Recovery value recaptured on retired assets
+                        - generic [ref=e392]: 40–60% of retail
+                    - generic [ref=e393]:
+                        - generic [ref=e394]: —
+                        - generic [ref=e395]: Data-bearing assets with destruction certificates
+                        - generic [ref=e396]: 100%
+                    - generic [ref=e397]:
+                        - generic [ref=e398]: ↓
+                        - generic [ref=e399]: Time-to-detection of emerging product defects
+                        - generic [ref=e400]: Weeks earlier
+        - generic [ref=e402]:
+            - generic [ref=e403]:
+                - generic [ref=e404]: Why Ablypro
+                - heading "Why high-stakes manufacturers choose us." [level=2] [ref=e405]
+            - generic [ref=e406]:
+                - generic [ref=e407]:
+                    - img [ref=e409]
+                    - generic [ref=e411]: One engine, not ten tools
+                    - generic [ref=e412]: The whole post-sale lifecycle on one platform with a single source of truth. Fragmentation — the root cause of most service failures — goes away.
+                - generic [ref=e413]:
+                    - img [ref=e415]
+                    - generic [ref=e417]: Agentic AI that acts
+                    - generic [ref=e418]: Agents triage, schedule, reroute, forecast and protect data autonomously — grounded in real customer and asset data, humans in the loop where it counts.
+                - generic [ref=e419]:
+                    - img [ref=e421]
+                    - generic [ref=e423]: Salesforce-native
+                    - generic [ref=e424]: Built inside your existing Salesforce estate. No rip-and-replace, no new island of data.
+                - generic [ref=e425]:
+                    - img [ref=e427]
+                    - generic [ref=e429]: Built for high-stakes hardware
+                    - generic [ref=e430]: We specialize in manufacturers whose products can't afford downtime — where a service miss is a business miss for the customer.
+                - generic [ref=e431]:
+                    - img [ref=e433]
+                    - generic [ref=e435]: Secure & auditable end-to-end
+                    - generic [ref=e436]: From Einstein-layer guardrails on every AI action to serialized certificates of destruction at end-of-life, trust is engineered in.
+                - generic [ref=e437]:
+                    - img [ref=e439]
+                    - generic [ref=e441]: The whole loop closes
+                    - generic [ref=e442]: Failure data from Repair and Recovery flows back to engineering and leadership — service stops being a cost center and starts improving the product.
+        - generic [ref=e444]:
+            - generic [ref=e445]:
+                - generic [ref=e446]:
+                    - generic [ref=e447]: Certifications, compliance & security
+                    - heading "Trust, engineered in — not bolted on." [level=2] [ref=e448]
+                - paragraph [ref=e449]: Every autonomous action is permission-bound, logged and reversible, with Einstein-layer guardrails and human oversight on sensitive steps.
+            - generic [ref=e450]:
+                - generic [ref=e451]:
+                    - img [ref=e453]
+                    - generic [ref=e456]:
+                        - generic [ref=e457]: SOC 2 Type II
+                        - generic [ref=e458]: Platform & data security
+                - generic [ref=e459]:
+                    - img [ref=e461]
+                    - generic [ref=e464]:
+                        - generic [ref=e465]: ISO 27001
+                        - generic [ref=e466]: Information security management
+                - generic [ref=e467]:
+                    - img [ref=e469]
+                    - generic [ref=e472]:
+                        - generic [ref=e473]: ISO 9001
+                        - generic [ref=e474]: Quality across delivery & depot ops
+                - generic [ref=e475]:
+                    - img [ref=e477]
+                    - generic [ref=e480]:
+                        - generic [ref=e481]: NIST SP 800-88
+                        - generic [ref=e482]: Aligned data sanitization
+                - generic [ref=e483]:
+                    - img [ref=e485]
+                    - generic [ref=e488]:
+                        - generic [ref=e489]: NAID AAA
+                        - generic [ref=e490]: Physical destruction specifications
+                - generic [ref=e491]:
+                    - img [ref=e493]
+                    - generic [ref=e496]:
+                        - generic [ref=e497]: R2v3 certified
+                        - generic [ref=e498]: Responsible recycling network
+            - generic [ref=e499]:
+                - generic [ref=e500]:
+                    - generic [ref=e501]: Regulatory support
+                    - generic [ref=e502]: Documentation and chain-of-custody records structured to support HIPAA, GLBA, SOX and EU data-protection obligations.
+                - generic [ref=e503]:
+                    - generic [ref=e504]: Sustainability
+                    - generic [ref=e505]: High landfill-diversion recycling with environmental and carbon reporting mapped to Scope 3 (Categories 11 & 12) for ESG disclosure.
+                - generic [ref=e506]:
+                    - generic [ref=e507]: Agentic guardrails
+                    - generic [ref=e508]: Security controls, access policies and enterprise data governance enforced at the platform level on every AI action.
+        - generic [ref=e510]:
+            - generic [ref=e511]:
+                - generic [ref=e512]: Company · at a glance
+                - heading "A service-operations company, built Salesforce-native." [level=2] [ref=e513]
+                - paragraph [ref=e514]: We help hardware manufacturers turn fractured, manual after-sales processes into a single intelligent engine — grounded in their real customer, asset and warranty data.
+            - generic [ref=e515]:
+                - generic [ref=e516]:
+                    - generic [ref=e517]: Founded
+                    - generic [ref=e518]: "2016"
+                - generic [ref=e519]:
+                    - generic [ref=e520]: Headquarters
+                    - generic [ref=e521]: Austin, Texas
+                - generic [ref=e522]:
+                    - generic [ref=e523]: EMEA hub
+                    - generic [ref=e524]: Dublin, Ireland
+                - generic [ref=e525]:
+                    - generic [ref=e526]: Team
+                    - generic [ref=e527]: ~420 people
+                - generic [ref=e528]:
+                    - generic [ref=e529]: Category
+                    - generic [ref=e530]: Salesforce-native agentic AI
+                - generic [ref=e531]:
+                    - generic [ref=e532]: Partner status
+                    - generic [ref=e533]: Summit-tier · Agentforce
+                - generic [ref=e534]:
+                    - generic [ref=e535]: Coverage
+                    - generic [ref=e536]: North America & Europe
+                - generic [ref=e537]:
+                    - generic [ref=e538]: Quality & security
+                    - generic [ref=e539]: SOC 2 · ISO 27001 · ISO 9001
+            - generic [ref=e540]:
+                - generic [ref=e541]:
+                    - generic [ref=e542]: Mission
+                    - generic [ref=e543]: Make world-class service operations achievable for every manufacturer — replacing manual, siloed, reactive processes with a unified, autonomous, auditable engine.
+                - generic [ref=e544]:
+                    - generic [ref=e545]: Vision
+                    - generic [ref=e546]: Downtime measured in minutes, not days. The first to know about a defect is the manufacturer, not the customer. Every retired device recovered securely.
+            - generic [ref=e547]: What we believe
+            - generic [ref=e548]:
+                - generic [ref=e549]:
+                    - generic [ref=e550]: Service is a growth engine.
+                    - generic [ref=e551]: Done well, after-sales drives retention, upsell and brand trust — not cost.
+                - generic [ref=e552]:
+                    - generic [ref=e553]: AI should act, not just chat.
+                    - generic [ref=e554]: Value comes from coordinated action across a real process, grounded in real data.
+                - generic [ref=e555]:
+                    - generic [ref=e556]: Trust is non-negotiable.
+                    - generic [ref=e557]: Every autonomous action is permission-bound, auditable and reversible.
+                - generic [ref=e558]:
+                    - generic [ref=e559]: One source of truth wins.
+                    - generic [ref=e560]: Fragmentation is the root cause of most service failures. So we remove it.
+        - generic [ref=e562]:
+            - generic [ref=e563]:
+                - generic [ref=e564]: Leadership
+                - heading "The team behind the engine." [level=2] [ref=e565]
+            - generic [ref=e566]:
+                - generic [ref=e567]:
+                    - generic [ref=e568]: CE
+                    - generic [ref=e569]:
+                        - generic [ref=e570]: CEO & Co-Founder
+                        - generic [ref=e571]: Company strategy; enterprise service transformation and Salesforce delivery.
+                - generic [ref=e572]:
+                    - generic [ref=e573]: CT
+                    - generic [ref=e574]:
+                        - generic [ref=e575]: CTO & Co-Founder
+                        - generic [ref=e576]: Platform architecture and the agentic AI engine.
+                - generic [ref=e577]:
+                    - generic [ref=e578]: AI
+                    - generic [ref=e579]:
+                        - generic [ref=e580]: Chief AI Officer
+                        - generic [ref=e581]: Agent design, evaluation and the trust / guardrail framework.
+                - generic [ref=e582]:
+                    - generic [ref=e583]: FD
+                    - generic [ref=e584]:
+                        - generic [ref=e585]: SVP, Field & Depot Ops
+                        - generic [ref=e586]: The Field, Repair and Parts delivery practices.
+                - generic [ref=e587]:
+                    - generic [ref=e588]: SR
+                    - generic [ref=e589]:
+                        - generic [ref=e590]: VP, Secure Recovery
+                        - generic [ref=e591]: The Recovery pillar, certifications and the ITAD network.
+                - generic [ref=e592]:
+                    - generic [ref=e593]: CS
+                    - generic [ref=e594]:
+                        - generic [ref=e595]: VP, Customer Success · EMEA
+                        - generic [ref=e596]: European delivery from the Dublin hub.
+            - generic [ref=e597]:
+                - generic [ref=e598]: How we engage
+                - heading "From audit to autonomous, in five moves." [level=2] [ref=e599]
+            - generic [ref=e600]:
+                - generic [ref=e601]:
+                    - generic [ref=e602]: "01"
+                    - generic [ref=e603]: Discovery & Service Audit
+                    - generic [ref=e604]: Map current-state service across all five pillars, quantify the pain, find the highest-ROI starting point.
+                - generic [ref=e605]:
+                    - generic [ref=e606]: "02"
+                    - generic [ref=e607]: Command Center Design
+                    - generic [ref=e608]: Define the unified data model, agent topics and actions, human-in-the-loop gates and success metrics.
+                - generic [ref=e609]:
+                    - generic [ref=e610]: "03"
+                    - generic [ref=e611]: Phased Deployment
+                    - generic [ref=e612]: Stand up pillars in priority order — typically Support and Field first — inside your Salesforce estate.
+                - generic [ref=e613]:
+                    - generic [ref=e614]: "04"
+                    - generic [ref=e615]: Agent Tuning & Trust Validation
+                    - generic [ref=e616]: Monitor agent performance, tune against real outcomes, validate guardrails and auditability.
+                - generic [ref=e617]:
+                    - generic [ref=e618]: "05"
+                    - generic [ref=e619]: Scale & Optimize
+                    - generic [ref=e620]: Expand across pillars and geographies, close the loop to engineering, improve from live operational data.
+        - generic [ref=e622]:
+            - generic [ref=e625]: Get started
+            - heading "Turn service into your growth engine." [level=2] [ref=e626]:
+                - text: Turn service into your
+                - text: growth engine.
+            - paragraph [ref=e627]: Start with a Discovery & Service Audit. We map your current-state lifecycle across all five pillars, quantify the pain, and find the highest-ROI place to begin — inside your existing Salesforce estate.
+            - generic [ref=e628]:
+                - link "Book a service audit" [ref=e629] [cursor=pointer]:
+                    - /url: "#contact"
+                    - text: Book a service audit
+                    - img [ref=e630]
+                - link "Explore the platform" [ref=e632] [cursor=pointer]:
+                    - /url: "#platform"
+            - generic [ref=e633]:
+                - generic [ref=e634]: One connected engine for Support · Field · Repair · Parts · Recovery
+                - generic [ref=e636]: Austin, TX · Dublin, IE
+        - contentinfo [ref=e637]:
+            - generic [ref=e638]:
+                - generic [ref=e639]:
+                    - generic [ref=e640]:
+                        - img "AblyPro" [ref=e642]
+                        - paragraph [ref=e643]: One connected engine for Support, Field, Repair, Parts, and Recovery.
+                        - generic [ref=e644]:
+                            - text: Austin, Texas, USA
+                            - text: Dublin, Ireland
+                            - text: Serving North America & Europe
+                    - generic [ref=e645]:
+                        - generic [ref=e646]:
+                            - generic [ref=e647]: Platform
+                            - generic [ref=e648]:
+                                - link "Support" [ref=e649] [cursor=pointer]:
+                                    - /url: "#platform"
+                                - link "Field" [ref=e650] [cursor=pointer]:
+                                    - /url: "#platform"
+                                - link "Repair" [ref=e651] [cursor=pointer]:
+                                    - /url: "#platform"
+                                - link "Parts" [ref=e652] [cursor=pointer]:
+                                    - /url: "#platform"
+                                - link "Recovery" [ref=e653] [cursor=pointer]:
+                                    - /url: "#platform"
+                        - generic [ref=e654]:
+                            - generic [ref=e655]: Company
+                            - generic [ref=e656]:
+                                - link "Approach" [ref=e657] [cursor=pointer]:
+                                    - /url: "#approach"
+                                - link "Results" [ref=e658] [cursor=pointer]:
+                                    - /url: "#results"
+                                - link "Case study" [ref=e659] [cursor=pointer]:
+                                    - /url: "#case"
+                                - link "Security" [ref=e660] [cursor=pointer]:
+                                    - /url: "#security"
+                        - generic [ref=e661]:
+                            - generic [ref=e662]: Get started
+                            - link "Book a service audit" [ref=e663] [cursor=pointer]:
+                                - /url: "#contact"
+                - generic [ref=e664]:
+                    - generic [ref=e665]: This is a fictional company profile created for illustrative and scenario-planning purposes. Names, figures, leadership roles and outcomes are mock. Referenced standards (NIST 800-88, R2v3, NAID AAA) are real and used here for realism.
+                    - generic [ref=e666]: © 2026 Ablypro · Confidential
+        - generic:
+            - generic [ref=e688]:
+                - generic [ref=e689]:
+                    - generic [ref=e695]:
+                        - generic [ref=e696]: Ably
+                        - generic [ref=e697]: AI service guide · online
+                    - button "Close chat" [ref=e699] [cursor=pointer]:
+                        - img [ref=e700]
+                - generic [ref=e704]:
+                    - generic [ref=e706]: Hi Jason, I'm Ably — your AI service guide for Aptivance tech. I can see 5 registered devices on your account. What issue are you experiencing today?
+                    - generic [ref=e764]: The laptop screen is black but an external monitor works.
+                    - generic [ref=e766]: When did this issue with the laptop screen start, and have you tried any troubleshooting steps to resolve it?
+                    - generic [ref=e802]: the issue is stsrtid form today and i told you i tryed external monitor
+                    - generic [ref=e804]: Thank you for the details. Which registered device is affected by this issue? Please tap the matching chip below to confirm.
+                - generic [ref=e707]:
+                    - textbox "Describe the issue…" [ref=e708]
+                    - button "Send message" [disabled] [ref=e709] [cursor=pointer]:
+                        - img [ref=e710]
+            - generic [ref=e668]:
+                - button "Chat with Ably" [ref=e669] [cursor=pointer]
+                - generic: "1"
+    - alert [ref=e670]

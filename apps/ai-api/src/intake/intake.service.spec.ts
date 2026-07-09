@@ -186,6 +186,39 @@ describe("IntakeService.createCase", () => {
     expect(fields.assetId).toBeUndefined();
   });
 
+  it("applies chat-provided contact and service-address overrides", async () => {
+    const h = buildHarness();
+    await h.service.createCase(principal(), {
+      issueDescription: "Won't boot",
+      assetId: ASSET_ID,
+      contactEmail: "jason.alt@corp.com",
+      contactPhone: "+1 512 555 0100",
+      serviceAddress: "Aptivance Dallas office, 400 Main St, Dallas TX"
+    });
+    const fields = h.gateway.createChatCase.mock.calls[0][0];
+    // customer's case-specific contact wins over the verified/contact email
+    expect(fields.suppliedEmail).toBe("jason.alt@corp.com");
+    expect(fields.suppliedPhone).toBe("+1 512 555 0100");
+    // free-text address rides in the description for the service team
+    expect(fields.description).toContain(
+      "Service address (customer provided): Aptivance Dallas office, 400 Main St, Dallas TX"
+    );
+    // structured ship-to stays on the account default
+    expect(fields.serviceShipToCity).toBe("London");
+  });
+
+  it("keeps identity email and omits phone when no overrides are given", async () => {
+    const h = buildHarness();
+    await h.service.createCase(principal(), {
+      issueDescription: "Won't boot",
+      assetId: ASSET_ID
+    });
+    const fields = h.gateway.createChatCase.mock.calls[0][0];
+    expect(fields.suppliedEmail).toBe("user@example.com");
+    expect(fields.suppliedPhone).toBeUndefined();
+    expect(fields.description).not.toContain("Service address");
+  });
+
   it("auto-attaches the only registered device when assetId is omitted", async () => {
     const h = buildHarness();
     await h.service.createCase(principal(), {

@@ -1,20 +1,17 @@
 /**
  * Client-side state machine for the guided OTP intake flow.
  *
- *   email → otp → triage → confirm → done
+ *   email → otp → triage (chat: clarify → in-chat summary → confirm → case
+ *   created → "anything else?" — the conversation never leaves triage)
  *
  * Verified identity lives in the JWT minted at OTP verify (no account data is
  * held here); the transcript and the picked device live in this state and are
- * sent to the backend to create the Case. The reducer is pure so it can be
- * unit-tested without React.
+ * sent to the backend to create the Case. There is no review/submit screen:
+ * the model summarizes in chat, the customer confirms in chat, and the model's
+ * createCase directive triggers the case create. The reducer is pure so it can
+ * be unit-tested without React.
  */
-export type IntakePhase =
-  | "bootstrapping"
-  | "email"
-  | "otp"
-  | "triage"
-  | "confirm"
-  | "done";
+export type IntakePhase = "bootstrapping" | "email" | "otp" | "triage";
 
 export interface IntakeSession {
   accessToken: string;
@@ -57,13 +54,22 @@ export interface IntakeExtracted {
   subject?: string;
   description?: string;
   priority?: "Low" | "Medium" | "High";
+  /** Customer-provided service address when different from the on-file ship-to. */
+  serviceAddress?: string;
+  /** Customer-provided email for updates when different from the on-file contact email. */
+  contactEmail?: string;
+  /** Customer-provided phone number for this case. */
+  contactPhone?: string;
 }
 
 export type IntakeUiAction =
   | "none"
   | "showDevicePicker"
   | "suggestDevice"
-  | "showReview";
+  /** Deprecated review-card cue from older servers; treated as "none". */
+  | "showReview"
+  /** Customer confirmed in chat — create the Case now. */
+  | "createCase";
 
 /** Widget cue returned by the model for a turn (validated server-side). */
 export interface IntakeUiDirective {
@@ -79,20 +85,15 @@ export interface IntakeState {
   messages: IntakeMessage[];
   extracted: IntakeExtracted;
   issueCaptured: boolean;
-  /**
-   * Customer's edit of the case description in the review card. When set it
-   * takes precedence over the transcript-derived description; the model's
-   * extracted.description is only a signal and is never trusted for the case
-   * body (the model populates it inconsistently across turns).
-   */
-  descriptionOverride: string | null;
-  /** Model's current judgment that the case is ready for review & submit. */
+  /** Model's judgment that nothing is missing (informational — no CTA). */
   readyToSubmit: boolean;
   /** Sticky until a device is picked: the model has asked for the device. */
   devicePickerRequested: boolean;
   /** Device the model believes the customer named; highlighted in the picker. */
   suggestedAssetId: string | null;
   selectedAssetId: string | null;
+  /** Set by a createCase directive; the component submits and then clears it. */
+  createCaseRequested: boolean;
   caseId: string | null;
   caseNumber: string | null;
 }
@@ -105,11 +106,11 @@ export const initialIntakeState: IntakeState = {
   messages: [],
   extracted: {},
   issueCaptured: false,
-  descriptionOverride: null,
   readyToSubmit: false,
   devicePickerRequested: false,
   suggestedAssetId: null,
   selectedAssetId: null,
+  createCaseRequested: false,
   caseId: null,
   caseNumber: null
 };
@@ -140,11 +141,15 @@ export type IntakeAction =
     }
   | { type: "selectDevice"; assetId: string }
   | { type: "clearDevice" }
-  | { type: "editDescription"; description: string }
-  | { type: "toConfirm" }
-  | { type: "backToTriage" }
+  | { type: "createCaseHandled" }
   | { type: "caseCreated"; caseId: string; caseNumber?: string }
   | { type: "reset"; skipEmailVerification?: boolean };
+
+function autoSelectedAssetId(context: IntakeContext | null): string | null {
+  return context && context.devices.length === 1
+    ? (context.devices[0]?.assetId ?? null)
+    : null;
+}
 
 export function intakeReducer(
   state: IntakeState,
@@ -159,17 +164,13 @@ export function intakeReducer(
       return { ...state, phase: "otp", email: action.email };
     case "verified":
       return { ...state, phase: "triage", session: action.session };
-    case "contextLoaded": {
-      const autoSelectedAssetId =
-        action.context.devices.length === 1
-          ? action.context.devices[0]?.assetId ?? null
-          : state.selectedAssetId;
+    case "contextLoaded":
       return {
         ...state,
         context: action.context,
-        selectedAssetId: autoSelectedAssetId
+        selectedAssetId:
+          autoSelectedAssetId(action.context) ?? state.selectedAssetId
       };
-    }
     case "appendMessage":
       return { ...state, messages: [...state.messages, action.message] };
     case "turnResult": {
@@ -185,6 +186,12 @@ export function intakeReducer(
         )
           ? action.ui.suggestedAssetId
           : null;
+      const deviceCount = state.context?.devices.length ?? 0;
+      // The server already downgrades a device-less createCase; the client
+      // guard keeps a stale/older server from ever auto-creating one.
+      const createCaseRequested =
+        uiAction === "createCase" &&
+        (deviceCount === 0 || state.selectedAssetId !== null);
       return {
         ...state,
         messages: [
@@ -196,16 +203,22 @@ export function intakeReducer(
           subject: action.extracted.subject ?? state.extracted.subject,
           description:
             action.extracted.description ?? state.extracted.description,
-          priority: action.extracted.priority ?? state.extracted.priority
+          priority: action.extracted.priority ?? state.extracted.priority,
+          serviceAddress:
+            action.extracted.serviceAddress ?? state.extracted.serviceAddress,
+          contactEmail:
+            action.extracted.contactEmail ?? state.extracted.contactEmail,
+          contactPhone:
+            action.extracted.contactPhone ?? state.extracted.contactPhone
         },
         issueCaptured: state.issueCaptured || action.issueCaptured,
-        // Latest model judgment wins: the CTA reflects the current turn.
         readyToSubmit: action.readyToSubmit ?? state.readyToSubmit,
         devicePickerRequested:
           state.devicePickerRequested ||
           uiAction === "showDevicePicker" ||
           uiAction === "suggestDevice",
-        suggestedAssetId
+        suggestedAssetId,
+        createCaseRequested: state.createCaseRequested || createCaseRequested
       };
     }
     case "selectDevice":
@@ -222,16 +235,21 @@ export function intakeReducer(
         selectedAssetId: null,
         devicePickerRequested: true
       };
-    case "editDescription":
-      return { ...state, descriptionOverride: action.description };
-    case "toConfirm":
-      return { ...state, phase: "confirm" };
-    case "backToTriage":
-      return { ...state, phase: "triage" };
+    case "createCaseHandled":
+      return { ...state, createCaseRequested: false };
     case "caseCreated":
+      // The conversation continues after a create ("anything else?"), so the
+      // per-case fields reset while the transcript, session, and context stay.
       return {
         ...state,
-        phase: "done",
+        phase: "triage",
+        extracted: {},
+        issueCaptured: false,
+        readyToSubmit: false,
+        devicePickerRequested: false,
+        suggestedAssetId: null,
+        selectedAssetId: autoSelectedAssetId(state.context),
+        createCaseRequested: false,
         caseId: action.caseId,
         caseNumber: action.caseNumber ?? null
       };
@@ -242,16 +260,4 @@ export function intakeReducer(
     default:
       return state;
   }
-}
-
-/**
- * The customer may move to review once the model declares readiness AND a
- * device is picked (when the account has devices on file).
- */
-export function canReview(state: IntakeState): boolean {
-  const deviceCount = state.context?.devices.length ?? 0;
-  if (!state.readyToSubmit) {
-    return false;
-  }
-  return deviceCount === 0 || state.selectedAssetId !== null;
 }

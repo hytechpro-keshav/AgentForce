@@ -34,7 +34,10 @@ const multiDeviceContext: IntakeContextResponseDto = {
   devices: [
     { assetId: "02iDOCK", label: "AeroVolt Nexus Docking Station - Desk 402" },
     { assetId: "02iAIR", label: "AeroVolt Stratos Air 13 - Exec Travel Unit" },
-    { assetId: "02iPRO", label: "AeroVolt ProBook 15X - Corporate Deployment 01" }
+    {
+      assetId: "02iPRO",
+      label: "AeroVolt ProBook 15X - Corporate Deployment 01"
+    }
   ]
 };
 
@@ -209,11 +212,44 @@ describe("IntakeAgentService.nextTurn", () => {
     expect(result.ui.action).toBe("showDevicePicker");
   });
 
-  it("returns showReview when the model is ready and a device is picked", async () => {
+  it("honors createCase when the customer confirmed and a device is picked", async () => {
     const { service } = buildService(
       JSON.stringify({
-        reply: "You can review and submit now.",
+        reply: "Creating your case now…",
         description: "Internal display black; external monitor works.",
+        readyToSubmit: true,
+        ui: { action: "createCase" }
+      })
+    );
+    const result = await service.nextTurn(principal(), {
+      messages: [
+        { role: "user" as const, content: "screen went black" },
+        { role: "assistant" as const, content: "Shall I create the case?" },
+        { role: "user" as const, content: "yes please" }
+      ],
+      uiState: { selectedAssetId: "02i000000000001" }
+    });
+    expect(result.readyToSubmit).toBe(true);
+    expect(result.ui.action).toBe("createCase");
+  });
+
+  it("downgrades createCase to the picker while no device is locked in", async () => {
+    const { service } = buildService(
+      JSON.stringify({
+        reply: "Creating your case now…",
+        readyToSubmit: true,
+        ui: { action: "createCase" }
+      }),
+      multiDeviceContext
+    );
+    const result = await service.nextTurn(principal(), turn);
+    expect(result.ui.action).toBe("showDevicePicker");
+  });
+
+  it("maps the deprecated showReview cue to a plain turn", async () => {
+    const { service } = buildService(
+      JSON.stringify({
+        reply: "Shall I go ahead and create the case?",
         readyToSubmit: true,
         ui: { action: "showReview" }
       })
@@ -223,20 +259,7 @@ describe("IntakeAgentService.nextTurn", () => {
       uiState: { selectedAssetId: "02i000000000001" }
     });
     expect(result.readyToSubmit).toBe(true);
-    expect(result.ui.action).toBe("showReview");
-  });
-
-  it("cues the picker instead of review when ready without a picked device", async () => {
-    const { service } = buildService(
-      JSON.stringify({
-        reply: "You can review and submit now.",
-        readyToSubmit: true,
-        ui: { action: "showReview" }
-      })
-    );
-    const result = await service.nextTurn(principal(), turn);
-    expect(result.readyToSubmit).toBe(true);
-    expect(result.ui.action).toBe("showDevicePicker");
+    expect(result.ui.action).toBe("none");
   });
 
   it("falls back to heuristic readiness when model output is not JSON", async () => {
@@ -274,13 +297,13 @@ describe("IntakeAgentService.nextTurn", () => {
 
   it("suggests the device the customer typed instead of deadlocking on a plain picker", async () => {
     // The live deadlock: customer typed "ProBook 15X" (never tapped a chip),
-    // model went straight to readiness with showReview — with no selection the
-    // server must cue a one-tap confirm on the typed device, not a bare picker.
+    // model went straight to createCase — with no selection the server must
+    // cue a one-tap confirm on the typed device, not a bare picker.
     const { service } = buildService(
       JSON.stringify({
-        reply: "Please review and submit to proceed.",
+        reply: "Creating your case now…",
         readyToSubmit: true,
-        ui: { action: "showReview" }
+        ui: { action: "createCase" }
       }),
       multiDeviceContext
     );
@@ -367,9 +390,9 @@ describe("IntakeAgentService.nextTurn", () => {
   it("prefers the newest typed correction over an earlier device mention", async () => {
     const { service } = buildService(
       JSON.stringify({
-        reply: "Please review and submit.",
-        readyToSubmit: true,
-        ui: { action: "showReview" }
+        reply: "Which device is affected?",
+        readyToSubmit: false,
+        ui: { action: "showDevicePicker" }
       }),
       multiDeviceContext
     );
@@ -409,27 +432,165 @@ describe("IntakeAgentService.nextTurn", () => {
     expect(result.readyToSubmit).toBe(false);
   });
 
-  it("mutes a model showReview cue when it is not actually ready", async () => {
+  it("renders the picker when the reply references chips but the directive said none", async () => {
+    // The live dead end: "Please tap the matching chip below" with
+    // ui.action "none" — the customer is told to use UI that never renders.
     const { service } = buildService(
       JSON.stringify({
-        reply: "Almost there.",
+        reply:
+          "Which registered device is affected? Please tap the matching chip below to confirm.",
         readyToSubmit: false,
-        ui: { action: "showReview" }
+        ui: { action: "none" }
+      }),
+      multiDeviceContext
+    );
+    const result = await service.nextTurn(principal(), {
+      messages: [{ role: "user" as const, content: "laptop screen is black" }]
+    });
+    expect(result.ui.action).toBe("showDevicePicker");
+  });
+
+  it("honors a create announcement whose directive said none", async () => {
+    // Live failure: reply "Creating your case now…" with ui.action "none" —
+    // the customer waits on a create that never fires.
+    const { service } = buildService(
+      JSON.stringify({
+        reply: "Creating your case now…",
+        readyToSubmit: true,
+        ui: { action: "none" }
+      })
+    );
+    const result = await service.nextTurn(principal(), {
+      messages: [
+        { role: "user" as const, content: "screen went black today" },
+        { role: "assistant" as const, content: "Should I use these details?" },
+        { role: "user" as const, content: "yes use these details" }
+      ],
+      uiState: { selectedAssetId: "02i000000000001" }
+    });
+    expect(result.ui.action).toBe("createCase");
+  });
+
+  it("re-extracts the final fields when the create turn returns no description", async () => {
+    // Live failure: the create turn's extraction was {}, so the stale
+    // turn-1 description (missing timing/troubleshooting) landed on the Case.
+    const { service, chat } = buildService(
+      JSON.stringify({
+        reply: "Creating your case now…",
+        readyToSubmit: true,
+        ui: { action: "createCase" }
+      })
+    );
+    chat.mockResolvedValueOnce({
+      content: JSON.stringify({
+        reply: "Creating your case now…",
+        readyToSubmit: true,
+        ui: { action: "createCase" }
+      }),
+      metadata: {
+        provider: "openai",
+        model: "gpt",
+        fallbackUsed: false,
+        latencyMs: 1
+      }
+    });
+    chat.mockResolvedValueOnce({
+      content: JSON.stringify({
+        subject: "Black screen on ThinkPad X1",
+        description:
+          "Internal display black since today; external monitor works. Customer restarted three times and reseated the display cable with no change.",
+        priority: "Medium"
+      }),
+      metadata: {
+        provider: "openai",
+        model: "gpt",
+        fallbackUsed: false,
+        latencyMs: 1
+      }
+    });
+    const result = await service.nextTurn(principal(), {
+      messages: [
+        { role: "user" as const, content: "screen went black today" },
+        { role: "assistant" as const, content: "Should I use these details?" },
+        { role: "user" as const, content: "yes use these details" }
+      ],
+      uiState: { selectedAssetId: "02i000000000001" }
+    });
+    expect(chat).toHaveBeenCalledTimes(2);
+    expect(result.ui.action).toBe("createCase");
+    expect(result.extracted.description).toContain(
+      "reseated the display cable"
+    );
+    // the second call is a focused extraction over the transcript
+    const finalSystem = chat.mock.calls[1][0].messages[0].content as string;
+    expect(finalSystem).toContain("every troubleshooting step");
+    expect(finalSystem).toContain('"ThinkPad X1"');
+  });
+
+  it("skips the re-extraction when the create turn already has a description", async () => {
+    const { service, chat } = buildService(
+      JSON.stringify({
+        reply: "Creating your case now…",
+        description:
+          "Internal display black since today; external monitor works.",
+        subject: "Black screen",
+        priority: "Medium",
+        readyToSubmit: true,
+        ui: { action: "createCase" }
+      })
+    );
+    const result = await service.nextTurn(principal(), {
+      messages: [{ role: "user" as const, content: "yes use these details" }],
+      uiState: { selectedAssetId: "02i000000000001" }
+    });
+    expect(chat).toHaveBeenCalledTimes(1);
+    expect(result.ui.action).toBe("createCase");
+  });
+
+  it("never treats a register question as a create announcement", async () => {
+    const { service } = buildService(
+      JSON.stringify({
+        reply:
+          "Shall I go ahead and register this case now? I'm ready when you are.",
+        readyToSubmit: true,
+        ui: { action: "none" }
+      })
+    );
+    const result = await service.nextTurn(principal(), {
+      messages: [{ role: "user" as const, content: "screen went black" }],
+      uiState: { selectedAssetId: "02i000000000001" }
+    });
+    expect(result.ui.action).toBe("none");
+  });
+
+  it("keeps a chip-referencing reply as a plain turn once a device is picked", async () => {
+    const { service } = buildService(
+      JSON.stringify({
+        reply: "You already tapped the chip below — thanks!",
+        readyToSubmit: false,
+        ui: { action: "none" }
       })
     );
     const result = await service.nextTurn(principal(), {
       messages: [{ role: "user" as const, content: "screen broken" }],
       uiState: { selectedAssetId: "02i000000000001" }
     });
-    expect(result.readyToSubmit).toBe(false);
     expect(result.ui).toEqual({ action: "none" });
   });
 
-  it("instructs the model about chat-submit limits and no repeats", async () => {
+  it("instructs the conversational create contract and no repeats", async () => {
     const { service, chat } = buildService(JSON.stringify({ reply: "ok" }));
     await service.nextTurn(principal(), turn);
     const system = chat.mock.calls[0][0].messages[0].content as string;
-    expect(system).toContain("CANNOT create or submit the case from chat");
+    // staged confirms in chat, then the createCase directive
+    expect(system).toContain("register this case");
+    expect(system).toContain('"createCase"');
+    expect(system).toContain("never before both confirmations");
+    // the description is the model's consolidated understanding, not transcript
+    expect(system).toContain("YOUR OWN words");
+    expect(system).toContain("NEVER paste the chat transcript");
+    // conversation continues after creation
+    expect(system).toContain("[event] Case created");
     expect(system).toContain("Never repeat your previous message");
     expect(system).toContain("NEVER say you cannot list devices");
   });
@@ -452,5 +613,96 @@ describe("IntakeAgentService.nextTurn", () => {
     expect(result.ui).toEqual({ action: "showDevicePicker" });
     expect(result.reply).toContain("listed your registered devices below");
     expect(result.reply).not.toMatch(/can'?t list/i);
+  });
+
+  it("instructs a separate service-details step with the on-file address and email", async () => {
+    const { service, chat } = buildService(JSON.stringify({ reply: "ok" }));
+    await service.nextTurn(principal(), turn);
+    const system = chat.mock.calls[0][0].messages[0].content as string;
+    // registration is staged: issue confirm first, logistics second
+    expect(system).toContain("TWO separate confirmation steps");
+    expect(system).toContain(
+      "Do NOT mention the service address, email, or phone in this message"
+    );
+    // the service-details step presents what will be used, from live context
+    expect(system).toContain("on file: London, LDN, UK");
+    expect(system).toContain("on file: ada@corp.com");
+    // override fields exist in the JSON contract but must not echo defaults
+    expect(system).toContain('"serviceAddress"');
+    expect(system).toContain('"contactEmail"');
+    expect(system).toContain('"contactPhone"');
+    expect(system).toContain("never copy the on-file defaults");
+  });
+
+  it("extracts customer-provided contact and address overrides", async () => {
+    const { service } = buildService(
+      JSON.stringify({
+        reply: "Got it — updates will go to your alternate email.",
+        subject: "Black screen",
+        description: "Internal display black since today.",
+        priority: "Medium",
+        serviceAddress: "400 Main St, Dallas TX",
+        contactEmail: "jason.alt@corp.com",
+        contactPhone: "+1 512 555 0100"
+      })
+    );
+    const result = await service.nextTurn(principal(), turn);
+    expect(result.extracted.serviceAddress).toBe("400 Main St, Dallas TX");
+    expect(result.extracted.contactEmail).toBe("jason.alt@corp.com");
+    expect(result.extracted.contactPhone).toBe("+1 512 555 0100");
+  });
+
+  it("drops malformed or empty override values", async () => {
+    const { service } = buildService(
+      JSON.stringify({
+        reply: "ok",
+        serviceAddress: "",
+        contactEmail: "not-an-email",
+        contactPhone: "call me maybe"
+      })
+    );
+    const result = await service.nextTurn(principal(), turn);
+    expect(result.extracted.serviceAddress).toBeUndefined();
+    expect(result.extracted.contactEmail).toBeUndefined();
+    expect(result.extracted.contactPhone).toBeUndefined();
+  });
+
+  it("sniffs a typed email/phone override when the model drops the JSON fields", async () => {
+    // Production failure: the model restated the new email/phone in prose
+    // but returned extracted:{} — the Case kept the on-file contact.
+    const { service } = buildService(
+      JSON.stringify({
+        reply:
+          "Updates will go to your alternate email with your number on file. Is that all correct — shall I go ahead and create the case?"
+      })
+    );
+    const result = await service.nextTurn(principal(), {
+      messages: [
+        { role: "user" as const, content: "my screen is broken since today" },
+        { role: "assistant" as const, content: "Anything else to correct?" },
+        {
+          role: "user" as const,
+          content:
+            "send updates to jason.alt@aptivance.com and my number is +1 512 555 0100"
+        }
+      ]
+    });
+    expect(result.extracted.contactEmail).toBe("jason.alt@aptivance.com");
+    expect(result.extracted.contactPhone).toBe("+1 512 555 0100");
+  });
+
+  it("never sniffs the on-file email or serial-like digits as overrides", async () => {
+    const { service } = buildService(JSON.stringify({ reply: "ok" }));
+    const result = await service.nextTurn(principal(), {
+      messages: [
+        {
+          role: "user" as const,
+          content:
+            "you already have my email ada@corp.com and the serial is 5CD1234567"
+        }
+      ]
+    });
+    expect(result.extracted.contactEmail).toBeUndefined();
+    expect(result.extracted.contactPhone).toBeUndefined();
   });
 });

@@ -20,12 +20,12 @@ interface IntakeConversationProps {
   issueCaptured: boolean;
   showDevicePicker: boolean;
   sending: boolean;
-  reviewReady: boolean;
+  /** The model confirmed creation and the Case POST is in flight. */
+  creatingCase: boolean;
   error: string | null;
   onSend(text: string): void;
   onSelectDevice(assetId: string): void;
   onClearDevice(): void;
-  onReview(): void;
 }
 
 export function IntakeConversation({
@@ -37,23 +37,22 @@ export function IntakeConversation({
   issueCaptured,
   showDevicePicker,
   sending,
-  reviewReady,
+  creatingCase,
   error,
   onSend,
   onSelectDevice,
-  onClearDevice,
-  onReview
+  onClearDevice
 }: IntakeConversationProps) {
   const [input, setInput] = useState("");
   const logRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
-  }, [messages, sending]);
+  }, [messages, sending, creatingCase]);
 
   function submit() {
     const text = input.trim();
-    if (!text || sending) return;
+    if (!text || sending || creatingCase) return;
     onSend(text);
     setInput("");
   }
@@ -65,8 +64,8 @@ export function IntakeConversation({
           {displayName ? `Hi ${displayName}, ` : ""}how can we help you today?
         </h1>
         <p className="text-sm text-muted-foreground">
-          Describe the issue first — we&apos;ll ask which device is affected when
-          we have enough detail.
+          Describe the issue first — we&apos;ll ask which device is affected
+          when we have enough detail.
         </p>
       </header>
 
@@ -83,7 +82,7 @@ export function IntakeConversation({
           <div
             key={index}
             className={cn(
-              "max-w-[85%] rounded-lg px-3 py-2 text-sm",
+              "max-w-[85%] whitespace-pre-line rounded-lg px-3 py-2 text-sm",
               message.role === "user"
                 ? "ml-auto bg-primary text-primary-foreground"
                 : "bg-muted"
@@ -96,6 +95,12 @@ export function IntakeConversation({
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
             Thinking…
+          </div>
+        ) : null}
+        {creatingCase ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Creating your case…
           </div>
         ) : null}
       </div>
@@ -118,13 +123,13 @@ export function IntakeConversation({
           }}
           placeholder="e.g. My screen flickers and then goes black on startup"
           rows={2}
-          disabled={sending}
+          disabled={sending || creatingCase}
           aria-label="Describe your issue"
         />
         <Button
           type="button"
           onClick={submit}
-          disabled={sending || input.trim().length === 0}
+          disabled={sending || creatingCase || input.trim().length === 0}
         >
           <Send className="h-4 w-4" />
           Send
@@ -153,7 +158,10 @@ export function IntakeConversation({
         <section className="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-4 text-sm">
           <span className="font-medium text-muted-foreground">Device:</span>
           <span className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground">
-            {devices.find((device) => device.assetId === selectedAssetId)?.label}
+            {
+              devices.find((device) => device.assetId === selectedAssetId)
+                ?.label
+            }
           </span>
           {devices.length > 1 ? (
             <Button
@@ -168,16 +176,6 @@ export function IntakeConversation({
           ) : null}
         </section>
       ) : null}
-
-      <Button
-        type="button"
-        size="lg"
-        className="w-full"
-        onClick={onReview}
-        disabled={!reviewReady || sending}
-      >
-        Review &amp; submit
-      </Button>
     </main>
   );
 }

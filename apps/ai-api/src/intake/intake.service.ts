@@ -124,16 +124,26 @@ export class IntakeService {
     const subject =
       dto.subject?.trim() || IntakeService.deriveSubject(dto.issueDescription);
 
+    // A customer-provided service address is free text (it rarely decomposes
+    // into the structured ship-to fields), so it rides in the Description
+    // where the service team reads it; structured fields keep the defaults.
+    const serviceAddress = dto.serviceAddress?.trim();
+    const description = serviceAddress
+      ? `${dto.issueDescription}\n\nService address (customer provided): ${serviceAddress}`
+      : dto.issueDescription;
+
     try {
       return await this.caseWriteGateway.createChatCase({
         subject,
-        description: dto.issueDescription,
+        description,
         priority: dto.priority ?? "Medium",
         accountId: identity.accountId,
         contactId: identity.contactId,
         assetId,
         suppliedName: contact.name,
-        suppliedEmail: identity.verifiedEmail ?? contact.email,
+        suppliedEmail:
+          dto.contactEmail?.trim() || (identity.verifiedEmail ?? contact.email),
+        suppliedPhone: dto.contactPhone?.trim() || undefined,
         serviceShipToCity: dto.shipTo?.city ?? account.shipToCity,
         serviceShipToState: dto.shipTo?.state ?? account.shipToState,
         serviceShipToCountry: dto.shipTo?.country ?? account.shipToCountry

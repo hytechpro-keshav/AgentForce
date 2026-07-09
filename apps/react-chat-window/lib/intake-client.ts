@@ -75,7 +75,9 @@ export const DEVICE_PICKER_SEARCH_THRESHOLD = 6;
 /** Short personalized opener — device names are shown in the picker later. */
 export function deviceGreeting(context: IntakeContext): string {
   const firstName = context.displayName?.trim().split(/\s+/)[0];
-  const accountSuffix = context.accountName ? ` for ${context.accountName}` : "";
+  const accountSuffix = context.accountName
+    ? ` for ${context.accountName}`
+    : "";
   const deviceCount = context.devices.length;
   const deviceHint =
     deviceCount === 1
@@ -105,18 +107,16 @@ export function filterDevicesByQuery(
 
 /**
  * Device chips are a conversation beat: they appear when the model asks for
- * the device (or declares readiness while one is still missing), and stay
- * until a device is picked.
+ * the device and stay until a device is picked.
  */
 export function shouldShowDevicePicker(state: {
   devicePickerRequested: boolean;
-  readyToSubmit: boolean;
   context: IntakeContext | null;
   selectedAssetId: string | null;
 }): boolean {
   const deviceCount = state.context?.devices.length ?? 0;
   return (
-    (state.devicePickerRequested || state.readyToSubmit) &&
+    state.devicePickerRequested &&
     deviceCount > 1 &&
     state.selectedAssetId === null
   );
@@ -125,6 +125,46 @@ export function shouldShowDevicePicker(state: {
 /** Hidden transcript note that tells the model a chip was tapped. */
 export function deviceSelectionEvent(label: string): string {
   return `[event] Customer selected the affected device in the chat UI: ${label}`;
+}
+
+/** Hidden transcript note that tells the model the case now exists. */
+export function caseCreatedEvent(caseNumber: string | undefined): string {
+  return `[event] Case created${caseNumber ? `: #${caseNumber}` : ""}. The chat UI has already shown the case number and next steps to the customer.`;
+}
+
+/**
+ * Deterministic in-chat confirmation shown right after the case is created —
+ * the case number must never depend on model output, so the UI composes this
+ * message itself and the conversation then continues ("anything else?").
+ */
+export function caseCreatedAnnouncement(details: {
+  caseNumber?: string;
+  subject?: string;
+  deviceLabel?: string;
+  priority?: string;
+  email?: string;
+  /** Customer-provided service address, shown when it differs from the on-file one. */
+  serviceAddress?: string;
+}): string {
+  const lines = [
+    details.caseNumber
+      ? `✅ All done — I've created case #${details.caseNumber} for you.`
+      : "✅ All done — I've created your case."
+  ];
+  const facts = [
+    details.subject ? `Issue: ${details.subject}` : "",
+    details.deviceLabel ? `Device: ${details.deviceLabel}` : "",
+    details.priority ? `Priority: ${details.priority}` : "",
+    details.serviceAddress ? `Service at: ${details.serviceAddress}` : ""
+  ].filter(Boolean);
+  if (facts.length > 0) {
+    lines.push(facts.join("\n"));
+  }
+  lines.push(
+    `Our service team will review it and follow up${details.email ? ` at ${details.email}` : ""} shortly.`,
+    "Is there anything else I can help you with?"
+  );
+  return lines.join("\n\n");
 }
 
 /** Build the POST /api/intake/turn body: transcript + live chat-UI state. */
@@ -153,7 +193,8 @@ const UI_ACTIONS = new Set([
   "none",
   "showDevicePicker",
   "suggestDevice",
-  "showReview"
+  "showReview",
+  "createCase"
 ]);
 
 /** Defensive parse of the turn response; unknown fields degrade to a plain turn. */
@@ -188,31 +229,29 @@ export function parseTurnResponse(json: unknown): IntakeTurnResult {
 export function transcriptFallbackDescription(state: IntakeState): string {
   return state.messages
     .filter(
-      (message) =>
-        message.role === "user" && !message.uiOnly && !message.hidden
+      (message) => message.role === "user" && !message.uiOnly && !message.hidden
     )
     .map((message) => message.content)
     .join("\n");
 }
 
 /**
- * The case description body shown in the review card and sent on submit.
- * A customer edit wins; otherwise use the full typed transcript, which is
- * always complete and in the customer's own words. The model's
- * extracted.description is NOT used here — the model populates it
- * inconsistently across turns, so trusting it drops detail the customer gave.
+ * The case description sent to Salesforce: the model's consolidated
+ * understanding of the issue (symptom, when it started, what the customer
+ * already tried) — NOT the raw chat transcript, which reads as noise to the
+ * service team. Per-turn extraction gaps are absorbed by the reducer, which
+ * accumulates the latest non-empty value; the typed transcript remains only
+ * as the safety net for a conversation where extraction never succeeded.
  */
 export function resolveCaseDescription(state: IntakeState): string {
-  const edited = state.descriptionOverride?.trim();
-  if (edited) {
-    return edited;
+  const understood = state.extracted.description?.trim();
+  if (understood) {
+    return understood;
   }
   return transcriptFallbackDescription(state) || "Issue reported via chat.";
 }
 
-function selectedDevice(
-  state: IntakeState
-): IntakeDevice | undefined {
+function selectedDevice(state: IntakeState): IntakeDevice | undefined {
   if (!state.selectedAssetId) {
     return undefined;
   }
@@ -224,7 +263,10 @@ function selectedDevice(
 /** Build the POST /api/intake/case body from collected intake state. */
 export function buildCaseCreatePayload(
   state: IntakeState
-): Record<string, string | { city?: string; state?: string; country?: string }> {
+): Record<
+  string,
+  string | { city?: string; state?: string; country?: string }
+> {
   const description = resolveCaseDescription(state);
 
   const device = selectedDevice(state);
@@ -256,6 +298,16 @@ export function buildCaseCreatePayload(
       state.context.shipTo.country)
   ) {
     payload.shipTo = state.context.shipTo;
+  }
+  // Customer-provided overrides captured in chat (server re-validates all).
+  if (state.extracted.serviceAddress?.trim()) {
+    payload.serviceAddress = state.extracted.serviceAddress.trim();
+  }
+  if (state.extracted.contactEmail?.trim()) {
+    payload.contactEmail = state.extracted.contactEmail.trim();
+  }
+  if (state.extracted.contactPhone?.trim()) {
+    payload.contactPhone = state.extracted.contactPhone.trim();
   }
   return payload;
 }

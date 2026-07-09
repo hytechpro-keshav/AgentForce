@@ -59,13 +59,22 @@ export interface IntakeTurnExtractedDto {
   subject?: string;
   description?: string;
   priority?: "Low" | "Medium" | "High";
+  /** Set only when the customer asks for service somewhere other than the on-file ship-to. */
+  serviceAddress?: string;
+  /** Set only when the customer gives a different email for case updates. */
+  contactEmail?: string;
+  /** Set only when the customer gives a phone number for this case. */
+  contactPhone?: string;
 }
 
 export type IntakeTurnUiAction =
   | "none"
   | "showDevicePicker"
   | "suggestDevice"
-  | "showReview";
+  /** Deprecated review-card cue; accepted for compat but mapped to "none". */
+  | "showReview"
+  /** Customer confirmed in chat — the client should create the Case now. */
+  | "createCase";
 
 /** Widget cue chosen by the model (validated server-side) for this turn. */
 export interface IntakeTurnUiDirectiveDto {

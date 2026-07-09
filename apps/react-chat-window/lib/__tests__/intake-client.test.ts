@@ -4,6 +4,8 @@ import {
   buildCaseCreatePayload,
   buildTurnRequestBody,
   canSubmitCase,
+  caseCreatedAnnouncement,
+  caseCreatedEvent,
   deviceGreeting,
   deviceSelectionEvent,
   filterDevicesByQuery,
@@ -55,11 +57,10 @@ describe("filterDevicesByQuery", () => {
 });
 
 describe("shouldShowDevicePicker", () => {
-  it("shows the picker only once the model has cued it (or readiness) with multiple devices", () => {
+  it("shows the picker only once the model has cued it with multiple devices", () => {
     expect(
       shouldShowDevicePicker({
         devicePickerRequested: false,
-        readyToSubmit: false,
         context: baseContext,
         selectedAssetId: null
       })
@@ -67,16 +68,6 @@ describe("shouldShowDevicePicker", () => {
     expect(
       shouldShowDevicePicker({
         devicePickerRequested: true,
-        readyToSubmit: false,
-        context: baseContext,
-        selectedAssetId: null
-      })
-    ).toBe(true);
-    // readiness without a device still needs the picker
-    expect(
-      shouldShowDevicePicker({
-        devicePickerRequested: false,
-        readyToSubmit: true,
         context: baseContext,
         selectedAssetId: null
       })
@@ -85,7 +76,6 @@ describe("shouldShowDevicePicker", () => {
     expect(
       shouldShowDevicePicker({
         devicePickerRequested: true,
-        readyToSubmit: true,
         context: baseContext,
         selectedAssetId: "02i1"
       })
@@ -94,7 +84,6 @@ describe("shouldShowDevicePicker", () => {
     expect(
       shouldShowDevicePicker({
         devicePickerRequested: true,
-        readyToSubmit: true,
         context: { ...baseContext, devices: [baseContext.devices[0]!] },
         selectedAssetId: null
       })
@@ -122,6 +111,56 @@ describe("deviceSelectionEvent", () => {
   });
 });
 
+describe("caseCreatedEvent", () => {
+  it("marks the note as a chat-UI event with the case number", () => {
+    const note = caseCreatedEvent("00001234");
+    expect(note.startsWith("[event]")).toBe(true);
+    expect(note).toContain("#00001234");
+  });
+
+  it("stays valid without a case number", () => {
+    const note = caseCreatedEvent(undefined);
+    expect(note.startsWith("[event]")).toBe(true);
+    expect(note).not.toContain("#");
+  });
+});
+
+describe("caseCreatedAnnouncement", () => {
+  it("announces the case number, key facts, follow-up email, and next prompt", () => {
+    const message = caseCreatedAnnouncement({
+      caseNumber: "00001234",
+      subject: "Black screen on startup",
+      deviceLabel: "Quantum Apex 17-G",
+      priority: "High",
+      email: "jason@example.com"
+    });
+    expect(message).toContain("#00001234");
+    expect(message).toContain("Issue: Black screen on startup");
+    expect(message).toContain("Device: Quantum Apex 17-G");
+    expect(message).toContain("Priority: High");
+    expect(message).toContain("jason@example.com");
+    expect(message).toContain("anything else I can help you with?");
+  });
+
+  it("degrades gracefully when optional details are missing", () => {
+    const message = caseCreatedAnnouncement({});
+    expect(message).toContain("created your case");
+    expect(message).not.toContain("Issue:");
+    expect(message).not.toContain(" at ");
+    expect(message).toContain("anything else I can help you with?");
+  });
+
+  it("shows the customer-provided service address when one was given", () => {
+    const message = caseCreatedAnnouncement({
+      caseNumber: "00001234",
+      serviceAddress: "400 Main St, Dallas TX",
+      email: "jason.alt@corp.com"
+    });
+    expect(message).toContain("Service at: 400 Main St, Dallas TX");
+    expect(message).toContain("follow up at jason.alt@corp.com");
+  });
+});
+
 describe("parseTurnResponse", () => {
   it("parses a directive turn", () => {
     const result = parseTurnResponse({
@@ -137,6 +176,18 @@ describe("parseTurnResponse", () => {
       suggestedAssetId: "02i2"
     });
     expect(result.readyToSubmit).toBe(false);
+  });
+
+  it("parses a createCase directive", () => {
+    const result = parseTurnResponse({
+      reply: "Creating your case now…",
+      extracted: {},
+      issueCaptured: true,
+      ui: { action: "createCase" },
+      readyToSubmit: true
+    });
+    expect(result.ui).toEqual({ action: "createCase" });
+    expect(result.readyToSubmit).toBe(true);
   });
 
   it("degrades unknown fields to a plain turn", () => {
@@ -178,33 +229,38 @@ describe("resolveCaseDescription", () => {
     ...initialIntakeState,
     messages: [
       { role: "assistant", content: "Hi!", uiOnly: true },
-      { role: "user", content: "Screen is black but external monitor works." },
+      { role: "user", content: "screen is blak but external monitr works" },
       {
         role: "user",
         content: "[event] Customer selected the affected device: X",
         hidden: true
       },
-      { role: "user", content: "Started today, restarted 3 times." }
+      { role: "user", content: "started today, restarted 3 times" }
     ],
-    // model only extracted a partial description on the first turn
-    extracted: { description: "Screen is black but external monitor works." }
+    extracted: {
+      description:
+        "Internal display is black since today; external monitor works. Customer restarted 3 times with no change."
+    }
   };
 
-  it("uses the full transcript (not the model's partial extraction) and drops [event] notes", () => {
+  it("uses the model's consolidated understanding, not the raw transcript", () => {
     const description = resolveCaseDescription(multiTurn);
     expect(description).toBe(
-      "Screen is black but external monitor works.\nStarted today, restarted 3 times."
+      "Internal display is black since today; external monitor works. Customer restarted 3 times with no change."
     );
+    expect(description).not.toContain("blak");
     expect(description).not.toContain("[event]");
   });
 
-  it("prefers a customer edit over the transcript", () => {
-    expect(
-      resolveCaseDescription({
-        ...multiTurn,
-        descriptionOverride: "Customer's own corrected wording."
-      })
-    ).toBe("Customer's own corrected wording.");
+  it("falls back to the typed transcript when extraction never succeeded", () => {
+    const description = resolveCaseDescription({
+      ...multiTurn,
+      extracted: {}
+    });
+    expect(description).toBe(
+      "screen is blak but external monitr works\nstarted today, restarted 3 times"
+    );
+    expect(description).not.toContain("[event]");
   });
 
   it("falls back to a safe default when nothing was typed", () => {
@@ -217,7 +273,7 @@ describe("resolveCaseDescription", () => {
 describe("buildCaseCreatePayload", () => {
   const baseState: IntakeState = {
     ...initialIntakeState,
-    phase: "confirm",
+    phase: "triage",
     context: baseContext,
     messages: [{ role: "user", content: "Screen flickers on startup." }],
     extracted: {
@@ -239,6 +295,11 @@ describe("buildCaseCreatePayload", () => {
     expect(payload.shipTo).toEqual(baseContext.shipTo);
   });
 
+  it("sends the extracted description as the case body", () => {
+    const payload = buildCaseCreatePayload(baseState);
+    expect(payload.issueDescription).toContain("Screen flickers on startup.");
+  });
+
   it("falls back to the typed transcript when no description was extracted", () => {
     const payload = buildCaseCreatePayload({
       ...baseState,
@@ -254,6 +315,28 @@ describe("buildCaseCreatePayload", () => {
     });
     expect(payload.issueDescription).toContain("Screen flickers on startup.");
     expect(payload.issueDescription).not.toContain("[event]");
+  });
+
+  it("passes chat-provided contact and address overrides to the server", () => {
+    const payload = buildCaseCreatePayload({
+      ...baseState,
+      extracted: {
+        ...baseState.extracted,
+        serviceAddress: "400 Main St, Dallas TX",
+        contactEmail: "jason.alt@corp.com",
+        contactPhone: "+1 512 555 0100"
+      }
+    });
+    expect(payload.serviceAddress).toBe("400 Main St, Dallas TX");
+    expect(payload.contactEmail).toBe("jason.alt@corp.com");
+    expect(payload.contactPhone).toBe("+1 512 555 0100");
+  });
+
+  it("omits override keys entirely when none were given", () => {
+    const payload = buildCaseCreatePayload(baseState);
+    expect(payload).not.toHaveProperty("serviceAddress");
+    expect(payload).not.toHaveProperty("contactEmail");
+    expect(payload).not.toHaveProperty("contactPhone");
   });
 });
 

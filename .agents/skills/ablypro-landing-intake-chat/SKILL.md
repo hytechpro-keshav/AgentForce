@@ -39,29 +39,35 @@ BFF proxies under `app/api/intake/*` → NestJS `apps/ai-api/src/intake/`.
 
 ## Intake flow (client state machine)
 
+**Fully conversational since 2026-07-06 — there is NO review/submit screen.** The model summarizes in chat, the customer confirms in chat, the model returns `ui.action: "createCase"`, the client POSTs the case, announces the case number in a bot bubble, and the conversation continues ("anything else?"). Phases are only `bootstrapping | email | otp | triage`; the chat never leaves `triage`.
+
 ### With email verification (production default)
 
 ```
-email → otp → triage (AI chat) → confirm → done (Case created)
+email → otp → triage (clarify → in-chat summary → confirm → case created → next issue…)
 ```
 
 1. User enters work email → `POST /api/intake/otp/request`
 2. User enters OTP → `POST /api/intake/otp/verify` → verified-intake JWT
 3. `GET /api/intake/context` → devices on verified Account
-4. `POST /api/intake/turn` → LLM extracts subject/description/priority
-5. User picks device → review → `POST /api/intake/case` → real Salesforce Case
+4. `POST /api/intake/turn` per message → LLM reply + subject/description/priority + `ui.action` (`showDevicePicker`/`suggestDevice`/`createCase`)
+5. Customer confirms the bot's summary in chat → `createCase` directive → client `POST /api/intake/case` → announcement bubble with Case # → chat continues
 
 ### With skip email verification (UAT / email limit workaround)
 
 Skill: `intake-skip-email-verification`.
 
 ```
-bootstrapping → triage → confirm → done
+bootstrapping → triage (same conversational create)
 ```
 
 1. Open chat → `POST /api/intake/session/bootstrap` (Account from `CUSTOMER_INTAKE_BOOTSTRAP_ACCOUNT_ID`)
-2. Greeting lists registered laptops from Salesforce Assets
-3. Same triage → confirm → case path as above
+2. Greeting shows device count (labels stay in the picker chips)
+3. Same conversational triage → confirm-in-chat → case path as above
+
+Case Description = the model's consolidated understanding (symptom, when it started, what was tried) — extraction-first with typed-transcript fallback; never the raw conversation.
+
+The pre-create summary always states the on-file service address + contact email and asks one confirm question. Customer-typed overrides (`serviceAddress`/`contactEmail`/`contactPhone`) are extracted (with a deterministic server-side email/phone sniff fallback) and land on the Case as `SuppliedEmail`, `SuppliedPhone`, and a "Service address (customer provided)" description line; structured `Service_Ship_To_*__c` keep account defaults.
 
 Phases live in `lib/intake-flow.ts`. `LandingChatPanel` and `IntakeShell` both use the same reducer and `intake-client.ts`.
 
@@ -114,9 +120,9 @@ Intake API or bootstrap → deploy **both** `ai-api` and `react-chat-window`.
 Manual UAT (skip OTP on):
 
 1. `/landing` → open Ably chat bubble
-2. Confirm device list appears for bootstrap account
-3. Describe laptop issue → pick device → confirm → Case number returned
-4. Verify Case in Salesforce: correct Account, Contact, Asset; triage not auto-fired
+2. Describe laptop issue → chips appear when the bot asks for the device → tap one
+3. Bot summarizes in chat and asks "Shall I go ahead and create the case?" → reply "yes" → announcement bubble with Case # + "anything else I can help you with?" (no review screen, chat stays open)
+4. Verify Case in Salesforce: correct Account, Contact, Asset; Description is the AI's consolidated summary (not the transcript); triage not auto-fired
 
 ## Editing guidelines
 

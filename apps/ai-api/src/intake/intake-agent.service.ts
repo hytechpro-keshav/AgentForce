@@ -25,8 +25,27 @@ const UI_ACTIONS = new Set<IntakeTurnUiAction>([
   "none",
   "showDevicePicker",
   "suggestDevice",
-  "showReview"
+  "showReview",
+  "createCase"
 ]);
+
+/**
+ * Reply text that references the device chips — used to reconcile a model
+ * reply that tells the customer to tap a chip while its own directive said
+ * "none" (which would render no chips: a guaranteed dead end).
+ */
+const CHIP_REFERENCE_PATTERN =
+  /\bchips?\b|\btap\b.{0,40}\b(below|device|list)\b|\b(device|devices)\b.{0,20}\bbelow\b|listed below/i;
+
+/**
+ * Reply text that announces the case is being created right now — used to
+ * reconcile a model reply of "Creating your case now…" whose own directive
+ * said "none" (observed live: the customer waits on a create that never
+ * fires). Requires "now" and no question mark so confirmation questions
+ * ("Shall I register this case?") never match.
+ */
+const CREATE_REFERENCE_PATTERN =
+  /\b(creating|submitting|registering)\b.{0,24}\bcase\b.{0,12}\bnow\b/i;
 const MIN_DESCRIPTION_LENGTH = 10;
 /** Above this count the UI shows a search box instead of bare chips. */
 const DEVICE_PICKER_SEARCH_THRESHOLD = 6;
@@ -66,6 +85,61 @@ function isTypedUserMessage(message: {
     message.role === "user" &&
     !message.content.trim().toLowerCase().startsWith("[event]")
   );
+}
+
+const EMAIL_PATTERN = /[^\s@,;<>()]+@[^\s@,;<>()]+\.[a-z]{2,}/gi;
+const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_CANDIDATE = /\+?\d[\d\s().-]{5,18}\d/g;
+const PHONE_CONTEXT = /\b(phone|number|call|mobile|cell|reach|contact)\b/i;
+
+/**
+ * Deterministic override capture from the customer's latest typed message —
+ * the model restates a changed email/phone in its reply but omits the JSON
+ * fields often enough that the Case would otherwise keep the on-file values.
+ * The model's extraction wins when present; this only fills the gaps.
+ */
+function sniffContactEmail(
+  message: string,
+  onFileEmail: string | undefined
+): string | undefined {
+  const candidates = message.match(EMAIL_PATTERN) ?? [];
+  const onFile = onFileEmail?.trim().toLowerCase();
+  const overrides = candidates
+    .map((candidate) => candidate.replace(/[.,;:!?]+$/, ""))
+    .filter(
+      (candidate) =>
+        EMAIL_SHAPE.test(candidate) &&
+        candidate.length <= 254 &&
+        candidate.toLowerCase() !== onFile
+    );
+  return overrides.length > 0 ? overrides[overrides.length - 1] : undefined;
+}
+
+function sniffContactPhone(message: string): string | undefined {
+  const candidates = message.match(PHONE_CANDIDATE) ?? [];
+  for (const raw of candidates) {
+    const candidate = raw.trim();
+    const digits = candidate.replace(/\D/g, "");
+    if (digits.length < 7 || digits.length > 15) {
+      continue;
+    }
+    // ISO dates ("2026-01-15") and bare digit runs (serials, quantities)
+    // only qualify with an explicit plus prefix or phone-context wording.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(candidate)) {
+      continue;
+    }
+    const separated = /[\s().-]/.test(candidate);
+    if (
+      candidate.startsWith("+") ||
+      (separated && PHONE_CONTEXT.test(message))
+    ) {
+      return candidate.length <= 40 ? candidate : undefined;
+    }
+    if (!separated && PHONE_CONTEXT.test(message)) {
+      return candidate.length <= 40 ? candidate : undefined;
+    }
+  }
+  return undefined;
 }
 
 /** Strips contradictory "can't list devices" prose when the UI is showing chips. */
@@ -133,9 +207,7 @@ function matchDeviceFromTranscript(
 
   const typedMessages = messages.filter(isTypedUserMessage).reverse();
   for (const message of typedMessages) {
-    let best:
-      | { device: IntakeDeviceDto; score: number }
-      | undefined;
+    let best: { device: IntakeDeviceDto; score: number } | undefined;
     let tied = false;
     for (const profile of profiles) {
       let score = 0;
@@ -224,29 +296,46 @@ function buildIntakeSystemPrompt(
       ? ""
       : deviceCount > 1
         ? deviceCount > DEVICE_PICKER_SEARCH_THRESHOLD
-        ? `6. Once the issue is clear, ask which registered device is affected and set ui.action to "showDevicePicker" — point them to the searchable device list below (they have ${deviceCount} devices on file). Or use "suggestDevice" with suggestedDeviceIndex when their words clearly identify one device. If the customer TYPES a device name instead of tapping the picker, do not treat it as final: set ui.action "suggestDevice" with the matching suggestedDeviceIndex and ask them to tap the highlighted chip to confirm.`
-        : '6. Once the issue is clear, ask which registered device is affected and set ui.action to "showDevicePicker" — tell them to tap the matching chip below. Or use "suggestDevice" with suggestedDeviceIndex when their words clearly identify one device from the list. If the customer TYPES a device name instead of tapping the picker, do not treat it as final: set ui.action "suggestDevice" with the matching suggestedDeviceIndex and ask them to tap the highlighted chip to confirm.'
+          ? `6. Once the issue is clear, ask which registered device is affected and set ui.action to "showDevicePicker" — point them to the searchable device list below (they have ${deviceCount} devices on file). Or use "suggestDevice" with suggestedDeviceIndex when their words clearly identify one device. If the customer TYPES a device name instead of tapping the picker, do not treat it as final: set ui.action "suggestDevice" with the matching suggestedDeviceIndex and ask them to tap the highlighted chip to confirm.`
+          : '6. Once the issue is clear, ask which registered device is affected and set ui.action to "showDevicePicker" — tell them to tap the matching chip below. Or use "suggestDevice" with suggestedDeviceIndex when their words clearly identify one device from the list. If the customer TYPES a device name instead of tapping the picker, do not treat it as final: set ui.action "suggestDevice" with the matching suggestedDeviceIndex and ask them to tap the highlighted chip to confirm.'
         : deviceCount === 1
           ? "6. Once the issue is clear, confirm the problem is on the registered device and verify the service location and contact details are correct."
           : "6. Once the issue is clear, tell them they can review and submit even without a device on file.",
     context.hasMultipleServiceLocations
-      ? "7. Because this account has multiple locations, ask whether service should use the default ship-to address or a different site before they submit."
+      ? "7. This account has multiple service locations — pay extra attention to confirming where on-site service should occur."
       : "",
-    "8. Messages starting with [event] are chat-UI events (for example the customer picking a device from the picker), not typed text — acknowledge them naturally and continue with the next missing detail.",
-    '9. When the symptom, timing, and troubleshooting steps are captured (and the device is picked when devices exist), summarize the issue back in one sentence, tell them to review and submit, and set readyToSubmit to true with ui.action "showReview".',
-    '10. You CANNOT create or submit the case from chat — only the customer can, by tapping the "Review & submit case" button in the UI. If they ask you to submit or say "go ahead", do NOT repeat your summary; briefly tell them to tap the device chip to confirm it (when none is picked yet) and then tap Review & submit below.',
-    "11. Never repeat your previous message. Every reply must move the conversation forward.",
+    "8. Messages starting with [event] are chat-UI events (for example the customer picking a device from the picker, or the system confirming a case was created), not typed text — acknowledge them naturally and continue.",
+    "9. Case registration is TWO separate confirmation steps — never merge them into one message:",
+    '9a. STEP 1 — ISSUE SUMMARY. When the symptom, timing, and troubleshooting steps are captured (and the device is picked when devices exist), send 1-2 short sentences covering the affected device, the symptom, when it started, and what they already tried, ending with exactly one question such as "Shall I go ahead and register this case?". Do NOT mention the service address, email, or phone in this message. Use ui.action "none" and set readyToSubmit to true.',
+    `9b. STEP 2 — SERVICE DETAILS. When the customer agrees to register, do NOT create the case yet. In your NEXT message state ${
+      defaultShipTo
+        ? `the service address you will use (on file: ${defaultShipTo})`
+        : "that no service address is on file and ask where service should occur"
+    } and ${
+      context.contactEmail
+        ? `the email updates will go to (on file: ${context.contactEmail})`
+        : "the email updates will go to"
+    } — or the different address/email/phone the customer already gave — then ask ONE question such as "Should I use these details, or would you like service at a different address or updates to a different email or phone?". Keep this message to two short sentences plus that question.`,
+    '10. STEP 3 — CREATE. Only after the customer confirms the SERVICE DETAILS message, set ui.action to "createCase" with a SHORT reply like "Creating your case now…" — never straight after the issue summary, and never before both confirmations. Do not repeat any summary and do not ask anything. If the customer gives a different address, email, or phone at the service-details step, update the fields, restate the service details once, and ask them to confirm again.',
+    "10b. If the customer gives a DIFFERENT service address, contact email, or phone number at any point, put it in serviceAddress / contactEmail / contactPhone and acknowledge it — and KEEP returning that value in the same field on every later response until they change it. Leave those three fields as empty strings only when the customer never asked for anything different — never copy the on-file defaults into them and never invent them.",
+    "11. You create the case through the createCase action only — never claim the case is already created before a [event] Case created note appears in the conversation.",
+    '12. After a "[event] Case created" note, the UI has already told the customer their case number and next steps. From then on, help with whatever they need next; if they describe a NEW issue, run this same intake flow again for a new case, and base subject/description/priority ONLY on messages that came after the latest case-created event.',
+    "13. Never repeat your previous message. Every reply must move the conversation forward.",
     "",
     "On EVERY turn, after reading the customer's latest message, re-read the whole conversation and fill subject, description, and priority from everything said so far. These three fields are REQUIRED on every response and must never be empty or omitted once the customer has described anything — update them as new detail arrives; do not wait until the end.",
+    'On the turns where you send the issue summary and where you set ui.action "createCase", the description field is CRITICAL: it becomes the case record the service team reads, so it must be the complete, final consolidation — symptom, affected device, when it started, and every troubleshooting step the customer mentioned anywhere in the conversation.',
     "",
     "Return ONLY a JSON object (no prose, no markdown) with ALL of these keys:",
     '  "subject": a short case title (<=120 chars) summarizing the issue so far,',
-    '  "description": the consolidated issue description in the customer\'s words so far (symptom, when it started, what they tried),',
+    '  "description": a clean, professional summary of the issue for the service team, written in YOUR OWN words: the symptom, when it started, what troubleshooting the customer already tried, and any relevant context. NEVER paste the chat transcript or the customer\'s messages verbatim — consolidate them.',
     '  "priority": one of "Low", "Medium", or "High" based only on the described impact,',
+    '  "serviceAddress": the DIFFERENT service address the customer asked for, or "" when they are fine with the on-file address,',
+    '  "contactEmail": the DIFFERENT email the customer asked updates to go to, or "" when the on-file email is fine,',
+    '  "contactPhone": the phone number the customer offered for this case, or "",',
     '  "reply": your next message to the customer (<=600 chars),',
-    '  "ui": {"action": one of "none" | "showDevicePicker" | "suggestDevice" | "showReview", "suggestedDeviceIndex": 1-based device number, only with "suggestDevice"},',
+    '  "ui": {"action": one of "none" | "showDevicePicker" | "suggestDevice" | "createCase", "suggestedDeviceIndex": 1-based device number, only with "suggestDevice"},',
     '  "readyToSubmit": boolean — true only when nothing is missing.',
-    "Do not invent facts; base subject, description, and priority solely on what the customer has said."
+    "Do not invent facts; base subject, description, priority, and the contact/address fields solely on what the customer has said."
   ];
 
   return lines.filter((line) => line.length > 0).join(" ");
@@ -326,8 +415,9 @@ export class IntakeAgentService {
       0
     );
 
-    // The model's judgment is primary; the fallback only guarantees the
-    // customer is never trapped without a submit path.
+    // Informational only since the flow became conversational (create is
+    // cued by the model's createCase directive, not a CTA): the model's
+    // judgment plus a compat fallback for older clients still reading it.
     const readyToSubmit =
       parsed.readyToSubmit ||
       (userMessages.length >= FALLBACK_MIN_USER_TURNS &&
@@ -337,11 +427,43 @@ export class IntakeAgentService {
       parsed.ui,
       context,
       selectedDevice,
-      readyToSubmit,
+      parsed.reply,
       selectedDevice
         ? undefined
         : matchDeviceFromTranscript(context.devices, dto.messages)
     );
+
+    // The model's extraction wins; the deterministic sniff of the latest
+    // typed message fills contact overrides the model restated in prose but
+    // dropped from the JSON (observed in production).
+    const latestTyped = userMessages[userMessages.length - 1]?.content ?? "";
+    // The create turn's extraction becomes the Case record, but the model
+    // often returns {} on later turns — re-extract from the full transcript
+    // so the description the service team reads is never the stale turn-1
+    // version missing the clarified timing/troubleshooting details.
+    let fields = parsed.fields;
+    if (ui.action === "createCase" && !fields.description?.trim()) {
+      const finalFields = await this.extractFinalCaseFields(
+        dto,
+        selectedDevice,
+        principal,
+        identity.accountId
+      );
+      fields = {
+        ...fields,
+        subject: fields.subject ?? finalFields.subject,
+        description: finalFields.description ?? fields.description,
+        priority: fields.priority ?? finalFields.priority
+      };
+    }
+
+    const extracted: IntakeTurnExtractedDto = {
+      ...fields,
+      contactEmail:
+        fields.contactEmail ??
+        sniffContactEmail(latestTyped, context.contactEmail),
+      contactPhone: fields.contactPhone ?? sniffContactPhone(latestTyped)
+    };
 
     return {
       reply: sanitizeDevicePickerReply(
@@ -350,15 +472,59 @@ export class IntakeAgentService {
         ui.action,
         context.devices.length
       ),
-      extracted: parsed.fields,
+      extracted,
       issueCaptured:
         Boolean(
-          parsed.fields.description &&
-            parsed.fields.description.trim().length >= MIN_DESCRIPTION_LENGTH
+          fields.description &&
+          fields.description.trim().length >= MIN_DESCRIPTION_LENGTH
         ) || userWordCount >= 10,
       ui,
       readyToSubmit
     };
+  }
+
+  /**
+   * Focused second pass over the transcript for the create turn only —
+   * a single-purpose extraction is far more reliable than the conversational
+   * turn at returning the complete consolidated fields. Failures degrade to
+   * whatever the turn extraction produced (the client still has fallbacks).
+   */
+  private async extractFinalCaseFields(
+    dto: IntakeTurnRequestDto,
+    selectedDevice: IntakeDeviceDto | undefined,
+    principal: AuthPrincipal | undefined,
+    clientId: string
+  ): Promise<IntakeTurnExtractedDto> {
+    try {
+      const request: LlmChatRequest = {
+        requestId: dto.requestId ? `${dto.requestId}-final` : undefined,
+        useCase: "customer_chat_intake",
+        tenantId: principal?.tenantId,
+        clientId,
+        surface: "react-chat-window",
+        messages: [
+          {
+            role: "system",
+            content:
+              `Read the following customer support intake conversation${
+                selectedDevice
+                  ? ` about the device "${selectedDevice.label}"`
+                  : ""
+              } and return ONLY a JSON object with the keys "subject" (short case title, <=120 chars), "description", and "priority" (one of "Low", "Medium", "High"). ` +
+              "The description becomes the case record the service team reads: consolidate in YOUR OWN words the symptom, when it started, and every troubleshooting step the customer mentioned anywhere in the conversation. Never paste the transcript verbatim. Ignore [event] lines except as facts."
+          },
+          ...dto.messages.map((message) => ({
+            role: message.role,
+            content: message.content
+          }))
+        ],
+        temperature: 0.1
+      };
+      const response = await this.modelRouter.chat(request);
+      return IntakeAgentService.parseExtraction(response.content).fields;
+    } catch {
+      return {};
+    }
   }
 
   private async getCachedContext(
@@ -388,14 +554,14 @@ export class IntakeAgentService {
   /**
    * Validates the model's widget cue and enforces the never-trapped rules:
    * picker cues are moot once a device is picked, an unresolvable suggestion
-   * degrades to the picker, and a ready case always cues the widget that
-   * unblocks submission.
+   * degrades to the picker, a createCase without a locked-in device degrades
+   * to the picker, and a reply that references chips always renders them.
    */
   private static resolveUiDirective(
     raw: { action?: unknown; suggestedDeviceIndex?: unknown } | undefined,
     context: IntakeContextResponseDto,
     selectedDevice: IntakeDeviceDto | undefined,
-    readyToSubmit: boolean,
+    reply: string,
     transcriptMatch?: IntakeDeviceDto
   ): IntakeTurnUiDirectiveDto {
     const deviceCount = context.devices.length;
@@ -405,6 +571,11 @@ export class IntakeAgentService {
         ? (raw.action as IntakeTurnUiAction)
         : "none";
     let suggestedAssetId: string | undefined;
+
+    // The review card no longer exists; older prompts/mocks degrade cleanly.
+    if (action === "showReview") {
+      action = "none";
+    }
 
     if (action === "suggestDevice") {
       const index =
@@ -427,24 +598,38 @@ export class IntakeAgentService {
       suggestedAssetId = undefined;
     }
 
-    // The review card is only ever cued together with readiness.
-    if (!readyToSubmit && action === "showReview") {
-      action = "none";
+    // A case can only be created once the device is locked in (when the
+    // account has devices): downgrade an eager createCase to the picker so
+    // the customer is asked instead of the create failing.
+    if (action === "createCase" && !selectedDevice && deviceCount > 0) {
+      action = "showDevicePicker";
     }
 
-    if (readyToSubmit) {
-      if (!selectedDevice && deviceCount > 0) {
-        if (action !== "suggestDevice") {
-          action = "showDevicePicker";
-        }
-      } else {
-        action = "showReview";
-      }
+    // The model announced the create in prose but cued no action — without
+    // this the customer watches "Creating your case now…" forever.
+    if (
+      action === "none" &&
+      !reply.includes("?") &&
+      CREATE_REFERENCE_PATTERN.test(reply)
+    ) {
+      action =
+        selectedDevice || deviceCount === 0 ? "createCase" : "showDevicePicker";
+    }
+
+    // The model told the customer to tap a chip but cued no picker — without
+    // this the customer is instructed to use UI that never renders.
+    if (
+      action === "none" &&
+      !selectedDevice &&
+      deviceCount > 1 &&
+      CHIP_REFERENCE_PATTERN.test(reply)
+    ) {
+      action = "showDevicePicker";
     }
 
     // The customer typed the device name instead of tapping a chip: upgrade
     // a plain picker to a one-tap confirm on the deterministic match, so the
-    // flow can never deadlock on "review and submit" with no selectable CTA.
+    // flow can never deadlock with no selectable CTA.
     if (action === "showDevicePicker" && transcriptMatch) {
       action = "suggestDevice";
       suggestedAssetId = transcriptMatch.assetId;
@@ -486,12 +671,50 @@ export class IntakeAgentService {
         : undefined;
       const ui =
         parsed["ui"] && typeof parsed["ui"] === "object"
-          ? (parsed["ui"] as { action?: unknown; suggestedDeviceIndex?: unknown })
+          ? (parsed["ui"] as {
+              action?: unknown;
+              suggestedDeviceIndex?: unknown;
+            })
+          : undefined;
+
+      // Customer-provided overrides: kept only when plausibly real so a
+      // hallucinated or malformed value can never reach the Case.
+      const serviceAddress =
+        typeof parsed["serviceAddress"] === "string" &&
+        parsed["serviceAddress"].trim().length >= 4
+          ? parsed["serviceAddress"].trim().slice(0, 255)
+          : undefined;
+      const contactEmailRaw =
+        typeof parsed["contactEmail"] === "string"
+          ? parsed["contactEmail"].trim()
+          : "";
+      const contactEmail =
+        contactEmailRaw.length > 0 &&
+        contactEmailRaw.length <= 254 &&
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmailRaw)
+          ? contactEmailRaw
+          : undefined;
+      const contactPhoneRaw =
+        typeof parsed["contactPhone"] === "string"
+          ? parsed["contactPhone"].trim()
+          : "";
+      const contactPhone =
+        contactPhoneRaw.length > 0 &&
+        contactPhoneRaw.length <= 40 &&
+        /^[+()\d][\d\s().-]{4,}$/.test(contactPhoneRaw)
+          ? contactPhoneRaw
           : undefined;
 
       return {
         reply,
-        fields: { subject, description, priority },
+        fields: {
+          subject,
+          description,
+          priority,
+          serviceAddress,
+          contactEmail,
+          contactPhone
+        },
         ui,
         readyToSubmit: parsed["readyToSubmit"] === true
       };

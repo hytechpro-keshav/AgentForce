@@ -83,6 +83,7 @@ export interface ChatCaseCreateFields {
   assetId?: string;
   suppliedName?: string;
   suppliedEmail?: string;
+  suppliedPhone?: string;
   serviceShipToCity?: string;
   serviceShipToState?: string;
   serviceShipToCountry?: string;
@@ -253,7 +254,10 @@ export class SalesforceCaseWriteGateway {
           "Product2",
           "Name"
         );
-        const serialNumber = SalesforceCaseWriteGateway.str(row, "SerialNumber");
+        const serialNumber = SalesforceCaseWriteGateway.str(
+          row,
+          "SerialNumber"
+        );
         const name = SalesforceCaseWriteGateway.str(row, "Name");
         const label = name ?? product ?? "Device";
         return { assetId, label, product, serialNumber };
@@ -290,9 +294,13 @@ export class SalesforceCaseWriteGateway {
     const withEmail = await this.runQuery(
       `SELECT Id, AccountId, Name, Email FROM Contact WHERE AccountId = '${accountId}' AND Email != null ORDER BY CreatedDate DESC LIMIT 1`
     );
-    const row = withEmail[0] ?? (await this.runQuery(
-      `SELECT Id, AccountId, Name, Email FROM Contact WHERE AccountId = '${accountId}' ORDER BY CreatedDate DESC LIMIT 1`
-    ))[0];
+    const row =
+      withEmail[0] ??
+      (
+        await this.runQuery(
+          `SELECT Id, AccountId, Name, Email FROM Contact WHERE AccountId = '${accountId}' ORDER BY CreatedDate DESC LIMIT 1`
+        )
+      )[0];
     const contactId = SalesforceCaseWriteGateway.str(row, "Id");
     const resolvedAccountId = SalesforceCaseWriteGateway.str(row, "AccountId");
     if (!contactId || !resolvedAccountId) {
@@ -367,6 +375,9 @@ export class SalesforceCaseWriteGateway {
     }
     if (fields.suppliedEmail) {
       body.SuppliedEmail = fields.suppliedEmail;
+    }
+    if (fields.suppliedPhone) {
+      body.SuppliedPhone = fields.suppliedPhone;
     }
     if (fields.serviceShipToCity) {
       body.Service_Ship_To_City__c = fields.serviceShipToCity;
